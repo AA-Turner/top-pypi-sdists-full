@@ -49,6 +49,8 @@ from fireworks._logger import logger
 
 
 class Evaluator:
+    VERSION_DELIMITER = "-v"
+
     def __init__(self, gateway: Gateway, reward_function: Callable):
         """
         An Evaluator class that manages the creation and retrieval of evaluators on Fireworks.
@@ -65,6 +67,11 @@ class Evaluator:
         self._validate_reward_function()
 
     @property
+    def _reward_function_name(self) -> str:
+        """Get the name of the reward function"""
+        return self._reward_function.__name__
+
+    @property
     def _unwrapped_reward_function(self) -> Callable:
         """Unwrap the reward function completely and cache the result"""
         # unwrap until not unwrappable
@@ -74,6 +81,11 @@ class Evaluator:
             prev_unwrapped = unwrapped
             unwrapped = inspect.unwrap(unwrapped)
         return unwrapped
+
+    @property
+    def _reward_function_relative_path(self) -> str:
+        """Get the relative path of the reward function"""
+        return self._get_relative_path(self._reward_function_file_path)
 
     @property
     def _reward_function_file_path(self) -> str:
@@ -98,9 +110,6 @@ class Evaluator:
     def _reward_function_file_name(self) -> str:
         """Get the file name of the reward function"""
         file_name = os.path.basename(self._reward_function_file_path)
-        # TODO: remove this after we support specifying entrypoint file
-        if file_name != "main.py":
-            raise ValueError("Reward function must be defined in a file named main.py")
         return file_name
 
     def _validate_reward_function(self):
@@ -110,22 +119,16 @@ class Evaluator:
         if not self._reward_function_source.startswith("@reward_function"):
             raise ValueError("Reward function must be decorated with @reward_function")
 
-    @property
-    def _reward_function_file_source_modified(self) -> str:
-        """Get the source code of the reward function itself only, with the function name changed to 'evaluate'"""
-        return re.sub(
-            rf"\bdef\s+{re.escape(self._reward_function.__name__)}\s*\(",
-            "def evaluate(",
-            self._reward_function_file_source,
-        )
-
     def _get_sibling_and_child_files(self) -> List[str]:
         """
         Recursively find all sibling and child files relative to the reward function file.
         Returns absolute paths of Python files (.py) in the same directory and subdirectories.
+
+        Also ignore a default set of files that are probably not relevant to the
+        reward function (hidden, node_modules, .git, etc.)
         """
         reward_function_dir = os.path.dirname(self._reward_function_file_path)
-        python_files = []
+        all_files = []
 
         # Walk through the directory and all subdirectories
         for root, dirs, files in os.walk(reward_function_dir):
@@ -133,11 +136,11 @@ class Evaluator:
             dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ["__pycache__", "node_modules", ".git"]]
 
             for file in files:
-                if file.endswith(".py") and not file.startswith("."):
+                if not file.startswith("."):
                     file_path = os.path.join(root, file)
-                    python_files.append(file_path)
+                    all_files.append(file_path)
 
-        return python_files
+        return all_files
 
     def _get_relative_path(self, file_path: str) -> str:
         """
@@ -194,16 +197,12 @@ class Evaluator:
 
         # Convert file path to package path (remove .py extension and replace / with .)
         if relative_file_path.endswith(".py"):
-            if relative_file_path == "main.py":
-                # main.py is at the root level
-                current_package = ""
-            else:
-                # Convert path to package notation
-                package_path = relative_file_path[:-3].replace(os.sep, ".")
-                # Remove __init__ from package path if present
-                if package_path.endswith(".__init__"):
-                    package_path = package_path[:-9]
-                current_package = package_path
+            # Convert path to package notation
+            package_path = relative_file_path[:-3].replace(os.sep, ".")
+            # Remove __init__ from package path if present
+            if package_path.endswith(".__init__"):
+                package_path = package_path[:-9]
+            current_package = package_path
         else:
             current_package = ""
 
@@ -308,13 +307,7 @@ class Evaluator:
 
         for file_path in all_files:
             relative_path = self._get_relative_path(file_path)
-
-            # Special handling for the main reward function file
-            if file_path == self._reward_function_file_path:
-                source_code = self._reward_function_file_source_modified
-            else:
-                source_code = self._get_file_source(file_path)
-
+            source_code = self._get_file_source(file_path)
             # Convert relative imports to absolute imports
             converted_source = self._convert_relative_imports(source_code, file_path)
             file_contents[relative_path] = converted_source
@@ -334,6 +327,8 @@ class Evaluator:
         code_snippets = SyncCodeSnippets(
             file_contents=self._get_all_file_contents(),
             language="python",
+            entry_file=self._reward_function_relative_path,
+            entry_func=self._reward_function_name,
         )
 
         criteria = [
@@ -405,6 +400,8 @@ class Evaluator:
         # recursively compare criteria
         if len(a.criteria) != len(b.criteria):
             return False
+        if a.requirements != b.requirements:
+            return False
         for a_criterion, b_criterion in zip(a.criteria, b.criteria):
             if not self._is_criterion_same(a_criterion, b_criterion):
                 return False
@@ -419,6 +416,27 @@ class Evaluator:
             SyncPreviewEvaluatorRequest(evaluator=self._proto, sample_data=sample_data)
         )
         return response
+
+    def _extract_version_number(self, evaluator_name: str) -> int:
+        """
+        Extract the version number from an evaluator name.
+        Returns 0 if no version is found.
+
+        Args:
+            evaluator_name: The full evaluator name
+
+        Returns:
+            The version number as an integer
+        """
+        evaluator_id = evaluator_name.split("/")[-1]
+
+        if self.VERSION_DELIMITER in evaluator_id:
+            try:
+                version_str = evaluator_id.split(self.VERSION_DELIMITER)[-1]
+                return int(version_str)
+            except (ValueError, IndexError):
+                return 0
+        return 0
 
     def sync(self) -> "Evaluator":
         """
@@ -435,16 +453,25 @@ class Evaluator:
         # Get existing evaluators with matching name prefix
         existing_evaluators = self._list_existing_evaluators()
 
-        # get latest evaluator
-        latest_evaluator = next(iter(sorted(iter(existing_evaluators), key=lambda x: x.name, reverse=True)), None)
+        # Check all existing evaluators for a match
+        matching_evaluator = None
+        for evaluator in existing_evaluators:
+            if self._is_evaluator_same(evaluator, evaluator_proto):
+                matching_evaluator = evaluator
+                break
 
-        # Check if we need to create a new evaluator
-        if not latest_evaluator or not self._is_evaluator_same(latest_evaluator, evaluator_proto):
-            DELIMITER = "-v"
-            version = latest_evaluator.name.split(DELIMITER)[-1] if latest_evaluator else 0
+        if matching_evaluator:
+            logger.debug(f"Using existing evaluator: {matching_evaluator.name}")
+            self._proto = matching_evaluator
+        else:
+            # Find the latest version number to increment
+            latest_version = 0
+            for evaluator in existing_evaluators:
+                version = self._extract_version_number(evaluator.name)
+                latest_version = max(latest_version, version)
 
-            # create a new evaluator with incremented version
-            evaluator_id = f"{self.name_prefix}{DELIMITER}{int(version) + 1}"
+            # Create a new evaluator with incremented version
+            evaluator_id = f"{self.name_prefix}{self.VERSION_DELIMITER}{latest_version + 1}"
             evaluator_proto.display_name = evaluator_id
 
             create_evaluator_request = SyncCreateEvaluatorRequest(
@@ -454,9 +481,6 @@ class Evaluator:
 
             logger.debug(f"Creating new evaluator: {evaluator_id}")
             self._proto = self._gateway.create_evaluator_sync(create_evaluator_request)
-        else:
-            logger.debug(f"Using existing evaluator: {latest_evaluator.name}")
-            self._proto = latest_evaluator
 
         return self
 

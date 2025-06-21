@@ -5,6 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .fail_page_mode import FailPageMode
+from .llama_parse_parameters_priority import LlamaParseParametersPriority
 from .parser_languages import ParserLanguages
 from .parsing_mode import ParsingMode
 
@@ -22,6 +23,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     Settings that can be configured for how to use LlamaParse to parse files within a LlamaCloud pipeline.
     """
 
+    priority: typing.Optional[LlamaParseParametersPriority]
     languages: typing.Optional[typing.List[ParserLanguages]]
     parsing_instruction: typing.Optional[str]
     disable_ocr: typing.Optional[bool]
@@ -41,6 +43,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     gpt_4_o_api_key: typing.Optional[str] = pydantic.Field(alias="gpt4o_api_key")
     do_not_unroll_columns: typing.Optional[bool]
     extract_layout: typing.Optional[bool]
+    high_res_ocr: typing.Optional[bool]
     html_make_all_elements_visible: typing.Optional[bool]
     html_remove_navigation_elements: typing.Optional[bool]
     html_remove_fixed_elements: typing.Optional[bool]

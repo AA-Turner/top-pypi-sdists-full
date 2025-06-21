@@ -39,7 +39,7 @@ dependencies = [
     "cryptography>=43.0.3",
     "lxml>=5.4.0",
 ]
-version = "0.29.0"
+version = "0.29.1"
 
 
 [project.readme]
@@ -67,8 +67,8 @@ image-support = [
     "Pillow>=7.2.0",
     "python-barcode==0.15.1"
 ]
-pkcs11 = ["python-pkcs11~=0.7.0"]
-async-http = ["aiohttp>=3.9,<3.12"]
+pkcs11 = ["python-pkcs11~=0.8.0"]
+async-http = ["aiohttp>=3.9,<3.13"]
 etsi = ["xsdata>=24.4,<26.0"]
 
 [dependency-groups]
@@ -77,14 +77,14 @@ testing-base = [
     "pytest>=6.1.1",
     "requests-mock>=1.8.0",
     "freezegun>=1.1.0",
-    "certomancer>=0.12.3,<0.13",
+    "certomancer>=0.13.0,<0.14",
     "pytest-cov>=4.0,<6.2",
     "pytest-asyncio==0.24.0;python_version<\"3.9\"",
     "pytest-asyncio==0.26.0;python_version>=\"3.9\"",
     "backports.zoneinfo[tzdata];python_version<\"3.9\"",
 ]
 testing-aiohttp = [
-    "aiohttp>=3.9,<3.12",
+    "aiohttp>=3.9,<3.13",
     "pytest-aiohttp>=1.0.4,<1.2.0",
 ]
 testing = [

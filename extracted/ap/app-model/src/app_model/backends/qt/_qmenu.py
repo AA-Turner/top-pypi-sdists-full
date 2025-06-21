@@ -4,7 +4,7 @@ import contextlib
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, cast
 
-from qtpy.QtWidgets import QMenu, QMenuBar, QToolBar
+from qtpy.QtWidgets import QApplication, QMenu, QMenuBar, QToolBar
 
 from app_model import Application
 from app_model.types import SubmenuItem
@@ -42,7 +42,7 @@ class QModelMenu(QMenu):
         app: Application | str,
         title: str | None = None,
         parent: QWidget | None = None,
-    ):
+    ) -> None:
         QMenu.__init__(self, parent)
 
         # NOTE: code duplication with QModelToolBar, but Qt mixins and multiple
@@ -71,9 +71,7 @@ class QModelMenu(QMenu):
         """
         return _find_action(self.actions(), object_name)
 
-    def update_from_context(
-        self, ctx: Mapping[str, object], _recurse: bool = True
-    ) -> None:
+    def update_from_context(self, ctx: Mapping[str, object]) -> None:
         """Update the enabled/visible state of each menu item with `ctx`.
 
         See `app_model.expressions` for details on expressions.
@@ -85,10 +83,8 @@ class QModelMenu(QMenu):
             `'when'` expressions provided for each action in the menu.
             *ALL variables used in these expressions must either be present in
             the `ctx` dict, or be builtins*.
-        _recurse : bool
-            recursion check, internal use only
         """
-        _update_from_context(self.actions(), ctx, _recurse=_recurse)
+        _update_from_context(self.actions(), ctx)
 
     def rebuild(
         self, include_submenus: bool = True, exclude: Collection[str] | None = None
@@ -136,7 +132,7 @@ class QModelSubmenu(QModelMenu):
         submenu: SubmenuItem,
         app: Application | str,
         parent: QWidget | None = None,
-    ):
+    ) -> None:
         assert isinstance(submenu, SubmenuItem), f"Expected str, got {type(submenu)!r}"
         self._submenu = submenu
         super().__init__(
@@ -145,11 +141,9 @@ class QModelSubmenu(QModelMenu):
         if submenu.icon:
             self.setIcon(to_qicon(submenu.icon))
 
-    def update_from_context(
-        self, ctx: Mapping[str, object], _recurse: bool = True
-    ) -> None:
+    def update_from_context(self, ctx: Mapping[str, object]) -> None:
         """Update the enabled state of this menu item from `ctx`."""
-        super().update_from_context(ctx, _recurse=_recurse)
+        super().update_from_context(ctx)
         self.setEnabled(expr.eval(ctx) if (expr := self._submenu.enablement) else True)
         # TODO: ... visibility needs to be controlled at the level of placement
         # in the submenu.  consider only using the `when` expression
@@ -213,9 +207,7 @@ class QModelToolBar(QToolBar):
         """
         return _find_action(self.actions(), object_name)
 
-    def update_from_context(
-        self, ctx: Mapping[str, object], _recurse: bool = True
-    ) -> None:
+    def update_from_context(self, ctx: Mapping[str, object]) -> None:
         """Update the enabled/visible state of each menu item with `ctx`.
 
         See `app_model.expressions` for details on expressions.
@@ -227,10 +219,8 @@ class QModelToolBar(QToolBar):
             `'when'` expressions provided for each action in the menu.
             *ALL variables used in these expressions must either be present in
             the `ctx` dict, or be builtins*.
-        _recurse : bool
-            recursion check, internal use only
         """
-        _update_from_context(self.actions(), ctx, _recurse=_recurse)
+        _update_from_context(self.actions(), ctx)
 
     def rebuild(
         self, include_submenus: bool = True, exclude: Collection[str] | None = None
@@ -278,9 +268,7 @@ class QModelMenuBar(QMenuBar):
             id_, title = item if isinstance(item, tuple) else (item, item.title())
             self.addMenu(QModelMenu(id_, app, title, self))
 
-    def update_from_context(
-        self, ctx: Mapping[str, object], _recurse: bool = True
-    ) -> None:
+    def update_from_context(self, ctx: Mapping[str, object]) -> None:
         """Update the enabled/visible state of each menu item with `ctx`.
 
         See `app_model.expressions` for details on expressions.
@@ -292,10 +280,8 @@ class QModelMenuBar(QMenuBar):
             `'when'` expressions provided for each action in the menu.
             *ALL variables used in these expressions must either be present in
             the `ctx` dict, or be builtins*.
-        _recurse : bool
-            recursion check, internal use only
         """
-        _update_from_context(self.actions(), ctx, _recurse=_recurse)
+        _update_from_context(self.actions(), ctx)
 
 
 def _rebuild(
@@ -314,6 +300,7 @@ def _rebuild(
 
     groups = list(app.menus.iter_menu_groups(menu_id))
     n_groups = len(groups)
+    qapp = QApplication.instance()
     for n, group in enumerate(groups):
         for item in group:
             if isinstance(item, SubmenuItem):
@@ -321,15 +308,16 @@ def _rebuild(
                     submenu = QModelSubmenu(item, app, parent=menu)
                     cast("QMenu", menu).addMenu(submenu)
             elif item.command.id not in _exclude:
-                action = QMenuItemAction.create(item, app=app, parent=menu)
+                # use QApplication instance as parent for actions
+                # because we use action singleton, and actions
+                # are not related to any window.
+                action = QMenuItemAction.create(item, app=app, parent=qapp)
                 menu.addAction(action)
         if n < n_groups - 1:
             menu.addSeparator()
 
 
-def _update_from_context(
-    actions: Iterable[QAction], ctx: Mapping[str, object], _recurse: bool = True
-) -> None:
+def _update_from_context(actions: Iterable[QAction], ctx: Mapping[str, object]) -> None:
     """Update the enabled/visible state of each menu item with `ctx`.
 
     See `app_model.expressions` for details on expressions.
@@ -343,23 +331,15 @@ def _update_from_context(
         `'when'` expressions provided for each action in the menu.
         *ALL variables used in these expressions must either be present in
         the `ctx` dict, or be builtins*.
-    _recurse : bool
-        recursion check, internal use only
     """
-    for action in actions:
-        if isinstance(action, QMenuItemAction):
-            action.update_from_context(ctx)
-        elif not QT6 and isinstance(menu := action.menu(), QModelMenu):
-            menu.update_from_context(ctx)
-        elif isinstance(parent := action.parent(), QModelMenu):
-            # FIXME: this is a hack for Qt6 that I don't entirely understand.
-            # QAction has lost the `.menu()` method, and it's a bit hard to find
-            # how to get to the parent menu now. Checking parent() seems to work,
-            # but I'm not sure if it's the right thing to do, and it leads to a
-            # recursion error.  I stop it with the _recurse flag here, but I wonder
-            # whether that will cause other problems.
-            if _recurse:
-                parent.update_from_context(ctx, _recurse=False)
+    try:
+        for action in actions:
+            if isinstance(action, QMenuItemAction):
+                action.update_from_context(ctx)
+            elif isinstance(menu := action.menu(), QModelMenu):
+                menu.update_from_context(ctx)
+    except AttributeError as e:  # pragma: no cover
+        raise AttributeError(f"This version of Qt is not supported: {e}") from e
 
 
 def _find_action(actions: Iterable[QAction], object_name: str) -> QAction | None:

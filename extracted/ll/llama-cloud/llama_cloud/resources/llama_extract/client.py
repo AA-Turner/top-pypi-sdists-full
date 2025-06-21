@@ -15,6 +15,7 @@ from ...types.extract_job import ExtractJob
 from ...types.extract_job_create import ExtractJobCreate
 from ...types.extract_resultset import ExtractResultset
 from ...types.extract_run import ExtractRun
+from ...types.extract_schema_generate_response import ExtractSchemaGenerateResponse
 from ...types.extract_schema_validate_response import ExtractSchemaValidateResponse
 from ...types.http_validation_error import HttpValidationError
 from ...types.llama_extract_settings import LlamaExtractSettings
@@ -97,6 +98,7 @@ class LlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -108,6 +110,7 @@ class LlamaExtractClient:
         client.llama_extract.create_extraction_agent(
             name="string",
             config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,
@@ -160,6 +163,58 @@ class LlamaExtractClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(ExtractSchemaValidateResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def generate_extraction_schema(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        prompt: typing.Optional[str] = OMIT,
+        file_id: typing.Optional[str] = OMIT,
+    ) -> ExtractSchemaGenerateResponse:
+        """
+        Generates an extraction agent's schema definition from a file and/or natural language prompt.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - prompt: typing.Optional[str].
+
+            - file_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.llama_extract.generate_extraction_schema()
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if prompt is not OMIT:
+            _request["prompt"] = prompt
+        if file_id is not OMIT:
+            _request["file_id"] = file_id
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents/schema/generate"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractSchemaGenerateResponse, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -253,6 +308,7 @@ class LlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -264,6 +320,7 @@ class LlamaExtractClient:
         client.llama_extract.update_extraction_agent(
             extraction_agent_id="string",
             config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,
@@ -362,6 +419,7 @@ class LlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractJobCreate,
             ExtractMode,
             ExtractTarget,
@@ -376,6 +434,7 @@ class LlamaExtractClient:
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
+                    priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
                     chunk_mode=DocumentChunkMode.PAGE,
@@ -450,12 +509,14 @@ class LlamaExtractClient:
             ChunkMode,
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractJobCreate,
             ExtractMode,
             ExtractTarget,
             FailPageMode,
             LlamaExtractSettings,
             LlamaParseParameters,
+            LlamaParseParametersPriority,
             ParsingMode,
         )
         from llama_cloud.client import LlamaCloud
@@ -468,6 +529,7 @@ class LlamaExtractClient:
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
+                    priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
                     chunk_mode=DocumentChunkMode.PAGE,
@@ -476,6 +538,7 @@ class LlamaExtractClient:
             extract_settings=LlamaExtractSettings(
                 chunk_mode=ChunkMode.PAGE,
                 llama_parse_params=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
                     parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                     replace_failed_page_mode=FailPageMode.RAW_TEXT,
                 ),
@@ -573,6 +636,7 @@ class LlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -585,6 +649,7 @@ class LlamaExtractClient:
             extraction_agent_id="string",
             file_ids=[],
             config_override=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,
@@ -892,6 +957,7 @@ class AsyncLlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -903,6 +969,7 @@ class AsyncLlamaExtractClient:
         await client.llama_extract.create_extraction_agent(
             name="string",
             config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,
@@ -955,6 +1022,58 @@ class AsyncLlamaExtractClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(ExtractSchemaValidateResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def generate_extraction_schema(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        prompt: typing.Optional[str] = OMIT,
+        file_id: typing.Optional[str] = OMIT,
+    ) -> ExtractSchemaGenerateResponse:
+        """
+        Generates an extraction agent's schema definition from a file and/or natural language prompt.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - prompt: typing.Optional[str].
+
+            - file_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.llama_extract.generate_extraction_schema()
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if prompt is not OMIT:
+            _request["prompt"] = prompt
+        if file_id is not OMIT:
+            _request["file_id"] = file_id
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", "api/v1/extraction/extraction-agents/schema/generate"
+            ),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ExtractSchemaGenerateResponse, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -1048,6 +1167,7 @@ class AsyncLlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -1059,6 +1179,7 @@ class AsyncLlamaExtractClient:
         await client.llama_extract.update_extraction_agent(
             extraction_agent_id="string",
             config=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,
@@ -1157,6 +1278,7 @@ class AsyncLlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractJobCreate,
             ExtractMode,
             ExtractTarget,
@@ -1171,6 +1293,7 @@ class AsyncLlamaExtractClient:
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
+                    priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
                     chunk_mode=DocumentChunkMode.PAGE,
@@ -1245,12 +1368,14 @@ class AsyncLlamaExtractClient:
             ChunkMode,
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractJobCreate,
             ExtractMode,
             ExtractTarget,
             FailPageMode,
             LlamaExtractSettings,
             LlamaParseParameters,
+            LlamaParseParametersPriority,
             ParsingMode,
         )
         from llama_cloud.client import AsyncLlamaCloud
@@ -1263,6 +1388,7 @@ class AsyncLlamaExtractClient:
                 extraction_agent_id="string",
                 file_id="string",
                 config_override=ExtractConfig(
+                    priority=ExtractConfigPriority.LOW,
                     extraction_target=ExtractTarget.PER_DOC,
                     extraction_mode=ExtractMode.FAST,
                     chunk_mode=DocumentChunkMode.PAGE,
@@ -1271,6 +1397,7 @@ class AsyncLlamaExtractClient:
             extract_settings=LlamaExtractSettings(
                 chunk_mode=ChunkMode.PAGE,
                 llama_parse_params=LlamaParseParameters(
+                    priority=LlamaParseParametersPriority.LOW,
                     parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                     replace_failed_page_mode=FailPageMode.RAW_TEXT,
                 ),
@@ -1368,6 +1495,7 @@ class AsyncLlamaExtractClient:
         from llama_cloud import (
             DocumentChunkMode,
             ExtractConfig,
+            ExtractConfigPriority,
             ExtractMode,
             ExtractTarget,
         )
@@ -1380,6 +1508,7 @@ class AsyncLlamaExtractClient:
             extraction_agent_id="string",
             file_ids=[],
             config_override=ExtractConfig(
+                priority=ExtractConfigPriority.LOW,
                 extraction_target=ExtractTarget.PER_DOC,
                 extraction_mode=ExtractMode.FAST,
                 chunk_mode=DocumentChunkMode.PAGE,

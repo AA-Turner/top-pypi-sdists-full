@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum
 from inspect import Parameter, isclass
+from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -90,7 +91,7 @@ from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
 try:
-    from types import ModuleType, UnionType
+    from types import UnionType
 except ImportError:
     UnionType = Union
 
@@ -1635,7 +1636,10 @@ def get_closure_vars_including_comprehensions(fn: Callable[..., Any]):
     """
     closure = inspect.getclosurevars(fn)
 
+    # __globals__["__builtins__"] is either a dict or a module
     builtins_ns = fn.__globals__.get("__builtins__", builtins.__dict__)
+    if isinstance(builtins_ns, ModuleType):
+        builtins_ns = builtins_ns.__dict__
     captured_globals = dict(closure.globals)
     captured_builtins = dict(closure.builtins)
 

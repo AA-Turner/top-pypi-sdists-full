@@ -654,6 +654,7 @@ from dagster.components.core.context import ComponentLoadContext as ComponentLoa
 from dagster.components.core.load_defs import (
     build_component_defs as build_component_defs,
     load_defs as load_defs,
+    load_from_defs_folder as load_from_defs_folder,
 )
 from dagster.components.definitions import definitions as definitions
 from dagster.components.lib.shim_components.resources import resources as resources
@@ -675,6 +676,12 @@ from dagster.components.scaffold.scaffold import (
     Scaffolder as Scaffolder,
     ScaffoldRequest as ScaffoldRequest,
     scaffold_with as scaffold_with,
+)
+from dagster.components.testing import (
+    component_defs as component_defs,
+    defs_from_component_yaml_path as defs_from_component_yaml_path,
+    get_all_components_defs_within_project as get_all_components_defs_within_project,
+    get_component_defs_within_project as get_component_defs_within_project,
 )
 from dagster.version import __version__ as __version__
 

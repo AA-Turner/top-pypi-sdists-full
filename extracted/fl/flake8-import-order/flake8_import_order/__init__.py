@@ -38,6 +38,7 @@ ClassifiedImport = namedtuple(
         "modules",
         "names",
         "lineno",
+        "end_lineno",
         "level",
         "package",
         "type_checking",
@@ -113,6 +114,7 @@ class ImportVisitor(ast.NodeVisitor):
                 modules,
                 [],
                 node.lineno,
+                node.end_lineno,
                 0,
                 root_package_name(modules[0]),
                 self._type_checking_import(node),
@@ -133,6 +135,7 @@ class ImportVisitor(ast.NodeVisitor):
                 [module],
                 names,
                 node.lineno,
+                node.end_lineno,
                 node.level,
                 root_package_name(module),
                 self._type_checking_import(node),
@@ -140,16 +143,15 @@ class ImportVisitor(ast.NodeVisitor):
             self.imports.append(classified_import)
 
     def _type_checking_import(self, node):
-        return (
-            isinstance(node.parent, ast.If)
-            and isinstance(node.parent.test, ast.Name)
-            and (
-                node.parent.test.id == "TYPE_CHECKING"
-                or (
-                    node.parent.test.value.id in {"t", "typing"}
-                    and getattr(node.parent.test, "attr", "")
-                    == "TYPE_CHECKING"
-                )
+        return isinstance(node.parent, ast.If) and (
+            (
+                isinstance(node.parent.test, ast.Name)
+                and node.parent.test.id == "TYPE_CHECKING"
+            )
+            or (
+                isinstance(node.parent.test, ast.Attribute)
+                and node.parent.test.value.id in {"t", "typing"}
+                and getattr(node.parent.test, "attr", "") == "TYPE_CHECKING"
             )
         )
 

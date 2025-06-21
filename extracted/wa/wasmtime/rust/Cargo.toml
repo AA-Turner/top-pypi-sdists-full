@@ -1,0 +1,28 @@
+[package]
+name = "bindgen"
+publish = false
+edition = "2021"
+
+[lib]
+crate-type = ['cdylib', 'rlib']
+
+[dependencies]
+anyhow = "1.0"
+heck = { version = "0.4", features = ["unicode"] }
+wit-parser = "0.230.0"
+wit-component = "0.230.0"
+indexmap = "2.0"
+wasmtime-environ = { version = "34.0.0", features = ['component-model', 'compile'] }
+wit-bindgen = "0.42.1"
+wit-bindgen-core = "0.42.1"
+
+
+[features]
+cli = []
+
+[[bin]]
+name = "bootstrap"
+required-features = ["cli"]
+
+[profile.release]
+strip = 'debuginfo'

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import dataclasses
 import queue
 import typing
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Mapping, Option
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.dataset
+import pyarrow.parquet as pq
 from pyarrow.fs import S3FileSystem
 
 from chalk.clogging import chalk_logger
@@ -27,10 +29,12 @@ from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
 from chalk.utils.tracing import safe_incr, safe_set_gauge, safe_trace
 
 if TYPE_CHECKING:
+    import sqlalchemy.types
     from sqlalchemy.engine import Connection
     from sqlalchemy.engine.url import URL
 
     try:
+        from pyathena.connection import BaseCursor
         from pyathena.connection import Connection as AthenaConnection
     except ImportError:
         pass
@@ -63,6 +67,26 @@ _ATHENA_ROLE_ARN_NAME = "ATHENA_ROLE_ARN"
 _ATHENA_SCHEMA_NAME_NAME = "ATHENA_SCHEMA_NAME"
 _ATHENA_CATALOG_NAME_NAME = "ATHENA_CATALOG_NAME"
 _ATHENA_WORK_GROUP_NAME = "ATHENA_WORK_GROUP"
+
+
+def _sqlalchemy_to_athena_str_type(typ: sqlalchemy.types.TypeEngine) -> str:
+    try:
+        import sqlalchemy.types
+    except ModuleNotFoundError:
+        raise missing_dependency_exception("chalkpy[athena]")
+    # Only some types are needed: pushdown can only happen for strings, ints, and bools
+    if isinstance(typ, sqlalchemy.types.String):
+        return "string"
+    elif isinstance(typ, sqlalchemy.types.Text):
+        return "string"
+    elif isinstance(typ, sqlalchemy.types.Integer):
+        return "integer"
+    elif isinstance(typ, sqlalchemy.types.BigInteger):
+        return "bigint"
+    elif isinstance(typ, sqlalchemy.types.Boolean):
+        return "boolean"
+    else:
+        raise ValueError(f"Unsupported SQLAlchemy type for Athena pushdown: {typ}")
 
 
 class AthenaSourceImpl(BaseSQLSource):
@@ -267,6 +291,80 @@ class AthenaSourceImpl(BaseSQLSource):
         """
         return new_query
 
+    @contextlib.contextmanager
+    def _create_athena_external_table(
+        self,
+        ext_table_name: str,
+        ext_table_columns: Dict[str, str],
+        pa_table: pa.Table,
+        cursor: BaseCursor,
+    ):
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[athena]")
+        # Instead of creating temporary tables, we will upload parquets into a temporary S3 location
+        assert self.s3_staging_dir is not None, "s3_staging_dir must be set to create external tables in Athena"
+        external_table_folder = self.s3_staging_dir.rstrip("/") + "/chalk_external_tables/"
+        chalk_logger.info(
+            f"Creating external table {ext_table_name} for Athena unload query at {external_table_folder}"
+        )
+        tmp_table_storage_location = f"{external_table_folder.rstrip('/')}/{ext_table_name}/"
+
+        pq.write_table(
+            pa_table,
+            f"{tmp_table_storage_location.rstrip('/').lstrip('s3://')}/data.parquet",
+            filesystem=self._s3_filesystem(),
+        )
+
+        ext_table_sql = f"""
+                    CREATE EXTERNAL TABLE {ext_table_name} (
+                        {", ".join(f"{col_name} {col_type}" for col_name, col_type in ext_table_columns.items())}
+                    )
+                    STORED AS PARQUET
+                    LOCATION '{tmp_table_storage_location}'
+                    """
+        with safe_trace("athena.create_external_table"):
+            ext_table_query_id, ext_table_query_fut = cursor.execute(ext_table_sql)
+            chalk_logger.info(f"Creating external table: {ext_table_sql}, Query ID: {ext_table_query_id}")
+            ext_table_query_result = ext_table_query_fut.result()
+        assert isinstance(
+            ext_table_query_result, AthenaArrowResultSet
+        ), "Expected athena query result to be AthenaArrowResultSet"
+        if (
+            ext_table_query_result.error_type
+            and ext_table_query_result.error_category
+            and ext_table_query_result.error_message
+        ):
+            chalk_logger.error(
+                f"Failed to execute create external Athena table to join on. Error info: Type: {ext_table_query_result.error_type}, Category: {ext_table_query_result.error_category}, Message: {ext_table_query_result.error_message}"
+            )
+            raise ValueError(
+                f"Failed to execute create external Athena table to join on. Error info: Type: {ext_table_query_result.error_type}, Category: {ext_table_query_result.error_category}, Message: {ext_table_query_result.error_message}"
+            )
+        chalk_logger.info(f"Created external table {ext_table_name} successfully")
+        try:
+            yield
+        finally:
+            chalk_logger.info(f"Dropping external table {ext_table_name} after use")
+            drop_ext_table_sql = f"DROP TABLE IF EXISTS {ext_table_name}"
+
+            with safe_trace("athena.drop_external_table"):
+                drop_ext_table_query_id, drop_ext_table_query_fut = cursor.execute(drop_ext_table_sql)
+                chalk_logger.info(f"Dropping external table: {drop_ext_table_sql}, Query ID: {drop_ext_table_query_id}")
+                drop_ext_table_query_result = drop_ext_table_query_fut.result()
+            assert isinstance(
+                drop_ext_table_query_result, AthenaArrowResultSet
+            ), "Expected athena query result to be AthenaArrowResultSet"
+            if (
+                drop_ext_table_query_result.error_type
+                and drop_ext_table_query_result.error_category
+                and drop_ext_table_query_result.error_message
+            ):
+                chalk_logger.warning(
+                    f"Failed to drop external Athena table {ext_table_name} after use. Error info: Type: {drop_ext_table_query_result.error_type}, Category: {drop_ext_table_query_result.error_category}, Message: {drop_ext_table_query_result.error_message}"
+                )
+
     def _execute_query_efficient(
         self,
         finalized_query: FinalizedChalkQuery,
@@ -276,12 +374,10 @@ class AthenaSourceImpl(BaseSQLSource):
     ) -> Iterable[pa.RecordBatch]:
         with safe_trace("athena.execute_query_efficient"):
             try:
-                from pyathena.arrow.async_cursor import AsyncArrowCursor
                 from pyathena.arrow.result_set import AthenaArrowResultSet
             except ModuleNotFoundError:
                 raise missing_dependency_exception("chalkpy[athena]")
 
-            assert len(finalized_query.temp_tables) == 0, "Should not create temp tables with athena source"
             if self.s3_staging_dir is None:
                 raise ValueError("Could not query Athena, no s3_staging_dir set")
 
@@ -305,60 +401,73 @@ class AthenaSourceImpl(BaseSQLSource):
                 job_id = str(uuid.uuid4())
                 job_prefix = f"chalk-unload/{job_id}"
                 s3_prefix = f"{self.s3_staging_dir.rstrip('/')}/{job_prefix}"
-                assert isinstance(cursor, AsyncArrowCursor)
 
                 final_sql = self._rewrite_query_for_unload(
                     sql=formatted_op,
                     s3_staging_dir_for_job=s3_prefix,
                 )
-
-                query_id, query_fut = cursor.execute(
-                    operation=final_sql,
-                    parameters=execution_params,
-                    paramstyle=paramstyle,
-                )
-
-                query_result = query_fut.result()
-                assert isinstance(
-                    query_result, AthenaArrowResultSet
-                ), "Expected athena query result to be AthenaArrowResultSet"
-                if query_result.error_type and query_result.error_category and query_result.error_message:
-                    chalk_logger.error(
-                        f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
-                    )
-                    raise ValueError(
-                        f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
-                    )
-
-                chalk_logger.info(
-                    f"Executed Athena unload query successfully. Query ID: {query_id}",
-                )
-                bucket_name = s3_prefix.split("/")[2]
-                remaining_prefix = "/".join(s3_prefix.split("/")[3:])
-                objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
-                if "Contents" not in objects_list_response:
-                    chalk_logger.warning(
-                        f"Failed to enumerate unloaded files for Athena query with query ID: {query_id}. This may mean there was no data to unload."
-                    )
-                    # Without any unloaded files, we cannot determine the schema of the output, so even if
-                    # yield_empty_batches is True, we do not yield anything
-                    return
-
-                chalk_logger.info(f"Found {len(objects_list_response['Contents'])} unloaded files")
-                for object in objects_list_response["Contents"]:
-                    if "Key" not in object or "Size" not in object:
-                        raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {object}")
-                    object_key = object["Key"]
-                    chalk_logger.info(f"Found unloaded file: {object_key}")
-                    result_handles.put_nowait(
-                        AthenaResultHandle(uri=f"{bucket_name}/{object_key}", compressed_size=object["Size"])
+                with contextlib.ExitStack() as exit_stack:
+                    for (
+                        ext_table_name,
+                        (ext_table_columns, ext_pa_table, _, _, _),
+                    ) in finalized_query.temp_tables.items():
+                        exit_stack.enter_context(
+                            self._create_athena_external_table(
+                                ext_table_name,
+                                ext_table_columns={
+                                    k: _sqlalchemy_to_athena_str_type(v) for k, v in ext_table_columns.items()
+                                },
+                                pa_table=ext_pa_table,
+                                cursor=cursor,
+                            )
+                        )
+                    query_id, query_fut = cursor.execute(
+                        operation=final_sql,
+                        parameters=execution_params,
+                        paramstyle=paramstyle,
                     )
 
-                yield from self._yield_from_result_handles(
-                    result_handles=result_handles,
-                    query_execution_parameters=query_execution_parameters,
-                    columns_to_features=columns_to_features,
-                )
+                    query_result = query_fut.result()
+                    assert isinstance(
+                        query_result, AthenaArrowResultSet
+                    ), "Expected athena query result to be AthenaArrowResultSet"
+                    if query_result.error_type and query_result.error_category and query_result.error_message:
+                        chalk_logger.error(
+                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
+                        )
+                        raise ValueError(
+                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
+                        )
+
+                    chalk_logger.info(
+                        f"Executed Athena unload query successfully. Query ID: {query_id}",
+                    )
+                    bucket_name = s3_prefix.split("/")[2]
+                    remaining_prefix = "/".join(s3_prefix.split("/")[3:])
+                    objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
+                    if "Contents" not in objects_list_response:
+                        chalk_logger.warning(
+                            f"Failed to enumerate unloaded files for Athena query with query ID: {query_id}. This may mean there was no data to unload."
+                        )
+                        # Without any unloaded files, we cannot determine the schema of the output, so even if
+                        # yield_empty_batches is True, we do not yield anything
+                        return
+
+                    chalk_logger.info(f"Found {len(objects_list_response['Contents'])} unloaded files")
+                    for object in objects_list_response["Contents"]:
+                        if "Key" not in object or "Size" not in object:
+                            raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {object}")
+                        object_key = object["Key"]
+                        chalk_logger.info(f"Found unloaded file: {object_key}")
+                        result_handles.put_nowait(
+                            AthenaResultHandle(uri=f"{bucket_name}/{object_key}", compressed_size=object["Size"])
+                        )
+
+                    yield from self._yield_from_result_handles(
+                        result_handles=result_handles,
+                        query_execution_parameters=query_execution_parameters,
+                        columns_to_features=columns_to_features,
+                    )
 
     def _postprocess_table(self, features: Mapping[str, Feature], tbl: pa.Table):
         columns: list[pa.Array] = []

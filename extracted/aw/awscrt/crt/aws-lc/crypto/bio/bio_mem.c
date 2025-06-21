@@ -69,12 +69,13 @@
 BIO *BIO_new_mem_buf(const void *buf, ossl_ssize_t len) {
   BIO *ret;
   BUF_MEM *b;
-  const size_t size = len < 0 ? strlen((char *)buf) : (size_t)len;
 
   if (!buf && len != 0) {
     OPENSSL_PUT_ERROR(BIO, BIO_R_NULL_PARAMETER);
     return NULL;
   }
+
+  const size_t size = (len < 0) ? strlen((char *)buf) : (size_t)len;
 
   ret = BIO_new(BIO_s_mem());
   if (ret == NULL) {
@@ -217,7 +218,7 @@ static long mem_ctrl(BIO *bio, int cmd, long num, void *ptr) {
           b->data -= b->max - b->length;
           b->length = b->max;
         } else {
-          OPENSSL_memset(b->data, 0, b->max);
+          OPENSSL_cleanse(b->data, b->max);
           b->length = 0;
         }
       }

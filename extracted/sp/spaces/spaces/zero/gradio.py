@@ -167,7 +167,7 @@ def one_launch(task: Callable[Param, None], *task_args: Param.args, **task_kwarg
 
 class HTMLError(gr.Error):
     def __str__(self): # pragma: no cover
-        return self.message
+        return str(self.message)
 
 
 def error(title: str, message: str, html: bool = False):

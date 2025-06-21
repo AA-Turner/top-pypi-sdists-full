@@ -4,8 +4,8 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
+from .llama_index_core_base_llms_types_message_role import LlamaIndexCoreBaseLlmsTypesMessageRole
 from .message_annotation import MessageAnnotation
-from .message_role import MessageRole
 
 try:
     import pydantic
@@ -22,7 +22,7 @@ class AppSchemaChatChatMessage(pydantic.BaseModel):
     annotations: typing.Optional[typing.List[MessageAnnotation]] = pydantic.Field(
         description="Retrieval annotations for the message."
     )
-    role: MessageRole = pydantic.Field(description="The role of the message.")
+    role: LlamaIndexCoreBaseLlmsTypesMessageRole = pydantic.Field(description="The role of the message.")
     content: typing.Optional[str]
     additional_kwargs: typing.Optional[typing.Dict[str, str]] = pydantic.Field(
         description="Additional arguments passed to the model"

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_subscription_policy_assignment`
 
-Refer to the Terraform Registry for docs: [`azurerm_subscription_policy_assignment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment).
+Refer to the Terraform Registry for docs: [`azurerm_subscription_policy_assignment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SubscriptionPolicyAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.subscriptionPolicyAssignment.SubscriptionPolicyAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment azurerm_subscription_policy_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment azurerm_subscription_policy_assignment}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class SubscriptionPolicyAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment azurerm_subscription_policy_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment azurerm_subscription_policy_assignment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
-        :param policy_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.
-        :param non_compliance_message: non_compliance_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
-        :param not_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.
-        :param resource_selectors: resource_selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
+        :param policy_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.
+        :param non_compliance_message: non_compliance_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
+        :param not_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.
+        :param resource_selectors: resource_selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class SubscriptionPolicyAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SubscriptionPolicyAssignment to import.
-        :param import_from_id: The id of the existing SubscriptionPolicyAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SubscriptionPolicyAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SubscriptionPolicyAssignment to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class SubscriptionPolicyAssignment(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.
         '''
         value = SubscriptionPolicyAssignmentIdentity(
             type=type, identity_ids=identity_ids
@@ -225,10 +225,10 @@ class SubscriptionPolicyAssignment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.
         '''
         value = SubscriptionPolicyAssignmentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -619,22 +619,22 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
-        :param policy_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.
-        :param non_compliance_message: non_compliance_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
-        :param not_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.
-        :param resource_selectors: resource_selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
+        :param policy_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.
+        :param non_compliance_message: non_compliance_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
+        :param not_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.
+        :param resource_selectors: resource_selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -779,34 +779,34 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_definition_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#policy_definition_id SubscriptionPolicyAssignment#policy_definition_id}.'''
         result = self._values.get("policy_definition_id")
         assert result is not None, "Required property 'policy_definition_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscription_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#subscription_id SubscriptionPolicyAssignment#subscription_id}.'''
         result = self._values.get("subscription_id")
         assert result is not None, "Required property 'subscription_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#description SubscriptionPolicyAssignment#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#display_name SubscriptionPolicyAssignment#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -814,13 +814,13 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def enforce(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#enforce SubscriptionPolicyAssignment#enforce}.'''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#id SubscriptionPolicyAssignment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -832,20 +832,20 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def identity(self) -> typing.Optional["SubscriptionPolicyAssignmentIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity SubscriptionPolicyAssignment#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["SubscriptionPolicyAssignmentIdentity"], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#location SubscriptionPolicyAssignment#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#metadata SubscriptionPolicyAssignment#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -855,14 +855,14 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentNonComplianceMessage"]]]:
         '''non_compliance_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#non_compliance_message SubscriptionPolicyAssignment#non_compliance_message}
         '''
         result = self._values.get("non_compliance_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentNonComplianceMessage"]]], result)
 
     @builtins.property
     def not_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_scopes SubscriptionPolicyAssignment#not_scopes}.'''
         result = self._values.get("not_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -872,14 +872,14 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentOverrides"]]]:
         '''overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#overrides SubscriptionPolicyAssignment#overrides}
         '''
         result = self._values.get("overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentOverrides"]]], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#parameters SubscriptionPolicyAssignment#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -889,7 +889,7 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentResourceSelectors"]]]:
         '''resource_selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#resource_selectors SubscriptionPolicyAssignment#resource_selectors}
         '''
         result = self._values.get("resource_selectors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentResourceSelectors"]]], result)
@@ -898,7 +898,7 @@ class SubscriptionPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["SubscriptionPolicyAssignmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#timeouts SubscriptionPolicyAssignment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SubscriptionPolicyAssignmentTimeouts"], result)
@@ -928,8 +928,8 @@ class SubscriptionPolicyAssignmentIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__710373d281b09142272001294c5a5445bd0607dd341b55070f1e1175afcac36a)
@@ -943,14 +943,14 @@ class SubscriptionPolicyAssignmentIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#type SubscriptionPolicyAssignment#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#identity_ids SubscriptionPolicyAssignment#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1066,8 +1066,8 @@ class SubscriptionPolicyAssignmentNonComplianceMessage:
         policy_definition_reference_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#content SubscriptionPolicyAssignment#content}.
-        :param policy_definition_reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#policy_definition_reference_id SubscriptionPolicyAssignment#policy_definition_reference_id}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#content SubscriptionPolicyAssignment#content}.
+        :param policy_definition_reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#policy_definition_reference_id SubscriptionPolicyAssignment#policy_definition_reference_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b837f3388b42d1b365dd2943509a01fe4475a428f5983ba300a3d55d3b8641d8)
@@ -1081,14 +1081,14 @@ class SubscriptionPolicyAssignmentNonComplianceMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#content SubscriptionPolicyAssignment#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#content SubscriptionPolicyAssignment#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_definition_reference_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#policy_definition_reference_id SubscriptionPolicyAssignment#policy_definition_reference_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#policy_definition_reference_id SubscriptionPolicyAssignment#policy_definition_reference_id}.'''
         result = self._values.get("policy_definition_reference_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1292,8 +1292,8 @@ class SubscriptionPolicyAssignmentOverrides:
         selectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SubscriptionPolicyAssignmentOverridesSelectors", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#value SubscriptionPolicyAssignment#value}.
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#value SubscriptionPolicyAssignment#value}.
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a4d73fad5cf7915bc0391ccb9b64663dad761d9c62ed4963ac52d529bb48438)
@@ -1307,7 +1307,7 @@ class SubscriptionPolicyAssignmentOverrides:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#value SubscriptionPolicyAssignment#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#value SubscriptionPolicyAssignment#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1318,7 +1318,7 @@ class SubscriptionPolicyAssignmentOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentOverridesSelectors"]]]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
         '''
         result = self._values.get("selectors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentOverridesSelectors"]]], result)
@@ -1531,8 +1531,8 @@ class SubscriptionPolicyAssignmentOverridesSelectors:
         not_in: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param in_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.
-        :param not_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.
+        :param in_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.
+        :param not_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1078a3716c319033f55c4be34700431634c33aaf9f98dad7c5c33680a6e6d1e3)
@@ -1546,13 +1546,13 @@ class SubscriptionPolicyAssignmentOverridesSelectors:
 
     @builtins.property
     def in_(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.'''
         result = self._values.get("in_")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def not_in(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.'''
         result = self._values.get("not_in")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1765,8 +1765,8 @@ class SubscriptionPolicyAssignmentResourceSelectors:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abe7b261c72475e46cc2ddda544b05253c978fcb12b9adf6a0760ea1ac30b056)
@@ -1784,7 +1784,7 @@ class SubscriptionPolicyAssignmentResourceSelectors:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionPolicyAssignmentResourceSelectorsSelectors"]]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#selectors SubscriptionPolicyAssignment#selectors}
         '''
         result = self._values.get("selectors")
         assert result is not None, "Required property 'selectors' is missing"
@@ -1792,7 +1792,7 @@ class SubscriptionPolicyAssignmentResourceSelectors:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#name SubscriptionPolicyAssignment#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2005,9 +2005,9 @@ class SubscriptionPolicyAssignmentResourceSelectorsSelectors:
         not_in: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#kind SubscriptionPolicyAssignment#kind}.
-        :param in_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.
-        :param not_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#kind SubscriptionPolicyAssignment#kind}.
+        :param in_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.
+        :param not_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b966799eee25e59d9dadf48690dbf899ee52e845caee4ee564e74d1fe6b90729)
@@ -2024,20 +2024,20 @@ class SubscriptionPolicyAssignmentResourceSelectorsSelectors:
 
     @builtins.property
     def kind(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#kind SubscriptionPolicyAssignment#kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#kind SubscriptionPolicyAssignment#kind}.'''
         result = self._values.get("kind")
         assert result is not None, "Required property 'kind' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def in_(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#in SubscriptionPolicyAssignment#in}.'''
         result = self._values.get("in_")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def not_in(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#not_in SubscriptionPolicyAssignment#not_in}.'''
         result = self._values.get("not_in")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2269,10 +2269,10 @@ class SubscriptionPolicyAssignmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4df23ee0f4cc21176ad10a521829ddf5770a671e4f8f811898b973a069d5abd1)
@@ -2292,25 +2292,25 @@ class SubscriptionPolicyAssignmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#create SubscriptionPolicyAssignment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#delete SubscriptionPolicyAssignment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#read SubscriptionPolicyAssignment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/subscription_policy_assignment#update SubscriptionPolicyAssignment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

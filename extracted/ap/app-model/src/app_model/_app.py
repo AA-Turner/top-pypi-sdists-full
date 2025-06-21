@@ -4,8 +4,10 @@ import contextlib
 import os
 import sys
 from collections.abc import Iterable, MutableMapping
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
+    Any,
     ClassVar,
     Literal,
     Optional,
@@ -27,8 +29,10 @@ from .types import (
 )
 
 if TYPE_CHECKING:
+    from typing import Callable
+
     from .expressions import Expr
-    from .registries._register import CommandCallable, CommandDecorator
+    from .registries._register import CommandDecorator
     from .types import (
         DisposeCallable,
         IconOrDict,
@@ -126,6 +130,7 @@ class Application:
 
         self.injection_store.on_unannotated_required_args = "ignore"
 
+        self._registered_actions: dict[str, Action] = {}
         self._disposers: list[tuple[str, DisposeCallable]] = []
 
     @property
@@ -229,7 +234,7 @@ class Application:
         action: str,
         title: str,
         *,
-        callback: CommandCallable,
+        callback: Callable[..., Any],
         category: str | None = ...,
         tooltip: str | None = ...,
         icon: IconOrDict | None = ...,
@@ -244,7 +249,7 @@ class Application:
         action: str | Action,
         title: str | None = None,
         *,
-        callback: CommandCallable | None = None,
+        callback: Callable[..., Any] | None = None,
         category: str | None = None,
         tooltip: str | None = None,
         icon: IconOrDict | None = None,
@@ -290,4 +295,43 @@ class Application:
             while d:
                 d.pop()()
 
+        return _dispose
+
+    @property
+    def registered_actions(self) -> MappingProxyType[str, Action]:
+        """Return a Mapping of id->Action object for all registered actions.
+
+        Note that this only includes actions that were registered using
+        `register_action`.  Commands registered directly via
+        `Application.commands.register_action` will not be included in this mapping.
+        """
+        return MappingProxyType(self._registered_actions)
+
+    def _register_action_obj(self, action: Action) -> DisposeCallable:
+        """Register an Action object. Return a function that unregisters the action.
+
+        Helper for `register_action()`.
+        """
+        # register commands
+        disposers = [self.commands.register_action(action)]
+        # register keybindings
+        if dk := self.keybindings.register_action_keybindings(action):
+            disposers.append(dk)
+        # register menus
+        if dm := self.menus.append_action_menus(action):
+            disposers.append(dm)
+
+        # remember the action object as a whole.
+        # note that commands.register_action will have raised an exception
+        # if the action.id is already registered, so we can assume that
+        # the keys are unique.
+        self._registered_actions[action.id] = action
+
+        # create a function that will dispose of all the disposers
+        def _dispose() -> None:
+            self._registered_actions.pop(action.id, None)
+            for d in disposers:
+                d()
+
+        self._disposers.append((action.id, _dispose))
         return _dispose

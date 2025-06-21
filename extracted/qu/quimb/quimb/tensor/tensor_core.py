@@ -692,6 +692,7 @@ def tensor_canonize_bond(
     absorb="right",
     gauges=None,
     gauge_smudge=1e-6,
+    create_bond=False,
     **split_opts,
 ):
     r"""Inplace 'canonization' of two tensors. This gauges the bond between
@@ -711,6 +712,14 @@ def tensor_canonize_bond(
         The tensor to absorb the R-factor into.
     absorb : {'right', 'left', 'both', None}, optional
         Which tensor to effectively absorb the singular values into.
+    gauges : None or dict, optional
+        If supplied, a dict of bond gauges to perform the canonization with
+        respect to.
+    gauge_smudge : float, optional
+        If gauges are supplied, the smudge to use when gauging.
+    create_bond : bool, optional
+        If ``True``, and there is no bond between the two tensors, create a
+        new bond with size 1 before canonizing. Else raise an error.
     split_opts
         Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`, with
         modified defaults of ``method=='qr'`` and ``absorb='right'``.
@@ -721,16 +730,26 @@ def tensor_canonize_bond(
         # same as doing reduced compression with no truncation
         split_opts.setdefault("cutoff", 0.0)
         return tensor_compress_bond(
-            T1, T2, gauges=gauges, gauge_smudge=gauge_smudge, **split_opts
+            T1,
+            T2,
+            gauges=gauges,
+            gauge_smudge=gauge_smudge,
+            create_bond=create_bond,
+            **split_opts,
         )
 
     split_opts.setdefault("method", "qr")
     if absorb == "left":
         T1, T2 = T2, T1
 
-    lix, bix, _ = tensor_make_single_bond(T1, T2, gauges=gauges)
+    lix, bix, _ = tensor_make_single_bond(
+        T1, T2, gauges=gauges, create_bond=create_bond
+    )
     if not bix:
-        raise ValueError("The tensors specified don't share an bond.")
+        raise ValueError(
+            "The tensors specified don't share an bond. "
+            "To create one automatically, set `create_bond=True`."
+        )
 
     if (T1.left_inds is not None) and set(T1.left_inds) == set(lix):
         # tensor is already isometric with respect to shared bonds
@@ -801,6 +820,7 @@ def tensor_compress_bond(
     absorb="both",
     gauges=None,
     gauge_smudge=1e-6,
+    create_bond=False,
     info=None,
     **compress_opts,
 ):
@@ -837,14 +857,27 @@ def tensor_compress_bond(
         i.e. the pair are right or left canonical respectively.
     absorb : {'both', 'left', 'right', None}, optional
         Where to absorb the singular values after decomposition.
+    gauges : None or dict, optional
+        If supplied, a dict of bond gauges to perform the compression with
+        respect to.
+    gauge_smudge : float, optional
+        If gauges are supplied, the smudge to use when gauging.
+    create_bond : bool, optional
+        If ``True``, and there is no bond between the two tensors, create a
+        new bond with size 1 before compressing. Else raise an error.
     info : None or dict, optional
         A dict for returning extra information such as the singular values.
     compress_opts :
         Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
     """
-    lix, bix, rix = tensor_make_single_bond(T1, T2, gauges=gauges)
+    lix, bix, rix = tensor_make_single_bond(
+        T1, T2, gauges=gauges, create_bond=create_bond
+    )
     if not bix:
-        raise ValueError("The tensors specified don't share an bond.")
+        raise ValueError(
+            "The tensors specified don't share an bond. "
+            "To create one automatically, set `create_bond=True`."
+        )
 
     if gauges is not None:
         absorb = None
@@ -1006,16 +1039,48 @@ def tensor_multifuse(ts, inds, gauges=None):
         t.fuse_({inds[0]: inds})
 
 
-def tensor_make_single_bond(t1: "Tensor", t2: "Tensor", gauges=None):
+def tensor_make_single_bond(
+    t1: "Tensor",
+    t2: "Tensor",
+    gauges=None,
+    create_bond=False,
+):
     """If two tensors share multibonds, fuse them together and return the left
     indices, bond if it exists, and right indices. Handles simple ``gauges``.
     Inplace operation.
+
+    Parameters
+    ----------
+    t1 : Tensor
+        The first tensor.
+    t2 : Tensor
+        The second tensor.
+    gauges : dict, optional
+        A dictionary of gauge tensors, which will be updated in place.
+    create : bool, optional
+        If ``True``, create a new bond if none exists.
+
+    Returns
+    -------
+    left : list of str
+        Indices appearing only on the left tensor.
+    bond : str or None
+        The bond index of the tensors, or None if they don't share one and
+        ``create=False``.
+    right : list of str
+        Indices appearing only on the right tensor.
     """
     left, shared, right = group_inds(t1, t2)
     nshared = len(shared)
 
     if nshared == 0:
-        return left, None, right
+        if create_bond:
+            # create a new bond between the tensors
+            bond = rand_uuid()
+            new_bond(t1, t2, name=bond)
+            return left, bond, right
+        else:
+            return left, None, right
 
     if nshared > 1:
         tensor_multifuse((t1, t2), shared, gauges=gauges)
@@ -1228,11 +1293,23 @@ def tensor_network_sum(
 
 
 def bonds(
-    t1: "Tensor",
-    t2: "Tensor",
+    t1: "Tensor | TensorNetwork",
+    t2: "Tensor | TensorNetwork",
 ):
-    """Getting any indices connecting the Tensor(s) or TensorNetwork(s) ``t1``
+    """Get any indices shared between the Tensor(s) or TensorNetwork(s) ``t1``
     and ``t2``.
+
+    Parameters
+    ----------
+    t1 : Tensor or TensorNetwork
+        The first tensor or tensor network.
+    t2 : Tensor or TensorNetwork
+        The second tensor or tensor network.
+
+    Returns
+    -------
+    bonds : oset[str]
+        The indices shared between ``t1`` and ``t2``.
     """
     if isinstance(t1, Tensor):
         ix1 = oset(t1.inds)
@@ -1804,9 +1881,14 @@ class Tensor:
     isel_ = functools.partialmethod(isel, inplace=True)
 
     def add_tag(self, tag):
-        """Add a tag or multiple tags to this tensor. Unlike ``self.tags.add``
-        this also updates any ``TensorNetwork`` objects viewing this
-        ``Tensor``.
+        """Add a tag or multiple tags to this tensor. Unlike naively calling
+        `self.tags.add` this also updates the tag maps of all `TensorNetwork`
+        objects viewing this `Tensor`. Inplace operation.
+
+        Parameters
+        ----------
+        tag : str or sequence of str
+            The tag(s) to add to this tensor.
         """
         if isinstance(tag, str):
             tags = (tag,)
@@ -4452,15 +4534,39 @@ class TensorNetwork(object):
                     f"'{ix}' in tensors {ts}."
                 )
 
-    def add_tag(self, tag, where=None, which="all"):
-        """Add tag to every tensor in this network, or if ``where`` is
+    def add_tag(self, tag, where=None, which="all", record=None):
+        """Add tag(s) to every tensor in this network, or if ``where`` is
         specified, the tensors matching those tags -- i.e. adds the tag to
-        all tensors in ``self.select_tensors(where, which=which)``.
+        all tensors in ``self.select_tensors(where, which=which)``. Inplace
+        operation.
+
+        Parameters
+        ----------
+        tag : str or sequence of str
+            The tag or tags to add.
+        where : str or sequence of str, optional
+            The existing tags to match for selection.
+        which : {'all', 'any', '!all', '!any'}, optional
+            How to match the ``where`` tags. Default is 'all', meaning a tensor
+            must have *all* of the specified tags to be selected.
+        record : None or dict, optional
+            A dictionary to record the tags added to each tensor. Useful for
+            untagging later at the Tensor level. The keys will be the
+            tensors themselves, and the values will be sets of tags that were
+            added. If ``None`` (the default), no record is kept.
         """
         tids = self._get_tids_from_tags(where, which=which)
 
         for tid in tids:
-            self.tensor_map[tid].add_tag(tag)
+            t = self.tensor_map[tid]
+            t.add_tag(tag)
+
+            if record is not None:
+                if isinstance(tag, str):
+                    record.setdefault(t, set()).add(tag)
+                else:
+                    # sequence of tags
+                    record.setdefault(t, set()).update(tag)
 
     def drop_tags(self, tags=None):
         """Remove a tag or tags from this tensor network, defaulting to all.
@@ -5959,7 +6065,21 @@ class TensorNetwork(object):
         self._contract_between_tids(tid1, tid2, **contract_opts)
 
     def contract_ind(self, ind, output_inds=None, **contract_opts):
-        """Contract tensors connected by ``ind``."""
+        """Contract tensors connected by ``ind``. This is an inplace operation.
+
+        Parameters
+        ----------
+        ind : str
+            The index to contract over. All tensors connected by this index
+            will be contracted into a single tensor. Note that if `ind` is in
+            `output_inds` then it will still be retained on this tensor.
+        output_inds : str or sequence of str, optional
+            The output indices for the local contraction. If not given, they
+            will be calculated from the default outer indices of the full
+            tensor network.
+        contract_opts
+            Supplied to :func:`~quimb.tensor.tensor_core.tensor_contract`.
+        """
         tids = tuple(self._get_tids_from_inds(ind))
         output_inds = self.compute_contracted_inds(
             *tids, output_inds=output_inds

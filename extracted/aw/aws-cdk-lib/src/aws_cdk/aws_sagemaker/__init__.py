@@ -7763,7 +7763,7 @@ class CfnDomain(
             :param execution_role_identity_config: The configuration for attaching a SageMaker AI user profile name to the execution role as a `sts:SourceIdentity key <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_monitor.html>`_ .
             :param r_studio_server_pro_domain_settings: A collection of settings that configure the ``RStudioServerPro`` Domain-level app.
             :param security_group_ids: The security groups for the Amazon Virtual Private Cloud that the ``Domain`` uses for communication between Domain-level apps and user apps.
-            :param unified_studio_settings: A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
+            :param unified_studio_settings: The settings that apply to an SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-domainsettings.html
             :exampleMetadata: fixture=_generated
@@ -7868,7 +7868,7 @@ class CfnDomain(
         def unified_studio_settings(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.UnifiedStudioSettingsProperty"]]:
-            '''A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
+            '''The settings that apply to an SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-domainsettings.html#cfn-sagemaker-domain-domainsettings-unifiedstudiosettings
             '''
@@ -9216,7 +9216,7 @@ class CfnDomain(
             project_s3_path: typing.Optional[builtins.str] = None,
             studio_web_portal_access: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
+            '''The settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
 
             :param domain_account_id: The ID of the AWS account that has the Amazon SageMaker Unified Studio domain. The default value, if you don't specify an ID, is the ID of the account that has the Amazon SageMaker AI domain.
             :param domain_id: The ID of the Amazon SageMaker Unified Studio domain associated with this domain.
@@ -9224,7 +9224,7 @@ class CfnDomain(
             :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
             :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
             :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
-            :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. ENABLED You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. DISABLED You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface.
+            :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface. To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
             :exampleMetadata: fixture=_generated
@@ -9332,10 +9332,10 @@ class CfnDomain(
         def studio_web_portal_access(self) -> typing.Optional[builtins.str]:
             '''Sets whether you can access the domain in Amazon SageMaker Studio:.
 
-            ENABLED
-            You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces.
-            DISABLED
-            You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface.
+            - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces.
+            - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface.
+
+            To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-studiowebportalaccess
             '''

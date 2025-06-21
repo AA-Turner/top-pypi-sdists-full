@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ledgered
-Version: 0.11.1
+Version: 0.12.0
 Summary: Python tools, utils, libraries, to be used with Ledger cryptodevices
 Author-email: Ledger <hello@ledger.fr>
 License: MIT License
@@ -43,7 +43,7 @@ License-File: LICENSE
 Requires-Dist: pydantic
 Requires-Dist: pyelftools
 Requires-Dist: pygithub
-Requires-Dist: toml
+Requires-Dist: tomli
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"

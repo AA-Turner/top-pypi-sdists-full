@@ -25,7 +25,7 @@ jobs:
 
           - os: windows
             target: x86_64
-            interpreter: pypy3.9 pypy3.10
+            interpreter: pypy3.9 pypy3.10 pypy3.11
           - os: windows
             target: i686
             python-architecture: x86
@@ -36,15 +36,15 @@ jobs:
 
           - os: macos
             target: x86_64
-            interpreter: pypy3.9 pypy3.10
+            interpreter: pypy3.9 pypy3.10 pypy3.11
           - os: macos
             target: aarch64
             # actions/setup-python@v5 does not support 3.8 and 3.9 on arm64
-            interpreter: 3.8 3.9 pypy3.9 pypy3.10
+            interpreter: 3.8 3.9 pypy3.9 pypy3.10 pypy3.11
 
           - os: ubuntu
             target: x86_64
-            interpreter: pypy3.9 pypy3.10
+            interpreter: pypy3.9 pypy3.10 pypy3.11
           - os: ubuntu
             target: i686
           - os: ubuntu
@@ -89,8 +89,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
-          container: ${{ matrix.container }}
-          args: --release --out dist --interpreter ${{ matrix.maturin-interpreter || matrix.interpreter || '3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10' }} ${{ matrix.extra-build-args }}
+          args: --release --out dist --interpreter ${{ matrix.interpreter || '3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10 pypy3.11' }}
           rust-toolchain: 1.76.0
           docker-options: -e CI
 
@@ -124,8 +123,16 @@ jobs:
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Checkout repository.
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5 # required for macos-13 with Python 3.8-3.10... otherwise UV uses PyPy...
+        with:
+          python-version: ${{ matrix.interpreter }}
+
+      - name: Install UV.
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.interpreter }}
 
@@ -151,11 +158,10 @@ jobs:
 
       - name: Gather PGO data.
         run: |
-          pip install -U pip
-          pip install -r pytests/requirements.txt 
+          uv sync --group testing
+          uv pip install libipld --no-index --no-deps --find-links pgo-wheel --force-reinstall
 
-          pip install libipld --no-index --no-deps --find-links pgo-wheel --force-reinstall
-          pytest . --benchmark-enable
+          uv run pytest . --benchmark-enable
 
           # we can't use github.workspace here because of Windows with backslashes
           rustup run 1.76.0 bash -c 'echo LLVM_PROFDATA=$RUSTUP_HOME/toolchains/$RUSTUP_TOOLCHAIN/lib/rustlib/${{ env.RUST_HOST }}/bin/llvm-profdata >> "$GITHUB_ENV"'

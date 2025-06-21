@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.201.0
+Version: 2.202.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -20,7 +20,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk.asset-awscli-v1==2.2.237
+Requires-Dist: aws-cdk.asset-awscli-v1==2.2.240
 Requires-Dist: aws-cdk.asset-node-proxy-agent-v6<3.0.0,>=2.1.0
 Requires-Dist: aws-cdk.cloud-assembly-schema<45.0.0,>=44.2.0
 Requires-Dist: constructs<11.0.0,>=10.0.0

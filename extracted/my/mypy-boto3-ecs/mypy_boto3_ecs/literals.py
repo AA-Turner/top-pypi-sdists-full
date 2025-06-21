@@ -176,6 +176,8 @@ OSFamilyType = Literal[
     "WINDOWS_SERVER_2019_FULL",
     "WINDOWS_SERVER_2022_CORE",
     "WINDOWS_SERVER_2022_FULL",
+    "WINDOWS_SERVER_2025_CORE",
+    "WINDOWS_SERVER_2025_FULL",
     "WINDOWS_SERVER_20H2_CORE",
 ]
 PidModeType = Literal["host", "task"]
@@ -264,6 +266,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -517,6 +520,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

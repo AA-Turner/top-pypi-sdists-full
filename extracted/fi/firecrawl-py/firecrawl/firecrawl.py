@@ -263,6 +263,7 @@ class CrawlParams(pydantic.BaseModel):
     ignoreQueryParameters: Optional[bool] = None
     regexOnFullURL: Optional[bool] = None
     delay: Optional[int] = None  # Delay in seconds between scrapes
+    maxConcurrency: Optional[int] = None
 
 class CrawlResponse(pydantic.BaseModel):
     """Response from crawling operations."""
@@ -686,6 +687,7 @@ class FirecrawlApp:
         max_discovery_depth: Optional[int] = None,
         limit: Optional[int] = None,
         allow_backward_links: Optional[bool] = None,
+        crawl_entire_domain: Optional[bool] = None,
         allow_external_links: Optional[bool] = None,
         ignore_sitemap: Optional[bool] = None,
         scrape_options: Optional[ScrapeOptions] = None,
@@ -694,6 +696,7 @@ class FirecrawlApp:
         ignore_query_parameters: Optional[bool] = None,
         regex_on_full_url: Optional[bool] = None,
         delay: Optional[int] = None,
+        max_concurrency: Optional[int] = None,
         poll_interval: Optional[int] = 2,
         idempotency_key: Optional[str] = None,
         **kwargs
@@ -708,7 +711,8 @@ class FirecrawlApp:
             max_depth (Optional[int]): Maximum crawl depth
             max_discovery_depth (Optional[int]): Maximum depth for finding new URLs
             limit (Optional[int]): Maximum pages to crawl
-            allow_backward_links (Optional[bool]): Follow parent directory links
+            allow_backward_links (Optional[bool]): DEPRECATED: Use crawl_entire_domain instead
+            crawl_entire_domain (Optional[bool]): Follow parent directory links
             allow_external_links (Optional[bool]): Follow external domain links
             ignore_sitemap (Optional[bool]): Skip sitemap.xml processing
             scrape_options (Optional[ScrapeOptions]): Page scraping configuration
@@ -717,6 +721,7 @@ class FirecrawlApp:
             ignore_query_parameters (Optional[bool]): Ignore URL parameters
             regex_on_full_url (Optional[bool]): Apply regex to full URLs
             delay (Optional[int]): Delay in seconds between scrapes
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             poll_interval (Optional[int]): Seconds between status checks (default: 2)
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
@@ -746,7 +751,9 @@ class FirecrawlApp:
             crawl_params['maxDiscoveryDepth'] = max_discovery_depth
         if limit is not None:
             crawl_params['limit'] = limit
-        if allow_backward_links is not None:
+        if crawl_entire_domain is not None:
+            crawl_params['crawlEntireDomain'] = crawl_entire_domain
+        elif allow_backward_links is not None:
             crawl_params['allowBackwardLinks'] = allow_backward_links
         if allow_external_links is not None:
             crawl_params['allowExternalLinks'] = allow_external_links
@@ -764,7 +771,9 @@ class FirecrawlApp:
             crawl_params['regexOnFullURL'] = regex_on_full_url
         if delay is not None:
             crawl_params['delay'] = delay
-
+        if max_concurrency is not None:
+            crawl_params['maxConcurrency'] = max_concurrency
+        
         # Add any additional kwargs
         crawl_params.update(kwargs)
 
@@ -797,6 +806,7 @@ class FirecrawlApp:
         max_discovery_depth: Optional[int] = None,
         limit: Optional[int] = None,
         allow_backward_links: Optional[bool] = None,
+        crawl_entire_domain: Optional[bool] = None,
         allow_external_links: Optional[bool] = None,
         ignore_sitemap: Optional[bool] = None,
         scrape_options: Optional[ScrapeOptions] = None,
@@ -818,7 +828,8 @@ class FirecrawlApp:
             max_depth (Optional[int]): Maximum crawl depth
             max_discovery_depth (Optional[int]): Maximum depth for finding new URLs
             limit (Optional[int]): Maximum pages to crawl
-            allow_backward_links (Optional[bool]): Follow parent directory links
+            allow_backward_links (Optional[bool]): DEPRECATED: Use crawl_entire_domain instead
+            crawl_entire_domain (Optional[bool]): Follow parent directory links
             allow_external_links (Optional[bool]): Follow external domain links
             ignore_sitemap (Optional[bool]): Skip sitemap.xml processing
             scrape_options (Optional[ScrapeOptions]): Page scraping configuration
@@ -826,6 +837,8 @@ class FirecrawlApp:
             deduplicate_similar_urls (Optional[bool]): Remove similar URLs
             ignore_query_parameters (Optional[bool]): Ignore URL parameters
             regex_on_full_url (Optional[bool]): Apply regex to full URLs
+            delay (Optional[int]): Delay in seconds between scrapes
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
 
@@ -855,7 +868,9 @@ class FirecrawlApp:
             crawl_params['maxDiscoveryDepth'] = max_discovery_depth
         if limit is not None:
             crawl_params['limit'] = limit
-        if allow_backward_links is not None:
+        if crawl_entire_domain is not None:
+            crawl_params['crawlEntireDomain'] = crawl_entire_domain
+        elif allow_backward_links is not None:
             crawl_params['allowBackwardLinks'] = allow_backward_links
         if allow_external_links is not None:
             crawl_params['allowExternalLinks'] = allow_external_links
@@ -873,7 +888,9 @@ class FirecrawlApp:
             crawl_params['regexOnFullURL'] = regex_on_full_url
         if delay is not None:
             crawl_params['delay'] = delay
-
+        if max_concurrency is not None:
+            crawl_params['maxConcurrency'] = max_concurrency
+        
         # Add any additional kwargs
         crawl_params.update(kwargs)
 
@@ -1042,6 +1059,7 @@ class FirecrawlApp:
             max_discovery_depth: Optional[int] = None,
             limit: Optional[int] = None,
             allow_backward_links: Optional[bool] = None,
+            crawl_entire_domain: Optional[bool] = None,
             allow_external_links: Optional[bool] = None,
             ignore_sitemap: Optional[bool] = None,
             scrape_options: Optional[ScrapeOptions] = None,
@@ -1049,6 +1067,8 @@ class FirecrawlApp:
             deduplicate_similar_urls: Optional[bool] = None,
             ignore_query_parameters: Optional[bool] = None,
             regex_on_full_url: Optional[bool] = None,
+            delay: Optional[int] = None,
+            max_concurrency: Optional[int] = None,
             idempotency_key: Optional[str] = None,
             **kwargs
     ) -> 'CrawlWatcher':
@@ -1062,7 +1082,8 @@ class FirecrawlApp:
             max_depth (Optional[int]): Maximum crawl depth
             max_discovery_depth (Optional[int]): Maximum depth for finding new URLs
             limit (Optional[int]): Maximum pages to crawl
-            allow_backward_links (Optional[bool]): Follow parent directory links
+            allow_backward_links (Optional[bool]): DEPRECATED: Use crawl_entire_domain instead
+            crawl_entire_domain (Optional[bool]): Follow parent directory links
             allow_external_links (Optional[bool]): Follow external domain links
             ignore_sitemap (Optional[bool]): Skip sitemap.xml processing
             scrape_options (Optional[ScrapeOptions]): Page scraping configuration
@@ -1070,6 +1091,8 @@ class FirecrawlApp:
             deduplicate_similar_urls (Optional[bool]): Remove similar URLs
             ignore_query_parameters (Optional[bool]): Ignore URL parameters
             regex_on_full_url (Optional[bool]): Apply regex to full URLs
+            delay (Optional[int]): Delay in seconds between scrapes
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
 
@@ -1094,6 +1117,8 @@ class FirecrawlApp:
             deduplicate_similar_urls=deduplicate_similar_urls,
             ignore_query_parameters=ignore_query_parameters,
             regex_on_full_url=regex_on_full_url,
+            delay=delay,
+            max_concurrency=max_concurrency,
             idempotency_key=idempotency_key,
             **kwargs
         )
@@ -1210,6 +1235,7 @@ class FirecrawlApp:
         actions: Optional[List[Union[WaitAction, ScreenshotAction, ClickAction, WriteAction, PressAction, ScrollAction, ScrapeAction, ExecuteJavascriptAction]]] = None,
         agent: Optional[AgentOptions] = None,
         poll_interval: Optional[int] = 2,
+        max_concurrency: Optional[int] = None,
         idempotency_key: Optional[str] = None,
         **kwargs
     ) -> BatchScrapeStatusResponse:
@@ -1235,6 +1261,7 @@ class FirecrawlApp:
             json_options (Optional[JsonConfig]): JSON extraction config
             actions (Optional[List[Union]]): Actions to perform
             agent (Optional[AgentOptions]): Agent configuration
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             poll_interval (Optional[int]): Seconds between status checks (default: 2)
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
@@ -1294,7 +1321,9 @@ class FirecrawlApp:
             scrape_params['actions'] = [action.dict(exclude_none=True) for action in actions]
         if agent is not None:
             scrape_params['agent'] = agent.dict(exclude_none=True)
-
+        if max_concurrency is not None:
+            scrape_params['maxConcurrency'] = max_concurrency
+        
         # Add any additional kwargs
         scrape_params.update(kwargs)
 
@@ -1343,6 +1372,7 @@ class FirecrawlApp:
         json_options: Optional[JsonConfig] = None,
         actions: Optional[List[Union[WaitAction, ScreenshotAction, ClickAction, WriteAction, PressAction, ScrollAction, ScrapeAction, ExecuteJavascriptAction]]] = None,
         agent: Optional[AgentOptions] = None,
+        max_concurrency: Optional[int] = None,
         idempotency_key: Optional[str] = None,
         **kwargs
     ) -> BatchScrapeResponse:
@@ -1368,6 +1398,7 @@ class FirecrawlApp:
             json_options (Optional[JsonConfig]): JSON extraction config
             actions (Optional[List[Union]]): Actions to perform
             agent (Optional[AgentOptions]): Agent configuration
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
 
@@ -1427,7 +1458,9 @@ class FirecrawlApp:
             scrape_params['actions'] = [action.dict(exclude_none=True) for action in actions]
         if agent is not None:
             scrape_params['agent'] = agent.dict(exclude_none=True)
-
+        if max_concurrency is not None:
+            scrape_params['maxConcurrency'] = max_concurrency
+        
         # Add any additional kwargs
         scrape_params.update(kwargs)
 
@@ -1475,6 +1508,7 @@ class FirecrawlApp:
         json_options: Optional[JsonConfig] = None,
         actions: Optional[List[Union[WaitAction, ScreenshotAction, ClickAction, WriteAction, PressAction, ScrollAction, ScrapeAction, ExecuteJavascriptAction]]] = None,
         agent: Optional[AgentOptions] = None,
+        max_concurrency: Optional[int] = None,
         idempotency_key: Optional[str] = None,
         **kwargs
     ) -> 'CrawlWatcher':
@@ -1500,6 +1534,7 @@ class FirecrawlApp:
             json_options (Optional[JsonConfig]): JSON extraction config
             actions (Optional[List[Union]]): Actions to perform
             agent (Optional[AgentOptions]): Agent configuration
+            max_concurrency (Optional[int]): Maximum number of concurrent scrapes
             idempotency_key (Optional[str]): Unique key to prevent duplicate requests
             **kwargs: Additional parameters to pass to the API
 
@@ -1555,7 +1590,9 @@ class FirecrawlApp:
             scrape_params['actions'] = [action.dict(exclude_none=True) for action in actions]
         if agent is not None:
             scrape_params['agent'] = agent.dict(exclude_none=True)
-
+        if max_concurrency is not None:
+            scrape_params['maxConcurrency'] = max_concurrency
+        
         # Add any additional kwargs
         scrape_params.update(kwargs)
 
@@ -2784,7 +2821,8 @@ class AsyncFirecrawlApp(FirecrawlApp):
             * limit - Maximum pages to crawl
 
             Link Following:
-            * allowBackwardLinks - Follow parent directory links
+            * allowBackwardLinks - DEPRECATED: Use crawlEntireDomain instead
+            * crawlEntireDomain - Follow parent directory links
             * allowExternalLinks - Follow external domain links  
             * ignoreSitemap - Skip sitemap.xml processing
 
@@ -3263,6 +3301,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
         max_discovery_depth: Optional[int] = None,
         limit: Optional[int] = None,
         allow_backward_links: Optional[bool] = None,
+        crawl_entire_domain: Optional[bool] = None,
         allow_external_links: Optional[bool] = None,
         ignore_sitemap: Optional[bool] = None,
         scrape_options: Optional[ScrapeOptions] = None,
@@ -3285,7 +3324,8 @@ class AsyncFirecrawlApp(FirecrawlApp):
             max_depth (Optional[int]): Maximum crawl depth
             max_discovery_depth (Optional[int]): Maximum depth for finding new URLs
             limit (Optional[int]): Maximum pages to crawl
-            allow_backward_links (Optional[bool]): Follow parent directory links
+            allow_backward_links (Optional[bool]): DEPRECATED: Use crawl_entire_domain instead
+            crawl_entire_domain (Optional[bool]): Follow parent directory links
             allow_external_links (Optional[bool]): Follow external domain links
             ignore_sitemap (Optional[bool]): Skip sitemap.xml processing
             scrape_options (Optional[ScrapeOptions]): Page scraping configuration
@@ -3323,7 +3363,9 @@ class AsyncFirecrawlApp(FirecrawlApp):
             crawl_params['maxDiscoveryDepth'] = max_discovery_depth
         if limit is not None:
             crawl_params['limit'] = limit
-        if allow_backward_links is not None:
+        if crawl_entire_domain is not None:
+            crawl_params['crawlEntireDomain'] = crawl_entire_domain
+        elif allow_backward_links is not None:
             crawl_params['allowBackwardLinks'] = allow_backward_links
         if allow_external_links is not None:
             crawl_params['allowExternalLinks'] = allow_external_links
@@ -3375,6 +3417,7 @@ class AsyncFirecrawlApp(FirecrawlApp):
         max_discovery_depth: Optional[int] = None,
         limit: Optional[int] = None,
         allow_backward_links: Optional[bool] = None,
+        crawl_entire_domain: Optional[bool] = None,
         allow_external_links: Optional[bool] = None,
         ignore_sitemap: Optional[bool] = None,
         scrape_options: Optional[ScrapeOptions] = None,
@@ -3397,7 +3440,8 @@ class AsyncFirecrawlApp(FirecrawlApp):
             max_depth (Optional[int]): Maximum crawl depth
             max_discovery_depth (Optional[int]): Maximum depth for finding new URLs
             limit (Optional[int]): Maximum pages to crawl
-            allow_backward_links (Optional[bool]): Follow parent directory links
+            allow_backward_links (Optional[bool]): DEPRECATED: Use crawl_entire_domain instead
+            crawl_entire_domain (Optional[bool]): Follow parent directory links
             allow_external_links (Optional[bool]): Follow external domain links
             ignore_sitemap (Optional[bool]): Skip sitemap.xml processing
             scrape_options (Optional[ScrapeOptions]): Page scraping configuration
@@ -3431,7 +3475,9 @@ class AsyncFirecrawlApp(FirecrawlApp):
             crawl_params['maxDiscoveryDepth'] = max_discovery_depth
         if limit is not None:
             crawl_params['limit'] = limit
-        if allow_backward_links is not None:
+        if crawl_entire_domain is not None:
+            crawl_params['crawlEntireDomain'] = crawl_entire_domain
+        elif allow_backward_links is not None:
             crawl_params['allowBackwardLinks'] = allow_backward_links
         if allow_external_links is not None:
             crawl_params['allowExternalLinks'] = allow_external_links

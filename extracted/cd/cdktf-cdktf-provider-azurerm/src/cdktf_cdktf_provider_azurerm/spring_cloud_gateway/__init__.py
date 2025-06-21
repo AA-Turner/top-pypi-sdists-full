@@ -1,7 +1,7 @@
 r'''
 # `azurerm_spring_cloud_gateway`
 
-Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway).
+Refer to the Terraform Registry for docs: [`azurerm_spring_cloud_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpringCloudGateway(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.springCloudGateway.SpringCloudGateway",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway azurerm_spring_cloud_gateway}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway azurerm_spring_cloud_gateway}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class SpringCloudGateway(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway azurerm_spring_cloud_gateway} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway azurerm_spring_cloud_gateway} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.
-        :param spring_cloud_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.
-        :param api_metadata: api_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
-        :param application_performance_monitoring_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.
-        :param application_performance_monitoring_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.
-        :param client_authorization: client_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.
-        :param local_response_cache_per_instance: local_response_cache_per_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
-        :param local_response_cache_per_route: local_response_cache_per_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
-        :param sensitive_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.
-        :param sso: sso block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.
+        :param spring_cloud_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.
+        :param api_metadata: api_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
+        :param application_performance_monitoring_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.
+        :param application_performance_monitoring_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.
+        :param client_authorization: client_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.
+        :param local_response_cache_per_instance: local_response_cache_per_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
+        :param local_response_cache_per_route: local_response_cache_per_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
+        :param sensitive_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.
+        :param sso: sso block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class SpringCloudGateway(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpringCloudGateway to import.
-        :param import_from_id: The id of the existing SpringCloudGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpringCloudGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpringCloudGateway to import is found.
         '''
         if __debug__:
@@ -176,11 +176,11 @@ class SpringCloudGateway(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.
-        :param documentation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.
-        :param server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.
+        :param documentation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.
+        :param server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.
         '''
         value = SpringCloudGatewayApiMetadata(
             description=description,
@@ -200,8 +200,8 @@ class SpringCloudGateway(
         verification_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param certificate_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.
-        :param verification_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.
+        :param certificate_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.
+        :param verification_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.
         '''
         value = SpringCloudGatewayClientAuthorization(
             certificate_ids=certificate_ids, verification_enabled=verification_enabled
@@ -222,13 +222,13 @@ class SpringCloudGateway(
         max_age_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.
-        :param allowed_origin_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.
-        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.
-        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.
+        :param allowed_origin_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.
+        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.
+        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.
         '''
         value = SpringCloudGatewayCors(
             allowed_headers=allowed_headers,
@@ -250,8 +250,8 @@ class SpringCloudGateway(
         time_to_live: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
-        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
+        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
         '''
         value = SpringCloudGatewayLocalResponseCachePerInstance(
             size=size, time_to_live=time_to_live
@@ -267,8 +267,8 @@ class SpringCloudGateway(
         time_to_live: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
-        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
+        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
         '''
         value = SpringCloudGatewayLocalResponseCachePerRoute(
             size=size, time_to_live=time_to_live
@@ -284,8 +284,8 @@ class SpringCloudGateway(
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.
         '''
         value = SpringCloudGatewayQuota(cpu=cpu, memory=memory)
 
@@ -301,10 +301,10 @@ class SpringCloudGateway(
         scope: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.
-        :param issuer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.
+        :param issuer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.
         '''
         value = SpringCloudGatewaySso(
             client_id=client_id,
@@ -325,10 +325,10 @@ class SpringCloudGateway(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.
         '''
         value = SpringCloudGatewayTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -739,11 +739,11 @@ class SpringCloudGatewayApiMetadata:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.
-        :param documentation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.
-        :param server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.
+        :param documentation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.
+        :param server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78b2191202d948787f215561fb8d229efe74117a0ce6f4750e6a0284a59b9d40)
@@ -766,31 +766,31 @@ class SpringCloudGatewayApiMetadata:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#description SpringCloudGateway#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def documentation_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#documentation_url SpringCloudGateway#documentation_url}.'''
         result = self._values.get("documentation_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def server_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#server_url SpringCloudGateway#server_url}.'''
         result = self._values.get("server_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def title(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#title SpringCloudGateway#title}.'''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#version SpringCloudGateway#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -963,8 +963,8 @@ class SpringCloudGatewayClientAuthorization:
         verification_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param certificate_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.
-        :param verification_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.
+        :param certificate_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.
+        :param verification_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f4efc04a5be5be02dc8304b59eaf0f210b88fee369da8f8c9c09d3f8239bcd7)
@@ -978,7 +978,7 @@ class SpringCloudGatewayClientAuthorization:
 
     @builtins.property
     def certificate_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#certificate_ids SpringCloudGateway#certificate_ids}.'''
         result = self._values.get("certificate_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -986,7 +986,7 @@ class SpringCloudGatewayClientAuthorization:
     def verification_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#verification_enabled SpringCloudGateway#verification_enabled}.'''
         result = self._values.get("verification_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1156,24 +1156,24 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.
-        :param spring_cloud_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.
-        :param api_metadata: api_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
-        :param application_performance_monitoring_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.
-        :param application_performance_monitoring_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.
-        :param client_authorization: client_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.
-        :param local_response_cache_per_instance: local_response_cache_per_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
-        :param local_response_cache_per_route: local_response_cache_per_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.
-        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
-        :param sensitive_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.
-        :param sso: sso block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.
+        :param spring_cloud_service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.
+        :param api_metadata: api_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
+        :param application_performance_monitoring_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.
+        :param application_performance_monitoring_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.
+        :param client_authorization: client_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.
+        :param local_response_cache_per_instance: local_response_cache_per_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
+        :param local_response_cache_per_route: local_response_cache_per_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.
+        :param quota: quota block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
+        :param sensitive_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.
+        :param sso: sso block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1337,14 +1337,14 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#name SpringCloudGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def spring_cloud_service_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#spring_cloud_service_id SpringCloudGateway#spring_cloud_service_id}.'''
         result = self._values.get("spring_cloud_service_id")
         assert result is not None, "Required property 'spring_cloud_service_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1353,7 +1353,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_metadata(self) -> typing.Optional[SpringCloudGatewayApiMetadata]:
         '''api_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#api_metadata SpringCloudGateway#api_metadata}
         '''
         result = self._values.get("api_metadata")
         return typing.cast(typing.Optional[SpringCloudGatewayApiMetadata], result)
@@ -1362,7 +1362,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_performance_monitoring_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_ids SpringCloudGateway#application_performance_monitoring_ids}.'''
         result = self._values.get("application_performance_monitoring_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1370,7 +1370,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_performance_monitoring_types(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#application_performance_monitoring_types SpringCloudGateway#application_performance_monitoring_types}.'''
         result = self._values.get("application_performance_monitoring_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1380,7 +1380,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[SpringCloudGatewayClientAuthorization]:
         '''client_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_authorization SpringCloudGateway#client_authorization}
         '''
         result = self._values.get("client_authorization")
         return typing.cast(typing.Optional[SpringCloudGatewayClientAuthorization], result)
@@ -1389,7 +1389,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cors(self) -> typing.Optional["SpringCloudGatewayCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cors SpringCloudGateway#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["SpringCloudGatewayCors"], result)
@@ -1398,7 +1398,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#environment_variables SpringCloudGateway#environment_variables}.'''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1406,13 +1406,13 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#https_only SpringCloudGateway#https_only}.'''
         result = self._values.get("https_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#id SpringCloudGateway#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1422,7 +1422,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#instance_count SpringCloudGateway#instance_count}.'''
         result = self._values.get("instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1432,7 +1432,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpringCloudGatewayLocalResponseCachePerInstance"]:
         '''local_response_cache_per_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_instance SpringCloudGateway#local_response_cache_per_instance}
         '''
         result = self._values.get("local_response_cache_per_instance")
         return typing.cast(typing.Optional["SpringCloudGatewayLocalResponseCachePerInstance"], result)
@@ -1443,7 +1443,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpringCloudGatewayLocalResponseCachePerRoute"]:
         '''local_response_cache_per_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#local_response_cache_per_route SpringCloudGateway#local_response_cache_per_route}
         '''
         result = self._values.get("local_response_cache_per_route")
         return typing.cast(typing.Optional["SpringCloudGatewayLocalResponseCachePerRoute"], result)
@@ -1452,7 +1452,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#public_network_access_enabled SpringCloudGateway#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1460,7 +1460,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def quota(self) -> typing.Optional["SpringCloudGatewayQuota"]:
         '''quota block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#quota SpringCloudGateway#quota}
         '''
         result = self._values.get("quota")
         return typing.cast(typing.Optional["SpringCloudGatewayQuota"], result)
@@ -1469,7 +1469,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sensitive_environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sensitive_environment_variables SpringCloudGateway#sensitive_environment_variables}.'''
         result = self._values.get("sensitive_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1477,7 +1477,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sso(self) -> typing.Optional["SpringCloudGatewaySso"]:
         '''sso block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#sso SpringCloudGateway#sso}
         '''
         result = self._values.get("sso")
         return typing.cast(typing.Optional["SpringCloudGatewaySso"], result)
@@ -1486,7 +1486,7 @@ class SpringCloudGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpringCloudGatewayTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#timeouts SpringCloudGateway#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpringCloudGatewayTimeouts"], result)
@@ -1529,13 +1529,13 @@ class SpringCloudGatewayCors:
         max_age_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.
-        :param allowed_origin_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.
-        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.
-        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.
+        :param allowed_origin_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.
+        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.
+        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66857bab341a8d9196a0c571c7e5b36dbbc6c4a0688c306bb5648bc936f464ea)
@@ -1564,25 +1564,25 @@ class SpringCloudGatewayCors:
 
     @builtins.property
     def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_headers SpringCloudGateway#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_methods SpringCloudGateway#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_origin_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origin_patterns SpringCloudGateway#allowed_origin_patterns}.'''
         result = self._values.get("allowed_origin_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#allowed_origins SpringCloudGateway#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1590,19 +1590,19 @@ class SpringCloudGatewayCors:
     def credentials_allowed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#credentials_allowed SpringCloudGateway#credentials_allowed}.'''
         result = self._values.get("credentials_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#exposed_headers SpringCloudGateway#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def max_age_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#max_age_seconds SpringCloudGateway#max_age_seconds}.'''
         result = self._values.get("max_age_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1820,8 +1820,8 @@ class SpringCloudGatewayLocalResponseCachePerInstance:
         time_to_live: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
-        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
+        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fc165033d8460ef3b275ef4f32f28e1d6e5d350e452c939c72466cc3b251e27)
@@ -1835,13 +1835,13 @@ class SpringCloudGatewayLocalResponseCachePerInstance:
 
     @builtins.property
     def size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_to_live(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.'''
         result = self._values.get("time_to_live")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1950,8 +1950,8 @@ class SpringCloudGatewayLocalResponseCachePerRoute:
         time_to_live: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
-        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.
+        :param time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bac71c986cca371eb3bde34cf65c4a58dca8bf2aa55b683b8465433cd5e63637)
@@ -1965,13 +1965,13 @@ class SpringCloudGatewayLocalResponseCachePerRoute:
 
     @builtins.property
     def size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#size SpringCloudGateway#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_to_live(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#time_to_live SpringCloudGateway#time_to_live}.'''
         result = self._values.get("time_to_live")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2080,8 +2080,8 @@ class SpringCloudGatewayQuota:
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29c5564cda6208a8a285528193188313d8eb896104c4f80506036d8e1d077582)
@@ -2095,13 +2095,13 @@ class SpringCloudGatewayQuota:
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#cpu SpringCloudGateway#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#memory SpringCloudGateway#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2212,10 +2212,10 @@ class SpringCloudGatewaySso:
         scope: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.
-        :param issuer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.
+        :param issuer_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__608e5df39a8558e29df7ec802a2975d2be9295274a64233c9f58f93d08266d3b)
@@ -2235,25 +2235,25 @@ class SpringCloudGatewaySso:
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_id SpringCloudGateway#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#client_secret SpringCloudGateway#client_secret}.'''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def issuer_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#issuer_uri SpringCloudGateway#issuer_uri}.'''
         result = self._values.get("issuer_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#scope SpringCloudGateway#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2406,10 +2406,10 @@ class SpringCloudGatewayTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d210a8cf9328eaf0a9a63ad7e472ab3d32923fd3cbae74830ac509fb946ee3c6)
@@ -2429,25 +2429,25 @@ class SpringCloudGatewayTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#create SpringCloudGateway#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#delete SpringCloudGateway#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#read SpringCloudGateway#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/spring_cloud_gateway#update SpringCloudGateway#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

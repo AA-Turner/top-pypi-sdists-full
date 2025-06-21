@@ -55,6 +55,8 @@ class extension(param.ParameterizedFunction):
 
     def __new__(cls, *args, **kwargs):
         if _in_ipython:
+            from IPython import get_ipython
+
             exec_count = get_ipython().execution_count  # noqa: F821
             extension._repeat_execution_in_cell = (exec_count == cls._last_execution_count)
             # Update the last count on this base class only so that every new instance
@@ -399,8 +401,6 @@ class JupyterComm(Comm):
 
     def init(self):
         from ipykernel.comm import Comm as IPyComm
-        if self._comm:
-            return
         self._comm = IPyComm(target_name=self.id, data={})
         self._comm.on_msg(self._handle_msg)
         if self._on_open:
@@ -563,7 +563,6 @@ class JupyterCommManager(CommManager):
           var messages = comm.messages[Symbol.asyncIterator]();
           function processIteratorResult(result) {
             var message = result.value;
-            console.log(message)
             var content = {data: message.data, comm_id};
             var buffers = []
             for (var buffer of message.buffers || []) {
@@ -590,7 +589,22 @@ class JupyterCommManager(CommManager):
         }
       } else if ((plot_id in window.PyViz.kernels) && (window.PyViz.kernels[plot_id])) {
         var comm = window.PyViz.kernels[plot_id].connectToComm(comm_id);
-        comm.open();
+        let retries = 0;
+        const open = () => {
+          if (comm.active) {
+            comm.open();
+          } else if (retries > 3) {
+            console.warn('Comm target never activated')
+          } else {
+            retries += 1
+            setTimeout(open, 500)
+          }
+        }
+        if (comm.active) {
+          comm.open();
+        } else {
+          setTimeout(open, 500)
+        }
         if (msg_handler) {
           comm.onMsg = msg_handler;
         }

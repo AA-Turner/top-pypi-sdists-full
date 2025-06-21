@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-azurerm",
-    "version": "14.2.0",
+    "version": "14.3.0",
     "description": "Prebuilt azurerm Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-azurerm.git",
@@ -362,10 +362,12 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_attached_network",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_catalog",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_dev_box_definition",
+        "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_environment_type",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_gallery",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_network_connection",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_project",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_project_environment_type",
+        "cdktf_cdktf_provider_azurerm.data_azurerm_dev_center_project_pool",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_test_lab",
         "cdktf_cdktf_provider_azurerm.data_azurerm_dev_test_virtual_network",
         "cdktf_cdktf_provider_azurerm.data_azurerm_digital_twins_instance",
@@ -1505,7 +1507,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_azurerm._jsii": [
-            "provider-azurerm@14.2.0.jsii.tgz"
+            "provider-azurerm@14.3.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_azurerm": [
             "py.typed"

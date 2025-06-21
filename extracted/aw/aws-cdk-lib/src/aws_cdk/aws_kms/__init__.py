@@ -113,9 +113,10 @@ trail = cloudtrail.Trail(self, "myCloudTrail",
 )
 ```
 
-Note that calls to `addToResourcePolicy` and `grant*` methods on `myKeyAlias` will be
-no-ops, and `addAlias` and `aliasTargetKey` will fail, as the imported alias does not
-have a reference to the underlying KMS Key.
+Note that calls to `addToResourcePolicy` method on `myKeyAlias` will be a no-op, `addAlias` and `aliasTargetKey` will fail.
+The `grant*` methods will not modify the key policy, as the imported alias does not have a reference to the underlying KMS Key.
+For the `grant*` methods to modify the principal's IAM policy, the feature flag `@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal`
+must be set to `true`. By default, this flag is `false` and `grant*` calls on an imported alias are a no-op.
 
 ### Lookup key by alias
 
@@ -3287,7 +3288,12 @@ class Alias(
 
         This method should be used
         instead of 'fromAliasAttributes' when the underlying KMS Key ARN is not available.
-        This Alias will not have a direct reference to the KMS Key, so addAlias and grant* methods are not supported.
+        This Alias will not have a direct reference to the KMS Key, so addAlias method is not supported.
+
+        If the ``@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal`` feature flag is set to ``true``,
+        the grant* methods will use the kms:ResourceAliases condition to grant permissions to the specific alias name.
+        They will only modify the principal policy, not the key resource policy.
+        Without the feature flag ``grant*`` methods will be a no-op.
 
         :param scope: The parent creating construct (usually ``this``).
         :param id: The construct's name.

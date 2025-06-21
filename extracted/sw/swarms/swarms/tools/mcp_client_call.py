@@ -494,6 +494,9 @@ async def execute_tool_call_simple(
     *args,
     **kwargs,
 ) -> List[Dict[str, Any]]:
+    if isinstance(response, str):
+        response = json.loads(response)
+
     return await _execute_tool_call_simple(
         response=response,
         server_path=server_path,

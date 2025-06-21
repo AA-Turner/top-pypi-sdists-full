@@ -5,6 +5,7 @@
 
 from typing import Any
 
+import kornia.augmentation as K
 import matplotlib.pyplot as plt
 import torch
 from matplotlib.figure import Figure
@@ -21,6 +22,7 @@ from torchvision.models.detection import (
 
 from ..datasets import RGBBandsMissingError, unbind_samples
 from .base import BaseTask
+from .utils import GeneralizedRCNNTransformNoOp
 
 
 class InstanceSegmentationTask(BaseTask):
@@ -45,6 +47,9 @@ class InstanceSegmentationTask(BaseTask):
         freeze_backbone: bool = False,
     ) -> None:
         """Initialize a new InstanceSegmentationTask instance.
+
+        Note that we disable the internal normalize+resize transform of the MaskRCNN model.
+        Please ensure your images are appropriately resized before passing them to the model.
 
         Args:
             model: Name of the model to use.
@@ -87,6 +92,7 @@ class InstanceSegmentationTask(BaseTask):
                     num_classes=num_classes,
                     weights_backbone=weights_backbone,
                 )
+                self.model.transform = GeneralizedRCNNTransformNoOp()
             else:
                 msg = f"Invalid backbone type '{backbone}'. Supported backbone: 'resnet50'"
                 raise ValueError(msg)
@@ -182,6 +188,12 @@ class InstanceSegmentationTask(BaseTask):
             and hasattr(self.logger.experiment, 'add_figure')
         ):
             datamodule = self.trainer.datamodule
+            aug = K.AugmentationSequential(
+                K.Denormalize(datamodule.mean, datamodule.std),
+                data_keys=None,
+                keepdim=True,
+            )
+            batch = aug(batch)
 
             batch['prediction_bbox_xyxy'] = [pred['boxes'].cpu() for pred in y_hat]
             batch['prediction_mask'] = [pred['masks'].cpu() for pred in y_hat]

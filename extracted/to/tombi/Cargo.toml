@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.4.10"  # We use git tags for versioning. This is just a placeholder.
+version = "0.4.12"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: pyiqa
-Version: 0.1.13
+Version: 0.1.14
 Summary: PyTorch Toolbox for Image Quality Assessment
 Home-page: https://github.com/chaofengc/IQA-PyTorch
 Author: Chaofeng Chen
@@ -19,9 +19,10 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-S-Lab
-Requires-Dist: accelerate
+Requires-Dist: accelerate<=1.1.0
 Requires-Dist: addict
-Requires-Dist: bitsandbytes
+Requires-Dist: datasets
+Requires-Dist: bitsandbytes; sys_platform != "darwin"
 Requires-Dist: einops
 Requires-Dist: facexlib
 Requires-Dist: future
@@ -36,6 +37,7 @@ Requires-Dist: pre-commit
 Requires-Dist: pytest
 Requires-Dist: pyyaml
 Requires-Dist: requests
+Requires-Dist: ruff
 Requires-Dist: scikit-image
 Requires-Dist: scipy
 Requires-Dist: sentencepiece
@@ -46,6 +48,16 @@ Requires-Dist: torchvision>=0.13
 Requires-Dist: tqdm
 Requires-Dist: transformers==4.37.2
 Requires-Dist: yapf
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # <img align="left" width="100" height="100" src="docs/pyiqa_logo.jpg"> PyTorch Toolbox for Image Quality Assessment
 
@@ -63,7 +75,7 @@ An IQA toolbox with pure python and pytorch. Please refer to [Awesome-Image-Qual
 
 ## :open_book: Introduction
 
-This is a comprehensive image quality assessment (IQA) toolbox built with **pure Python and PyTorch**. We provide reimplementation of many mainstream full reference (FR) and no reference (NR) metrics (results are calibrated with official matlab scripts if exist). **With GPU acceleration, most of our implementations are much faster than Matlab.** Please refer to the following documents for details:  
+This is a comprehensive image quality assessment (IQA) toolbox built with **pure Python and PyTorch**. We provide reimplementation of many widely used full reference (FR) and no reference (NR) metrics, **with results calibrated against official MATLAB scripts when available**. With GPU acceleration, **our implementations are much faster than their Matlab counterparts.** Please refer to the following documents for details:  
 
 <div align="center">
 
@@ -74,14 +86,12 @@ This is a comprehensive image quality assessment (IQA) toolbox built with **pure
 ---
 
 ### :triangular_flag_on_post: Updates/Changelog
-- 🎨**Oct, 2024**. Add perceptual color difference metric `msswd` proposed in [MS-SWD (ECCV2024)](https://github.com/real-hjq/MS-SWD). Thanks to their work! 🤗
-- ⏳**Sep, 2024**. Add [efficiency benchmark](tests/Efficiency_benchmark.csv). With $1080\times800$ image as inputs, all metrics complete **in under 1 second on the GPU** (NVIDIA V100), and most of them, except for `qalign` and `qalign_8bit`, require **less than 6GB of GPU memory**.
-- ⚡**Aug, 2024**. Add `qalign_4bit` and `qalign_8bit` with much less memory requirement and similar performance.
-- ✨**Aug, 2024**. Add `piqe` metric, and `niqe_matlab, brisque_matlab` with default matlab parameters (results have been calibrated with MATLAB R2021b).
-- 💥**Aug, 2024**. Add `lpips+` and `lpips-vgg+` proposed in our paper [TOPIQ](https://arxiv.org/abs/2308.03060). 
-- 🔥**June, 2024**. Add `arniqa` and its variances trained on different datasets, refer to official repo [here](https://github.com/miccunifi/ARNIQA). Thanks for the contribution from [Lorenzo Agnolucci](https://github.com/LorenzoAgnolucci) 🤗.
-- **Apr 24, 2024**. Add `inception_score` and console entry point with `pyiqa` command.
-- **Mar 11, 2024**. Add `unique`, refer to official repo [here](https://github.com/zwx8981/UNIQUE). Thanks for the contribution from [Weixia Zhang](https://github.com/zwx8981) 🤗.
+- 🎉**Jun, 2025**. Add `sfid`, a commonly used metric in generative models.
+- 🎆**Jan, 2025**. Add `qualiclip`, `qualiclip+` and its variances trained on different datasets, refer to official repo [here](https://github.com/miccunifi/QualiCLIP). Thanks for the contribution from [Lorenzo Agnolucci](https://github.com/LorenzoAgnolucci) 🤗.
+- 🪐**Dec, 2024**. Add `fid` with MMD distance, use it with `fid_metric(..., distance_type='mmd', kernel_type='rbf')`refer to [cmmd](https://github.com/google-research/google-research/tree/master/cmmd) for more details. Thanks to [Ina](https://github.com/Luciennnnnnn) for the contributions.
+- 🌕**Dec, 2024**. Add `fid_dinov2`, refer to [dgm-eval](https://github.com/layer6ai-labs/dgm-eval) for more details. 
+- 💫**Nov, 2024**. Add `pyiqa.load_dataset` for easy loading of several common datasets. 
+- 🌟**Nov, 2024**. Add `compare2score` and `deepdc`. Thanks to [hanwei](https://github.com/h4nwei) for their great work 🤗, and please refer to their official papers for more details! 
 - [**More**](docs/history_changelog.md)
 
 ---
@@ -112,7 +122,7 @@ You can simply use the package with commandline interface.
 pyiqa -ls
 
 # test with default settings
-pyiqa [metric_name(s)] --target [image_path or dir] --ref [image_path or dir]
+pyiqa [metric_name(s)] -t [image_path or dir] -r [image_path or dir] --device [cuda or cpu] --verbose
 ```
 
 ### Advanced Usage with Codes
@@ -169,7 +179,7 @@ iqa_metric = pyiqa.create_metric('topiq_nr', device=device, **custom_opts)
 iqa_metric.load_weights('path/to/weights.pth', weight_keys='params')
 ```
 
-#### Example Test script
+#### Example test script
 
 Example test script with input directory/images and reference directory/images. 
 ```bash
@@ -179,6 +189,42 @@ python inference_iqa.py -m LPIPS[or lpips] -i ./ResultsCalibra/dist_dir[dist_img
 # example for NR metric with single image
 python inference_iqa.py -m brisque -i ./ResultsCalibra/dist_dir/I03.bmp
 ```
+
+#### Easy load of popular datasets
+
+We offer an easy way to load popular IQA datasets through the configuration file `pyiqa/default_dataset_configs.yml`. The specified datasets will automatically download from the [huggingface IQA-PyTorch-Dataset](https://huggingface.co/datasets/chaofengc/IQA-PyTorch-Datasets). See example code below:
+```python 
+from pyiqa import get_dataset_info, load_dataset
+
+# list all available datasets
+print(get_dataset_info().keys())
+
+# load dataset with default options and official split
+dataset = load_dataset('koniq10k', data_root='./datasets', force_download=False, split_index='official_split', phase='test')
+print(f'Loaded dataset, len={len(dataset)}, {dataset[0].keys()}')
+print(dataset[0]['img'].shape)
+
+# split_ratio: train/test/val
+dataset = load_dataset('csiq', data_root='./datasets', force_download=False, split_index=1, split_ratio='622', phase='test')
+print(f'Loaded dataset, len={len(dataset)}, {dataset[0].keys()}')
+print(dataset[0]['img'].shape)
+
+# or use dataset options
+dataset_opts = {
+  'split_index': 1,
+  'split_ratio': '622',
+  'phase': 'test',
+  'augment': {
+      'resize': 256,
+      'center_crop': 224,
+  }
+}
+dataset = load_dataset('csiq', data_root='./datasets', force_download=False, dataset_opts=dataset_opts)
+print(f'Loaded dataset, len={len(dataset)}, {dataset[0].keys()}')
+print(dataset[0]['img'].shape)
+```
+**Please refer to [Dataset Cards](docs/Dataset_Preparation.md) for more details about the `dataset_opts`.**
+
 
 ## :1st_place_medal: Benchmark Performances and Model Zoo
 
@@ -216,7 +262,7 @@ cd ./datasets/meta_info
 git pull
 ```
 
-Examples to specific dataset options can be found in `./options/default_dataset_opt.yml`. Details of the dataloader interface and meta information files can be found in [Dataset Preparation](docs/Dataset_Preparation.md)
+Examples to specific dataset options can be found in `./pyiqa/default_dataset_configs.yml`. Details of the dataloader interface and meta information files can be found in [Dataset Preparation](docs/Dataset_Preparation.md)
 
 ### Performance Evaluation Protocol
 
@@ -224,9 +270,10 @@ Examples to specific dataset options can be found in `./options/default_dataset_
 
 | Metric Type   | Train     | Test                                       | Results                                                  | 
 | ------------- | --------- | ------------------------------------------ | -------------------------------------------------------- |
-| FR            | KADID-10k | CSIQ, LIVE, TID2008, TID2013               | [FR benchmark results](tests/FR_benchmark_results.csv)   |
-| NR            | KonIQ-10k | LIVEC, KonIQ-10k (official split), TID2013, SPAQ | [NR benchmark results](tests/NR_benchmark_results.csv)   |
-| Aesthetic IQA | AVA       | AVA (official split)                       | [IAA benchmark results](tests/IAA_benchmark_results.csv) |
+| FR            | KADID-10k | CSIQ, LIVE, TID2008, TID2013               | [FR benchmark](tests/FR_benchmark_results.csv)   |
+| NR            | KonIQ-10k | LIVEC, KonIQ-10k (official split), TID2013, SPAQ | [NR benchmark](tests/NR_benchmark_results.csv)   |
+| Aesthetic IQA | AVA       | AVA (official split)                       | [IAA benchmark](tests/IAA_benchmark_results.csv) |
+| Face IQA | [CGFIQA](https://github.com/DSL-FIQA/DSL-FIQA) | CGFIQA (official split)                    | [Face IQA benchmark](tests/Face_benchmark_results.csv) |
 | Efficiency | CPU/GPU Time, GPU Memory | Average on $1080\times800$ image inputs | [Efficiency benchmark](tests/Efficiency_benchmark.csv) |
 
 Results are calculated with:

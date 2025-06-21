@@ -9,7 +9,6 @@ import warnings
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from itertools import filterfalse
-from random import choice
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID, uuid5
 
@@ -59,23 +58,32 @@ async def register_graph(
     GRAPHS[graph_id] = graph
     if callable(graph):
         FACTORY_ACCEPTS_CONFIG[graph_id] = len(inspect.signature(graph).parameters) > 0
-    async with connect() as conn:
-        graph_name = getattr(graph, "name", None) if isinstance(graph, Pregel) else None
-        assistant_name = (
-            graph_name
-            if graph_name is not None and graph_name != "LangGraph"
-            else graph_id
-        )
-        await Assistants.put(
-            conn,
-            str(uuid5(NAMESPACE_GRAPH, graph_id)),
-            graph_id=graph_id,
-            metadata={"created_by": "system"},
-            config=config or {},
-            if_exists="do_nothing",
-            name=assistant_name,
-            description=description,
-        )
+
+    from langgraph_runtime.retry import retry_db
+
+    @retry_db
+    async def register_graph_db():
+        async with connect() as conn:
+            graph_name = (
+                getattr(graph, "name", None) if isinstance(graph, Pregel) else None
+            )
+            assistant_name = (
+                graph_name
+                if graph_name is not None and graph_name != "LangGraph"
+                else graph_id
+            )
+            await Assistants.put(
+                conn,
+                str(uuid5(NAMESPACE_GRAPH, graph_id)),
+                graph_id=graph_id,
+                metadata={"created_by": "system"},
+                config=config or {},
+                if_exists="do_nothing",
+                name=assistant_name,
+                description=description,
+            )
+
+    await register_graph_db()
 
 
 def register_graph_sync(
@@ -408,7 +416,12 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
         module = importlib.import_module(spec.module)
     elif spec.path:
         try:
-            modname = "".join(choice("abcdefghijklmnopqrstuvwxyz") for _ in range(24))
+            modname = (
+                spec.path.replace("/", "__")
+                .replace(".py", "")
+                .replace(" ", "_")
+                .lstrip(".")
+            )
             modspec = importlib.util.spec_from_file_location(modname, spec.path)
             if modspec is None:
                 raise ValueError(f"Could not find python file for graph: {spec}")
@@ -561,8 +574,8 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
         try:
             if "/" in module_name:
                 # Load from file path
-                modname = "".join(
-                    choice("abcdefghijklmnopqrstuvwxyz") for _ in range(24)
+                modname = (
+                    module_name.replace("/", "__").replace(".py", "").replace(" ", "_")
                 )
                 modspec = importlib.util.spec_from_file_location(modname, module_name)
                 if modspec is None:

@@ -83,11 +83,11 @@ class DBController(metaclass=Singleton):
             if node.hostname == hostname
         ]
 
-    def get_storage_node_by_id(self, id) -> Optional[StorageNode]:
+    def get_storage_node_by_id(self, id) -> StorageNode:
         ret = StorageNode().read_from_db(self.kv_store, id)
-        if ret:
-            return ret[0]
-        return None
+        if len(ret) == 0:
+            raise KeyError(f'StorageNode {id} not found')
+        return ret[0]
 
     # todo: change this function for multi cluster
     def get_caching_nodes(self) -> List[CachingNode]:
@@ -122,13 +122,18 @@ class DBController(metaclass=Singleton):
                 return node
         return None
 
-    def get_storage_device_by_id(self, id) -> Optional[NVMeDevice]:
+    def get_storage_device_by_id(self, id) -> NVMeDevice:
         nodes = self.get_storage_nodes()
-        for node in nodes:
-            for dev in node.nvme_devices:
-                if dev.get_id() == id:
-                    return dev
-        return None
+        try:
+            return next(
+                device
+                for node in nodes
+                for device in node.nvme_devices
+                if device.get_id() == id
+            )
+        except StopIteration:
+            raise KeyError(f'Device {id} not found')
+
 
     def get_pools(self, cluster_id=None) -> List[Pool]:
         pools = []
@@ -321,8 +326,6 @@ class DBController(metaclass=Singleton):
 
     def get_snode_size(self, node_id) -> int:
         snode = self.get_storage_node_by_id(node_id)
-        if snode is None:
-            raise KeyError('Node not found')
         return sum(dev.size for dev in snode.nvme_devices)
 
     def get_jm_device_by_id(self, jm_id) -> Optional[JMDevice]:

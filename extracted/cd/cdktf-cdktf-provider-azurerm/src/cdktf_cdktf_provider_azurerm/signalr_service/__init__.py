@@ -1,7 +1,7 @@
 r'''
 # `azurerm_signalr_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_signalr_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service).
+Refer to the Terraform Registry for docs: [`azurerm_signalr_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SignalrService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.signalrService.SignalrService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service azurerm_signalr_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service azurerm_signalr_service}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class SignalrService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service azurerm_signalr_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service azurerm_signalr_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#location SignalrService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#sku SignalrService#sku}
-        :param aad_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.
-        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#cors SignalrService#cors}
-        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#id SignalrService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity SignalrService#identity}
-        :param live_trace: live_trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
-        :param live_trace_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.
-        :param local_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.
-        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.
-        :param serverless_connection_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.
-        :param service_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tags SignalrService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
-        :param tls_client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.
-        :param upstream_endpoint: upstream_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#location SignalrService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#sku SignalrService#sku}
+        :param aad_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.
+        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#cors SignalrService#cors}
+        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#id SignalrService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity SignalrService#identity}
+        :param live_trace: live_trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
+        :param live_trace_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.
+        :param local_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.
+        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.
+        :param serverless_connection_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.
+        :param service_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tags SignalrService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
+        :param tls_client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.
+        :param upstream_endpoint: upstream_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class SignalrService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SignalrService to import.
-        :param import_from_id: The id of the existing SignalrService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SignalrService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SignalrService to import is found.
         '''
         if __debug__:
@@ -195,8 +195,8 @@ class SignalrService(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#type SignalrService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#type SignalrService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.
         '''
         value = SignalrServiceIdentity(type=type, identity_ids=identity_ids)
 
@@ -212,10 +212,10 @@ class SignalrService(
         messaging_logs_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#enabled SignalrService#enabled}.
-        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
-        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
+        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#enabled SignalrService#enabled}.
+        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
+        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
         '''
         value = SignalrServiceLiveTrace(
             connectivity_logs_enabled=connectivity_logs_enabled,
@@ -229,8 +229,8 @@ class SignalrService(
     @jsii.member(jsii_name="putSku")
     def put_sku(self, *, capacity: jsii.Number, name: builtins.str) -> None:
         '''
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#capacity SignalrService#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#capacity SignalrService#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.
         '''
         value = SignalrServiceSku(capacity=capacity, name=name)
 
@@ -246,10 +246,10 @@ class SignalrService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#create SignalrService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#delete SignalrService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#read SignalrService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#update SignalrService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#create SignalrService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#delete SignalrService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#read SignalrService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#update SignalrService#update}.
         '''
         value = SignalrServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -846,27 +846,27 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#location SignalrService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.
-        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#sku SignalrService#sku}
-        :param aad_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.
-        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#cors SignalrService#cors}
-        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#id SignalrService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity SignalrService#identity}
-        :param live_trace: live_trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
-        :param live_trace_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.
-        :param local_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.
-        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.
-        :param serverless_connection_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.
-        :param service_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tags SignalrService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
-        :param tls_client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.
-        :param upstream_endpoint: upstream_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#location SignalrService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.
+        :param sku: sku block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#sku SignalrService#sku}
+        :param aad_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.
+        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#cors SignalrService#cors}
+        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#id SignalrService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity SignalrService#identity}
+        :param live_trace: live_trace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
+        :param live_trace_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.
+        :param local_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.
+        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.
+        :param serverless_connection_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.
+        :param service_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tags SignalrService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
+        :param tls_client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.
+        :param upstream_endpoint: upstream_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1029,21 +1029,21 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#location SignalrService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#location SignalrService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#resource_group_name SignalrService#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1052,7 +1052,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sku(self) -> "SignalrServiceSku":
         '''sku block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#sku SignalrService#sku}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#sku SignalrService#sku}
         '''
         result = self._values.get("sku")
         assert result is not None, "Required property 'sku' is missing"
@@ -1062,7 +1062,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aad_auth_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#aad_auth_enabled SignalrService#aad_auth_enabled}.'''
         result = self._values.get("aad_auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1070,7 +1070,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connectivity_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.'''
         result = self._values.get("connectivity_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1080,7 +1080,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SignalrServiceCors"]]]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#cors SignalrService#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#cors SignalrService#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SignalrServiceCors"]]], result)
@@ -1089,13 +1089,13 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_request_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.'''
         result = self._values.get("http_request_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#id SignalrService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#id SignalrService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1107,7 +1107,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["SignalrServiceIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity SignalrService#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity SignalrService#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["SignalrServiceIdentity"], result)
@@ -1116,7 +1116,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def live_trace(self) -> typing.Optional["SignalrServiceLiveTrace"]:
         '''live_trace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace SignalrService#live_trace}
         '''
         result = self._values.get("live_trace")
         return typing.cast(typing.Optional["SignalrServiceLiveTrace"], result)
@@ -1125,7 +1125,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def live_trace_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#live_trace_enabled SignalrService#live_trace_enabled}.'''
         result = self._values.get("live_trace_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1133,7 +1133,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_auth_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#local_auth_enabled SignalrService#local_auth_enabled}.'''
         result = self._values.get("local_auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1141,7 +1141,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def messaging_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.'''
         result = self._values.get("messaging_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1149,25 +1149,25 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#public_network_access_enabled SignalrService#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def serverless_connection_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#serverless_connection_timeout_in_seconds SignalrService#serverless_connection_timeout_in_seconds}.'''
         result = self._values.get("serverless_connection_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#service_mode SignalrService#service_mode}.'''
         result = self._values.get("service_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tags SignalrService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tags SignalrService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1175,7 +1175,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SignalrServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#timeouts SignalrService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SignalrServiceTimeouts"], result)
@@ -1184,7 +1184,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tls_client_cert_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#tls_client_cert_enabled SignalrService#tls_client_cert_enabled}.'''
         result = self._values.get("tls_client_cert_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1194,7 +1194,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SignalrServiceUpstreamEndpoint"]]]:
         '''upstream_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#upstream_endpoint SignalrService#upstream_endpoint}
         '''
         result = self._values.get("upstream_endpoint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SignalrServiceUpstreamEndpoint"]]], result)
@@ -1219,7 +1219,7 @@ class SignalrServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SignalrServiceCors:
     def __init__(self, *, allowed_origins: typing.Sequence[builtins.str]) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#allowed_origins SignalrService#allowed_origins}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#allowed_origins SignalrService#allowed_origins}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48767a00a52d79b2bd25a9578598f77a5629436014e9fe8eb3cad57dcf8d283e)
@@ -1230,7 +1230,7 @@ class SignalrServiceCors:
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#allowed_origins SignalrService#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#allowed_origins SignalrService#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1411,8 +1411,8 @@ class SignalrServiceIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#type SignalrService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#type SignalrService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bf564fc86bc0276728f938686095c5f52c70ed2524256fad296eadee15e8bc5)
@@ -1426,14 +1426,14 @@ class SignalrServiceIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#type SignalrService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#type SignalrService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#identity_ids SignalrService#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1550,10 +1550,10 @@ class SignalrServiceLiveTrace:
         messaging_logs_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#enabled SignalrService#enabled}.
-        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
-        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
+        :param connectivity_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#enabled SignalrService#enabled}.
+        :param http_request_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.
+        :param messaging_logs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d2ac80172246c436c91d075cb79a4d73cd7c8557041dba74bfe740fe06fadb5)
@@ -1575,7 +1575,7 @@ class SignalrServiceLiveTrace:
     def connectivity_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#connectivity_logs_enabled SignalrService#connectivity_logs_enabled}.'''
         result = self._values.get("connectivity_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1583,7 +1583,7 @@ class SignalrServiceLiveTrace:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#enabled SignalrService#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#enabled SignalrService#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1591,7 +1591,7 @@ class SignalrServiceLiveTrace:
     def http_request_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#http_request_logs_enabled SignalrService#http_request_logs_enabled}.'''
         result = self._values.get("http_request_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1599,7 +1599,7 @@ class SignalrServiceLiveTrace:
     def messaging_logs_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#messaging_logs_enabled SignalrService#messaging_logs_enabled}.'''
         result = self._values.get("messaging_logs_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1766,8 +1766,8 @@ class SignalrServiceLiveTraceOutputReference(
 class SignalrServiceSku:
     def __init__(self, *, capacity: jsii.Number, name: builtins.str) -> None:
         '''
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#capacity SignalrService#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#capacity SignalrService#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4f525a8c8f2353a323916f22e6f20421aa3f03c717630df5e81b08b5c4a8069)
@@ -1780,14 +1780,14 @@ class SignalrServiceSku:
 
     @builtins.property
     def capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#capacity SignalrService#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#capacity SignalrService#capacity}.'''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#name SignalrService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#name SignalrService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1891,10 +1891,10 @@ class SignalrServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#create SignalrService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#delete SignalrService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#read SignalrService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#update SignalrService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#create SignalrService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#delete SignalrService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#read SignalrService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#update SignalrService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4154830b0df1dfea1796ad8524380755010d727be2bc585e395d172a737fbd3)
@@ -1914,25 +1914,25 @@ class SignalrServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#create SignalrService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#create SignalrService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#delete SignalrService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#delete SignalrService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#read SignalrService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#read SignalrService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#update SignalrService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#update SignalrService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2092,11 +2092,11 @@ class SignalrServiceUpstreamEndpoint:
         user_assigned_identity_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#category_pattern SignalrService#category_pattern}.
-        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#event_pattern SignalrService#event_pattern}.
-        :param hub_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#hub_pattern SignalrService#hub_pattern}.
-        :param url_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#url_template SignalrService#url_template}.
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#user_assigned_identity_id SignalrService#user_assigned_identity_id}.
+        :param category_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#category_pattern SignalrService#category_pattern}.
+        :param event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#event_pattern SignalrService#event_pattern}.
+        :param hub_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#hub_pattern SignalrService#hub_pattern}.
+        :param url_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#url_template SignalrService#url_template}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#user_assigned_identity_id SignalrService#user_assigned_identity_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bc8ed7492d0a53219393a1cd25f5132ef9124f4424a35cf4c0f1e1752150373)
@@ -2116,35 +2116,35 @@ class SignalrServiceUpstreamEndpoint:
 
     @builtins.property
     def category_pattern(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#category_pattern SignalrService#category_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#category_pattern SignalrService#category_pattern}.'''
         result = self._values.get("category_pattern")
         assert result is not None, "Required property 'category_pattern' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def event_pattern(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#event_pattern SignalrService#event_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#event_pattern SignalrService#event_pattern}.'''
         result = self._values.get("event_pattern")
         assert result is not None, "Required property 'event_pattern' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def hub_pattern(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#hub_pattern SignalrService#hub_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#hub_pattern SignalrService#hub_pattern}.'''
         result = self._values.get("hub_pattern")
         assert result is not None, "Required property 'hub_pattern' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def url_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#url_template SignalrService#url_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#url_template SignalrService#url_template}.'''
         result = self._values.get("url_template")
         assert result is not None, "Required property 'url_template' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/signalr_service#user_assigned_identity_id SignalrService#user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/signalr_service#user_assigned_identity_id SignalrService#user_assigned_identity_id}.'''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -806,7 +806,7 @@ DvbSubtitleShadowColorType = Literal["AUTO", "BLACK", "NONE", "WHITE"]
 DvbSubtitleStylePassthroughType = Literal["DISABLED", "ENABLED"]
 DvbSubtitleTeletextSpacingType = Literal["AUTO", "FIXED_GRID", "PROPORTIONAL"]
 DvbSubtitlingTypeType = Literal["HEARING_IMPAIRED", "STANDARD"]
-DvbddsHandlingType = Literal["NONE", "NO_DISPLAY_WINDOW", "SPECIFIED"]
+DvbddsHandlingType = Literal["NONE", "NO_DISPLAY_WINDOW", "SPECIFIED", "SPECIFIED_OPTIMAL"]
 DynamicAudioSelectorTypeType = Literal["ALL_TRACKS", "LANGUAGE_CODE"]
 Eac3AtmosBitstreamModeType = Literal["COMPLETE_MAIN"]
 Eac3AtmosCodingModeType = Literal[
@@ -1556,6 +1556,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -1809,6 +1810,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",

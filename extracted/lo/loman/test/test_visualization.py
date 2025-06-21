@@ -4,7 +4,7 @@ from itertools import tee
 import networkx as nx
 
 import loman.visualization
-from loman import Computation, States
+from loman import Computation, States, node
 import loman.computeengine
 from collections import namedtuple
 from loman.consts import NodeTransformations
@@ -287,25 +287,68 @@ def test_draw_expanded_block_with_wildcard_2():
 
     v = comp.draw(node_transformations={'**': 'expand'})
     nodes = get_path_to_node_mapping(v)
-
-    assert to_nodekey('foo1/bar1/baz1/a') in nodes
-    assert to_nodekey('foo1/bar1/baz1/b') in nodes
-    assert to_nodekey('foo1/bar1/baz1/c') in nodes
-    assert to_nodekey('foo1/bar1/baz1/d') in nodes
+    expected = ['input_a',
+                'foo1/bar1/baz1/a', 'foo1/bar1/baz1/b', 'foo1/bar1/baz1/c', 'foo1/bar1/baz1/d',
+                'foo1/bar1/baz2/a', 'foo1/bar1/baz2/b', 'foo1/bar1/baz2/c', 'foo1/bar1/baz2/d',
+                'foo1/bar2/baz1/a', 'foo1/bar2/baz1/b', 'foo1/bar2/baz1/c', 'foo1/bar2/baz1/d',
+                'foo1/bar2/baz2/a', 'foo1/bar2/baz2/b', 'foo1/bar2/baz2/c', 'foo1/bar2/baz2/d',
+                'foo2/bar1/baz1/a', 'foo2/bar1/baz1/b', 'foo2/bar1/baz1/c', 'foo2/bar1/baz1/d',
+                'foo2/bar1/baz2/a', 'foo2/bar1/baz2/b', 'foo2/bar1/baz2/c', 'foo2/bar1/baz2/d',
+                'foo2/bar2/baz1/a', 'foo2/bar2/baz1/b', 'foo2/bar2/baz1/c', 'foo2/bar2/baz1/d',
+                'foo2/bar2/baz2/a', 'foo2/bar2/baz2/b', 'foo2/bar2/baz2/c', 'foo2/bar2/baz2/d']
+    assert nodes.keys() == {to_nodekey(n) for n in expected}
 
     v = comp.draw(node_transformations={'foo1/bar1/**': 'expand'})
     nodes = get_path_to_node_mapping(v)
-
-    assert to_nodekey('foo1/bar1/baz1/a') in nodes
-    assert to_nodekey('foo1/bar1/baz1/b') in nodes
-    assert to_nodekey('foo1/bar1/baz1/c') in nodes
-    assert to_nodekey('foo1/bar1/baz1/d') in nodes
-
+    expected = ['input_a',
+                'foo1/bar1/baz1/a', 'foo1/bar1/baz1/b', 'foo1/bar1/baz1/c', 'foo1/bar1/baz1/d',
+                'foo1/bar1/baz2/a', 'foo1/bar1/baz2/b', 'foo1/bar1/baz2/c', 'foo1/bar1/baz2/d',
+                'foo1/bar2', 'foo2']
+    assert nodes.keys() == {to_nodekey(n) for n in expected}
 
     v = comp.draw(node_transformations={'foo2/bar2/**': 'expand'})
     nodes = get_path_to_node_mapping(v)
+    expected = ['input_a',
+                'foo1', 'foo2/bar1',
+                'foo2/bar2/baz1/a', 'foo2/bar2/baz1/b', 'foo2/bar2/baz1/c', 'foo2/bar2/baz1/d',
+                'foo2/bar2/baz2/a', 'foo2/bar2/baz2/b', 'foo2/bar2/baz2/c', 'foo2/bar2/baz2/d']
+    assert nodes.keys() == {to_nodekey(n) for n in expected}
 
-    assert to_nodekey('foo1/bar1/baz1/a') not in nodes
-    assert to_nodekey('foo1/bar1/baz1/b') not in nodes
-    assert to_nodekey('foo1/bar1/baz1/c') not in nodes
-    assert to_nodekey('foo1/bar1/baz1/d') not in nodes
+    v = comp.draw(node_transformations={'*': 'expand'})
+    nodes = get_path_to_node_mapping(v)
+    assert nodes.keys() == {to_nodekey(n) for n in ['input_a', 'foo1/bar1', 'foo1/bar2', 'foo2/bar1', 'foo2/bar2']}
+
+    v = comp.draw(node_transformations={'*/*': 'expand'})
+    nodes = get_path_to_node_mapping(v)
+    assert nodes.keys() == {to_nodekey(n) for n in ['input_a',
+                                                    'foo1/bar1/baz1', 'foo1/bar1/baz2', 'foo1/bar2/baz1', 'foo1/bar2/baz2',
+                                                    'foo2/bar1/baz1', 'foo2/bar1/baz2', 'foo2/bar2/baz1', 'foo2/bar2/baz2']}
+
+def test_style_preservation_with_block_links():
+    def build_comp():
+        comp = Computation()
+        comp.add_node("a", style="dot")
+        comp.add_node("b", style="dot")
+        comp.add_node('e', style='dot')
+
+        @node(comp, "c")
+        def comp_c(a, b):
+            return a + b
+
+        comp.add_node("d", lambda a: a + 1, style="small")
+        return comp
+
+    full_comp = Computation()
+    full_comp.add_node("params/a", value=1, style="dot")
+    full_comp.add_node("params/b", value=1, style="dot")
+    full_comp.add_node("params/c", value=1, style="dot")
+    full_comp.add_block("comp", build_comp(), links={
+        "a": "params/a",
+        "b": "params/b",
+        "e": "params/c"
+    })
+
+    expected_styles = ['dot'] * 4 + [None, 'small']
+    actual_styles = full_comp.styles(["params/a", 'params/b', 'comp/a', 'comp/b', 'comp/c', 'comp/d'])
+
+    assert expected_styles == actual_styles

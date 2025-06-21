@@ -384,6 +384,7 @@ __all__ = (
     "DataLakeAccessPropertiesOutputTypeDef",
     "DataLakeAccessPropertiesTypeDef",
     "DataLakePrincipalTypeDef",
+    "DataQualityAggregatedMetricsTypeDef",
     "DataQualityAnalyzerResultTypeDef",
     "DataQualityEncryptionTypeDef",
     "DataQualityEvaluationRunAdditionalRunOptionsTypeDef",
@@ -2368,6 +2369,15 @@ class DataLakePrincipalTypeDef(TypedDict):
     DataLakePrincipalIdentifier: NotRequired[str]
 
 
+class DataQualityAggregatedMetricsTypeDef(TypedDict):
+    TotalRowsProcessed: NotRequired[float]
+    TotalRowsPassed: NotRequired[float]
+    TotalRowsFailed: NotRequired[float]
+    TotalRulesProcessed: NotRequired[float]
+    TotalRulesPassed: NotRequired[float]
+    TotalRulesFailed: NotRequired[float]
+
+
 class DataQualityAnalyzerResultTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
@@ -2400,6 +2410,7 @@ class DataQualityRuleResultTypeDef(TypedDict):
     Result: NotRequired[DataQualityRuleResultStatusType]
     EvaluatedMetrics: NotRequired[Dict[str, float]]
     EvaluatedRule: NotRequired[str]
+    RuleMetrics: NotRequired[Dict[str, float]]
 
 
 class GlueTableOutputTypeDef(TypedDict):
@@ -7839,6 +7850,7 @@ class DataQualityResultTypeDef(TypedDict):
     RuleResults: NotRequired[List[DataQualityRuleResultTypeDef]]
     AnalyzerResults: NotRequired[List[DataQualityAnalyzerResultTypeDef]]
     Observations: NotRequired[List[DataQualityObservationTypeDef]]
+    AggregatedMetrics: NotRequired[DataQualityAggregatedMetricsTypeDef]
 
 
 class GetDataQualityResultResponseTypeDef(TypedDict):
@@ -7856,6 +7868,7 @@ class GetDataQualityResultResponseTypeDef(TypedDict):
     RuleResults: List[DataQualityRuleResultTypeDef]
     AnalyzerResults: List[DataQualityAnalyzerResultTypeDef]
     Observations: List[DataQualityObservationTypeDef]
+    AggregatedMetrics: DataQualityAggregatedMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytorch-lightning
-Version: 2.5.1.post0
+Version: 2.5.2
 Summary: PyTorch Lightning is the lightweight PyTorch wrapper for ML researchers. Scale your models. Write less boilerplate.
 Home-page: https://github.com/Lightning-AI/lightning
 Download-URL: https://github.com/Lightning-AI/lightning
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -38,82 +39,97 @@ Requires-Dist: lightning-utilities>=0.10.0
 Provides-Extra: strategies
 Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
 Provides-Extra: test
-Requires-Dist: coverage==7.3.1; extra == "test"
-Requires-Dist: pytest==7.4.0; extra == "test"
-Requires-Dist: pytest-cov==4.1.0; extra == "test"
-Requires-Dist: pytest-timeout==2.1.0; extra == "test"
-Requires-Dist: pytest-rerunfailures==12.0; extra == "test"
-Requires-Dist: pytest-random-order==1.1.0; extra == "test"
+Requires-Dist: coverage==7.9.1; extra == "test"
+Requires-Dist: pytest==8.4.0; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
+Requires-Dist: pytest-random-order==1.1.1; extra == "test"
 Requires-Dist: cloudpickle>=1.3; extra == "test"
 Requires-Dist: scikit-learn>0.22.1; extra == "test"
 Requires-Dist: numpy>=1.17.2; extra == "test"
 Requires-Dist: onnx>=1.12.0; extra == "test"
 Requires-Dist: onnxruntime>=1.12.0; extra == "test"
-Requires-Dist: psutil<5.9.6; extra == "test"
-Requires-Dist: pandas>1.0; extra == "test"
+Requires-Dist: psutil<7.0.1; extra == "test"
+Requires-Dist: pandas>2.0; extra == "test"
 Requires-Dist: fastapi; extra == "test"
 Requires-Dist: uvicorn; extra == "test"
 Requires-Dist: tensorboard>=2.9.1; extra == "test"
-Provides-Extra: examples
-Requires-Dist: requests<2.32.0; extra == "examples"
-Requires-Dist: torchvision>=0.16.0; extra == "examples"
-Requires-Dist: ipython[all]<8.15.0; extra == "examples"
-Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
-Requires-Dist: lightning-utilities>=0.8.0; extra == "examples"
 Provides-Extra: extra
 Requires-Dist: matplotlib>3.1; extra == "extra"
 Requires-Dist: omegaconf>=2.2.3; extra == "extra"
 Requires-Dist: hydra-core>=1.2.0; extra == "extra"
-Requires-Dist: jsonargparse[signatures]>=4.27.7; extra == "extra"
+Requires-Dist: jsonargparse[jsonnet,signatures]>=4.39.0; extra == "extra"
 Requires-Dist: rich>=12.3.0; extra == "extra"
 Requires-Dist: tensorboardX>=2.2; extra == "extra"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "extra"
+Provides-Extra: examples
+Requires-Dist: requests<2.33.0; extra == "examples"
+Requires-Dist: torchvision>=0.16.0; extra == "examples"
+Requires-Dist: ipython[all]<8.19.0; extra == "examples"
+Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
+Requires-Dist: lightning-utilities>=0.8.0; extra == "examples"
 Provides-Extra: deepspeed
 Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "deepspeed"
 Provides-Extra: all
 Requires-Dist: matplotlib>3.1; extra == "all"
 Requires-Dist: omegaconf>=2.2.3; extra == "all"
 Requires-Dist: hydra-core>=1.2.0; extra == "all"
-Requires-Dist: jsonargparse[signatures]>=4.27.7; extra == "all"
+Requires-Dist: jsonargparse[jsonnet,signatures]>=4.39.0; extra == "all"
 Requires-Dist: rich>=12.3.0; extra == "all"
 Requires-Dist: tensorboardX>=2.2; extra == "all"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "all"
 Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "all"
-Requires-Dist: requests<2.32.0; extra == "all"
+Requires-Dist: requests<2.33.0; extra == "all"
 Requires-Dist: torchvision>=0.16.0; extra == "all"
-Requires-Dist: ipython[all]<8.15.0; extra == "all"
+Requires-Dist: ipython[all]<8.19.0; extra == "all"
 Requires-Dist: torchmetrics>=0.10.0; extra == "all"
 Requires-Dist: lightning-utilities>=0.8.0; extra == "all"
 Provides-Extra: dev
 Requires-Dist: matplotlib>3.1; extra == "dev"
 Requires-Dist: omegaconf>=2.2.3; extra == "dev"
 Requires-Dist: hydra-core>=1.2.0; extra == "dev"
-Requires-Dist: jsonargparse[signatures]>=4.27.7; extra == "dev"
+Requires-Dist: jsonargparse[jsonnet,signatures]>=4.39.0; extra == "dev"
 Requires-Dist: rich>=12.3.0; extra == "dev"
 Requires-Dist: tensorboardX>=2.2; extra == "dev"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "dev"
 Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "dev"
-Requires-Dist: requests<2.32.0; extra == "dev"
+Requires-Dist: requests<2.33.0; extra == "dev"
 Requires-Dist: torchvision>=0.16.0; extra == "dev"
-Requires-Dist: ipython[all]<8.15.0; extra == "dev"
+Requires-Dist: ipython[all]<8.19.0; extra == "dev"
 Requires-Dist: torchmetrics>=0.10.0; extra == "dev"
 Requires-Dist: lightning-utilities>=0.8.0; extra == "dev"
-Requires-Dist: coverage==7.3.1; extra == "dev"
-Requires-Dist: pytest==7.4.0; extra == "dev"
-Requires-Dist: pytest-cov==4.1.0; extra == "dev"
-Requires-Dist: pytest-timeout==2.1.0; extra == "dev"
-Requires-Dist: pytest-rerunfailures==12.0; extra == "dev"
-Requires-Dist: pytest-random-order==1.1.0; extra == "dev"
+Requires-Dist: coverage==7.9.1; extra == "dev"
+Requires-Dist: pytest==8.4.0; extra == "dev"
+Requires-Dist: pytest-cov==6.2.1; extra == "dev"
+Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
+Requires-Dist: pytest-rerunfailures==15.1; extra == "dev"
+Requires-Dist: pytest-random-order==1.1.1; extra == "dev"
 Requires-Dist: cloudpickle>=1.3; extra == "dev"
 Requires-Dist: scikit-learn>0.22.1; extra == "dev"
 Requires-Dist: numpy>=1.17.2; extra == "dev"
 Requires-Dist: onnx>=1.12.0; extra == "dev"
 Requires-Dist: onnxruntime>=1.12.0; extra == "dev"
-Requires-Dist: psutil<5.9.6; extra == "dev"
-Requires-Dist: pandas>1.0; extra == "dev"
+Requires-Dist: psutil<7.0.1; extra == "dev"
+Requires-Dist: pandas>2.0; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: tensorboard>=2.9.1; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <div align="center">
 
@@ -132,7 +148,7 @@ ______________________________________________________________________
   <a href="#examples">Examples</a> •
   <a href="#community">Community</a> •
   <a href="https://lightning.ai/">Lightning AI</a> •
-  <a href="https://github.com/Lightning-AI/lightning/blob/master/LICENSE">License</a>
+  <a href="https://github.com/Lightning-AI/pytorch-lightning/blob/master/LICENSE">License</a>
 </p>
 
 <!-- DO NOT ADD CONDA DOWNLOADS... README CHANGES MUST BE APPROVED BY EDEN OR WILL -->
@@ -144,8 +160,8 @@ ______________________________________________________________________
 [![DockerHub](https://img.shields.io/docker/pulls/pytorchlightning/pytorch_lightning.svg)](https://hub.docker.com/r/pytorchlightning/pytorch_lightning)
 [![codecov](https://codecov.io/gh/Lightning-AI/pytorch-lightning/graph/badge.svg?token=SmzX8mnKlA)](https://codecov.io/gh/Lightning-AI/pytorch-lightning)
 
-[![ReadTheDocs](https://readthedocs.org/projects/pytorch-lightning/badge/?version=2.5.1.post0)](https://lightning.ai/docs/pytorch/stable/)[![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
-[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lightning/blob/master/LICENSE)
+[![ReadTheDocs](https://readthedocs.org/projects/pytorch-lightning/badge/?version=2.5.2)](https://lightning.ai/docs/pytorch/stable/)[![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/pytorch-lightning/blob/master/LICENSE)
 
 <!--
 [![CodeFactor](https://www.codefactor.io/repository/github/Lightning-AI/lightning/badge)](https://www.codefactor.io/repository/github/Lightning-AI/lightning)

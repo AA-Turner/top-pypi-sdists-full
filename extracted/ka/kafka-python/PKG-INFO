@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kafka-python
-Version: 2.2.12
+Version: 2.2.13
 Summary: Pure Python client for Apache Kafka
 Author-email: Dana Powers <dana.powers@gmail.com>
 Project-URL: Homepage, https://github.com/dpkp/kafka-python
@@ -45,7 +45,7 @@ Requires-Dist: pyperf; extra == "benchmarks"
 Kafka Python client
 ------------------------
 
-.. image:: https://img.shields.io/badge/kafka-3.9--0.8-brightgreen.svg
+.. image:: https://img.shields.io/badge/kafka-4.0--0.8-brightgreen.svg
     :target: https://kafka-python.readthedocs.io/en/master/compatibility.html
 .. image:: https://img.shields.io/pypi/pyversions/kafka-python.svg
     :target: https://pypi.python.org/pypi/kafka-python

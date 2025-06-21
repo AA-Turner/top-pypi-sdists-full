@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-solutions-constructs.core",
-    "version": "2.85.2",
+    "version": "2.85.4",
     "description": "Core CDK Construct for patterns library",
     "license": "Apache-2.0",
     "url": "https://github.com/awslabs/aws-solutions-constructs.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_solutions_constructs.core._jsii": [
-            "core@2.85.2.jsii.tgz"
+            "core@2.85.4.jsii.tgz"
         ],
         "aws_solutions_constructs.core": [
             "py.typed"

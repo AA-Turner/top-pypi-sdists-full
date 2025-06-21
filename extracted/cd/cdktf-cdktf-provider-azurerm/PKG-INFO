@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdktf-cdktf-provider-azurerm
-Version: 14.2.0
+Version: 14.3.0
 Summary: Prebuilt azurerm Provider for Terraform CDK (cdktf)
 Home-page: https://github.com/cdktf/cdktf-provider-azurerm.git
 Author: HashiCorp
@@ -25,9 +25,9 @@ Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.33.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.34.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -89,7 +89,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.

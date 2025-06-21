@@ -298,8 +298,10 @@ def encode_geometries(ds: xr.Dataset):
     geom_var_names = [
         name
         for name, var in ds._variables.items()
-        if var.dtype == "O" and isinstance(var.data.flat[0], SHAPELY_TYPES)
+        if var.dtype == "geometry"
+        or (var.dtype == "O" and isinstance(var.data.flat[0], SHAPELY_TYPES))
     ]
+
     if not geom_var_names:
         return ds
 
@@ -410,8 +412,8 @@ def reshape_unique_geometries(
     out = out.unstack(temp_name)
 
     # geom_var was reshaped also, reconstruct it from the unique values.
-    unique_indexes = xr.DataArray(unique_indexes, dims=(new_dim,))
-    out[geom_var] = ds[geom_var].isel({old_name: unique_indexes})
+    unique_indexes_da = xr.DataArray(unique_indexes, dims=(new_dim,))
+    out[geom_var] = ds[geom_var].isel({old_name: unique_indexes_da})
     if old_name not in ds.coords:
         # If there was no coord before, drop the dummy one we made.
         out = out.drop_vars(old_name)  # type: ignore[arg-type,unused-ignore]  # Hashable/str stuff

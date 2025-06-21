@@ -144,12 +144,28 @@ def schedule(
                 message = "You have exceeded your runs limit."
             else:
                 gpu = "Pro GPU" if auth == 'pro' else ("free GPU" if auth == 'regular' else "GPU")
-                message = (
+                message_gui = (
                     f"You have exceeded your {gpu} quota "
                     f"({requested}s requested vs. {res.left}s left). "
                     f"Try again in {res.wait}"
                 )
-            raise error("ZeroGPU quota exceeded", message)
+                if auth is None:
+                    message_mcp = (
+                        "Unlogged user is runnning out of daily ZeroGPU quotas. "
+                        "Signup for free on https://huggingface.co/join "
+                        "or login on https://huggingface.co/login "
+                        "to get more ZeroGPU quota now."
+                    )
+                elif auth == 'regular':
+                    message_mcp = (
+                        "User is runnning out of daily ZeroGPU quotas. "
+                        "Visit https://huggingface.co/subscribe/pro "
+                        "to get more ZeroGPU quota now."
+                    )
+                else:
+                    message_mcp = message_gui
+                message = html_string(message_gui, message_mcp)
+            raise error("ZeroGPU quota exceeded", message, html=True)
 
     if not isinstance(res, httpx.codes): # pragma: no cover
         if meta.queuing_reason in ('node', None):

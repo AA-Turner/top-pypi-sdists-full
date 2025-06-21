@@ -1,7 +1,7 @@
 r'''
 # `azurerm_orbital_contact`
 
-Refer to the Terraform Registry for docs: [`azurerm_orbital_contact`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact).
+Refer to the Terraform Registry for docs: [`azurerm_orbital_contact`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrbitalContact(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.orbitalContact.OrbitalContact",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact azurerm_orbital_contact}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact azurerm_orbital_contact}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class OrbitalContact(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact azurerm_orbital_contact} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact azurerm_orbital_contact} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param contact_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.
-        :param ground_station_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#name OrbitalContact#name}.
-        :param reservation_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.
-        :param reservation_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.
-        :param spacecraft_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#id OrbitalContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
+        :param contact_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.
+        :param ground_station_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#name OrbitalContact#name}.
+        :param reservation_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.
+        :param reservation_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.
+        :param spacecraft_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#id OrbitalContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class OrbitalContact(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrbitalContact to import.
-        :param import_from_id: The id of the existing OrbitalContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrbitalContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrbitalContact to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class OrbitalContact(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#create OrbitalContact#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#read OrbitalContact#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#create OrbitalContact#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#read OrbitalContact#read}.
         '''
         value = OrbitalContactTimeouts(create=create, delete=delete, read=read)
 
@@ -354,14 +354,14 @@ class OrbitalContactConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param contact_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.
-        :param ground_station_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#name OrbitalContact#name}.
-        :param reservation_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.
-        :param reservation_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.
-        :param spacecraft_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#id OrbitalContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
+        :param contact_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.
+        :param ground_station_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#name OrbitalContact#name}.
+        :param reservation_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.
+        :param reservation_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.
+        :param spacecraft_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#id OrbitalContact#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -477,49 +477,49 @@ class OrbitalContactConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def contact_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#contact_profile_id OrbitalContact#contact_profile_id}.'''
         result = self._values.get("contact_profile_id")
         assert result is not None, "Required property 'contact_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ground_station_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#ground_station_name OrbitalContact#ground_station_name}.'''
         result = self._values.get("ground_station_name")
         assert result is not None, "Required property 'ground_station_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#name OrbitalContact#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#name OrbitalContact#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def reservation_end_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_end_time OrbitalContact#reservation_end_time}.'''
         result = self._values.get("reservation_end_time")
         assert result is not None, "Required property 'reservation_end_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def reservation_start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#reservation_start_time OrbitalContact#reservation_start_time}.'''
         result = self._values.get("reservation_start_time")
         assert result is not None, "Required property 'reservation_start_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def spacecraft_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#spacecraft_id OrbitalContact#spacecraft_id}.'''
         result = self._values.get("spacecraft_id")
         assert result is not None, "Required property 'spacecraft_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#id OrbitalContact#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#id OrbitalContact#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -531,7 +531,7 @@ class OrbitalContactConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OrbitalContactTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#timeouts OrbitalContact#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OrbitalContactTimeouts"], result)
@@ -562,9 +562,9 @@ class OrbitalContactTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#create OrbitalContact#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#read OrbitalContact#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#create OrbitalContact#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#read OrbitalContact#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bfc75e9878b57253893eefd00962ba6f1cf12dd9bc54bee682642c222ee1d46)
@@ -581,19 +581,19 @@ class OrbitalContactTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#create OrbitalContact#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#create OrbitalContact#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#delete OrbitalContact#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/orbital_contact#read OrbitalContact#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/orbital_contact#read OrbitalContact#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

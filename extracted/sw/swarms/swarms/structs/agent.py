@@ -40,9 +40,13 @@ from swarms.schemas.base_schemas import (
     ChatCompletionResponseChoice,
     ChatMessageResponse,
 )
+from swarms.schemas.llm_agent_schema import ModelConfigOrigin
+from swarms.structs.agent_rag_handler import (
+    RAGConfig,
+    AgentRAGHandler,
+)
 from swarms.structs.agent_roles import agent_roles
 from swarms.structs.conversation import Conversation
-from swarms.structs.output_types import OutputType
 from swarms.structs.safe_loading import (
     SafeLoaderUtils,
     SafeStateManager,
@@ -56,6 +60,7 @@ from swarms.utils.any_to_str import any_to_str
 from swarms.utils.data_to_text import data_to_text
 from swarms.utils.file_processing import create_file_in_folder
 from swarms.utils.formatter import formatter
+from swarms.utils.generate_keys import generate_api_key
 from swarms.utils.history_output_formatter import (
     history_output_formatter,
 )
@@ -78,10 +83,10 @@ from swarms.utils.index import (
     format_data_structure,
     format_dict_to_string,
 )
+from swarms.schemas.conversation_schema import ConversationSchema
+from swarms.utils.output_types import OutputType
 
 
-# Utils
-# Custom stopping condition
 def stop_when_repeats(response: str) -> bool:
     # Stop if the word stop appears in the response
     return "stop" in response.lower()
@@ -317,7 +322,7 @@ class Agent:
         pdf_path: Optional[str] = None,
         list_of_pdf: Optional[str] = None,
         tokenizer: Optional[Any] = None,
-        long_term_memory: Optional[Any] = None,
+        long_term_memory: Optional[Union[Callable, Any]] = None,
         preset_stopping_token: Optional[bool] = False,
         traceback: Optional[Any] = None,
         traceback_handlers: Optional[Any] = None,
@@ -406,7 +411,13 @@ class Agent:
         safety_prompt_on: bool = False,
         random_models_on: bool = False,
         mcp_config: Optional[MCPConnection] = None,
-        top_p: float = 0.90,
+        top_p: Optional[float] = 0.90,
+        conversation_schema: Optional[ConversationSchema] = None,
+        aditional_llm_config: Optional[ModelConfigOrigin] = None,
+        llm_base_url: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
+        rag_config: Optional[RAGConfig] = None,
+        tool_call_summary: bool = False,
         *args,
         **kwargs,
     ):
@@ -435,7 +446,7 @@ class Agent:
         self.system_prompt = system_prompt
         self.agent_name = agent_name
         self.agent_description = agent_description
-        self.saved_state_path = f"{self.agent_name}_state.json"
+        self.saved_state_path = f"{self.agent_name}_{generate_api_key(prefix='agent-')}_state.json"
         self.autosave = autosave
         self.response_filters = []
         self.self_healing_enabled = self_healing_enabled
@@ -533,10 +544,12 @@ class Agent:
         self.random_models_on = random_models_on
         self.mcp_config = mcp_config
         self.top_p = top_p
-
-        self._cached_llm = (
-            None  # Add this line to cache the LLM instance
-        )
+        self.conversation_schema = conversation_schema
+        self.aditional_llm_config = aditional_llm_config
+        self.llm_base_url = llm_base_url
+        self.llm_api_key = llm_api_key
+        self.rag_config = rag_config
+        self.tool_call_summary = tool_call_summary
 
         # self.short_memory = self.short_memory_init()
 
@@ -545,6 +558,8 @@ class Agent:
 
         # self.init_handling()
         self.setup_config()
+
+        self.short_memory = self.short_memory_init()
 
         if exists(self.docs_folder):
             self.get_docs_from_doc_folders()
@@ -563,8 +578,6 @@ class Agent:
         if self.react_on is True:
             self.system_prompt += REACT_SYS_PROMPT
 
-        self.short_memory = self.short_memory_init()
-
         # Run sequential operations after all concurrent tasks are done
         # self.agent_output = self.agent_output_model()
         log_agent_data(self.to_dict())
@@ -577,6 +590,22 @@ class Agent:
 
         if self.random_models_on is True:
             self.model_name = set_random_models_for_agents()
+
+        if self.long_term_memory is not None:
+            self.rag_handler = self.rag_setup_handling()
+
+        if self.dashboard is True:
+            self.print_dashboard()
+
+        self.reliability_check()
+
+    def rag_setup_handling(self):
+        return AgentRAGHandler(
+            long_term_memory=self.long_term_memory,
+            config=self.rag_config,
+            agent_name=self.agent_name,
+            verbose=self.verbose,
+        )
 
     def tool_handling(self):
 
@@ -612,10 +641,23 @@ class Agent:
         # Initialize the short term memory
         memory = Conversation(
             system_prompt=prompt,
-            time_enabled=False,
             user=self.user_name,
             rules=self.rules,
-            token_count=False,
+            token_count=(
+                self.conversation_schema.count_tokens
+                if self.conversation_schema
+                else False
+            ),
+            message_id_on=(
+                self.conversation_schema.message_id_on
+                if self.conversation_schema
+                else False
+            ),
+            time_enabled=(
+                self.conversation_schema.time_enabled
+                if self.conversation_schema
+                else False
+            ),
         )
 
         return memory
@@ -642,8 +684,8 @@ class Agent:
 
     def llm_handling(self):
         # Use cached instance if available
-        if self._cached_llm is not None:
-            return self._cached_llm
+        if self.llm is not None:
+            return self.llm
 
         if self.model_name is None:
             self.model_name = "gpt-4o-mini"
@@ -663,11 +705,9 @@ class Agent:
             }
 
             if self.llm_args is not None:
-                self._cached_llm = LiteLLM(
-                    **{**common_args, **self.llm_args}
-                )
+                self.llm = LiteLLM(**{**common_args, **self.llm_args})
             elif self.tools_list_dictionary is not None:
-                self._cached_llm = LiteLLM(
+                self.llm = LiteLLM(
                     **common_args,
                     tools_list_dictionary=self.tools_list_dictionary,
                     tool_choice="auto",
@@ -675,7 +715,7 @@ class Agent:
                 )
 
             elif self.mcp_url is not None:
-                self._cached_llm = LiteLLM(
+                self.llm = LiteLLM(
                     **common_args,
                     tools_list_dictionary=self.add_mcp_tools_to_memory(),
                     tool_choice="auto",
@@ -683,11 +723,14 @@ class Agent:
                     mcp_call=True,
                 )
             else:
-                self._cached_llm = LiteLLM(
-                    **common_args, stream=self.streaming_on
+                # common_args.update(self.aditional_llm_config.model_dump())
+
+                self.llm = LiteLLM(
+                    **common_args,
+                    stream=self.streaming_on,
                 )
 
-            return self._cached_llm
+            return self.llm
         except AgentLLMInitializationError as e:
             logger.error(
                 f"Error in llm_handling: {e} Your current configuration is not supported. Please check the configuration and parameters."
@@ -770,7 +813,7 @@ class Agent:
                     "No agent details found. Using task as fallback for prompt generation."
                 )
                 self.system_prompt = auto_generate_prompt(
-                    task, self.llm
+                    task=task, model=self.llm
                 )
             else:
                 # Combine all available components
@@ -795,26 +838,6 @@ class Agent:
         """Allow users to provide feedback on the responses."""
         self.feedback.append(feedback)
         logging.info(f"Feedback received: {feedback}")
-
-    def agent_initialization(self):
-        try:
-            logger.info(
-                f"Initializing Autonomous Agent {self.agent_name}..."
-            )
-            self.check_parameters()
-            logger.info(
-                f"{self.agent_name} Initialized Successfully."
-            )
-            logger.info(
-                f"Autonomous Agent {self.agent_name} Activated, all systems operational. Executing task..."
-            )
-
-            if self.dashboard is True:
-                self.print_dashboard()
-
-        except ValueError as e:
-            logger.info(f"Error initializing agent: {e}")
-            raise e
 
     def _check_stopping_condition(self, response: str) -> bool:
         """Check if the stopping condition is met."""
@@ -847,47 +870,37 @@ class Agent:
             )
 
     def print_dashboard(self):
-        """Print dashboard"""
-        formatter.print_panel(
-            f"Initializing Agent: {self.agent_name}"
-        )
-
-        data = self.to_dict()
-
-        # Beautify the data
-        # data = json.dumps(data, indent=4)
-        # json_data = json.dumps(data, indent=4)
-
+        tools_activated = True if self.tools is not None else False
+        mcp_activated = True if self.mcp_url is not None else False
         formatter.print_panel(
             f"""
-            Agent Dashboard
-            --------------------------------------------
-
-            Agent {self.agent_name} is initializing for {self.max_loops} with the following configuration:
-            ----------------------------------------
-
-            Agent Configuration:
-                Configuration: {data}
-
-            ----------------------------------------
-        """,
+            
+            🤖 Agent {self.agent_name} Dashboard 🚀
+            ════════════════════════════════════════════════════════════
+            
+            🎯 Agent {self.agent_name} Status: ONLINE & OPERATIONAL
+            ────────────────────────────────────────────────────────────
+            
+            📋 Agent Identity:
+            • 🏷️  Name: {self.agent_name}
+            • 📝 Description: {self.agent_description}
+            
+            ⚙️  Technical Specifications:
+            • 🤖 Model: {self.model_name}
+            • 🔄 Internal Loops: {self.max_loops}
+            • 🎯 Max Tokens: {self.max_tokens}
+            • 🌡️  Dynamic Temperature: {self.dynamic_temperature_enabled}
+            
+            🔧 System Modules:
+            • 🛠️  Tools Activated: {tools_activated}
+            • 🔗 MCP Activated: {mcp_activated}
+            
+            ════════════════════════════════════════════════════════════
+            🚀 Ready for Tasks 🚀
+                              
+            """,
+            title=f"Agent {self.agent_name} Dashboard",
         )
-
-    # Check parameters
-    def check_parameters(self):
-        if self.llm is None:
-            raise ValueError(
-                "Language model is not provided. Choose a model from the available models in swarm_models or create a class with a run(task: str) method and or a __call__ method."
-            )
-
-        if self.max_loops is None or self.max_loops == 0:
-            raise ValueError("Max loops is not provided")
-
-        if self.max_tokens == 0 or self.max_tokens is None:
-            raise ValueError("Max tokens is not provided")
-
-        if self.context_length == 0 or self.context_length is None:
-            raise ValueError("Context length is not provided")
 
     # Main function
     def _run(
@@ -993,16 +1006,20 @@ class Agent:
                             )
                             self.memory_query(task_prompt)
 
-                        # Generate response using LLM
-                        response_args = (
-                            (task_prompt, *args)
-                            if img is None
-                            else (task_prompt, img, *args)
-                        )
+                        # # Generate response using LLM
+                        # response_args = (
+                        #     (task_prompt, *args)
+                        #     if img is None
+                        #     else (task_prompt, img, *args)
+                        # )
 
-                        # Call the LLM
+                        # # Call the LLM
+                        # response = self.call_llm(
+                        #     *response_args, **kwargs
+                        # )
+
                         response = self.call_llm(
-                            *response_args, **kwargs
+                            task=task_prompt, img=img, *args, **kwargs
                         )
 
                         if exists(self.tools_list_dictionary):
@@ -1026,42 +1043,16 @@ class Agent:
 
                         # Check and execute tools
                         if exists(self.tools):
-                            # out = self.parse_and_execute_tools(
-                            #     response
-                            # )
-
-                            # self.short_memory.add(
-                            #     role="Tool Executor", content=out
-                            # )
-
-                            # if self.no_print is False:
-                            #     agent_print(
-                            #         f"{self.agent_name} - Tool Executor",
-                            #         out,
-                            #         loop_count,
-                            #         self.streaming_on,
-                            #     )
-
-                            # out = self.call_llm(task=out)
-
-                            # self.short_memory.add(
-                            #     role=self.agent_name, content=out
-                            # )
-
-                            # if self.no_print is False:
-                            #     agent_print(
-                            #         f"{self.agent_name} - Agent Analysis",
-                            #         out,
-                            #         loop_count,
-                            #         self.streaming_on,
-                            #     )
 
                             self.execute_tools(
                                 response=response,
                                 loop_count=loop_count,
                             )
 
-                        if exists(self.mcp_url):
+                        # Handle MCP tools
+                        if exists(self.mcp_url) or exists(
+                            self.mcp_config
+                        ):
                             self.mcp_tool_handling(
                                 response, loop_count
                             )
@@ -1138,9 +1129,6 @@ class Agent:
                 self.save()
 
             log_agent_data(self.to_dict())
-
-            if self.autosave:
-                self.save()
 
             # Output formatting based on output_type
             return history_output_formatter(
@@ -1255,33 +1243,12 @@ class Agent:
     def receive_message(
         self, agent_name: str, task: str, *args, **kwargs
     ):
-        return self.run(
-            task=f"From {agent_name}: {task}", *args, **kwargs
+        improved_prompt = (
+            f"You have received a message from agent '{agent_name}':\n\n"
+            f'"{task}"\n\n'
+            "Please process this message and respond appropriately."
         )
-
-    def dict_to_csv(self, data: dict) -> str:
-        """
-        Convert a dictionary to a CSV string.
-
-        Args:
-            data (dict): The dictionary to convert.
-
-        Returns:
-            str: The CSV string representation of the dictionary.
-        """
-        import csv
-        import io
-
-        output = io.StringIO()
-        writer = csv.writer(output)
-
-        # Write header
-        writer.writerow(data.keys())
-
-        # Write values
-        writer.writerow(data.values())
-
-        return output.getvalue()
+        return self.run(task=improved_prompt, *args, **kwargs)
 
     # def parse_and_execute_tools(self, response: str, *args, **kwargs):
     #     max_retries = 3  # Maximum number of retries
@@ -1432,6 +1399,53 @@ class Agent:
         except Exception as error:
             logger.error(f"Error running batched tasks: {error}")
             raise
+
+    def reliability_check(self):
+        from litellm.utils import (
+            supports_function_calling,
+            get_max_tokens,
+        )
+        from litellm import model_list
+
+        if self.system_prompt is None:
+            logger.warning(
+                "The system prompt is not set. Please set a system prompt for the agent to improve reliability."
+            )
+
+        if self.agent_name is None:
+            logger.warning(
+                "The agent name is not set. Please set an agent name to improve reliability."
+            )
+
+        if self.max_loops is None or self.max_loops == 0:
+            raise AgentInitializationError(
+                "Max loops is not provided or is set to 0. Please set max loops to 1 or more."
+            )
+
+        if self.max_tokens is None or self.max_tokens == 0:
+            self.max_tokens = get_max_tokens(self.model_name)
+
+        if self.context_length is None or self.context_length == 0:
+            raise AgentInitializationError(
+                "Context length is not provided. Please set a valid context length."
+            )
+
+        if self.tools_list_dictionary is not None:
+            if not supports_function_calling(self.model_name):
+                raise AgentInitializationError(
+                    f"The model '{self.model_name}' does not support function calling. Please use a model that supports function calling."
+                )
+
+        if self.max_tokens > get_max_tokens(self.model_name):
+            raise AgentInitializationError(
+                f"Max tokens is set to {self.max_tokens}, but the model '{self.model_name}' only supports {get_max_tokens(self.model_name)} tokens. Please set max tokens to {get_max_tokens(self.model_name)} or less."
+            )
+            
+
+        if self.model_name not in model_list:
+            logger.warning(
+                f"The model '{self.model_name}' is not supported. Please use a supported model, or override the model name with the 'llm' parameter, which should be a class with a 'run(task: str)' method or a '__call__' method."
+            )
 
     def save(self, file_path: str = None) -> None:
         """
@@ -2369,7 +2383,9 @@ class Agent:
 
         return None
 
-    def call_llm(self, task: str, *args, **kwargs) -> str:
+    def call_llm(
+        self, task: str, img: Optional[str] = None, *args, **kwargs
+    ) -> str:
         """
         Calls the appropriate method on the `llm` object based on the given task.
 
@@ -2388,17 +2404,14 @@ class Agent:
             TypeError: If task is not a string or llm object is None.
             ValueError: If task is empty.
         """
-        # if not isinstance(task, str):
-        #     task = any_to_str(task)
-
-        # if img is not None:
-        #     kwargs['img'] = img
-
-        # if audio is not None:
-        #     kwargs['audio'] = audio
 
         try:
-            out = self.llm.run(task=task, *args, **kwargs)
+            if img is not None:
+                out = self.llm.run(
+                    task=task, img=img, *args, **kwargs
+                )
+            else:
+                out = self.llm.run(task=task, *args, **kwargs)
 
             return out
         except AgentLLMError as e:
@@ -2731,11 +2744,15 @@ class Agent:
                 )
 
             # Get the text content from the tool response
-            text_content = (
-                tool_response.content[0].text
-                if tool_response.content
-                else str(tool_response)
-            )
+            # execute_tool_call_simple returns a string directly, not an object with content attribute
+            text_content = f"MCP Tool Response: \n{json.dumps(tool_response, indent=2)}"
+
+            if self.no_print is False:
+                formatter.print_panel(
+                    text_content,
+                    "MCP Tool Response: 🛠️",
+                    style="green",
+                )
 
             # Add to the memory
             self.short_memory.add(
@@ -2745,13 +2762,7 @@ class Agent:
 
             # Create a temporary LLM instance without tools for the follow-up call
             try:
-                temp_llm = LiteLLM(
-                    model_name=self.model_name,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    system_prompt=self.system_prompt,
-                    stream=self.streaming_on,
-                )
+                temp_llm = self.temp_llm_instance_for_tool_summary()
 
                 summary = temp_llm.run(
                     task=self.short_memory.get_str()
@@ -2772,6 +2783,19 @@ class Agent:
         except AgentMCPToolError as e:
             logger.error(f"Error in MCP tool: {e}")
             raise e
+
+    def temp_llm_instance_for_tool_summary(self):
+        return LiteLLM(
+            model_name=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            system_prompt=self.system_prompt,
+            stream=self.streaming_on,
+            tools_list_dictionary=None,
+            parallel_tool_calls=False,
+            base_url=self.llm_base_url,
+            api_key=self.llm_api_key,
+        )
 
     def execute_tools(self, response: any, loop_count: int):
 
@@ -2794,33 +2818,29 @@ class Agent:
         # Now run the LLM again without tools - create a temporary LLM instance
         # instead of modifying the cached one
         # Create a temporary LLM instance without tools for the follow-up call
-        temp_llm = LiteLLM(
-            model_name=self.model_name,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            system_prompt=self.system_prompt,
-            stream=self.streaming_on,
-            tools_list_dictionary=None,
-            parallel_tool_calls=False,
-        )
+        if self.tool_call_summary is True:
+            temp_llm = self.temp_llm_instance_for_tool_summary()
 
-        tool_response = temp_llm.run(
-            f"""
-            Please analyze and summarize the following tool execution output in a clear and concise way. 
-            Focus on the key information and insights that would be most relevant to the user's original request.
-            If there are any errors or issues, highlight them prominently.
-            
-            Tool Output:
-            {output}
-            """
-        )
+            tool_response = temp_llm.run(
+                f"""
+                Please analyze and summarize the following tool execution output in a clear and concise way. 
+                Focus on the key information and insights that would be most relevant to the user's original request.
+                If there are any errors or issues, highlight them prominently.
+                
+                Tool Output:
+                {output}
+                """
+            )
 
-        self.short_memory.add(
-            role=self.agent_name,
-            content=tool_response,
-        )
+            self.short_memory.add(
+                role=self.agent_name,
+                content=tool_response,
+            )
 
-        self.pretty_print(
-            f"{tool_response}",
-            loop_count,
-        )
+            self.pretty_print(
+                f"{tool_response}",
+                loop_count,
+            )
+
+    def list_output_types(self):
+        return OutputType

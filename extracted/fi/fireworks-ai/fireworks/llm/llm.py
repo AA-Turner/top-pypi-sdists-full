@@ -1193,7 +1193,7 @@ class LLM:
                             try:
                                 self._gateway.scale_deployment_sync(deployment.name, 1)
                             except Exception as e:
-                                logger.debug(f"Failed to scale deployment {deployment.name}: {e}")
+                                logger.error(f"Failed to scale deployment {deployment.name}: {e}")
 
                     total_scale_time = time.time() - start_time
                     logger.debug(f"Deployment {deployment.name} scaled up in {total_scale_time:.2f} seconds")

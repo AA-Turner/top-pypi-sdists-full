@@ -383,6 +383,13 @@ def _parse_chat_history_gemini(
             prev_ai_message = message
             role = "model"
 
+            # Previous blocked messages will have empty content which should be ignored
+            if not message.content and message.response_metadata.get(
+                "is_blocked", False
+            ):
+                logger.warning("Ignoring blocked AIMessage with empty content")
+                continue
+
             parts = []
             if message.content:
                 parts = _convert_to_parts(message)
@@ -770,8 +777,8 @@ class ChatVertexAI(_VertexAICommon, BaseChatModel):
 
     Key init args — completion params:
         model: str
-            Name of ChatVertexAI model to use. e.g. "gemini-1.5-flash-001",
-            "gemini-1.5-pro-001", etc.
+            Name of ChatVertexAI model to use. e.g. "gemini-2.0-flash-001",
+            "gemini-2.5-pro", etc.
         temperature: Optional[float]
             Sampling temperature.
         seed: Optional[int]
@@ -1615,6 +1622,7 @@ class ChatVertexAI(_VertexAICommon, BaseChatModel):
                 for part in content.parts:
                     raw_part = proto.Message.to_dict(part)
                     _ = raw_part.pop("thought")
+                    _ = raw_part.pop("thought_signature", None)
                     v1_parts.append(v1Part(**raw_part))
                 v1_contens.append(v1Content(role=content.role, parts=v1_parts))
             return v1_contens
@@ -2345,7 +2353,11 @@ def _get_usage_metadata_gemini(raw_metadata: dict) -> Optional[UsageMetadata]:
     output_tokens = raw_metadata.get("candidates_token_count", 0)
     total_tokens = raw_metadata.get("total_token_count", 0)
     thought_tokens = raw_metadata.get("thoughts_token_count", 0)
-    if all(count == 0 for count in [input_tokens, output_tokens, total_tokens]):
+    cache_read_tokens = raw_metadata.get("cached_content_token_count", 0)
+    if all(
+        count == 0
+        for count in [input_tokens, output_tokens, total_tokens, cache_read_tokens]
+    ):
         return None
     else:
         if thought_tokens > 0:
@@ -2353,6 +2365,7 @@ def _get_usage_metadata_gemini(raw_metadata: dict) -> Optional[UsageMetadata]:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 total_tokens=total_tokens,
+                input_token_details={"cache_read": cache_read_tokens},
                 output_token_details={"reasoning": thought_tokens},
             )
         else:
@@ -2360,6 +2373,7 @@ def _get_usage_metadata_gemini(raw_metadata: dict) -> Optional[UsageMetadata]:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 total_tokens=total_tokens,
+                input_token_details={"cache_read": cache_read_tokens},
             )
 
 

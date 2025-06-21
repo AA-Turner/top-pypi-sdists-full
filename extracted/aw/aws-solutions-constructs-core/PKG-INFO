@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-solutions-constructs.core
-Version: 2.85.2
+Version: 2.85.4
 Summary: Core CDK Construct for patterns library
 Home-page: https://github.com/awslabs/aws-solutions-constructs.git
 Author: Amazon Web Services

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_cosmosdb_sql_trigger`
 
-Refer to the Terraform Registry for docs: [`azurerm_cosmosdb_sql_trigger`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger).
+Refer to the Terraform Registry for docs: [`azurerm_cosmosdb_sql_trigger`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CosmosdbSqlTrigger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.cosmosdbSqlTrigger.CosmosdbSqlTrigger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger azurerm_cosmosdb_sql_trigger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger azurerm_cosmosdb_sql_trigger}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CosmosdbSqlTrigger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger azurerm_cosmosdb_sql_trigger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger azurerm_cosmosdb_sql_trigger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CosmosdbSqlTrigger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CosmosdbSqlTrigger to import.
-        :param import_from_id: The id of the existing CosmosdbSqlTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CosmosdbSqlTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CosmosdbSqlTrigger to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class CosmosdbSqlTrigger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.
         '''
         value = CosmosdbSqlTriggerTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -336,13 +336,13 @@ class CosmosdbSqlTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -456,42 +456,42 @@ class CosmosdbSqlTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#body CosmosdbSqlTrigger#body}.'''
         result = self._values.get("body")
         assert result is not None, "Required property 'body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#container_id CosmosdbSqlTrigger#container_id}.'''
         result = self._values.get("container_id")
         assert result is not None, "Required property 'container_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#name CosmosdbSqlTrigger#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#operation CosmosdbSqlTrigger#operation}.'''
         result = self._values.get("operation")
         assert result is not None, "Required property 'operation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#type CosmosdbSqlTrigger#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#id CosmosdbSqlTrigger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -503,7 +503,7 @@ class CosmosdbSqlTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CosmosdbSqlTriggerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#timeouts CosmosdbSqlTrigger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CosmosdbSqlTriggerTimeouts"], result)
@@ -540,10 +540,10 @@ class CosmosdbSqlTriggerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41a73012605ffb8e466444c857e281c3776c1d48157c2d7dae46baa0d01504b2)
@@ -563,25 +563,25 @@ class CosmosdbSqlTriggerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#create CosmosdbSqlTrigger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#delete CosmosdbSqlTrigger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#read CosmosdbSqlTrigger#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cosmosdb_sql_trigger#update CosmosdbSqlTrigger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

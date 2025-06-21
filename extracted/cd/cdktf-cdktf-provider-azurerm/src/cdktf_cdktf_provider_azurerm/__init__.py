@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.33.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.34.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -465,10 +465,12 @@ __all__ = [
     "data_azurerm_dev_center_attached_network",
     "data_azurerm_dev_center_catalog",
     "data_azurerm_dev_center_dev_box_definition",
+    "data_azurerm_dev_center_environment_type",
     "data_azurerm_dev_center_gallery",
     "data_azurerm_dev_center_network_connection",
     "data_azurerm_dev_center_project",
     "data_azurerm_dev_center_project_environment_type",
+    "data_azurerm_dev_center_project_pool",
     "data_azurerm_dev_test_lab",
     "data_azurerm_dev_test_virtual_network",
     "data_azurerm_digital_twins_instance",
@@ -1949,10 +1951,12 @@ from . import data_azurerm_dev_center
 from . import data_azurerm_dev_center_attached_network
 from . import data_azurerm_dev_center_catalog
 from . import data_azurerm_dev_center_dev_box_definition
+from . import data_azurerm_dev_center_environment_type
 from . import data_azurerm_dev_center_gallery
 from . import data_azurerm_dev_center_network_connection
 from . import data_azurerm_dev_center_project
 from . import data_azurerm_dev_center_project_environment_type
+from . import data_azurerm_dev_center_project_pool
 from . import data_azurerm_dev_test_lab
 from . import data_azurerm_dev_test_virtual_network
 from . import data_azurerm_digital_twins_instance

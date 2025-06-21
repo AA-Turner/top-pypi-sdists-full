@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacompy
-Version: 0.16.7
+Version: 0.16.8
 Summary: Dataframe comparison in Python
 Author: Ian Robertson, Dan Coates
 Author-email: Faisal Dosani <faisal.dosani@capitalone.com>
@@ -23,15 +23,15 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pandas<=2.2.3,>=0.25.0
-Requires-Dist: numpy<=2.2.5,>=1.22.0
+Requires-Dist: pandas<=2.3.0,>=0.25.0
+Requires-Dist: numpy<=2.2.6,>=1.22.0
 Requires-Dist: ordered-set<=4.1.0,>=4.0.2
-Requires-Dist: polars[pandas]<=1.27.1,>=0.20.4
+Requires-Dist: polars[pandas]<=1.31.0,>=0.20.4
 Provides-Extra: fugue
 Requires-Dist: fugue[dask,duckdb,ray]<=0.9.1,>=0.8.7; extra == "fugue"
 Provides-Extra: spark
-Requires-Dist: pyspark[connect]>=3.1.1; python_version < "3.11" and extra == "spark"
-Requires-Dist: pyspark[connect]>=3.4; python_version >= "3.11" and extra == "spark"
+Requires-Dist: pyspark[connect]<=3.5.6,>=3.1.1; python_version < "3.11" and extra == "spark"
+Requires-Dist: pyspark[connect]<=3.5.6,>=3.4; python_version >= "3.11" and extra == "spark"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python; extra == "snowflake"
 Requires-Dist: snowflake-snowpark-python; extra == "snowflake"

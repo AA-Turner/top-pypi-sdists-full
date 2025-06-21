@@ -9,7 +9,7 @@
 #ifdef _WIN32
 /* It's ok to include external headers because this is a PRIVATE header file
  * (it is usually a crime to include windows.h from header file) */
-#    include <Windows.h>
+#    include <windows.h>
 #endif /* _WIN32 */
 
 #ifdef AWS_OS_APPLE
@@ -127,7 +127,8 @@ AWS_IO_API int aws_import_key_pair_to_cert_context(
     HCERTSTORE *cert_store,
     PCCERT_CONTEXT *certs,
     HCRYPTPROV *crypto_provider,
-    HCRYPTKEY *private_key_handle);
+    HCRYPTKEY *private_key_handle,
+    bool *tls13_disabled);
 
 #endif /* _WIN32 */
 

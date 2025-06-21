@@ -25,6 +25,7 @@ def create_api_app(*, prefix: str = "/api") -> FastAPI:
     api_app = FastAPI(
         title=get_cached_settings().project_name,
         description=get_cached_settings().project_name,
+        version=get_cached_settings().api_version,
         docs_url=None,
         redoc_url=None,
         openapi_url="/openapi",

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_mobile_network_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_mobile_network_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service).
+Refer to the Terraform Registry for docs: [`azurerm_mobile_network_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MobileNetworkService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.mobileNetworkService.MobileNetworkService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service azurerm_mobile_network_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service azurerm_mobile_network_service}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class MobileNetworkService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service azurerm_mobile_network_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service azurerm_mobile_network_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.
-        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
-        :param pcc_rule: pcc_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
-        :param service_precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#id MobileNetworkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param service_qos_policy: service_qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.
+        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
+        :param pcc_rule: pcc_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
+        :param service_precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#id MobileNetworkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param service_qos_policy: service_qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class MobileNetworkService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MobileNetworkService to import.
-        :param import_from_id: The id of the existing MobileNetworkService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MobileNetworkService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MobileNetworkService to import is found.
         '''
         if __debug__:
@@ -162,11 +162,11 @@ class MobileNetworkService(
         qos_indicator: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
-        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
-        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
-        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
-        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
+        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
+        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
+        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
+        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
         '''
         value = MobileNetworkServiceServiceQosPolicy(
             maximum_bit_rate=maximum_bit_rate,
@@ -188,10 +188,10 @@ class MobileNetworkService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.
         '''
         value = MobileNetworkServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -420,15 +420,15 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.
-        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
-        :param pcc_rule: pcc_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
-        :param service_precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#id MobileNetworkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param service_qos_policy: service_qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.
+        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
+        :param pcc_rule: pcc_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
+        :param service_precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#id MobileNetworkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param service_qos_policy: service_qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -550,21 +550,21 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#location MobileNetworkService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mobile_network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#mobile_network_id MobileNetworkService#mobile_network_id}.'''
         result = self._values.get("mobile_network_id")
         assert result is not None, "Required property 'mobile_network_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -575,7 +575,7 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MobileNetworkServicePccRule"]]:
         '''pcc_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#pcc_rule MobileNetworkService#pcc_rule}
         '''
         result = self._values.get("pcc_rule")
         assert result is not None, "Required property 'pcc_rule' is missing"
@@ -583,14 +583,14 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_precedence(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_precedence MobileNetworkService#service_precedence}.'''
         result = self._values.get("service_precedence")
         assert result is not None, "Required property 'service_precedence' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#id MobileNetworkService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#id MobileNetworkService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -604,14 +604,14 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MobileNetworkServiceServiceQosPolicy"]:
         '''service_qos_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_qos_policy MobileNetworkService#service_qos_policy}
         '''
         result = self._values.get("service_qos_policy")
         return typing.cast(typing.Optional["MobileNetworkServiceServiceQosPolicy"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#tags MobileNetworkService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -619,7 +619,7 @@ class MobileNetworkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MobileNetworkServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#timeouts MobileNetworkService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MobileNetworkServiceTimeouts"], result)
@@ -658,11 +658,11 @@ class MobileNetworkServicePccRule:
         traffic_control_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
-        :param precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#precedence MobileNetworkService#precedence}.
-        :param service_data_flow_template: service_data_flow_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_data_flow_template MobileNetworkService#service_data_flow_template}
-        :param qos_policy: qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_policy MobileNetworkService#qos_policy}
-        :param traffic_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#traffic_control_enabled MobileNetworkService#traffic_control_enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
+        :param precedence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#precedence MobileNetworkService#precedence}.
+        :param service_data_flow_template: service_data_flow_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_data_flow_template MobileNetworkService#service_data_flow_template}
+        :param qos_policy: qos_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_policy MobileNetworkService#qos_policy}
+        :param traffic_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#traffic_control_enabled MobileNetworkService#traffic_control_enabled}.
         '''
         if isinstance(qos_policy, dict):
             qos_policy = MobileNetworkServicePccRuleQosPolicy(**qos_policy)
@@ -685,14 +685,14 @@ class MobileNetworkServicePccRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def precedence(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#precedence MobileNetworkService#precedence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#precedence MobileNetworkService#precedence}.'''
         result = self._values.get("precedence")
         assert result is not None, "Required property 'precedence' is missing"
         return typing.cast(jsii.Number, result)
@@ -703,7 +703,7 @@ class MobileNetworkServicePccRule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MobileNetworkServicePccRuleServiceDataFlowTemplate"]]:
         '''service_data_flow_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#service_data_flow_template MobileNetworkService#service_data_flow_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#service_data_flow_template MobileNetworkService#service_data_flow_template}
         '''
         result = self._values.get("service_data_flow_template")
         assert result is not None, "Required property 'service_data_flow_template' is missing"
@@ -713,7 +713,7 @@ class MobileNetworkServicePccRule:
     def qos_policy(self) -> typing.Optional["MobileNetworkServicePccRuleQosPolicy"]:
         '''qos_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_policy MobileNetworkService#qos_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_policy MobileNetworkService#qos_policy}
         '''
         result = self._values.get("qos_policy")
         return typing.cast(typing.Optional["MobileNetworkServicePccRuleQosPolicy"], result)
@@ -722,7 +722,7 @@ class MobileNetworkServicePccRule:
     def traffic_control_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#traffic_control_enabled MobileNetworkService#traffic_control_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#traffic_control_enabled MobileNetworkService#traffic_control_enabled}.'''
         result = self._values.get("traffic_control_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -866,12 +866,12 @@ class MobileNetworkServicePccRuleOutputReference(
         preemption_vulnerability: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
-        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
-        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
-        :param guaranteed_bit_rate: guaranteed_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
-        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
-        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
+        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
+        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
+        :param guaranteed_bit_rate: guaranteed_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
+        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
+        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
         '''
         value = MobileNetworkServicePccRuleQosPolicy(
             maximum_bit_rate=maximum_bit_rate,
@@ -1031,12 +1031,12 @@ class MobileNetworkServicePccRuleQosPolicy:
         preemption_vulnerability: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
-        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
-        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
-        :param guaranteed_bit_rate: guaranteed_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
-        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
-        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
+        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
+        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
+        :param guaranteed_bit_rate: guaranteed_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
+        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
+        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
         '''
         if isinstance(maximum_bit_rate, dict):
             maximum_bit_rate = MobileNetworkServicePccRuleQosPolicyMaximumBitRate(**maximum_bit_rate)
@@ -1067,7 +1067,7 @@ class MobileNetworkServicePccRuleQosPolicy:
     def maximum_bit_rate(self) -> "MobileNetworkServicePccRuleQosPolicyMaximumBitRate":
         '''maximum_bit_rate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
         '''
         result = self._values.get("maximum_bit_rate")
         assert result is not None, "Required property 'maximum_bit_rate' is missing"
@@ -1075,14 +1075,14 @@ class MobileNetworkServicePccRuleQosPolicy:
 
     @builtins.property
     def qos_indicator(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.'''
         result = self._values.get("qos_indicator")
         assert result is not None, "Required property 'qos_indicator' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def allocation_and_retention_priority_level(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.'''
         result = self._values.get("allocation_and_retention_priority_level")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1092,20 +1092,20 @@ class MobileNetworkServicePccRuleQosPolicy:
     ) -> typing.Optional["MobileNetworkServicePccRuleQosPolicyGuaranteedBitRate"]:
         '''guaranteed_bit_rate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#guaranteed_bit_rate MobileNetworkService#guaranteed_bit_rate}
         '''
         result = self._values.get("guaranteed_bit_rate")
         return typing.cast(typing.Optional["MobileNetworkServicePccRuleQosPolicyGuaranteedBitRate"], result)
 
     @builtins.property
     def preemption_capability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.'''
         result = self._values.get("preemption_capability")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preemption_vulnerability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.'''
         result = self._values.get("preemption_vulnerability")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1129,8 +1129,8 @@ class MobileNetworkServicePccRuleQosPolicy:
 class MobileNetworkServicePccRuleQosPolicyGuaranteedBitRate:
     def __init__(self, *, downlink: builtins.str, uplink: builtins.str) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3f6d82dd84763f7db785b6e15962a423ed18d9e4317bbbfab32146fc14f695a)
@@ -1143,14 +1143,14 @@ class MobileNetworkServicePccRuleQosPolicyGuaranteedBitRate:
 
     @builtins.property
     def downlink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
         result = self._values.get("downlink")
         assert result is not None, "Required property 'downlink' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uplink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
         result = self._values.get("uplink")
         assert result is not None, "Required property 'uplink' is missing"
         return typing.cast(builtins.str, result)
@@ -1247,8 +1247,8 @@ class MobileNetworkServicePccRuleQosPolicyGuaranteedBitRateOutputReference(
 class MobileNetworkServicePccRuleQosPolicyMaximumBitRate:
     def __init__(self, *, downlink: builtins.str, uplink: builtins.str) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29cc72174949889f0e6514ee196f9bf90387fa2f0a1fc2879c9c8a5c587f8432)
@@ -1261,14 +1261,14 @@ class MobileNetworkServicePccRuleQosPolicyMaximumBitRate:
 
     @builtins.property
     def downlink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
         result = self._values.get("downlink")
         assert result is not None, "Required property 'downlink' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uplink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
         result = self._values.get("uplink")
         assert result is not None, "Required property 'uplink' is missing"
         return typing.cast(builtins.str, result)
@@ -1385,8 +1385,8 @@ class MobileNetworkServicePccRuleQosPolicyOutputReference(
         uplink: builtins.str,
     ) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         value = MobileNetworkServicePccRuleQosPolicyGuaranteedBitRate(
             downlink=downlink, uplink=uplink
@@ -1402,8 +1402,8 @@ class MobileNetworkServicePccRuleQosPolicyOutputReference(
         uplink: builtins.str,
     ) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         value = MobileNetworkServicePccRuleQosPolicyMaximumBitRate(
             downlink=downlink, uplink=uplink
@@ -1563,11 +1563,11 @@ class MobileNetworkServicePccRuleServiceDataFlowTemplate:
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#direction MobileNetworkService#direction}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#protocol MobileNetworkService#protocol}.
-        :param remote_ip_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#remote_ip_list MobileNetworkService#remote_ip_list}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#ports MobileNetworkService#ports}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#direction MobileNetworkService#direction}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#protocol MobileNetworkService#protocol}.
+        :param remote_ip_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#remote_ip_list MobileNetworkService#remote_ip_list}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#ports MobileNetworkService#ports}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b89bccd661af41551aa61543da24e677037fd6a141eed4191362c0af6129b948)
@@ -1587,35 +1587,35 @@ class MobileNetworkServicePccRuleServiceDataFlowTemplate:
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#direction MobileNetworkService#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#direction MobileNetworkService#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#name MobileNetworkService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#protocol MobileNetworkService#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#protocol MobileNetworkService#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def remote_ip_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#remote_ip_list MobileNetworkService#remote_ip_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#remote_ip_list MobileNetworkService#remote_ip_list}.'''
         result = self._values.get("remote_ip_list")
         assert result is not None, "Required property 'remote_ip_list' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#ports MobileNetworkService#ports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#ports MobileNetworkService#ports}.'''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1879,11 +1879,11 @@ class MobileNetworkServiceServiceQosPolicy:
         qos_indicator: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
-        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
-        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
-        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
-        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
+        :param maximum_bit_rate: maximum_bit_rate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        :param allocation_and_retention_priority_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.
+        :param preemption_capability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.
+        :param preemption_vulnerability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.
+        :param qos_indicator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.
         '''
         if isinstance(maximum_bit_rate, dict):
             maximum_bit_rate = MobileNetworkServiceServiceQosPolicyMaximumBitRate(**maximum_bit_rate)
@@ -1910,7 +1910,7 @@ class MobileNetworkServiceServiceQosPolicy:
     def maximum_bit_rate(self) -> "MobileNetworkServiceServiceQosPolicyMaximumBitRate":
         '''maximum_bit_rate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#maximum_bit_rate MobileNetworkService#maximum_bit_rate}
         '''
         result = self._values.get("maximum_bit_rate")
         assert result is not None, "Required property 'maximum_bit_rate' is missing"
@@ -1918,25 +1918,25 @@ class MobileNetworkServiceServiceQosPolicy:
 
     @builtins.property
     def allocation_and_retention_priority_level(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#allocation_and_retention_priority_level MobileNetworkService#allocation_and_retention_priority_level}.'''
         result = self._values.get("allocation_and_retention_priority_level")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def preemption_capability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_capability MobileNetworkService#preemption_capability}.'''
         result = self._values.get("preemption_capability")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preemption_vulnerability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#preemption_vulnerability MobileNetworkService#preemption_vulnerability}.'''
         result = self._values.get("preemption_vulnerability")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def qos_indicator(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#qos_indicator MobileNetworkService#qos_indicator}.'''
         result = self._values.get("qos_indicator")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1960,8 +1960,8 @@ class MobileNetworkServiceServiceQosPolicy:
 class MobileNetworkServiceServiceQosPolicyMaximumBitRate:
     def __init__(self, *, downlink: builtins.str, uplink: builtins.str) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0b5c53b48a953a693c4f21eec78fbbdb99bc4c40dc6c56e4202a0163deb428d)
@@ -1974,14 +1974,14 @@ class MobileNetworkServiceServiceQosPolicyMaximumBitRate:
 
     @builtins.property
     def downlink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.'''
         result = self._values.get("downlink")
         assert result is not None, "Required property 'downlink' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uplink(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.'''
         result = self._values.get("uplink")
         assert result is not None, "Required property 'uplink' is missing"
         return typing.cast(builtins.str, result)
@@ -2098,8 +2098,8 @@ class MobileNetworkServiceServiceQosPolicyOutputReference(
         uplink: builtins.str,
     ) -> None:
         '''
-        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
-        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
+        :param downlink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#downlink MobileNetworkService#downlink}.
+        :param uplink: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#uplink MobileNetworkService#uplink}.
         '''
         value = MobileNetworkServiceServiceQosPolicyMaximumBitRate(
             downlink=downlink, uplink=uplink
@@ -2243,10 +2243,10 @@ class MobileNetworkServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ac2d2d7185e4d405a990622fbb007a78f54cc56df623d71cedacdd283da1cb5)
@@ -2266,25 +2266,25 @@ class MobileNetworkServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#create MobileNetworkService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#delete MobileNetworkService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#read MobileNetworkService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mobile_network_service#update MobileNetworkService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

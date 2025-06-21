@@ -11,6 +11,7 @@ class LotStub(BaseAPIModelStub):
         "oneServiceLimit": False,
         "hasEvaluation": False,
         "hasLotPricing": False,
+        "requiresTechnicalAbilityCertificate": False,
         "unitSingular": "service",
         "unitPlural": "services",
     }
@@ -20,6 +21,7 @@ class LotStub(BaseAPIModelStub):
         ("oneServiceLimit", "one_service_limit"),
         ("hasEvaluation", "has_evaluation"),
         ("hasLotPricing", "has_lot_pricing"),
+        ("requiresTechnicalAbilityCertificate", "requires_technical_ability_certificate"),
         ("unitSingular", "unit_singular"),
         ("unitPlural", "unit_plural"),
         ("id", "lot_id"),
@@ -85,12 +87,14 @@ def cloud_lots(latest=False):
                 slug="iaas-and-paas",
                 name="Infrastructure as a Service (IaaS) and Platform as a Service (PaaS)",
                 number="1a",
+                requires_technical_ability_certificate=True,
             ).response(),
             LotStub(
                 lot_id=16,
                 slug="iaas-and-paas-above-official",
                 name="Infrastructure as a Service (IaaS) and Platform as a Service (PaaS) above OFFICIAL",
                 number="1b",
+                requires_technical_ability_certificate=True,
             ).response(),
             LotStub(
                 lot_id=17,

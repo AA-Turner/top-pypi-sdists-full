@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -305,7 +306,11 @@ class GraphView:
                 include_ancestors = transform == NodeTransformations.EXPAND
                 rule_nk = to_nodekey(rule_name)
                 if is_pattern(rule_nk):
-                    apply_nodes = set(nk for nk in self.computation._node_keys() if match_pattern(rule_nk, nk))
+                    apply_nodes = set()
+                    for n in self.computation.get_tree_descendents(self.root):
+                        nk = to_nodekey(n)
+                        if match_pattern(rule_nk, nk):
+                            apply_nodes.add(nk)
                 else:
                     apply_nodes = {rule_nk}
                     node_transformations[rule_nk] = transform
@@ -342,6 +347,8 @@ class GraphView:
     def view(self):
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
             f.write(self.viz_dot.create_pdf())
+            if sys.platform != "win32":
+                os.system('open %s' % f.name)
             os.startfile(f.name)
 
     def _repr_svg_(self):

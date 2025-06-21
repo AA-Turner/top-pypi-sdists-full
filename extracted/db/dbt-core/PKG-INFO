@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-core
-Version: 1.10.1
+Version: 1.10.2
 Summary: With dbt, data analysts and engineers can build analytics the way engineers build applications.
 Home-page: https://github.com/dbt-labs/dbt-core
 Author: dbt Labs
@@ -33,12 +33,12 @@ Requires-Dist: dbt-semantic-interfaces<0.9,>=0.8.3
 Requires-Dist: dbt-common<2.0,>=1.22.0
 Requires-Dist: dbt-adapters<2.0,>=1.15.2
 Requires-Dist: dbt-protos<2.0,>=1.0.315
+Requires-Dist: pydantic<3
 Requires-Dist: packaging>20.9
 Requires-Dist: pytz>=2015.7
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: daff>=1.3.46
 Requires-Dist: typing-extensions>=4.4
-Requires-Dist: pydantic<2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

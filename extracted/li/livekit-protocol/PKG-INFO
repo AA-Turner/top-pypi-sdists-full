@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-protocol
-Version: 1.0.3
+Version: 1.0.4
 Summary: Python protocol stubs for LiveKit
 Home-page: https://github.com/livekit/python-sdks
 License: Apache-2.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyflakes
-Version: 3.3.2
+Version: 3.4.0
 Summary: passive checker of Python programs
 Home-page: https://github.com/PyCQA/pyflakes
 Author: A lot of people

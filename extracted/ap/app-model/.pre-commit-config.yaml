@@ -4,26 +4,26 @@ ci:
   autoupdate_commit_msg: "ci: [pre-commit.ci] autoupdate"
 
 repos:
-  - repo: https://github.com/crate-ci/typos
-    rev: v1.27.0
-    hooks:
-      - id: typos
-        args: []
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.2
-    hooks:
-      - id: ruff
-        args: ["--fix", "--unsafe-fixes"]
-      - id: ruff-format
-
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.22
+    rev: v0.24.1
     hooks:
       - id: validate-pyproject
 
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.33.1
+    hooks:
+      - id: typos
+        args: [--force-exclude]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.0
+    hooks:
+      - id: ruff-check
+        args: ["--fix", "--unsafe-fixes"]
+      - id: ruff-format
+
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+    rev: v1.16.1
     hooks:
       - id: mypy
         files: "^src/"
@@ -31,3 +31,14 @@ repos:
           - pydantic >2
           - pydantic-compat
           - in-n-out
+
+  - repo: local
+    hooks:
+      - id: pyright
+        stages: [manual]
+        name: pyright
+        language: system
+        exclude: "^tests/.*|^demo/.*|^docs/.*"
+        types_or: [python, pyi]
+        require_serial: true
+        entry: uv run pyright

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: haystack-pydoc-tools
-Version: 0.3.2
+Version: 0.4.0
 Summary: Pydoc custom tools for Haystack docs
 Project-URL: Documentation, https://github.com/unknown/haystack-pydoc-tools#readme
 Project-URL: Issues, https://github.com/unknown/haystack-pydoc-tools/issues

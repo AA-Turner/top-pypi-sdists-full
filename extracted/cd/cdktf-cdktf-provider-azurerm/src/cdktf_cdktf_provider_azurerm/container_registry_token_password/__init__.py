@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_registry_token_password`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_registry_token_password`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password).
+Refer to the Terraform Registry for docs: [`azurerm_container_registry_token_password`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerRegistryTokenPassword(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerRegistryTokenPassword.ContainerRegistryTokenPassword",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password azurerm_container_registry_token_password}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password azurerm_container_registry_token_password}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ContainerRegistryTokenPassword(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password azurerm_container_registry_token_password} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password azurerm_container_registry_token_password} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_registry_token_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.
-        :param password1: password1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password2: password2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
+        :param container_registry_token_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.
+        :param password1: password1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password2: password2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ContainerRegistryTokenPassword(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerRegistryTokenPassword to import.
-        :param import_from_id: The id of the existing ContainerRegistryTokenPassword that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerRegistryTokenPassword that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerRegistryTokenPassword to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class ContainerRegistryTokenPassword(
     @jsii.member(jsii_name="putPassword1")
     def put_password1(self, *, expiry: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
+        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
         '''
         value = ContainerRegistryTokenPasswordPassword1(expiry=expiry)
 
@@ -138,7 +138,7 @@ class ContainerRegistryTokenPassword(
     @jsii.member(jsii_name="putPassword2")
     def put_password2(self, *, expiry: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
+        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
         '''
         value = ContainerRegistryTokenPasswordPassword2(expiry=expiry)
 
@@ -154,10 +154,10 @@ class ContainerRegistryTokenPassword(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.
         '''
         value = ContainerRegistryTokenPasswordTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -304,11 +304,11 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_registry_token_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.
-        :param password1: password1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password2: password2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
+        :param container_registry_token_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.
+        :param password1: password1 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password2: password2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -423,7 +423,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def container_registry_token_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#container_registry_token_id ContainerRegistryTokenPassword#container_registry_token_id}.'''
         result = self._values.get("container_registry_token_id")
         assert result is not None, "Required property 'container_registry_token_id' is missing"
         return typing.cast(builtins.str, result)
@@ -432,7 +432,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def password1(self) -> "ContainerRegistryTokenPasswordPassword1":
         '''password1 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password1 ContainerRegistryTokenPassword#password1}
         '''
         result = self._values.get("password1")
         assert result is not None, "Required property 'password1' is missing"
@@ -440,7 +440,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#id ContainerRegistryTokenPassword#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -452,7 +452,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def password2(self) -> typing.Optional["ContainerRegistryTokenPasswordPassword2"]:
         '''password2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#password2 ContainerRegistryTokenPassword#password2}
         '''
         result = self._values.get("password2")
         return typing.cast(typing.Optional["ContainerRegistryTokenPasswordPassword2"], result)
@@ -461,7 +461,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["ContainerRegistryTokenPasswordTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#timeouts ContainerRegistryTokenPassword#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerRegistryTokenPasswordTimeouts"], result)
@@ -486,7 +486,7 @@ class ContainerRegistryTokenPasswordConfig(_cdktf_9a9027ec.TerraformMetaArgument
 class ContainerRegistryTokenPasswordPassword1:
     def __init__(self, *, expiry: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
+        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83ff3b4e3747803a95619a325fe9e67360866179677cb5a98b02c63e2238593e)
@@ -497,7 +497,7 @@ class ContainerRegistryTokenPasswordPassword1:
 
     @builtins.property
     def expiry(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.'''
         result = self._values.get("expiry")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -585,7 +585,7 @@ class ContainerRegistryTokenPasswordPassword1OutputReference(
 class ContainerRegistryTokenPasswordPassword2:
     def __init__(self, *, expiry: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
+        :param expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c574f4fb87f7161e297acb9d63aee692c5ad9c54498390d96965a4b56cc0dc16)
@@ -596,7 +596,7 @@ class ContainerRegistryTokenPasswordPassword2:
 
     @builtins.property
     def expiry(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#expiry ContainerRegistryTokenPassword#expiry}.'''
         result = self._values.get("expiry")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -696,10 +696,10 @@ class ContainerRegistryTokenPasswordTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc4458e14a0bc5ba54e2f1656ed74fe61816e81e962fd641377c293ed75c10ae)
@@ -719,25 +719,25 @@ class ContainerRegistryTokenPasswordTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#create ContainerRegistryTokenPassword#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#delete ContainerRegistryTokenPassword#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#read ContainerRegistryTokenPassword#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_token_password#update ContainerRegistryTokenPassword#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

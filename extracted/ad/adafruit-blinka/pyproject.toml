@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "Adafruit-Blinka"
 description = "CircuitPython APIs for non-CircuitPython versions of Python such as CPython on Linux and MicroPython."
-version = "8.60.3"
+version = "8.60.4"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}
@@ -53,6 +53,7 @@ include = [
     "adafruit_blinka",
     "adafruit_blinka.microcontroller.bcm283x.libgpiod_pulsein*",
     "adafruit_blinka.microcontroller.amlogic.meson_g12_common.pulseio.libgpiod_pulsein*",
+    "microcontroller",
     "*.pyi"
 ]
 

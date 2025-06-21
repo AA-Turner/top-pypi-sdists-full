@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loman
-Version: 0.5.2
+Version: 0.5.3
 Summary: Loman tracks state of computations, and the dependencies between them, allowing full and partial recalculations.
 Author-email: Ed Parcell <edparcell@gmail.com>
 License-Expression: BSD-3-Clause
@@ -16,10 +16,12 @@ License-File: LICENSE
 Requires-Dist: decorator
 Requires-Dist: matplotlib
 Requires-Dist: pydotplus
-Requires-Dist: pytest
 Requires-Dist: dill>=0.2.5
 Requires-Dist: networkx>=2.0
 Requires-Dist: pandas>=0.19.2
+Provides-Extra: test
+Requires-Dist: attrs; extra == "test"
+Requires-Dist: pytest; extra == "test"
 Dynamic: license-file
 
 # Loman

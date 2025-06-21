@@ -145,7 +145,8 @@ class CfnEnvironment(
             startup_script_s3_path="startupScriptS3Path",
             tags=tags,
             webserver_access_mode="webserverAccessMode",
-            weekly_maintenance_window_start="weeklyMaintenanceWindowStart"
+            weekly_maintenance_window_start="weeklyMaintenanceWindowStart",
+            worker_replacement_strategy="workerReplacementStrategy"
         )
     '''
 
@@ -179,6 +180,7 @@ class CfnEnvironment(
         tags: typing.Any = None,
         webserver_access_mode: typing.Optional[builtins.str] = None,
         weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+        worker_replacement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -208,6 +210,7 @@ class CfnEnvironment(
         :param tags: The key-value tag pairs associated to your environment. For example, ``"Environment": "Staging"`` . To learn more, see `Tagging <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . If you specify new tags for an existing environment, the update requires service interruption before taking effect.
         :param webserver_access_mode: The Apache Airflow *Web server* access mode. To learn more, see `Apache Airflow access modes <https://docs.aws.amazon.com/mwaa/latest/userguide/configuring-networking.html>`_ . Valid values: ``PRIVATE_ONLY`` or ``PUBLIC_ONLY`` .
         :param weekly_maintenance_window_start: The day and time of the week to start weekly maintenance updates of your environment in the following format: ``DAY:HH:MM`` . For example: ``TUE:03:30`` . You can specify a start time in 30 minute increments only. Supported input includes the following: - MON|TUE|WED|THU|FRI|SAT|SUN:([01]\\d|2[0-3]):(00|30)
+        :param worker_replacement_strategy: The worker replacement strategy to use when updating the environment. Valid values: ``FORCED``, ``GRACEFUL``. FORCED means Apache Airflow workers will be stopped and replaced without waiting for tasks to complete before an update. GRACEFUL means Apache Airflow workers will be able to complete running tasks for up to 12 hours during an update before being stopped and replaced.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d573efb1c)
@@ -239,6 +242,7 @@ class CfnEnvironment(
             tags=tags,
             webserver_access_mode=webserver_access_mode,
             weekly_maintenance_window_start=weekly_maintenance_window_start,
+            worker_replacement_strategy=worker_replacement_strategy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -737,6 +741,19 @@ class CfnEnvironment(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "weeklyMaintenanceWindowStart", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="workerReplacementStrategy")
+    def worker_replacement_strategy(self) -> typing.Optional[builtins.str]:
+        '''The worker replacement strategy to use when updating the environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workerReplacementStrategy"))
+
+    @worker_replacement_strategy.setter
+    def worker_replacement_strategy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a69a886eac1c8570e29fe73891b3d0a6bf8bc1d04ac36bc656c130c6498adef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workerReplacementStrategy", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mwaa.CfnEnvironment.LoggingConfigurationProperty",
         jsii_struct_bases=[],
@@ -1092,6 +1109,7 @@ class CfnEnvironment(
         "tags": "tags",
         "webserver_access_mode": "webserverAccessMode",
         "weekly_maintenance_window_start": "weeklyMaintenanceWindowStart",
+        "worker_replacement_strategy": "workerReplacementStrategy",
     },
 )
 class CfnEnvironmentProps:
@@ -1123,6 +1141,7 @@ class CfnEnvironmentProps:
         tags: typing.Any = None,
         webserver_access_mode: typing.Optional[builtins.str] = None,
         weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+        worker_replacement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironment``.
 
@@ -1151,6 +1170,7 @@ class CfnEnvironmentProps:
         :param tags: The key-value tag pairs associated to your environment. For example, ``"Environment": "Staging"`` . To learn more, see `Tagging <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . If you specify new tags for an existing environment, the update requires service interruption before taking effect.
         :param webserver_access_mode: The Apache Airflow *Web server* access mode. To learn more, see `Apache Airflow access modes <https://docs.aws.amazon.com/mwaa/latest/userguide/configuring-networking.html>`_ . Valid values: ``PRIVATE_ONLY`` or ``PUBLIC_ONLY`` .
         :param weekly_maintenance_window_start: The day and time of the week to start weekly maintenance updates of your environment in the following format: ``DAY:HH:MM`` . For example: ``TUE:03:30`` . You can specify a start time in 30 minute increments only. Supported input includes the following: - MON|TUE|WED|THU|FRI|SAT|SUN:([01]\\d|2[0-3]):(00|30)
+        :param worker_replacement_strategy: The worker replacement strategy to use when updating the environment. Valid values: ``FORCED``, ``GRACEFUL``. FORCED means Apache Airflow workers will be stopped and replaced without waiting for tasks to complete before an update. GRACEFUL means Apache Airflow workers will be able to complete running tasks for up to 12 hours during an update before being stopped and replaced.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html
         :exampleMetadata: fixture=_generated
@@ -1220,7 +1240,8 @@ class CfnEnvironmentProps:
                 startup_script_s3_path="startupScriptS3Path",
                 tags=tags,
                 webserver_access_mode="webserverAccessMode",
-                weekly_maintenance_window_start="weeklyMaintenanceWindowStart"
+                weekly_maintenance_window_start="weeklyMaintenanceWindowStart",
+                worker_replacement_strategy="workerReplacementStrategy"
             )
         '''
         if __debug__:
@@ -1250,6 +1271,7 @@ class CfnEnvironmentProps:
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument webserver_access_mode", value=webserver_access_mode, expected_type=type_hints["webserver_access_mode"])
             check_type(argname="argument weekly_maintenance_window_start", value=weekly_maintenance_window_start, expected_type=type_hints["weekly_maintenance_window_start"])
+            check_type(argname="argument worker_replacement_strategy", value=worker_replacement_strategy, expected_type=type_hints["worker_replacement_strategy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -1301,6 +1323,8 @@ class CfnEnvironmentProps:
             self._values["webserver_access_mode"] = webserver_access_mode
         if weekly_maintenance_window_start is not None:
             self._values["weekly_maintenance_window_start"] = weekly_maintenance_window_start
+        if worker_replacement_strategy is not None:
+            self._values["worker_replacement_strategy"] = worker_replacement_strategy
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1587,6 +1611,17 @@ class CfnEnvironmentProps:
         result = self._values.get("weekly_maintenance_window_start")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def worker_replacement_strategy(self) -> typing.Optional[builtins.str]:
+        '''The worker replacement strategy to use when updating the environment.
+
+        Valid values: ``FORCED``, ``GRACEFUL``. FORCED means Apache Airflow workers will be stopped and replaced without waiting for tasks to complete before an update. GRACEFUL means Apache Airflow workers will be able to complete running tasks for up to 12 hours during an update before being stopped and replaced.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaa-environment.html#cfn-mwaa-environment-workerreplacementstrategy
+        '''
+        result = self._values.get("worker_replacement_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1635,6 +1670,7 @@ def _typecheckingstub__558d6a60af086ab1a40ad8057fcb128456129bbbd328752ab90d8a6d5
     tags: typing.Any = None,
     webserver_access_mode: typing.Optional[builtins.str] = None,
     weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    worker_replacement_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1801,6 +1837,12 @@ def _typecheckingstub__c4b7b1ca9a0752d370dddfd37838d62fc0fdbdce81d79923961a78bfa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6a69a886eac1c8570e29fe73891b3d0a6bf8bc1d04ac36bc656c130c6498adef(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d823c014bd64bec48bc3afd2f5085d92c0e9f9e6f7641f491eeb3020665639f5(
     *,
     dag_processing_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ModuleLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1856,6 +1898,7 @@ def _typecheckingstub__9d7baed808ece1f6aca4fce5dbeac04c731d688aec6f3395e1f0892ea
     tags: typing.Any = None,
     webserver_access_mode: typing.Optional[builtins.str] = None,
     weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    worker_replacement_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

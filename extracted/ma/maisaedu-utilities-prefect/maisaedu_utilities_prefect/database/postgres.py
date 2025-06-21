@@ -133,12 +133,15 @@ def execute(conn, str, default_commit=True, params=None):
         cur.close()
         raise error
     
-def execute_vacuum(conn, table_name, default_commit=True):
+def execute_vacuum(conn, table_name, full = False):
     cur = conn.cursor()
     try:
         detect_sql_injection(table_name)
         conn.autocommit = True
-        cur.execute(f"VACUUM {table_name};")
+        if full is True:
+            cur.execute(f"VACUUM FULL {table_name};")
+        else:
+            cur.execute(f"VACUUM {table_name};")
         conn.autocommit = False
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:

@@ -10946,24 +10946,41 @@ class CfnRegistry(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-registry.html
     :cloudformationResource: AWS::Glue::Registry
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_glue as glue
+        from aws_cdk.aws_glue import CfnRegistry
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
         
-        cfn_registry = glue.CfnRegistry(self, "MyCfnRegistry",
-            name="name",
+        # Your MSK cluster arn
+        # cluster_arn: str
         
-            # the properties below are optional
-            description="description",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
+        # my_function: lambda.Function
+        
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        # Your Glue Schema Registry
+        glue_registry = CfnRegistry(self, "Registry",
+            name="schema-registry",
+            description="Schema registry for event source"
         )
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=3
+            ),
+            schema_registry_config=GlueSchemaRegistry(
+                schema_registry=glue_registry,
+                event_record_format=lambda_.EventRecordFormat.JSON,
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+            )
+        ))
     '''
 
     def __init__(
@@ -11100,24 +11117,41 @@ class CfnRegistryProps:
         :param tags: AWS tags that contain a key value pair and may be searched by console, command line, or API.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-registry.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_glue as glue
+            from aws_cdk.aws_glue import CfnRegistry
+            from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, GlueSchemaRegistry
             
-            cfn_registry_props = glue.CfnRegistryProps(
-                name="name",
+            # Your MSK cluster arn
+            # cluster_arn: str
             
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
+            # my_function: lambda.Function
+            
+            
+            # The Kafka topic you want to subscribe to
+            topic = "some-cool-topic"
+            
+            # Your Glue Schema Registry
+            glue_registry = CfnRegistry(self, "Registry",
+                name="schema-registry",
+                description="Schema registry for event source"
             )
+            my_function.add_event_source(ManagedKafkaEventSource(
+                cluster_arn=cluster_arn,
+                topic=topic,
+                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+                provisioned_poller_config=ProvisionedPollerConfig(
+                    minimum_pollers=1,
+                    maximum_pollers=3
+                ),
+                schema_registry_config=GlueSchemaRegistry(
+                    schema_registry=glue_registry,
+                    event_record_format=lambda_.EventRecordFormat.JSON,
+                    schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+                )
+            ))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9d85e07a2dcc4ae5cd073c48fc5eb424c7446e4be042407f1f89c111ef9bba1)

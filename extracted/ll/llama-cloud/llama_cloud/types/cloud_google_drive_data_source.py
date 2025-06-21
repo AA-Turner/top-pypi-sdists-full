@@ -17,9 +17,7 @@ except ImportError:
 class CloudGoogleDriveDataSource(pydantic.BaseModel):
     supports_access_control: typing.Optional[bool]
     folder_id: str = pydantic.Field(description="The ID of the Google Drive folder to read from.")
-    service_account_key: typing.Dict[str, typing.Any] = pydantic.Field(
-        description="The service account key JSON to use for authentication."
-    )
+    service_account_key: typing.Optional[typing.Dict[str, typing.Any]]
     class_name: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:

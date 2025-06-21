@@ -20,11 +20,13 @@ from swarms.structs.rearrange import AgentRearrange
 from swarms.structs.sequential_workflow import SequentialWorkflow
 from swarms.structs.spreadsheet_swarm import SpreadSheetSwarm
 from swarms.structs.swarm_matcher import swarm_matcher
-from swarms.structs.output_types import OutputType
+from swarms.utils.output_types import OutputType
 from swarms.utils.loguru_logger import initialize_logger
 from swarms.structs.malt import MALT
 from swarms.structs.deep_research_swarm import DeepResearchSwarm
 from swarms.structs.council_judge import CouncilAsAJudge
+from swarms.structs.interactive_groupchat import InteractiveGroupChat
+
 
 logger = initialize_logger(log_folder="swarm_router")
 
@@ -43,6 +45,7 @@ SwarmType = Literal[
     "MALT",
     "DeepResearchSwarm",
     "CouncilAsAJudge",
+    "InteractiveGroupChat",
 ]
 
 
@@ -187,7 +190,7 @@ class SwarmRouter:
         shared_memory_system: Any = None,
         rules: str = None,
         documents: List[str] = [],  # A list of docs file paths
-        output_type: OutputType = "dict",
+        output_type: OutputType = "dict-all-except-first",
         no_cluster_ops: bool = False,
         speaker_fn: callable = None,
         load_agents_from_csv: bool = False,
@@ -332,19 +335,7 @@ class SwarmRouter:
         )
         logger.info("🚀 [SYSTEM] Swarm is ready for deployment")
 
-    def _create_swarm(
-        self, task: str = None, *args, **kwargs
-    ) -> Union[
-        AgentRearrange,
-        MixtureOfAgents,
-        SpreadSheetSwarm,
-        SequentialWorkflow,
-        ConcurrentWorkflow,
-        GroupChat,
-        MultiAgentRouter,
-        MajorityVoting,
-        HierarchicalSwarm,
-    ]:
+    def _create_swarm(self, task: str = None, *args, **kwargs):
         """
         Dynamically create and return the specified swarm type or automatically match the best swarm type for a given task.
 
@@ -395,6 +386,15 @@ class SwarmRouter:
                 model_name=self.model_name,
                 output_type=self.output_type,
                 base_agent=self.agents[0] if self.agents else None,
+            )
+
+        elif self.swarm_type == "InteractiveGroupChat":
+            return InteractiveGroupChat(
+                name=self.name,
+                description=self.description,
+                agents=self.agents,
+                max_loops=self.max_loops,
+                output_type=self.output_type,
             )
 
         elif self.swarm_type == "DeepResearchSwarm":
@@ -778,85 +778,3 @@ class SwarmRouter:
                     results.append(None)
 
         return results
-
-
-def swarm_router(
-    name: str = "swarm-router",
-    description: str = "Routes your task to the desired swarm",
-    max_loops: int = 1,
-    agents: List[Union[Agent, Callable]] = [],
-    swarm_type: SwarmType = "SequentialWorkflow",  # "SpreadSheetSwarm" # "auto"
-    autosave: bool = False,
-    flow: str = None,
-    return_json: bool = True,
-    auto_generate_prompts: bool = False,
-    task: str = None,
-    rules: str = None,
-    *args,
-    **kwargs,
-) -> SwarmRouter:
-    """
-    Create and run a SwarmRouter instance with the given configuration.
-
-    Args:
-        name (str, optional): Name of the swarm router. Defaults to "swarm-router".
-        description (str, optional): Description of the router. Defaults to "Routes your task to the desired swarm".
-        max_loops (int, optional): Maximum number of execution loops. Defaults to 1.
-        agents (List[Union[Agent, Callable]], optional): List of agents or callables. Defaults to [].
-        swarm_type (SwarmType, optional): Type of swarm to use. Defaults to "SequentialWorkflow".
-        autosave (bool, optional): Whether to autosave results. Defaults to False.
-        flow (str, optional): Flow configuration. Defaults to None.
-        return_json (bool, optional): Whether to return results as JSON. Defaults to True.
-        auto_generate_prompts (bool, optional): Whether to auto-generate prompts. Defaults to False.
-        task (str, optional): Task to execute. Defaults to None.
-        *args: Additional positional arguments passed to SwarmRouter.run()
-        **kwargs: Additional keyword arguments passed to SwarmRouter.run()
-
-    Returns:
-        Any: Result from executing the swarm router
-
-    Raises:
-        ValueError: If invalid arguments are provided
-        Exception: If an error occurs during router creation or task execution
-    """
-    try:
-        logger.info(
-            f"Creating SwarmRouter with name: {name}, swarm_type: {swarm_type}"
-        )
-
-        if not agents:
-            logger.warning(
-                "No agents provided, router may have limited functionality"
-            )
-
-        if task is None:
-            logger.warning("No task provided")
-
-        swarm_router = SwarmRouter(
-            name=name,
-            description=description,
-            max_loops=max_loops,
-            agents=agents,
-            swarm_type=swarm_type,
-            autosave=autosave,
-            flow=flow,
-            return_json=return_json,
-            auto_generate_prompts=auto_generate_prompts,
-            rules=rules,
-        )
-
-        logger.info(f"Executing task with SwarmRouter: {task}")
-        result = swarm_router.run(task, *args, **kwargs)
-        logger.info(
-            f"Task execution completed successfully: {result}"
-        )
-        return result
-
-    except ValueError as e:
-        logger.error(
-            f"Invalid arguments provided to swarm_router: {str(e)}"
-        )
-        raise
-    except Exception as e:
-        logger.error(f"Error in swarm_router execution: {str(e)}")
-        raise

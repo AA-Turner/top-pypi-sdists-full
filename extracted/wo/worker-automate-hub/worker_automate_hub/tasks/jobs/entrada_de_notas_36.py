@@ -122,15 +122,30 @@ async def entrada_de_notas_36(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         # Procura campo documento
         console.print("Navegando pela Janela de Nota Fiscal de Entrada...\n")
-        document_type = await select_documento_type(
-            "NOTA FISCAL DE ENTRADA ELETRONICA - DANFE"
-        )
-        if document_type.sucesso == True:
-            console.log(document_type.retorno, style="bold green")
+        
+        # Lista de tipos de documentos
+        tipos_documento = [
+            "NOTA FISCAL DE ENTRADA ELETRONICA - DANFE",
+            "DANFE - NOTA FISCAL DE ENTRADA ELETRONICA - DANFE"
+        ]
+
+        document_type_result = None
+
+        for tipo in tipos_documento:
+            try:
+                resultado = await select_documento_type(tipo)
+                if resultado.sucesso:
+                    document_type_result = resultado
+                    break
+            except Exception as e:
+                console.log(f"Erro ao tentar selecionar '{tipo}': {e}", style="bold red")
+
+        if document_type_result and document_type_result.sucesso:
+            console.log(document_type_result.retorno, style="bold green")
         else:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
-                retorno=document_type.retorno,
+                retorno="Não foi possível selecionar nenhum dos tipos de documento válidos.",
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )

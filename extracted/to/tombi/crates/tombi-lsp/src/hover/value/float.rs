@@ -2,8 +2,11 @@ use futures::{future::BoxFuture, FutureExt};
 use tombi_schema_store::{Accessor, CurrentSchema, FloatSchema, ValueSchema};
 
 use crate::hover::{
-    all_of::get_all_of_hover_content, any_of::get_any_of_hover_content,
-    constraints::ValueConstraints, display_value::DisplayValue, one_of::get_one_of_hover_content,
+    all_of::get_all_of_hover_content,
+    any_of::get_any_of_hover_content,
+    constraints::{build_enumerate_values, ValueConstraints},
+    display_value::DisplayValue,
+    one_of::get_one_of_hover_content,
     GetHoverContent, HoverContent,
 };
 
@@ -113,12 +116,11 @@ impl GetHoverContent for FloatSchema {
                 accessors: tombi_schema_store::Accessors::new(accessors.to_vec()),
                 value_type: tombi_schema_store::ValueType::Float,
                 constraints: Some(ValueConstraints {
-                    enumerate: self.enumerate.as_ref().map(|value| {
-                        value
-                            .iter()
-                            .map(|value| DisplayValue::Float(*value))
-                            .collect()
-                    }),
+                    enumerate: build_enumerate_values(
+                        &self.const_value,
+                        &self.enumerate,
+                        |value| Some(DisplayValue::Float(*value)),
+                    ),
                     default: self.default.map(DisplayValue::Float),
                     examples: self.examples.as_ref().map(|examples| {
                         examples

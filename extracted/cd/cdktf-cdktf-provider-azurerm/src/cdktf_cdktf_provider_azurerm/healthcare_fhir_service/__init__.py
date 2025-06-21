@@ -1,7 +1,7 @@
 r'''
 # `azurerm_healthcare_fhir_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_healthcare_fhir_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service).
+Refer to the Terraform Registry for docs: [`azurerm_healthcare_fhir_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HealthcareFhirService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.healthcareFhirService.HealthcareFhirService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service azurerm_healthcare_fhir_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service azurerm_healthcare_fhir_service}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class HealthcareFhirService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service azurerm_healthcare_fhir_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service azurerm_healthcare_fhir_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.
-        :param access_policy_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.
-        :param configuration_export_storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.
-        :param container_registry_login_server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.
-        :param oci_artifact: oci_artifact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.
+        :param access_policy_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.
+        :param configuration_export_storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.
+        :param container_registry_login_server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.
+        :param oci_artifact: oci_artifact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class HealthcareFhirService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HealthcareFhirService to import.
-        :param import_from_id: The id of the existing HealthcareFhirService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HealthcareFhirService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HealthcareFhirService to import is found.
         '''
         if __debug__:
@@ -165,9 +165,9 @@ class HealthcareFhirService(
         smart_proxy_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.
-        :param authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.
-        :param smart_proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.
+        :param authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.
+        :param smart_proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.
         '''
         value = HealthcareFhirServiceAuthentication(
             audience=audience,
@@ -188,11 +188,11 @@ class HealthcareFhirService(
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.
-        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.
+        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.
         '''
         value = HealthcareFhirServiceCors(
             allowed_headers=allowed_headers,
@@ -212,8 +212,8 @@ class HealthcareFhirService(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.
         '''
         value = HealthcareFhirServiceIdentity(type=type, identity_ids=identity_ids)
 
@@ -242,10 +242,10 @@ class HealthcareFhirService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.
         '''
         value = HealthcareFhirServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -565,9 +565,9 @@ class HealthcareFhirServiceAuthentication:
         smart_proxy_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.
-        :param authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.
-        :param smart_proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.
+        :param authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.
+        :param smart_proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21c01e13c177cb334b9c6e58a3c8a78cc7a49c97aa844ed34e787e7199e4270e)
@@ -583,14 +583,14 @@ class HealthcareFhirServiceAuthentication:
 
     @builtins.property
     def audience(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#audience HealthcareFhirService#audience}.'''
         result = self._values.get("audience")
         assert result is not None, "Required property 'audience' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authority(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authority HealthcareFhirService#authority}.'''
         result = self._values.get("authority")
         assert result is not None, "Required property 'authority' is missing"
         return typing.cast(builtins.str, result)
@@ -599,7 +599,7 @@ class HealthcareFhirServiceAuthentication:
     def smart_proxy_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#smart_proxy_enabled HealthcareFhirService#smart_proxy_enabled}.'''
         result = self._values.get("smart_proxy_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -776,21 +776,21 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.
-        :param access_policy_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.
-        :param configuration_export_storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.
-        :param container_registry_login_server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.
-        :param oci_artifact: oci_artifact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.
+        :param access_policy_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.
+        :param configuration_export_storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.
+        :param container_registry_login_server_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.
+        :param oci_artifact: oci_artifact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -936,7 +936,7 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication(self) -> HealthcareFhirServiceAuthentication:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#authentication HealthcareFhirService#authentication}
         '''
         result = self._values.get("authentication")
         assert result is not None, "Required property 'authentication' is missing"
@@ -944,35 +944,35 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#location HealthcareFhirService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#name HealthcareFhirService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#resource_group_name HealthcareFhirService#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#workspace_id HealthcareFhirService#workspace_id}.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_policy_object_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#access_policy_object_ids HealthcareFhirService#access_policy_object_ids}.'''
         result = self._values.get("access_policy_object_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -980,7 +980,7 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration_export_storage_account_name(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#configuration_export_storage_account_name HealthcareFhirService#configuration_export_storage_account_name}.'''
         result = self._values.get("configuration_export_storage_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -988,7 +988,7 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def container_registry_login_server_url(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#container_registry_login_server_url HealthcareFhirService#container_registry_login_server_url}.'''
         result = self._values.get("container_registry_login_server_url")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -996,14 +996,14 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cors(self) -> typing.Optional["HealthcareFhirServiceCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#cors HealthcareFhirService#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["HealthcareFhirServiceCors"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#id HealthcareFhirService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1015,14 +1015,14 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["HealthcareFhirServiceIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity HealthcareFhirService#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["HealthcareFhirServiceIdentity"], result)
 
     @builtins.property
     def kind(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#kind HealthcareFhirService#kind}.'''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1032,14 +1032,14 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["HealthcareFhirServiceOciArtifact"]]]:
         '''oci_artifact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#oci_artifact HealthcareFhirService#oci_artifact}
         '''
         result = self._values.get("oci_artifact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["HealthcareFhirServiceOciArtifact"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#tags HealthcareFhirService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1047,7 +1047,7 @@ class HealthcareFhirServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HealthcareFhirServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#timeouts HealthcareFhirService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HealthcareFhirServiceTimeouts"], result)
@@ -1086,11 +1086,11 @@ class HealthcareFhirServiceCors:
         max_age_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.
-        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.
+        :param credentials_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f86a6f65fc5501e0f10dabc172176bfeb7b83380e75b952cc1a9f639484de74)
@@ -1111,21 +1111,21 @@ class HealthcareFhirServiceCors:
 
     @builtins.property
     def allowed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_headers HealthcareFhirService#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         assert result is not None, "Required property 'allowed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_methods HealthcareFhirService#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#allowed_origins HealthcareFhirService#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1134,13 +1134,13 @@ class HealthcareFhirServiceCors:
     def credentials_allowed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#credentials_allowed HealthcareFhirService#credentials_allowed}.'''
         result = self._values.get("credentials_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#max_age_in_seconds HealthcareFhirService#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1302,8 +1302,8 @@ class HealthcareFhirServiceIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f230243ea64ef74e2755f42cd1f33dc1889c42c796670b5d640015de037cb145)
@@ -1317,14 +1317,14 @@ class HealthcareFhirServiceIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#type HealthcareFhirService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#identity_ids HealthcareFhirService#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1442,9 +1442,9 @@ class HealthcareFhirServiceOciArtifact:
         image_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param login_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#login_server HealthcareFhirService#login_server}.
-        :param digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#digest HealthcareFhirService#digest}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#image_name HealthcareFhirService#image_name}.
+        :param login_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#login_server HealthcareFhirService#login_server}.
+        :param digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#digest HealthcareFhirService#digest}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#image_name HealthcareFhirService#image_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d653af6d52ec6885023d28f14a959e9cafecf5ee54457074ce23bb987a8f6b0)
@@ -1461,20 +1461,20 @@ class HealthcareFhirServiceOciArtifact:
 
     @builtins.property
     def login_server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#login_server HealthcareFhirService#login_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#login_server HealthcareFhirService#login_server}.'''
         result = self._values.get("login_server")
         assert result is not None, "Required property 'login_server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def digest(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#digest HealthcareFhirService#digest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#digest HealthcareFhirService#digest}.'''
         result = self._values.get("digest")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#image_name HealthcareFhirService#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#image_name HealthcareFhirService#image_name}.'''
         result = self._values.get("image_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1706,10 +1706,10 @@ class HealthcareFhirServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e6491ed4984ff56b7e591ec8918e4d123acc10d1975435c4d2ddea9812f0bcf)
@@ -1729,25 +1729,25 @@ class HealthcareFhirServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#create HealthcareFhirService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#delete HealthcareFhirService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#read HealthcareFhirService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/healthcare_fhir_service#update HealthcareFhirService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_federated_identity_credential`
 
-Refer to the Terraform Registry for docs: [`azurerm_federated_identity_credential`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential).
+Refer to the Terraform Registry for docs: [`azurerm_federated_identity_credential`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FederatedIdentityCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.federatedIdentityCredential.FederatedIdentityCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential azurerm_federated_identity_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential azurerm_federated_identity_credential}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class FederatedIdentityCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential azurerm_federated_identity_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential azurerm_federated_identity_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.
-        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.
+        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class FederatedIdentityCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FederatedIdentityCredential to import.
-        :param import_from_id: The id of the existing FederatedIdentityCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FederatedIdentityCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FederatedIdentityCredential to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class FederatedIdentityCredential(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.
         '''
         value = FederatedIdentityCredentialTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -358,14 +358,14 @@ class FederatedIdentityCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.
-        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.
+        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -481,49 +481,49 @@ class FederatedIdentityCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def audience(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#audience FederatedIdentityCredential#audience}.'''
         result = self._values.get("audience")
         assert result is not None, "Required property 'audience' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#issuer FederatedIdentityCredential#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#name FederatedIdentityCredential#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parent_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#parent_id FederatedIdentityCredential#parent_id}.'''
         result = self._values.get("parent_id")
         assert result is not None, "Required property 'parent_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#resource_group_name FederatedIdentityCredential#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#subject FederatedIdentityCredential#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#id FederatedIdentityCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -535,7 +535,7 @@ class FederatedIdentityCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FederatedIdentityCredentialTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#timeouts FederatedIdentityCredential#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FederatedIdentityCredentialTimeouts"], result)
@@ -572,10 +572,10 @@ class FederatedIdentityCredentialTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8f1425461956cdd65fdb7c4aca47c92eb180d7d561a417e0f161a3089aac23a)
@@ -595,25 +595,25 @@ class FederatedIdentityCredentialTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#create FederatedIdentityCredential#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#delete FederatedIdentityCredential#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#read FederatedIdentityCredential#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/federated_identity_credential#update FederatedIdentityCredential#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

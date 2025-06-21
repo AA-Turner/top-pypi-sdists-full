@@ -1,12 +1,16 @@
-from .hilbertspace import parse_edges_to_unique
-from .operatorbuilder import SparseOperatorBuilder
+from .hilbertspace import HilbertSpace, parse_edges_to_unique
+from .builder import SparseOperatorBuilder
 
 
 def heisenberg_from_edges(
     edges,
     j=1.0,
     b=0.0,
+    order=None,
+    sector=None,
+    symmetry=None,
     hilbert_space=None,
+    dtype=None,
 ):
     r"""Create a Heisenberg Hamiltonian on the graph defined by ``edges``.
 
@@ -42,9 +46,22 @@ def heisenberg_from_edges(
         The magnetic field strength(s). If a single float is given, it is used
         taken as a z-field. If a tuple of three floats is given, they are used
         for the x, y, and z fields respectively.
+    order : callable or sequence of hashable objects, optional
+        If provided, use this to order the sites. If a callable, it should be a
+        sorting key. If a sequence, it should be a permutation of the sites,
+        and ``key=order.index`` will be used.
+    sector : {None, str, int, ((int, int), (int, int))}, optional
+        The sector of the Hilbert space. If None, no sector is assumed.
+    symmetry : {None, "Z2", "U1", "U1U1"}, optional
+        The symmetry of the Hilbert space if any. If `None` and a `sector` is
+        provided, the symmetry will be inferred from the sector if possible.
     hilbert_space : HilbertSpace, optional
         The Hilbert space to use. If not given, one will be constructed
-        automatically from the edges.
+        automatically from the edges. This overrides the ``order``,
+        ``symmetry``, and ``sector`` parameters.
+    dtype : {None, str, type}, optional
+        The data type of the Hamiltonian. If None, a default dtype will be
+        used, np.float64 for real and np.complex128 for complex.
 
     Returns
     -------
@@ -63,7 +80,15 @@ def heisenberg_from_edges(
 
     sites, edges = parse_edges_to_unique(edges)
 
-    H = SparseOperatorBuilder(hilbert_space=hilbert_space)
+    if hilbert_space is None:
+        hilbert_space = HilbertSpace(
+            sites=sites,
+            order=order,
+            sector=sector,
+            symmetry=symmetry,
+        )
+
+    H = SparseOperatorBuilder(hilbert_space=hilbert_space, dtype=dtype)
 
     for cooa, coob in edges:
         if jx == jy:
@@ -84,7 +109,17 @@ def heisenberg_from_edges(
     return H
 
 
-def fermi_hubbard_from_edges(edges, t=1.0, U=1.0, mu=0.0):
+def fermi_hubbard_from_edges(
+    edges,
+    t=1.0,
+    U=1.0,
+    mu=0.0,
+    order=None,
+    sector=None,
+    symmetry=None,
+    hilbert_space=None,
+    dtype=None,
+):
     r"""Create a Fermi-Hubbard Hamiltonian on the graph defined by ``edges``.
     The Hamiltonian is given by:
 
@@ -125,14 +160,39 @@ def fermi_hubbard_from_edges(edges, t=1.0, U=1.0, mu=0.0):
         The on-site interaction strength. Default is 1.0.
     mu : float, optional
         The chemical potential. Default is 0.0.
+    order : callable or sequence of hashable objects, optional
+        If provided, use this to order the sites. If a callable, it should be a
+        sorting key. If a sequence, it should be a permutation of the sites,
+        and ``key=order.index`` will be used.
+    sector : {None, str, int, ((int, int), (int, int))}, optional
+        The sector of the Hilbert space. If None, no sector is assumed.
+    symmetry : {None, "Z2", "U1", "U1U1"}, optional
+        The symmetry of the Hilbert space if any. If `None` and a `sector` is
+        provided, the symmetry will be inferred from the sector if possible.
+    hilbert_space : HilbertSpace, optional
+        The Hilbert space to use. If not given, one will be constructed
+        automatically from the edges. This overrides the ``order``,
+        ``symmetry``, and ``sector`` parameters.
+    dtype : {None, str, type}, optional
+        The data type of the Hamiltonian. If None, a default dtype will be
+        used, np.float64 for real and np.complex128 for complex.
 
     Returns
     -------
     H : SparseOperatorBuilder
         The Hamiltonian as a SparseOperatorBuilder object.
     """
-    H = SparseOperatorBuilder()
     sites, edges = parse_edges_to_unique(edges)
+
+    if hilbert_space is None:
+        hilbert_space = HilbertSpace(
+            sites=[(s, coo) for coo in sites for s in "↑↓"],
+            order=order,
+            sector=sector,
+            symmetry=symmetry,
+        )
+
+    H = SparseOperatorBuilder(hilbert_space=hilbert_space, dtype=dtype)
 
     for cooa, coob in edges:
         # hopping
@@ -152,7 +212,17 @@ def fermi_hubbard_from_edges(edges, t=1.0, U=1.0, mu=0.0):
     return H
 
 
-def fermi_hubbard_spinless_from_edges(edges, t=1.0, V=0.0, mu=0.0):
+def fermi_hubbard_spinless_from_edges(
+    edges,
+    t=1.0,
+    V=0.0,
+    mu=0.0,
+    order=None,
+    sector=None,
+    symmetry=None,
+    hilbert_space=None,
+    dtype=None,
+):
     r"""Create a spinless Fermi-Hubbard Hamiltonian on the graph defined by
     ``edges``. The Hamiltonian is given by:
 
@@ -188,14 +258,39 @@ def fermi_hubbard_spinless_from_edges(edges, t=1.0, V=0.0, mu=0.0):
         The nearest neighbor interaction strength. Default is 0.0.
     mu : float, optional
         The chemical potential. Default is 0.0.
+    order : callable or sequence of hashable objects, optional
+        If provided, use this to order the sites. If a callable, it should be a
+        sorting key. If a sequence, it should be a permutation of the sites,
+        and ``key=order.index`` will be used.
+    sector : {None, str, int, ((int, int), (int, int))}, optional
+        The sector of the Hilbert space. If None, no sector is assumed.
+    symmetry : {None, "Z2", "U1", "U1U1"}, optional
+        The symmetry of the Hilbert space if any. If `None` and a `sector` is
+        provided, the symmetry will be inferred from the sector if possible.
+    hilbert_space : HilbertSpace, optional
+        The Hilbert space to use. If not given, one will be constructed
+        automatically from the edges. This overrides the ``order``,
+        ``symmetry``, and ``sector`` parameters.
+    dtype : {None, str, type}, optional
+        The data type of the Hamiltonian. If None, a default dtype will be
+        used, np.float64 for real and np.complex128 for complex.
 
     Returns
     -------
     H : SparseOperatorBuilder
         The Hamiltonian as a SparseOperatorBuilder object.
     """
-    H = SparseOperatorBuilder()
     sites, edges = parse_edges_to_unique(edges)
+
+    if hilbert_space is None:
+        hilbert_space = HilbertSpace(
+            sites=sites,
+            order=order,
+            sector=sector,
+            symmetry=symmetry,
+        )
+
+    H = SparseOperatorBuilder(hilbert_space=hilbert_space, dtype=dtype)
 
     for cooa, coob in edges:
         # hopping
@@ -211,3 +306,63 @@ def fermi_hubbard_spinless_from_edges(edges, t=1.0, V=0.0, mu=0.0):
 
     H.jordan_wigner_transform()
     return H
+
+
+def rand_operator(n, m, k, kmin=None, seed=None, ops="XYZ"):
+    """Generate a random operator with n qubits and m terms.
+    Each term is a sum of k operators acting on different qubits.
+    The operators are chosen randomly from the set {X, Y, Z, +, -, n}.
+    The coefficients are drawn from a normal distribution.
+
+    Parameters
+    ----------
+    n : int
+        The number of qubits.
+    m : int
+        The number of terms in the operator.
+    k : int
+        The number of operators in each term.
+    kmin : int, optional
+        The minimum number of operators in each term. If not given, kmin = k.
+    seed : int, optional
+        The random seed for reproducibility.
+    ops : str, optional
+        The set of operators to choose from.
+
+    Returns
+    -------
+    SparseOperatorBuilder
+        The random operator as a SparseOperatorBuilder object.
+    """
+    import numpy as np
+
+    terms = []
+
+    rng = np.random.default_rng(seed)
+    allowed_ops = np.array(list(ops))
+
+    if kmin is None:
+        kmin = k
+    if not (0 <= kmin <= k <= n):
+        raise ValueError(
+            "kmin must be positive and k must be between kmin and n"
+        )
+
+    for _ in range(m):
+        coeff = rng.normal()
+        ops = []
+
+        if kmin == k:
+            ki = k
+        else:
+            ki = rng.integers(kmin, k + 1)
+
+        regs = rng.choice(np.arange(n), size=ki, replace=False)
+        for reg in regs:
+            op = rng.choice(allowed_ops)
+            ops.append((str(op), int(reg)))
+        terms.append((coeff, *ops))
+
+    hilbert_space = HilbertSpace(sites=range(n))
+
+    return SparseOperatorBuilder(terms=terms, hilbert_space=hilbert_space)

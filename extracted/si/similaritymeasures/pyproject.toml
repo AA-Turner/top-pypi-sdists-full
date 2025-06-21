@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "similaritymeasures"
+dynamic = ["version"]
+description = "Quantify the difference between two arbitrary curves in space"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Charles Jekel", email = "cjekel@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "numpy >= 1.14.0",
+    "scipy >= 0.19.0",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/cjekel/similarity_measures"
+Repository = "https://github.com/cjekel/similarity_measures"
+Documentation = "https://jekel.me/similarity_measures/index.html"
+Issues = "https://github.com/cjekel/similarity_measures/issues"
+
+[tool.setuptools]
+packages = ["similaritymeasures"]
+
+[tool.setuptools.dynamic]
+version = {attr = "similaritymeasures.version.__version__"}
+
+[tool.setuptools.package-data]
+similaritymeasures = ["py.typed"]

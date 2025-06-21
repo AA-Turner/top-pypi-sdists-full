@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "varname"
-version = "0.14.0"
+version = "0.15.0"
 description = "Dark magics about variable names in python."
 authors = [ "pwwang <pwwang@pwwang.com>",]
 license = "MIT"
@@ -20,8 +20,9 @@ python = "^3.8"
 executing = "^2.1"
 asttokens = { version = "3.*", optional = true }
 pure_eval = { version = "0.*", optional = true }
+typing_extensions = { version = "^4.13", markers = "python_version < '3.10'" }
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8"
 pytest-cov = "^5"
 coverage = { version = "^7", extras = ["toml"] }

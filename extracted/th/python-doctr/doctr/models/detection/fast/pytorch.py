@@ -170,6 +170,15 @@ class FAST(_FAST, nn.Module):
                 m.weight.data.fill_(1.0)
                 m.bias.data.zero_()
 
+    def from_pretrained(self, path_or_url: str, **kwargs: Any) -> None:
+        """Load pretrained parameters onto the model
+
+        Args:
+            path_or_url: the path or URL to the model parameters (checkpoint)
+            **kwargs: additional arguments to be passed to `doctr.models.utils.load_pretrained_params`
+        """
+        load_pretrained_params(self, path_or_url, **kwargs)
+
     def forward(
         self,
         x: torch.Tensor,
@@ -302,12 +311,12 @@ def reparameterize(model: FAST | nn.Module) -> FAST:
             if last_conv is None:
                 continue
             conv_w = last_conv.weight
-            conv_b = last_conv.bias if last_conv.bias is not None else torch.zeros_like(child.running_mean)
+            conv_b = last_conv.bias if last_conv.bias is not None else torch.zeros_like(child.running_mean)  # type: ignore[arg-type]
 
-            factor = child.weight / torch.sqrt(child.running_var + child.eps)
+            factor = child.weight / torch.sqrt(child.running_var + child.eps)  # type: ignore
             last_conv.weight = nn.Parameter(conv_w * factor.reshape([last_conv.out_channels, 1, 1, 1]))
             last_conv.bias = nn.Parameter((conv_b - child.running_mean) * factor + child.bias)
-            model._modules[last_conv_name] = last_conv
+            model._modules[last_conv_name] = last_conv  # type: ignore[index]
             model._modules[name] = nn.Identity()
             last_conv = None
         elif isinstance(child, nn.Conv2d):
@@ -349,7 +358,7 @@ def _fast(
         _ignore_keys = (
             ignore_keys if kwargs["class_names"] != default_cfgs[arch].get("class_names", [CLASS_NAME]) else None
         )
-        load_pretrained_params(model, default_cfgs[arch]["url"], ignore_keys=_ignore_keys)
+        model.from_pretrained(default_cfgs[arch]["url"], ignore_keys=_ignore_keys)
 
     return model
 

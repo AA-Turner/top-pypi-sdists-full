@@ -1053,6 +1053,7 @@ from .types.schedule_service import ListSchedulesResponse
 from .types.schedule_service import PauseScheduleRequest
 from .types.schedule_service import ResumeScheduleRequest
 from .types.schedule_service import UpdateScheduleRequest
+from .types.service_networking import DnsPeeringConfig
 from .types.service_networking import PrivateServiceConnectConfig
 from .types.service_networking import PscAutomatedEndpoints
 from .types.service_networking import PSCAutomationConfig
@@ -1202,6 +1203,7 @@ from .types.vertex_rag_data import RagEmbeddingModelConfig
 from .types.vertex_rag_data import RagEngineConfig
 from .types.vertex_rag_data import RagFile
 from .types.vertex_rag_data import RagFileChunkingConfig
+from .types.vertex_rag_data import RagFileMetadataConfig
 from .types.vertex_rag_data import RagFileParsingConfig
 from .types.vertex_rag_data import RagFileTransformationConfig
 from .types.vertex_rag_data import RagManagedDbConfig
@@ -1586,6 +1588,7 @@ __all__ = (
     "DistillationDataStats",
     "DistillationHyperParameters",
     "DistillationSpec",
+    "DnsPeeringConfig",
     "DoubleArray",
     "DynamicRetrievalConfig",
     "EncryptionSpec",
@@ -2128,6 +2131,7 @@ __all__ = (
     "RagEngineConfig",
     "RagFile",
     "RagFileChunkingConfig",
+    "RagFileMetadataConfig",
     "RagFileParsingConfig",
     "RagFileTransformationConfig",
     "RagManagedDbConfig",

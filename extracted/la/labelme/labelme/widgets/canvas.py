@@ -1,16 +1,16 @@
-import collections
-from typing import Optional
+import functools
+from typing import Literal
 
 import imgviz
+import numpy as np
+import osam
 from loguru import logger
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-import osam
-import numpy as np
-from labelme._automation import polygon_from_mask
 import labelme.utils
+from labelme._automation import polygon_from_mask
 from labelme.shape import Shape
 
 # TODO(unknown):
@@ -103,12 +103,9 @@ class Canvas(QtWidgets.QWidget):
         self.menus = (QtWidgets.QMenu(), QtWidgets.QMenu())
         # Set widget options.
         self.setMouseTracking(True)
-        self.setFocusPolicy(QtCore.Qt.WheelFocus)
+        self.setFocusPolicy(QtCore.Qt.WheelFocus)  # type: ignore[attr-defined]
 
-        self._sam: Optional[osam.types.Model] = None
-        self._sam_embedding: collections.OrderedDict[
-            bytes, osam.types.ImageEmbedding
-        ] = collections.OrderedDict()
+        self._ai_model_name: str = "sam2:latest"
 
     def fillDrawing(self):
         return self._fill_drawing
@@ -135,33 +132,9 @@ class Canvas(QtWidgets.QWidget):
             raise ValueError("Unsupported createMode: %s" % value)
         self._createMode = value
 
-    def _compute_and_cache_image_embedding(self) -> None:
-        if self._sam is None:
-            logger.warning("SAM model is not set yet")
-            return
-
-        sam: osam.types.Model = self._sam
-
-        image: np.ndarray = labelme.utils.img_qt_to_arr(self.pixmap.toImage())
-        if image.tobytes() in self._sam_embedding:
-            return
-
-        logger.debug("Computing image embeddings for model {!r}", sam.name)
-        self._sam_embedding[image.tobytes()] = sam.encode_image(
-            image=imgviz.asrgb(image)
-        )
-
-    def initializeAiModel(self, model_name):
-        if self.pixmap is None:
-            logger.warning("Pixmap is not set yet")
-            return
-
-        if self._sam is None or self._sam.name != model_name:
-            logger.debug("Initializing AI model {!r}", model_name)
-            self._sam = osam.apis.get_model_type_by_name(model_name)()
-            self._sam_embedding.clear()
-
-        self._compute_and_cache_image_embedding()
+    def set_ai_model_name(self, model_name: str) -> None:
+        logger.debug("Setting AI model to {!r}", model_name)
+        self._ai_model_name = model_name
 
     def storeShapes(self):
         shapesBackup = []
@@ -207,7 +180,7 @@ class Canvas(QtWidgets.QWidget):
     def focusOutEvent(self, ev):
         self.restoreCursor()
 
-    def isVisible(self, shape):
+    def isVisible(self, shape):  # type: ignore[override]
         return self.visible.get(shape, True)
 
     def drawing(self):
@@ -253,7 +226,7 @@ class Canvas(QtWidgets.QWidget):
         self.prevMovePoint = pos
         self.restoreCursor()
 
-        is_shift_pressed = ev.modifiers() & QtCore.Qt.ShiftModifier
+        is_shift_pressed = ev.modifiers() & QtCore.Qt.ShiftModifier  # type: ignore[attr-defined]
 
         # Polygon drawing.
         if self.drawing():
@@ -313,7 +286,7 @@ class Canvas(QtWidgets.QWidget):
             return
 
         # Polygon copy moving.
-        if QtCore.Qt.RightButton & ev.buttons():
+        if QtCore.Qt.RightButton & ev.buttons():  # type: ignore[attr-defined]
             if self.selectedShapesCopy and self.prevPoint:
                 self.overrideCursor(CURSOR_MOVE)
                 self.boundedMoveShapes(self.selectedShapesCopy, pos)
@@ -324,7 +297,7 @@ class Canvas(QtWidgets.QWidget):
             return
 
         # Polygon/Vertex moving.
-        if QtCore.Qt.LeftButton & ev.buttons():
+        if QtCore.Qt.LeftButton & ev.buttons():  # type: ignore[attr-defined]
             if self.selectedVertex():
                 self.boundedMoveVertex(pos)
                 self.repaint()
@@ -348,7 +321,7 @@ class Canvas(QtWidgets.QWidget):
             index_edge = shape.nearestEdge(pos, self.epsilon)
             if index is not None:
                 if self.selectedVertex():
-                    self.hShape.highlightClear()
+                    self.hShape.highlightClear()  # type: ignore[union-attr]
                 self.prevhVertex = self.hVertex = index
                 self.prevhShape = self.hShape = shape
                 self.prevhEdge = self.hEdge
@@ -366,7 +339,7 @@ class Canvas(QtWidgets.QWidget):
                 break
             elif index_edge is not None and shape.canAddPoint():
                 if self.selectedVertex():
-                    self.hShape.highlightClear()
+                    self.hShape.highlightClear()  # type: ignore[union-attr]
                 self.prevhVertex = self.hVertex
                 self.hVertex = None
                 self.prevhShape = self.hShape = shape
@@ -378,7 +351,7 @@ class Canvas(QtWidgets.QWidget):
                 break
             elif shape.containsPoint(pos):
                 if self.selectedVertex():
-                    self.hShape.highlightClear()
+                    self.hShape.highlightClear()  # type: ignore[union-attr]
                 self.prevhVertex = self.hVertex
                 self.hVertex = None
                 self.prevhShape = self.hShape = shape
@@ -422,9 +395,9 @@ class Canvas(QtWidgets.QWidget):
     def mousePressEvent(self, ev):
         pos = self.transformPos(ev.localPos())
 
-        is_shift_pressed = ev.modifiers() & QtCore.Qt.ShiftModifier
+        is_shift_pressed = ev.modifiers() & QtCore.Qt.ShiftModifier  # type: ignore[attr-defined]
 
-        if ev.button() == QtCore.Qt.LeftButton:
+        if ev.button() == QtCore.Qt.LeftButton:  # type: ignore[attr-defined]
             if self.drawing():
                 if self.current:
                     # Add point to existing shape.
@@ -440,7 +413,7 @@ class Canvas(QtWidgets.QWidget):
                     elif self.createMode == "linestrip":
                         self.current.addPoint(self.line[1])
                         self.line[0] = self.current[-1]
-                        if int(ev.modifiers()) == QtCore.Qt.ControlModifier:
+                        if int(ev.modifiers()) == QtCore.Qt.ControlModifier:  # type: ignore[attr-defined]
                             self.finalise()
                     elif self.createMode in ["ai_polygon", "ai_mask"]:
                         self.current.addPoint(
@@ -449,7 +422,7 @@ class Canvas(QtWidgets.QWidget):
                         )
                         self.line.points[0] = self.current.points[-1]
                         self.line.point_labels[0] = self.current.point_labels[-1]
-                        if ev.modifiers() & QtCore.Qt.ControlModifier:
+                        if ev.modifiers() & QtCore.Qt.ControlModifier:  # type: ignore[attr-defined]
                             self.finalise()
                 elif not self.outOfPixmap(pos):
                     # Create new shape.
@@ -463,7 +436,7 @@ class Canvas(QtWidgets.QWidget):
                         self.finalise()
                     elif (
                         self.createMode in ["ai_polygon", "ai_mask"]
-                        and ev.modifiers() & QtCore.Qt.ControlModifier
+                        and ev.modifiers() & QtCore.Qt.ControlModifier  # type: ignore[attr-defined]
                     ):
                         self.finalise()
                     else:
@@ -481,19 +454,19 @@ class Canvas(QtWidgets.QWidget):
                         self.drawingPolygon.emit(True)
                         self.update()
             elif self.editing():
-                if self.selectedEdge() and ev.modifiers() == QtCore.Qt.AltModifier:
+                if self.selectedEdge() and ev.modifiers() == QtCore.Qt.AltModifier:  # type: ignore[attr-defined]
                     self.addPointToEdge()
                 elif self.selectedVertex() and ev.modifiers() == (
-                    QtCore.Qt.AltModifier | QtCore.Qt.ShiftModifier
+                    QtCore.Qt.AltModifier | QtCore.Qt.ShiftModifier  # type: ignore[attr-defined]
                 ):
                     self.removeSelectedPoint()
 
-                group_mode = int(ev.modifiers()) == QtCore.Qt.ControlModifier
+                group_mode = int(ev.modifiers()) == QtCore.Qt.ControlModifier  # type: ignore[attr-defined]
                 self.selectShapePoint(pos, multiple_selection_mode=group_mode)
                 self.prevPoint = pos
                 self.repaint()
-        elif ev.button() == QtCore.Qt.RightButton and self.editing():
-            group_mode = int(ev.modifiers()) == QtCore.Qt.ControlModifier
+        elif ev.button() == QtCore.Qt.RightButton and self.editing():  # type: ignore[attr-defined]
+            group_mode = int(ev.modifiers()) == QtCore.Qt.ControlModifier  # type: ignore[attr-defined]
             if not self.selectedShapes or (
                 self.hShape is not None and self.hShape not in self.selectedShapes
             ):
@@ -502,14 +475,14 @@ class Canvas(QtWidgets.QWidget):
             self.prevPoint = pos
 
     def mouseReleaseEvent(self, ev):
-        if ev.button() == QtCore.Qt.RightButton:
+        if ev.button() == QtCore.Qt.RightButton:  # type: ignore[attr-defined]
             menu = self.menus[len(self.selectedShapesCopy) > 0]
             self.restoreCursor()
             if not menu.exec_(self.mapToGlobal(ev.pos())) and self.selectedShapesCopy:
                 # Cancel the move by deleting the shadow copy.
                 self.selectedShapesCopy = []
                 self.repaint()
-        elif ev.button() == QtCore.Qt.LeftButton:
+        elif ev.button() == QtCore.Qt.LeftButton:  # type: ignore[attr-defined]
             if self.editing():
                 if (
                     self.hShape is not None
@@ -579,7 +552,7 @@ class Canvas(QtWidgets.QWidget):
         """Select the first shape created which contains this point."""
         if self.selectedVertex():  # A vertex is marked for selection.
             index, shape = self.hVertex, self.hShape
-            shape.highlightVertex(index, shape.MOVE_VERTEX)
+            shape.highlightVertex(index, shape.MOVE_VERTEX)  # type: ignore[union-attr]
         else:
             for shape in reversed(self.shapes):
                 if self.isVisible(shape) and shape.containsPoint(point):
@@ -616,14 +589,14 @@ class Canvas(QtWidgets.QWidget):
         y1 = top - point.y()
         x2 = right - point.x()
         y2 = bottom - point.y()
-        self.offsets = QtCore.QPointF(x1, y1), QtCore.QPointF(x2, y2)
+        self.offsets = QtCore.QPoint(x1, y1), QtCore.QPoint(x2, y2)
 
     def boundedMoveVertex(self, pos):
         index, shape = self.hVertex, self.hShape
-        point = shape[index]
+        point = shape[index]  # type: ignore[index]
         if self.outOfPixmap(pos):
             pos = self.intersectionPoint(point, pos)
-        shape.moveVertexBy(index, pos - point)
+        shape.moveVertexBy(index, pos - point)  # type: ignore[union-attr]
 
     def boundedMoveShapes(self, shapes, pos):
         if self.outOfPixmap(pos):
@@ -676,7 +649,7 @@ class Canvas(QtWidgets.QWidget):
         self.storeShapes()
         self.update()
 
-    def paintEvent(self, event: Optional[QtGui.QPaintEvent]) -> None:
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         if not self.pixmap:
             return super(Canvas, self).paintEvent(event)
 
@@ -754,19 +727,12 @@ class Canvas(QtWidgets.QWidget):
             point=self.line.points[1],
             label=self.line.point_labels[1],
         )
-        if self.createMode in ["ai_polygon", "ai_mask"]:
-            if self._sam is None:
-                logger.warning("SAM model is not set yet")
-                p.end()
-                return
-            _update_shape_with_sam(
-                shape=drawing_shape,
-                createMode=self.createMode,
-                model_name=self._sam.name,
-                image_embedding=self._sam_embedding[
-                    labelme.utils.img_qt_to_arr(self.pixmap.toImage()).tobytes()
-                ],
-            )
+        _update_shape_with_sam(
+            sam=_get_ai_model(model_name=self._ai_model_name),
+            pixmap=self.pixmap,
+            shape=drawing_shape,
+            createMode=self.createMode,
+        )
         drawing_shape.fill = self.fillDrawing()
         drawing_shape.selected = True
         drawing_shape.paint(p)
@@ -791,14 +757,12 @@ class Canvas(QtWidgets.QWidget):
 
     def finalise(self):
         assert self.current
-        if self._sam:
+        if self.createMode in ["ai_polygon", "ai_mask"]:
             _update_shape_with_sam(
+                sam=_get_ai_model(model_name=self._ai_model_name),
+                pixmap=self.pixmap,
                 shape=self.current,
                 createMode=self.createMode,
-                model_name=self._sam.name,
-                image_embedding=self._sam_embedding[
-                    labelme.utils.img_qt_to_arr(self.pixmap.toImage()).tobytes()
-                ],
             )
         self.current.close()
 
@@ -884,14 +848,14 @@ class Canvas(QtWidgets.QWidget):
     def wheelEvent(self, ev):
         mods = ev.modifiers()
         delta = ev.angleDelta()
-        if QtCore.Qt.ControlModifier == int(mods):
+        if QtCore.Qt.ControlModifier == int(mods):  # type: ignore[attr-defined]
             # with Ctrl/Command key
             # zoom
             self.zoomRequest.emit(delta.y(), ev.pos())
         else:
             # scroll
-            self.scrollRequest.emit(delta.x(), QtCore.Qt.Horizontal)
-            self.scrollRequest.emit(delta.y(), QtCore.Qt.Vertical)
+            self.scrollRequest.emit(delta.x(), QtCore.Qt.Horizontal)  # type: ignore[attr-defined]
+            self.scrollRequest.emit(delta.y(), QtCore.Qt.Vertical)  # type: ignore[attr-defined]
         ev.accept()
 
     def moveByKeyboard(self, offset):
@@ -904,22 +868,22 @@ class Canvas(QtWidgets.QWidget):
         modifiers = ev.modifiers()
         key = ev.key()
         if self.drawing():
-            if key == QtCore.Qt.Key_Escape and self.current:
+            if key == QtCore.Qt.Key_Escape and self.current:  # type: ignore[attr-defined]
                 self.current = None
                 self.drawingPolygon.emit(False)
                 self.update()
-            elif key == QtCore.Qt.Key_Return and self.canCloseShape():
+            elif key == QtCore.Qt.Key_Return and self.canCloseShape():  # type: ignore[attr-defined]
                 self.finalise()
-            elif modifiers == QtCore.Qt.AltModifier:
+            elif modifiers == QtCore.Qt.AltModifier:  # type: ignore[attr-defined]
                 self.snapping = False
         elif self.editing():
-            if key == QtCore.Qt.Key_Up:
+            if key == QtCore.Qt.Key_Up:  # type: ignore[attr-defined]
                 self.moveByKeyboard(QtCore.QPointF(0.0, -MOVE_SPEED))
-            elif key == QtCore.Qt.Key_Down:
+            elif key == QtCore.Qt.Key_Down:  # type: ignore[attr-defined]
                 self.moveByKeyboard(QtCore.QPointF(0.0, MOVE_SPEED))
-            elif key == QtCore.Qt.Key_Left:
+            elif key == QtCore.Qt.Key_Left:  # type: ignore[attr-defined]
                 self.moveByKeyboard(QtCore.QPointF(-MOVE_SPEED, 0.0))
-            elif key == QtCore.Qt.Key_Right:
+            elif key == QtCore.Qt.Key_Right:  # type: ignore[attr-defined]
                 self.moveByKeyboard(QtCore.QPointF(MOVE_SPEED, 0.0))
 
     def keyReleaseEvent(self, ev):
@@ -970,8 +934,6 @@ class Canvas(QtWidgets.QWidget):
 
     def loadPixmap(self, pixmap, clear_shapes=True):
         self.pixmap = pixmap
-        if self._sam:
-            self._compute_and_cache_image_embedding()
         if clear_shapes:
             self.shapes = []
         self.update()
@@ -1002,25 +964,29 @@ class Canvas(QtWidgets.QWidget):
 
     def resetState(self):
         self.restoreCursor()
-        self.pixmap = None
+        self.pixmap = None  # type: ignore[assignment]
         self.shapesBackups = []
         self.update()
 
 
 def _update_shape_with_sam(
+    sam: osam.types.Model,
+    pixmap: QtGui.QPixmap,
     shape: Shape,
-    createMode: str,
-    model_name: str,
-    image_embedding: osam.types.ImageEmbedding,
+    createMode: Literal["ai_polygon", "ai_mask"],
 ) -> None:
     if createMode not in ["ai_polygon", "ai_mask"]:
         raise ValueError(
             f"createMode must be 'ai_polygon' or 'ai_mask', not {createMode}"
         )
 
+    image_embedding: osam.types.ImageEmbedding = _compute_image_embedding(
+        sam=sam, pixmap=pixmap
+    )
+
     response: osam.types.GenerateResponse = osam.apis.generate(
         osam.types.GenerateRequest(
-            model=model_name,
+            model=sam.name,
             image_embedding=image_embedding,
             prompt=osam.types.Prompt(
                 points=[[point.x(), point.y()] for point in shape.points],
@@ -1029,7 +995,7 @@ def _update_shape_with_sam(
         )
     )
     if not response.annotations:
-        logger.warning("No annotations returned by model {!r}", model_name)
+        logger.warning("No annotations returned by model {!r}", sam)
         return
 
     if createMode == "ai_mask":
@@ -1063,3 +1029,37 @@ def _update_shape_with_sam(
             points=[QtCore.QPointF(point[0], point[1]) for point in points],
             point_labels=[1] * len(points),
         )
+
+
+@functools.lru_cache(maxsize=1)
+def _get_ai_model(model_name: str) -> osam.types.Model:
+    return osam.apis.get_model_type_by_name(name=model_name)()
+
+
+def _compute_image_embedding(
+    sam: osam.types.Model, pixmap: QtGui.QPixmap
+) -> osam.types.ImageEmbedding:
+    return __compute_image_embedding(sam=sam, pixmap=_QPixmapForLruCache(pixmap))
+
+
+class _QPixmapForLruCache(QtGui.QPixmap):
+    def __hash__(self) -> int:
+        qimage: QtGui.QImage = self.toImage()
+        bits = qimage.constBits()
+        if bits is None:
+            return hash(None)
+        return hash(bits.asstring(qimage.sizeInBytes()))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, _QPixmapForLruCache):
+            return False
+        return self.__hash__() == other.__hash__()
+
+
+@functools.lru_cache(maxsize=3)
+def __compute_image_embedding(
+    sam: osam.types.Model, pixmap: _QPixmapForLruCache
+) -> osam.types.ImageEmbedding:
+    logger.debug("Computing image embeddings for model {!r}", sam.name)
+    image: np.ndarray = labelme.utils.img_qt_to_arr(pixmap.toImage())
+    return sam.encode_image(image=imgviz.asrgb(image))

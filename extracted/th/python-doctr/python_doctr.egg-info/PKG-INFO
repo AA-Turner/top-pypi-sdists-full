@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-doctr
-Version: 0.11.0
+Version: 0.12.0
 Summary: Document Text Recognition (docTR): deep Learning for high-performance OCR on documents.
 Author-email: Mindee <contact@mindee.com>
 Maintainer: François-Guillaume Fernandez, Charles Gaillard, Olivier Dulcy, Felix Dittrich
@@ -239,6 +239,7 @@ Requires-Dist: huggingface-hub<1.0.0,>=0.20.0
 Requires-Dist: Pillow>=9.2.0
 Requires-Dist: defusedxml>=0.7.0
 Requires-Dist: anyascii>=0.3.2
+Requires-Dist: validators>=0.18.0
 Requires-Dist: tqdm>=4.30.0
 Provides-Extra: tf
 Requires-Dist: tensorflow[and-cuda]<3.0.0,>=2.15.0; sys_platform == "linux" and extra == "tf"
@@ -302,12 +303,13 @@ Requires-Dist: recommonmark>=0.7.1; extra == "dev"
 Requires-Dist: sphinx-markdown-tables>=0.0.15; extra == "dev"
 Requires-Dist: sphinx-tabs>=3.3.0; extra == "dev"
 Requires-Dist: furo>=2022.3.4; extra == "dev"
+Dynamic: license-file
 
 <p align="center">
   <img src="https://github.com/mindee/doctr/raw/main/docs/images/Logo_doctr.gif" width="40%">
 </p>
 
-[![Slack Icon](https://img.shields.io/badge/Slack-Community-4A154B?style=flat-square&logo=slack&logoColor=white)](https://slack.mindee.com) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) ![Build Status](https://github.com/mindee/doctr/workflows/builds/badge.svg) [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/mindee/doctr/pkgs/container/doctr) [![codecov](https://codecov.io/gh/mindee/doctr/branch/main/graph/badge.svg?token=577MO567NM)](https://codecov.io/gh/mindee/doctr) [![CodeFactor](https://www.codefactor.io/repository/github/mindee/doctr/badge?s=bae07db86bb079ce9d6542315b8c6e70fa708a7e)](https://www.codefactor.io/repository/github/mindee/doctr) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/340a76749b634586a498e1c0ab998f08)](https://app.codacy.com/gh/mindee/doctr?utm_source=github.com&utm_medium=referral&utm_content=mindee/doctr&utm_campaign=Badge_Grade) [![Doc Status](https://github.com/mindee/doctr/workflows/doc-status/badge.svg)](https://mindee.github.io/doctr) [![Pypi](https://img.shields.io/badge/pypi-v0.11.0-blue.svg)](https://pypi.org/project/python-doctr/) [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/mindee/doctr) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mindee/notebooks/blob/main/doctr/quicktour.ipynb) [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20docTR%20Guru-006BFF)](https://gurubase.io/g/doctr)
+[![Slack Icon](https://img.shields.io/badge/Slack-Community-4A154B?style=flat-square&logo=slack&logoColor=white)](https://slack.mindee.com) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) ![Build Status](https://github.com/mindee/doctr/workflows/builds/badge.svg) [![Docker Images](https://img.shields.io/badge/Docker-4287f5?style=flat&logo=docker&logoColor=white)](https://github.com/mindee/doctr/pkgs/container/doctr) [![codecov](https://codecov.io/gh/mindee/doctr/branch/main/graph/badge.svg?token=577MO567NM)](https://codecov.io/gh/mindee/doctr) [![CodeFactor](https://www.codefactor.io/repository/github/mindee/doctr/badge?s=bae07db86bb079ce9d6542315b8c6e70fa708a7e)](https://www.codefactor.io/repository/github/mindee/doctr) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/340a76749b634586a498e1c0ab998f08)](https://app.codacy.com/gh/mindee/doctr?utm_source=github.com&utm_medium=referral&utm_content=mindee/doctr&utm_campaign=Badge_Grade) [![Doc Status](https://github.com/mindee/doctr/workflows/doc-status/badge.svg)](https://mindee.github.io/doctr) [![Pypi](https://img.shields.io/badge/pypi-v0.12.0-blue.svg)](https://pypi.org/project/python-doctr/) [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/mindee/doctr) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mindee/notebooks/blob/main/doctr/quicktour.ipynb) [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20docTR%20Guru-006BFF)](https://gurubase.io/g/doctr)
 
 
 **Optical Character Recognition made seamless & accessible to anyone, powered by TensorFlow 2 & PyTorch**
@@ -438,6 +440,19 @@ The KIE predictor results per page are in a dictionary format with each key repr
 
 ## Installation
 
+> [!WARNING]
+> **TensorFlow Backend Deprecation Notice**
+>
+> Using docTR with TensorFlow as a backend is deprecated and will be removed in the next major release (v1.0.0).
+> We **recommend switching to the PyTorch backend**, which is more actively maintained and supports the latest features and models.
+> Alternatively, you can use [OnnxTR](https://github.com/felixdittrich92/OnnxTR), which does **not** require TensorFlow or PyTorch.
+>
+> This decision was made based on several considerations:
+>
+> - Allows better focus on improving the core library
+> - Frees up resources to develop new features faster
+> - Enables more targeted optimizations with PyTorch
+
 ### Prerequisites
 
 Python 3.10 (or higher) and [pip](https://pip.pypa.io/en/stable/) are required to install docTR.
@@ -504,6 +519,7 @@ Credits where it's due: this repository is implementing, among others, architect
 - MASTER: [MASTER: Multi-Aspect Non-local Network for Scene Text Recognition](https://arxiv.org/pdf/1910.02562.pdf).
 - ViTSTR: [Vision Transformer for Fast and Efficient Scene Text Recognition](https://arxiv.org/pdf/2105.08582.pdf).
 - PARSeq: [Scene Text Recognition with Permuted Autoregressive Sequence Models](https://arxiv.org/pdf/2207.06966).
+- VIPTR: [A Vision Permutable Extractor for Fast and Efficient Scene Text Recognition](https://arxiv.org/abs/2401.10110).
 
 ## More goodies
 

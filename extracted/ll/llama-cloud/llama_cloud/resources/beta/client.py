@@ -114,7 +114,12 @@ class BetaClient:
 
             - completion_window: typing.Optional[int]. The time frame within which the batch should be processed. Currently only 24h is supported.
         ---
-        from llama_cloud import FailPageMode, LlamaParseParameters, ParsingMode
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParsingMode,
+        )
         from llama_cloud.client import LlamaCloud
 
         client = LlamaCloud(
@@ -123,6 +128,7 @@ class BetaClient:
         client.beta.create_batch(
             tool="string",
             tool_data=LlamaParseParameters(
+                priority=LlamaParseParametersPriority.LOW,
                 parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                 replace_failed_page_mode=FailPageMode.RAW_TEXT,
             ),
@@ -286,7 +292,12 @@ class AsyncBetaClient:
 
             - completion_window: typing.Optional[int]. The time frame within which the batch should be processed. Currently only 24h is supported.
         ---
-        from llama_cloud import FailPageMode, LlamaParseParameters, ParsingMode
+        from llama_cloud import (
+            FailPageMode,
+            LlamaParseParameters,
+            LlamaParseParametersPriority,
+            ParsingMode,
+        )
         from llama_cloud.client import AsyncLlamaCloud
 
         client = AsyncLlamaCloud(
@@ -295,6 +306,7 @@ class AsyncBetaClient:
         await client.beta.create_batch(
             tool="string",
             tool_data=LlamaParseParameters(
+                priority=LlamaParseParametersPriority.LOW,
                 parse_mode=ParsingMode.PARSE_PAGE_WITHOUT_LLM,
                 replace_failed_page_mode=FailPageMode.RAW_TEXT,
             ),

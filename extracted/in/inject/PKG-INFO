@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: inject
-Version: 5.2.1
+Version: 5.3.0
 Summary: Python dependency injection framework.
 Project-URL: Homepage, https://github.com/ivankorobkov/python-inject
 Author-email: Ivan Korobkov <ivan.korobkov@gmail.com>
@@ -55,7 +55,7 @@ pip install inject
 that uses type annotations. This is supported only in Python >= 3.5.
 
 ```python
-@inject.autoparams()
+@inject.autoparams
 def refresh_cache(cache: RedisCache, db: DbInterface):
     pass
 ```
@@ -68,6 +68,9 @@ injecting everything:
 def sign_up(name, email, cache: RedisCache, db: DbInterface):
     pass
 ```
+
+It is also acceptable to use explicit curly braces notation (`@inject.autoparams()`)
+for non-parameterized decorations — it will be treated the same as `@inject.autoparams`.
 
 ## Step-by-step example
 ```python
@@ -145,7 +148,7 @@ not via with statement.
 ```python
 @contextlib.contextmanager
 def get_file_sync():
-    obj = MockFiel()
+    obj = MockFile()
     yield obj
     obj.destroy()
 
@@ -351,3 +354,4 @@ Apache License 2.0
 * 45deg [@45deg](https://github.com/45deg)
 * Alexander Nicholas Costas [@ancostas](https://github.com/ancostas)
 * Dmitry Balabka [@dbalabka](https://github.com/dbalabka)
+* Dima Burmistrov [@pyctrl](https://github.com/pyctrl)

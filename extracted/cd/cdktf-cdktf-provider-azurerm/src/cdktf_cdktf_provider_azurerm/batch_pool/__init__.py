@@ -1,7 +1,7 @@
 r'''
 # `azurerm_batch_pool`
 
-Refer to the Terraform Registry for docs: [`azurerm_batch_pool`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool).
+Refer to the Terraform Registry for docs: [`azurerm_batch_pool`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BatchPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.batchPool.BatchPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool azurerm_batch_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool azurerm_batch_pool}.'''
 
     def __init__(
         self,
@@ -91,42 +91,42 @@ class BatchPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool azurerm_batch_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool azurerm_batch_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.
-        :param node_agent_sku_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.
-        :param storage_image_reference: storage_image_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
-        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.
-        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#certificate BatchPool#certificate}
-        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
-        :param disk_encryption: disk_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#display_name BatchPool#display_name}.
-        :param extensions: extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#extensions BatchPool#extensions}
-        :param fixed_scale: fixed_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity BatchPool#identity}
-        :param inter_node_communication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#license_type BatchPool#license_type}.
-        :param max_tasks_per_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#metadata BatchPool#metadata}.
-        :param mount: mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount BatchPool#mount}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
-        :param node_placement: node_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
-        :param os_disk_placement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.
-        :param security_profile: security_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
-        :param start_task: start_task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#start_task BatchPool#start_task}
-        :param stop_pending_resize_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.
-        :param target_node_communication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.
-        :param task_scheduling_policy: task_scheduling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
-        :param user_accounts: user_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
-        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#windows BatchPool#windows}
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.
+        :param node_agent_sku_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.
+        :param storage_image_reference: storage_image_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
+        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.
+        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#certificate BatchPool#certificate}
+        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
+        :param disk_encryption: disk_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#display_name BatchPool#display_name}.
+        :param extensions: extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#extensions BatchPool#extensions}
+        :param fixed_scale: fixed_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity BatchPool#identity}
+        :param inter_node_communication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#license_type BatchPool#license_type}.
+        :param max_tasks_per_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#metadata BatchPool#metadata}.
+        :param mount: mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount BatchPool#mount}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
+        :param node_placement: node_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
+        :param os_disk_placement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.
+        :param security_profile: security_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
+        :param start_task: start_task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#start_task BatchPool#start_task}
+        :param stop_pending_resize_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.
+        :param target_node_communication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.
+        :param task_scheduling_policy: task_scheduling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
+        :param user_accounts: user_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
+        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#windows BatchPool#windows}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -196,7 +196,7 @@ class BatchPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BatchPool to import.
-        :param import_from_id: The id of the existing BatchPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BatchPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BatchPool to import is found.
         '''
         if __debug__:
@@ -215,8 +215,8 @@ class BatchPool(
         evaluation_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param formula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#formula BatchPool#formula}.
-        :param evaluation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.
+        :param formula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#formula BatchPool#formula}.
+        :param evaluation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.
         '''
         value = BatchPoolAutoScale(
             formula=formula, evaluation_interval=evaluation_interval
@@ -246,9 +246,9 @@ class BatchPool(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.
-        :param container_registries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.
+        :param container_image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.
+        :param container_registries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.
         '''
         value = BatchPoolContainerConfiguration(
             container_image_names=container_image_names,
@@ -307,10 +307,10 @@ class BatchPool(
         target_low_priority_nodes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_deallocation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.
-        :param resize_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.
-        :param target_dedicated_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.
-        :param target_low_priority_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.
+        :param node_deallocation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.
+        :param resize_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.
+        :param target_dedicated_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.
+        :param target_low_priority_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.
         '''
         value = BatchPoolFixedScale(
             node_deallocation_method=node_deallocation_method,
@@ -329,8 +329,8 @@ class BatchPool(
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.
         '''
         value = BatchPoolIdentity(identity_ids=identity_ids, type=type)
 
@@ -361,12 +361,12 @@ class BatchPool(
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerated_networking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.
-        :param dynamic_vnet_assignment_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.
-        :param endpoint_configuration: endpoint_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
-        :param public_address_provisioning_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.
-        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.
+        :param accelerated_networking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.
+        :param dynamic_vnet_assignment_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.
+        :param endpoint_configuration: endpoint_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
+        :param public_address_provisioning_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.
+        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.
         '''
         value = BatchPoolNetworkConfiguration(
             accelerated_networking_enabled=accelerated_networking_enabled,
@@ -402,10 +402,10 @@ class BatchPool(
         vtpm_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.
-        :param secure_boot_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.
-        :param security_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_type BatchPool#security_type}.
-        :param vtpm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.
+        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.
+        :param secure_boot_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.
+        :param security_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_type BatchPool#security_type}.
+        :param vtpm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.
         '''
         value = BatchPoolSecurityProfile(
             host_encryption_enabled=host_encryption_enabled,
@@ -429,13 +429,13 @@ class BatchPool(
         wait_for_success: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#command_line BatchPool#command_line}.
-        :param user_identity: user_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
-        :param common_environment_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container BatchPool#container}
-        :param resource_file: resource_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
-        :param task_retry_maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.
-        :param wait_for_success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.
+        :param command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#command_line BatchPool#command_line}.
+        :param user_identity: user_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
+        :param common_environment_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container BatchPool#container}
+        :param resource_file: resource_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
+        :param task_retry_maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.
+        :param wait_for_success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.
         '''
         value = BatchPoolStartTask(
             command_line=command_line,
@@ -460,11 +460,11 @@ class BatchPool(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#offer BatchPool#offer}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sku BatchPool#sku}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#version BatchPool#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#offer BatchPool#offer}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sku BatchPool#sku}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#version BatchPool#version}.
         '''
         value = BatchPoolStorageImageReference(
             id=id, offer=offer, publisher=publisher, sku=sku, version=version
@@ -495,10 +495,10 @@ class BatchPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#create BatchPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#delete BatchPool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#read BatchPool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#update BatchPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#create BatchPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#delete BatchPool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#read BatchPool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#update BatchPool#update}.
         '''
         value = BatchPoolTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1120,8 +1120,8 @@ class BatchPoolAutoScale:
         evaluation_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param formula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#formula BatchPool#formula}.
-        :param evaluation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.
+        :param formula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#formula BatchPool#formula}.
+        :param evaluation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a88a77dba9609bf391147a8f7d36239744b34bcef8779f5eb80bb24e9646150a)
@@ -1135,14 +1135,14 @@ class BatchPoolAutoScale:
 
     @builtins.property
     def formula(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#formula BatchPool#formula}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#formula BatchPool#formula}.'''
         result = self._values.get("formula")
         assert result is not None, "Required property 'formula' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def evaluation_interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#evaluation_interval BatchPool#evaluation_interval}.'''
         result = self._values.get("evaluation_interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1249,10 +1249,10 @@ class BatchPoolCertificate:
         visibility: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param store_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#store_location BatchPool#store_location}.
-        :param store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#store_name BatchPool#store_name}.
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#visibility BatchPool#visibility}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param store_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#store_location BatchPool#store_location}.
+        :param store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#store_name BatchPool#store_name}.
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#visibility BatchPool#visibility}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acce31f232bbe463e5730ff09b7fa9661c53f341c9dc58e4c2ed86c17de9c150)
@@ -1271,7 +1271,7 @@ class BatchPoolCertificate:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1282,20 +1282,20 @@ class BatchPoolCertificate:
 
     @builtins.property
     def store_location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#store_location BatchPool#store_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#store_location BatchPool#store_location}.'''
         result = self._values.get("store_location")
         assert result is not None, "Required property 'store_location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def store_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#store_name BatchPool#store_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#store_name BatchPool#store_name}.'''
         result = self._values.get("store_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def visibility(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#visibility BatchPool#visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#visibility BatchPool#visibility}.'''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1618,38 +1618,38 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.
-        :param node_agent_sku_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.
-        :param storage_image_reference: storage_image_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
-        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.
-        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#certificate BatchPool#certificate}
-        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
-        :param disk_encryption: disk_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#display_name BatchPool#display_name}.
-        :param extensions: extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#extensions BatchPool#extensions}
-        :param fixed_scale: fixed_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity BatchPool#identity}
-        :param inter_node_communication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#license_type BatchPool#license_type}.
-        :param max_tasks_per_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#metadata BatchPool#metadata}.
-        :param mount: mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount BatchPool#mount}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
-        :param node_placement: node_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
-        :param os_disk_placement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.
-        :param security_profile: security_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
-        :param start_task: start_task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#start_task BatchPool#start_task}
-        :param stop_pending_resize_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.
-        :param target_node_communication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.
-        :param task_scheduling_policy: task_scheduling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
-        :param user_accounts: user_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
-        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#windows BatchPool#windows}
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.
+        :param node_agent_sku_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.
+        :param storage_image_reference: storage_image_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
+        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.
+        :param auto_scale: auto_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#certificate BatchPool#certificate}
+        :param container_configuration: container_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
+        :param disk_encryption: disk_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#display_name BatchPool#display_name}.
+        :param extensions: extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#extensions BatchPool#extensions}
+        :param fixed_scale: fixed_scale block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity BatchPool#identity}
+        :param inter_node_communication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#license_type BatchPool#license_type}.
+        :param max_tasks_per_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#metadata BatchPool#metadata}.
+        :param mount: mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount BatchPool#mount}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
+        :param node_placement: node_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
+        :param os_disk_placement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.
+        :param security_profile: security_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
+        :param start_task: start_task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#start_task BatchPool#start_task}
+        :param stop_pending_resize_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.
+        :param target_node_communication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.
+        :param task_scheduling_policy: task_scheduling_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
+        :param user_accounts: user_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
+        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#windows BatchPool#windows}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1853,28 +1853,28 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_agent_sku_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_agent_sku_id BatchPool#node_agent_sku_id}.'''
         result = self._values.get("node_agent_sku_id")
         assert result is not None, "Required property 'node_agent_sku_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_group_name BatchPool#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1883,7 +1883,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_image_reference(self) -> "BatchPoolStorageImageReference":
         '''storage_image_reference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_image_reference BatchPool#storage_image_reference}
         '''
         result = self._values.get("storage_image_reference")
         assert result is not None, "Required property 'storage_image_reference' is missing"
@@ -1891,7 +1891,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def vm_size(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vm_size BatchPool#vm_size}.'''
         result = self._values.get("vm_size")
         assert result is not None, "Required property 'vm_size' is missing"
         return typing.cast(builtins.str, result)
@@ -1900,7 +1900,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_scale(self) -> typing.Optional[BatchPoolAutoScale]:
         '''auto_scale block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_scale BatchPool#auto_scale}
         '''
         result = self._values.get("auto_scale")
         return typing.cast(typing.Optional[BatchPoolAutoScale], result)
@@ -1911,7 +1911,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BatchPoolCertificate]]]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#certificate BatchPool#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#certificate BatchPool#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BatchPoolCertificate]]], result)
@@ -1922,7 +1922,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BatchPoolContainerConfiguration"]:
         '''container_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_configuration BatchPool#container_configuration}
         '''
         result = self._values.get("container_configuration")
         return typing.cast(typing.Optional["BatchPoolContainerConfiguration"], result)
@@ -1933,7 +1933,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolDataDisks"]]]:
         '''data_disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#data_disks BatchPool#data_disks}
         '''
         result = self._values.get("data_disks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolDataDisks"]]], result)
@@ -1944,14 +1944,14 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolDiskEncryption"]]]:
         '''disk_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_encryption BatchPool#disk_encryption}
         '''
         result = self._values.get("disk_encryption")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolDiskEncryption"]]], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#display_name BatchPool#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#display_name BatchPool#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1961,7 +1961,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolExtensions"]]]:
         '''extensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#extensions BatchPool#extensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#extensions BatchPool#extensions}
         '''
         result = self._values.get("extensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolExtensions"]]], result)
@@ -1970,14 +1970,14 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fixed_scale(self) -> typing.Optional["BatchPoolFixedScale"]:
         '''fixed_scale block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#fixed_scale BatchPool#fixed_scale}
         '''
         result = self._values.get("fixed_scale")
         return typing.cast(typing.Optional["BatchPoolFixedScale"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1989,32 +1989,32 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["BatchPoolIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity BatchPool#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity BatchPool#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["BatchPoolIdentity"], result)
 
     @builtins.property
     def inter_node_communication(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#inter_node_communication BatchPool#inter_node_communication}.'''
         result = self._values.get("inter_node_communication")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def license_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#license_type BatchPool#license_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#license_type BatchPool#license_type}.'''
         result = self._values.get("license_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_tasks_per_node(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#max_tasks_per_node BatchPool#max_tasks_per_node}.'''
         result = self._values.get("max_tasks_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#metadata BatchPool#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#metadata BatchPool#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2024,7 +2024,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMount"]]]:
         '''mount block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount BatchPool#mount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount BatchPool#mount}
         '''
         result = self._values.get("mount")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMount"]]], result)
@@ -2033,7 +2033,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_configuration(self) -> typing.Optional["BatchPoolNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#network_configuration BatchPool#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["BatchPoolNetworkConfiguration"], result)
@@ -2044,14 +2044,14 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNodePlacement"]]]:
         '''node_placement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_placement BatchPool#node_placement}
         '''
         result = self._values.get("node_placement")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNodePlacement"]]], result)
 
     @builtins.property
     def os_disk_placement(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#os_disk_placement BatchPool#os_disk_placement}.'''
         result = self._values.get("os_disk_placement")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2059,7 +2059,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_profile(self) -> typing.Optional["BatchPoolSecurityProfile"]:
         '''security_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_profile BatchPool#security_profile}
         '''
         result = self._values.get("security_profile")
         return typing.cast(typing.Optional["BatchPoolSecurityProfile"], result)
@@ -2068,7 +2068,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_task(self) -> typing.Optional["BatchPoolStartTask"]:
         '''start_task block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#start_task BatchPool#start_task}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#start_task BatchPool#start_task}
         '''
         result = self._values.get("start_task")
         return typing.cast(typing.Optional["BatchPoolStartTask"], result)
@@ -2077,13 +2077,13 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stop_pending_resize_operation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#stop_pending_resize_operation BatchPool#stop_pending_resize_operation}.'''
         result = self._values.get("stop_pending_resize_operation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def target_node_communication_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_node_communication_mode BatchPool#target_node_communication_mode}.'''
         result = self._values.get("target_node_communication_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2093,7 +2093,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolTaskSchedulingPolicy"]]]:
         '''task_scheduling_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_scheduling_policy BatchPool#task_scheduling_policy}
         '''
         result = self._values.get("task_scheduling_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolTaskSchedulingPolicy"]]], result)
@@ -2102,7 +2102,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BatchPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#timeouts BatchPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BatchPoolTimeouts"], result)
@@ -2113,7 +2113,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccounts"]]]:
         '''user_accounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_accounts BatchPool#user_accounts}
         '''
         result = self._values.get("user_accounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccounts"]]], result)
@@ -2124,7 +2124,7 @@ class BatchPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolWindows"]]]:
         '''windows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#windows BatchPool#windows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#windows BatchPool#windows}
         '''
         result = self._values.get("windows")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolWindows"]]], result)
@@ -2159,9 +2159,9 @@ class BatchPoolContainerConfiguration:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.
-        :param container_registries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.
+        :param container_image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.
+        :param container_registries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dfada098c0f84c3f146a22230c13f394388c997516e4070450d808dddedc99f2)
@@ -2178,7 +2178,7 @@ class BatchPoolContainerConfiguration:
 
     @builtins.property
     def container_image_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_image_names BatchPool#container_image_names}.'''
         result = self._values.get("container_image_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2186,13 +2186,13 @@ class BatchPoolContainerConfiguration:
     def container_registries(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolContainerConfigurationContainerRegistries"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_registries BatchPool#container_registries}.'''
         result = self._values.get("container_registries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolContainerConfigurationContainerRegistries"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2228,10 +2228,10 @@ class BatchPoolContainerConfigurationContainerRegistries:
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.
-        :param registry_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.
+        :param registry_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45a17df620eadcf077b70b088960155eb277265051c238d66c680886f69b557f)
@@ -2251,25 +2251,25 @@ class BatchPoolContainerConfigurationContainerRegistries:
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def registry_server(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.'''
         result = self._values.get("registry_server")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.'''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2635,10 +2635,10 @@ class BatchPoolDataDisks:
         storage_account_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_size_gb BatchPool#disk_size_gb}.
-        :param lun: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#lun BatchPool#lun}.
-        :param caching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#caching BatchPool#caching}.
-        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_account_type BatchPool#storage_account_type}.
+        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_size_gb BatchPool#disk_size_gb}.
+        :param lun: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#lun BatchPool#lun}.
+        :param caching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#caching BatchPool#caching}.
+        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_account_type BatchPool#storage_account_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35aca359df5cb87bfef12127a82cd948c2c6aa352102a9c98bc445bead07bf11)
@@ -2657,27 +2657,27 @@ class BatchPoolDataDisks:
 
     @builtins.property
     def disk_size_gb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_size_gb BatchPool#disk_size_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_size_gb BatchPool#disk_size_gb}.'''
         result = self._values.get("disk_size_gb")
         assert result is not None, "Required property 'disk_size_gb' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def lun(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#lun BatchPool#lun}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#lun BatchPool#lun}.'''
         result = self._values.get("lun")
         assert result is not None, "Required property 'lun' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def caching(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#caching BatchPool#caching}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#caching BatchPool#caching}.'''
         result = self._values.get("caching")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_account_type BatchPool#storage_account_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_account_type BatchPool#storage_account_type}.'''
         result = self._values.get("storage_account_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2911,7 +2911,7 @@ class BatchPoolDataDisksOutputReference(
 class BatchPoolDiskEncryption:
     def __init__(self, *, disk_encryption_target: builtins.str) -> None:
         '''
-        :param disk_encryption_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_encryption_target BatchPool#disk_encryption_target}.
+        :param disk_encryption_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_encryption_target BatchPool#disk_encryption_target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__287173c4afaa43ef6d4f32e1a7f1fed8325099141c8b2df151cc7d07c86285f4)
@@ -2922,7 +2922,7 @@ class BatchPoolDiskEncryption:
 
     @builtins.property
     def disk_encryption_target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#disk_encryption_target BatchPool#disk_encryption_target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#disk_encryption_target BatchPool#disk_encryption_target}.'''
         result = self._values.get("disk_encryption_target")
         assert result is not None, "Required property 'disk_encryption_target' is missing"
         return typing.cast(builtins.str, result)
@@ -3120,15 +3120,15 @@ class BatchPoolExtensions:
         type_handler_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.
-        :param automatic_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#automatic_upgrade_enabled BatchPool#automatic_upgrade_enabled}.
-        :param auto_upgrade_minor_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_upgrade_minor_version BatchPool#auto_upgrade_minor_version}.
-        :param protected_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#protected_settings BatchPool#protected_settings}.
-        :param provision_after_extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#provision_after_extensions BatchPool#provision_after_extensions}.
-        :param settings_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#settings_json BatchPool#settings_json}.
-        :param type_handler_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type_handler_version BatchPool#type_handler_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.
+        :param automatic_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#automatic_upgrade_enabled BatchPool#automatic_upgrade_enabled}.
+        :param auto_upgrade_minor_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_upgrade_minor_version BatchPool#auto_upgrade_minor_version}.
+        :param protected_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#protected_settings BatchPool#protected_settings}.
+        :param provision_after_extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#provision_after_extensions BatchPool#provision_after_extensions}.
+        :param settings_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#settings_json BatchPool#settings_json}.
+        :param type_handler_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type_handler_version BatchPool#type_handler_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c418dbe46a4a9fdd67f33efc6fd4cb25b42aa13650298acdbe4e9772dbfe4015)
@@ -3161,21 +3161,21 @@ class BatchPoolExtensions:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#publisher BatchPool#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#publisher BatchPool#publisher}.'''
         result = self._values.get("publisher")
         assert result is not None, "Required property 'publisher' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3184,7 +3184,7 @@ class BatchPoolExtensions:
     def automatic_upgrade_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#automatic_upgrade_enabled BatchPool#automatic_upgrade_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#automatic_upgrade_enabled BatchPool#automatic_upgrade_enabled}.'''
         result = self._values.get("automatic_upgrade_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3192,31 +3192,31 @@ class BatchPoolExtensions:
     def auto_upgrade_minor_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_upgrade_minor_version BatchPool#auto_upgrade_minor_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_upgrade_minor_version BatchPool#auto_upgrade_minor_version}.'''
         result = self._values.get("auto_upgrade_minor_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def protected_settings(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#protected_settings BatchPool#protected_settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#protected_settings BatchPool#protected_settings}.'''
         result = self._values.get("protected_settings")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def provision_after_extensions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#provision_after_extensions BatchPool#provision_after_extensions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#provision_after_extensions BatchPool#provision_after_extensions}.'''
         result = self._values.get("provision_after_extensions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def settings_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#settings_json BatchPool#settings_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#settings_json BatchPool#settings_json}.'''
         result = self._values.get("settings_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type_handler_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type_handler_version BatchPool#type_handler_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type_handler_version BatchPool#type_handler_version}.'''
         result = self._values.get("type_handler_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3579,10 +3579,10 @@ class BatchPoolFixedScale:
         target_low_priority_nodes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_deallocation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.
-        :param resize_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.
-        :param target_dedicated_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.
-        :param target_low_priority_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.
+        :param node_deallocation_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.
+        :param resize_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.
+        :param target_dedicated_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.
+        :param target_low_priority_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9dd60afd90ab16965ec3002969a958196d8b83e355bbfdaa4fcc0f3c4cac57)
@@ -3602,25 +3602,25 @@ class BatchPoolFixedScale:
 
     @builtins.property
     def node_deallocation_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_deallocation_method BatchPool#node_deallocation_method}.'''
         result = self._values.get("node_deallocation_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resize_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resize_timeout BatchPool#resize_timeout}.'''
         result = self._values.get("resize_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_dedicated_nodes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_dedicated_nodes BatchPool#target_dedicated_nodes}.'''
         result = self._values.get("target_dedicated_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def target_low_priority_nodes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#target_low_priority_nodes BatchPool#target_low_priority_nodes}.'''
         result = self._values.get("target_low_priority_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3766,8 +3766,8 @@ class BatchPoolIdentity:
         type: builtins.str,
     ) -> None:
         '''
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52492b24aec6855f9a7361602a0ce22220aab152985054f52e8a8ca1e3d8c157)
@@ -3780,14 +3780,14 @@ class BatchPoolIdentity:
 
     @builtins.property
     def identity_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_ids BatchPool#identity_ids}.'''
         result = self._values.get("identity_ids")
         assert result is not None, "Required property 'identity_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#type BatchPool#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#type BatchPool#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3891,10 +3891,10 @@ class BatchPoolMount:
         nfs_mount: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchPoolMountNfsMount", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param azure_blob_file_system: azure_blob_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_blob_file_system BatchPool#azure_blob_file_system}
-        :param azure_file_share: azure_file_share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_file_share BatchPool#azure_file_share}
-        :param cifs_mount: cifs_mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#cifs_mount BatchPool#cifs_mount}
-        :param nfs_mount: nfs_mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#nfs_mount BatchPool#nfs_mount}
+        :param azure_blob_file_system: azure_blob_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_blob_file_system BatchPool#azure_blob_file_system}
+        :param azure_file_share: azure_file_share block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_file_share BatchPool#azure_file_share}
+        :param cifs_mount: cifs_mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#cifs_mount BatchPool#cifs_mount}
+        :param nfs_mount: nfs_mount block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#nfs_mount BatchPool#nfs_mount}
         '''
         if isinstance(azure_blob_file_system, dict):
             azure_blob_file_system = BatchPoolMountAzureBlobFileSystem(**azure_blob_file_system)
@@ -3920,7 +3920,7 @@ class BatchPoolMount:
     ) -> typing.Optional["BatchPoolMountAzureBlobFileSystem"]:
         '''azure_blob_file_system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_blob_file_system BatchPool#azure_blob_file_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_blob_file_system BatchPool#azure_blob_file_system}
         '''
         result = self._values.get("azure_blob_file_system")
         return typing.cast(typing.Optional["BatchPoolMountAzureBlobFileSystem"], result)
@@ -3931,7 +3931,7 @@ class BatchPoolMount:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountAzureFileShare"]]]:
         '''azure_file_share block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_file_share BatchPool#azure_file_share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_file_share BatchPool#azure_file_share}
         '''
         result = self._values.get("azure_file_share")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountAzureFileShare"]]], result)
@@ -3942,7 +3942,7 @@ class BatchPoolMount:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountCifsMount"]]]:
         '''cifs_mount block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#cifs_mount BatchPool#cifs_mount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#cifs_mount BatchPool#cifs_mount}
         '''
         result = self._values.get("cifs_mount")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountCifsMount"]]], result)
@@ -3953,7 +3953,7 @@ class BatchPoolMount:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountNfsMount"]]]:
         '''nfs_mount block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#nfs_mount BatchPool#nfs_mount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#nfs_mount BatchPool#nfs_mount}
         '''
         result = self._values.get("nfs_mount")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolMountNfsMount"]]], result)
@@ -3996,13 +3996,13 @@ class BatchPoolMountAzureBlobFileSystem:
         sas_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_name BatchPool#container_name}.
-        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
-        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
-        :param blobfuse_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.
-        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.
-        :param sas_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_name BatchPool#container_name}.
+        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
+        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
+        :param blobfuse_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.
+        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.
+        :param sas_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6defbd93299ac018afd24f97a882bfee9ac4622066462cd36eb65788d0026f2d)
@@ -4029,46 +4029,46 @@ class BatchPoolMountAzureBlobFileSystem:
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_name BatchPool#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_name BatchPool#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def relative_mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
         result = self._values.get("relative_mount_path")
         assert result is not None, "Required property 'relative_mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_key BatchPool#account_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_key BatchPool#account_key}.'''
         result = self._values.get("account_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def blobfuse_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.'''
         result = self._values.get("blobfuse_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.'''
         result = self._values.get("identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sas_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.'''
         result = self._values.get("sas_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4277,11 +4277,11 @@ class BatchPoolMountAzureFileShare:
         mount_options: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
-        :param azure_file_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_file_url BatchPool#azure_file_url}.
-        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
-        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
+        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
+        :param azure_file_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_file_url BatchPool#azure_file_url}.
+        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
+        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34b8b4b25eb68021071bd9421f90215b9f716dbd2f16174d9501e8cea7ff506e)
@@ -4301,35 +4301,35 @@ class BatchPoolMountAzureFileShare:
 
     @builtins.property
     def account_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_key BatchPool#account_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_key BatchPool#account_key}.'''
         result = self._values.get("account_key")
         assert result is not None, "Required property 'account_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def azure_file_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#azure_file_url BatchPool#azure_file_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#azure_file_url BatchPool#azure_file_url}.'''
         result = self._values.get("azure_file_url")
         assert result is not None, "Required property 'azure_file_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def relative_mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
         result = self._values.get("relative_mount_path")
         assert result is not None, "Required property 'relative_mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mount_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4590,11 +4590,11 @@ class BatchPoolMountCifsMount:
         mount_options: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.
-        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source BatchPool#source}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
-        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.
+        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source BatchPool#source}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
+        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bfc420329c793eaac34d21a4b43dabb0fa15a5d0c629be0d7b77c09aec49f70)
@@ -4614,35 +4614,35 @@ class BatchPoolMountCifsMount:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def relative_mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
         result = self._values.get("relative_mount_path")
         assert result is not None, "Required property 'relative_mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source BatchPool#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source BatchPool#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mount_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4989,9 +4989,9 @@ class BatchPoolMountNfsMount:
         mount_options: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source BatchPool#source}.
-        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
+        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source BatchPool#source}.
+        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4c113fe3db939dbb452e49c99a36fc1cbb8e06f805a640a2f05ecc1c6797600)
@@ -5007,21 +5007,21 @@ class BatchPoolMountNfsMount:
 
     @builtins.property
     def relative_mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.'''
         result = self._values.get("relative_mount_path")
         assert result is not None, "Required property 'relative_mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source BatchPool#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source BatchPool#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mount_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#mount_options BatchPool#mount_options}.'''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5265,13 +5265,13 @@ class BatchPoolMountOutputReference(
         sas_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container_name BatchPool#container_name}.
-        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
-        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
-        :param blobfuse_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.
-        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.
-        :param sas_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_name BatchPool#account_name}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container_name BatchPool#container_name}.
+        :param relative_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#relative_mount_path BatchPool#relative_mount_path}.
+        :param account_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#account_key BatchPool#account_key}.
+        :param blobfuse_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#blobfuse_options BatchPool#blobfuse_options}.
+        :param identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#identity_id BatchPool#identity_id}.
+        :param sas_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sas_key BatchPool#sas_key}.
         '''
         value = BatchPoolMountAzureBlobFileSystem(
             account_name=account_name,
@@ -5432,12 +5432,12 @@ class BatchPoolNetworkConfiguration:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerated_networking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.
-        :param dynamic_vnet_assignment_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.
-        :param endpoint_configuration: endpoint_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
-        :param public_address_provisioning_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.
-        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.
+        :param accelerated_networking_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.
+        :param dynamic_vnet_assignment_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.
+        :param endpoint_configuration: endpoint_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
+        :param public_address_provisioning_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.
+        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fba4c9d1f73ee9fd126825aa354f51dc979cb6ecad5bad2eb9c76b7bb95f215)
@@ -5465,13 +5465,13 @@ class BatchPoolNetworkConfiguration:
     def accelerated_networking_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#accelerated_networking_enabled BatchPool#accelerated_networking_enabled}.'''
         result = self._values.get("accelerated_networking_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def dynamic_vnet_assignment_scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#dynamic_vnet_assignment_scope BatchPool#dynamic_vnet_assignment_scope}.'''
         result = self._values.get("dynamic_vnet_assignment_scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5481,26 +5481,26 @@ class BatchPoolNetworkConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNetworkConfigurationEndpointConfiguration"]]]:
         '''endpoint_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#endpoint_configuration BatchPool#endpoint_configuration}
         '''
         result = self._values.get("endpoint_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNetworkConfigurationEndpointConfiguration"]]], result)
 
     @builtins.property
     def public_address_provisioning_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_address_provisioning_type BatchPool#public_address_provisioning_type}.'''
         result = self._values.get("public_address_provisioning_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#public_ips BatchPool#public_ips}.'''
         result = self._values.get("public_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#subnet_id BatchPool#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5538,11 +5538,11 @@ class BatchPoolNetworkConfigurationEndpointConfiguration:
         network_security_group_rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchPoolNetworkConfigurationEndpointConfigurationNetworkSecurityGroupRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#backend_port BatchPool#backend_port}.
-        :param frontend_port_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#frontend_port_range BatchPool#frontend_port_range}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#protocol BatchPool#protocol}.
-        :param network_security_group_rules: network_security_group_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#network_security_group_rules BatchPool#network_security_group_rules}
+        :param backend_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#backend_port BatchPool#backend_port}.
+        :param frontend_port_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#frontend_port_range BatchPool#frontend_port_range}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#protocol BatchPool#protocol}.
+        :param network_security_group_rules: network_security_group_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#network_security_group_rules BatchPool#network_security_group_rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cce14c684ec688cd0009a01d88340e2d26e95cba27cb5c1228d2f0695f840db2)
@@ -5562,28 +5562,28 @@ class BatchPoolNetworkConfigurationEndpointConfiguration:
 
     @builtins.property
     def backend_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#backend_port BatchPool#backend_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#backend_port BatchPool#backend_port}.'''
         result = self._values.get("backend_port")
         assert result is not None, "Required property 'backend_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def frontend_port_range(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#frontend_port_range BatchPool#frontend_port_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#frontend_port_range BatchPool#frontend_port_range}.'''
         result = self._values.get("frontend_port_range")
         assert result is not None, "Required property 'frontend_port_range' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#protocol BatchPool#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#protocol BatchPool#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
@@ -5594,7 +5594,7 @@ class BatchPoolNetworkConfigurationEndpointConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNetworkConfigurationEndpointConfigurationNetworkSecurityGroupRules"]]]:
         '''network_security_group_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#network_security_group_rules BatchPool#network_security_group_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#network_security_group_rules BatchPool#network_security_group_rules}
         '''
         result = self._values.get("network_security_group_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolNetworkConfigurationEndpointConfigurationNetworkSecurityGroupRules"]]], result)
@@ -5724,10 +5724,10 @@ class BatchPoolNetworkConfigurationEndpointConfigurationNetworkSecurityGroupRule
         source_port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#access BatchPool#access}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#priority BatchPool#priority}.
-        :param source_address_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source_address_prefix BatchPool#source_address_prefix}.
-        :param source_port_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source_port_ranges BatchPool#source_port_ranges}.
+        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#access BatchPool#access}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#priority BatchPool#priority}.
+        :param source_address_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source_address_prefix BatchPool#source_address_prefix}.
+        :param source_port_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source_port_ranges BatchPool#source_port_ranges}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bba713c87ffdc3fa6651d883c366ffa8e198170ccbd95268d1527f929d9f9064)
@@ -5745,28 +5745,28 @@ class BatchPoolNetworkConfigurationEndpointConfigurationNetworkSecurityGroupRule
 
     @builtins.property
     def access(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#access BatchPool#access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#access BatchPool#access}.'''
         result = self._values.get("access")
         assert result is not None, "Required property 'access' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#priority BatchPool#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#priority BatchPool#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def source_address_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source_address_prefix BatchPool#source_address_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source_address_prefix BatchPool#source_address_prefix}.'''
         result = self._values.get("source_address_prefix")
         assert result is not None, "Required property 'source_address_prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_port_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#source_port_ranges BatchPool#source_port_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#source_port_ranges BatchPool#source_port_ranges}.'''
         result = self._values.get("source_port_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6321,7 +6321,7 @@ class BatchPoolNetworkConfigurationOutputReference(
 class BatchPoolNodePlacement:
     def __init__(self, *, policy: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#policy BatchPool#policy}.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#policy BatchPool#policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06f081fa4b4c69915be5fe9a1e78f23e0b7a8999aac1f212a158ee2e32e7c36e)
@@ -6332,7 +6332,7 @@ class BatchPoolNodePlacement:
 
     @builtins.property
     def policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#policy BatchPool#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#policy BatchPool#policy}.'''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6523,10 +6523,10 @@ class BatchPoolSecurityProfile:
         vtpm_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.
-        :param secure_boot_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.
-        :param security_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_type BatchPool#security_type}.
-        :param vtpm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.
+        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.
+        :param secure_boot_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.
+        :param security_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_type BatchPool#security_type}.
+        :param vtpm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b35e9d65bf04df18c26154dde97bf4c6613b73ba25288ea28fa684ca6cdd62a)
@@ -6548,7 +6548,7 @@ class BatchPoolSecurityProfile:
     def host_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#host_encryption_enabled BatchPool#host_encryption_enabled}.'''
         result = self._values.get("host_encryption_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6556,13 +6556,13 @@ class BatchPoolSecurityProfile:
     def secure_boot_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#secure_boot_enabled BatchPool#secure_boot_enabled}.'''
         result = self._values.get("secure_boot_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#security_type BatchPool#security_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#security_type BatchPool#security_type}.'''
         result = self._values.get("security_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6570,7 +6570,7 @@ class BatchPoolSecurityProfile:
     def vtpm_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#vtpm_enabled BatchPool#vtpm_enabled}.'''
         result = self._values.get("vtpm_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6748,13 +6748,13 @@ class BatchPoolStartTask:
         wait_for_success: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#command_line BatchPool#command_line}.
-        :param user_identity: user_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
-        :param common_environment_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container BatchPool#container}
-        :param resource_file: resource_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
-        :param task_retry_maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.
-        :param wait_for_success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.
+        :param command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#command_line BatchPool#command_line}.
+        :param user_identity: user_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
+        :param common_environment_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container BatchPool#container}
+        :param resource_file: resource_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
+        :param task_retry_maximum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.
+        :param wait_for_success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.
         '''
         if isinstance(user_identity, dict):
             user_identity = BatchPoolStartTaskUserIdentity(**user_identity)
@@ -6784,7 +6784,7 @@ class BatchPoolStartTask:
 
     @builtins.property
     def command_line(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#command_line BatchPool#command_line}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#command_line BatchPool#command_line}.'''
         result = self._values.get("command_line")
         assert result is not None, "Required property 'command_line' is missing"
         return typing.cast(builtins.str, result)
@@ -6793,7 +6793,7 @@ class BatchPoolStartTask:
     def user_identity(self) -> "BatchPoolStartTaskUserIdentity":
         '''user_identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_identity BatchPool#user_identity}
         '''
         result = self._values.get("user_identity")
         assert result is not None, "Required property 'user_identity' is missing"
@@ -6803,7 +6803,7 @@ class BatchPoolStartTask:
     def common_environment_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#common_environment_properties BatchPool#common_environment_properties}.'''
         result = self._values.get("common_environment_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -6813,7 +6813,7 @@ class BatchPoolStartTask:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskContainer"]]]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#container BatchPool#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#container BatchPool#container}
         '''
         result = self._values.get("container")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskContainer"]]], result)
@@ -6824,14 +6824,14 @@ class BatchPoolStartTask:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskResourceFile"]]]:
         '''resource_file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#resource_file BatchPool#resource_file}
         '''
         result = self._values.get("resource_file")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskResourceFile"]]], result)
 
     @builtins.property
     def task_retry_maximum(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#task_retry_maximum BatchPool#task_retry_maximum}.'''
         result = self._values.get("task_retry_maximum")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6839,7 +6839,7 @@ class BatchPoolStartTask:
     def wait_for_success(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#wait_for_success BatchPool#wait_for_success}.'''
         result = self._values.get("wait_for_success")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6875,10 +6875,10 @@ class BatchPoolStartTaskContainer:
         working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#image_name BatchPool#image_name}.
-        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry BatchPool#registry}
-        :param run_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#run_options BatchPool#run_options}.
-        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#working_directory BatchPool#working_directory}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#image_name BatchPool#image_name}.
+        :param registry: registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry BatchPool#registry}
+        :param run_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#run_options BatchPool#run_options}.
+        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#working_directory BatchPool#working_directory}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a36110245679d9ded5f4dcc61d437534a4626bb854e9714aff157db611fb8dd)
@@ -6898,7 +6898,7 @@ class BatchPoolStartTaskContainer:
 
     @builtins.property
     def image_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#image_name BatchPool#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#image_name BatchPool#image_name}.'''
         result = self._values.get("image_name")
         assert result is not None, "Required property 'image_name' is missing"
         return typing.cast(builtins.str, result)
@@ -6909,20 +6909,20 @@ class BatchPoolStartTaskContainer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskContainerRegistry"]]]:
         '''registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry BatchPool#registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry BatchPool#registry}
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolStartTaskContainerRegistry"]]], result)
 
     @builtins.property
     def run_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#run_options BatchPool#run_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#run_options BatchPool#run_options}.'''
         result = self._values.get("run_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def working_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#working_directory BatchPool#working_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#working_directory BatchPool#working_directory}.'''
         result = self._values.get("working_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7180,10 +7180,10 @@ class BatchPoolStartTaskContainerRegistry:
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param registry_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.
-        :param user_assigned_identity_id: The User Assigned Identity to use for Container Registry access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
+        :param registry_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.
+        :param user_assigned_identity_id: The User Assigned Identity to use for Container Registry access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8544707ba727677a0848727d979c591c9dbb431b773599955b26c91ae8269983)
@@ -7203,14 +7203,14 @@ class BatchPoolStartTaskContainerRegistry:
 
     @builtins.property
     def registry_server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#registry_server BatchPool#registry_server}.'''
         result = self._values.get("registry_server")
         assert result is not None, "Required property 'registry_server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7218,14 +7218,14 @@ class BatchPoolStartTaskContainerRegistry:
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
         '''The User Assigned Identity to use for Container Registry access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}
         '''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7512,8 +7512,8 @@ class BatchPoolStartTaskOutputReference(
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_user: auto_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
+        :param auto_user: auto_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
         '''
         value = BatchPoolStartTaskUserIdentity(
             auto_user=auto_user, user_name=user_name
@@ -7696,13 +7696,13 @@ class BatchPoolStartTaskResourceFile:
         user_assigned_identity_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_storage_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_storage_container_name BatchPool#auto_storage_container_name}.
-        :param blob_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#blob_prefix BatchPool#blob_prefix}.
-        :param file_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#file_mode BatchPool#file_mode}.
-        :param file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#file_path BatchPool#file_path}.
-        :param http_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#http_url BatchPool#http_url}.
-        :param storage_container_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_container_url BatchPool#storage_container_url}.
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.
+        :param auto_storage_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_storage_container_name BatchPool#auto_storage_container_name}.
+        :param blob_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#blob_prefix BatchPool#blob_prefix}.
+        :param file_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#file_mode BatchPool#file_mode}.
+        :param file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#file_path BatchPool#file_path}.
+        :param http_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#http_url BatchPool#http_url}.
+        :param storage_container_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_container_url BatchPool#storage_container_url}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9019af978675b13bbff60442f764a3411bba3aa9c453278cfbba2f871e6532)
@@ -7731,43 +7731,43 @@ class BatchPoolStartTaskResourceFile:
 
     @builtins.property
     def auto_storage_container_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_storage_container_name BatchPool#auto_storage_container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_storage_container_name BatchPool#auto_storage_container_name}.'''
         result = self._values.get("auto_storage_container_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def blob_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#blob_prefix BatchPool#blob_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#blob_prefix BatchPool#blob_prefix}.'''
         result = self._values.get("blob_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def file_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#file_mode BatchPool#file_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#file_mode BatchPool#file_mode}.'''
         result = self._values.get("file_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def file_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#file_path BatchPool#file_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#file_path BatchPool#file_path}.'''
         result = self._values.get("file_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#http_url BatchPool#http_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#http_url BatchPool#http_url}.'''
         result = self._values.get("http_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_container_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#storage_container_url BatchPool#storage_container_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#storage_container_url BatchPool#storage_container_url}.'''
         result = self._values.get("storage_container_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_assigned_identity_id BatchPool#user_assigned_identity_id}.'''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8080,8 +8080,8 @@ class BatchPoolStartTaskUserIdentity:
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_user: auto_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
+        :param auto_user: auto_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.
         '''
         if isinstance(auto_user, dict):
             auto_user = BatchPoolStartTaskUserIdentityAutoUser(**auto_user)
@@ -8099,14 +8099,14 @@ class BatchPoolStartTaskUserIdentity:
     def auto_user(self) -> typing.Optional["BatchPoolStartTaskUserIdentityAutoUser"]:
         '''auto_user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#auto_user BatchPool#auto_user}
         '''
         result = self._values.get("auto_user")
         return typing.cast(typing.Optional["BatchPoolStartTaskUserIdentityAutoUser"], result)
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#user_name BatchPool#user_name}.'''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8135,8 +8135,8 @@ class BatchPoolStartTaskUserIdentityAutoUser:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#scope BatchPool#scope}.
+        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#scope BatchPool#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec3aed7d18e610e6b4d8f2326355e7a315a318454b73abad04335a23c6e62ece)
@@ -8150,13 +8150,13 @@ class BatchPoolStartTaskUserIdentityAutoUser:
 
     @builtins.property
     def elevation_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.'''
         result = self._values.get("elevation_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#scope BatchPool#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#scope BatchPool#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8278,8 +8278,8 @@ class BatchPoolStartTaskUserIdentityOutputReference(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#scope BatchPool#scope}.
+        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#scope BatchPool#scope}.
         '''
         value = BatchPoolStartTaskUserIdentityAutoUser(
             elevation_level=elevation_level, scope=scope
@@ -8362,11 +8362,11 @@ class BatchPoolStorageImageReference:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#offer BatchPool#offer}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sku BatchPool#sku}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#version BatchPool#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#offer BatchPool#offer}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#publisher BatchPool#publisher}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sku BatchPool#sku}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#version BatchPool#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60f2c35f6304e501c3a5241c1c0b08ffc5818faf02741d7dfd3102c430dcdefe)
@@ -8389,7 +8389,7 @@ class BatchPoolStorageImageReference:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#id BatchPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#id BatchPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -8399,25 +8399,25 @@ class BatchPoolStorageImageReference:
 
     @builtins.property
     def offer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#offer BatchPool#offer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#offer BatchPool#offer}.'''
         result = self._values.get("offer")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def publisher(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#publisher BatchPool#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#publisher BatchPool#publisher}.'''
         result = self._values.get("publisher")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sku(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#sku BatchPool#sku}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#sku BatchPool#sku}.'''
         result = self._values.get("sku")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#version BatchPool#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#version BatchPool#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8582,7 +8582,7 @@ class BatchPoolStorageImageReferenceOutputReference(
 class BatchPoolTaskSchedulingPolicy:
     def __init__(self, *, node_fill_type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param node_fill_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_fill_type BatchPool#node_fill_type}.
+        :param node_fill_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_fill_type BatchPool#node_fill_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__945763c0abd732e533a885948a7a36f875b2fbcac20c7e812dcc4a68401fde83)
@@ -8593,7 +8593,7 @@ class BatchPoolTaskSchedulingPolicy:
 
     @builtins.property
     def node_fill_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#node_fill_type BatchPool#node_fill_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#node_fill_type BatchPool#node_fill_type}.'''
         result = self._values.get("node_fill_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8784,10 +8784,10 @@ class BatchPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#create BatchPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#delete BatchPool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#read BatchPool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#update BatchPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#create BatchPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#delete BatchPool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#read BatchPool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#update BatchPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb151771b796f981020b716b74652c3254291af36aa451a866f841ab4427faf3)
@@ -8807,25 +8807,25 @@ class BatchPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#create BatchPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#create BatchPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#delete BatchPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#delete BatchPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#read BatchPool#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#read BatchPool#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#update BatchPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#update BatchPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8985,11 +8985,11 @@ class BatchPoolUserAccounts:
         windows_user_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchPoolUserAccountsWindowsUserConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.
-        :param linux_user_configuration: linux_user_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#linux_user_configuration BatchPool#linux_user_configuration}
-        :param windows_user_configuration: windows_user_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#windows_user_configuration BatchPool#windows_user_configuration}
+        :param elevation_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.
+        :param linux_user_configuration: linux_user_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#linux_user_configuration BatchPool#linux_user_configuration}
+        :param windows_user_configuration: windows_user_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#windows_user_configuration BatchPool#windows_user_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16fbe5928d182db56ea3c2c5df121a519953cac9d2f702eec59b2282fcca1576)
@@ -9010,21 +9010,21 @@ class BatchPoolUserAccounts:
 
     @builtins.property
     def elevation_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#elevation_level BatchPool#elevation_level}.'''
         result = self._values.get("elevation_level")
         assert result is not None, "Required property 'elevation_level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#name BatchPool#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#name BatchPool#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#password BatchPool#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#password BatchPool#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
@@ -9035,7 +9035,7 @@ class BatchPoolUserAccounts:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccountsLinuxUserConfiguration"]]]:
         '''linux_user_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#linux_user_configuration BatchPool#linux_user_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#linux_user_configuration BatchPool#linux_user_configuration}
         '''
         result = self._values.get("linux_user_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccountsLinuxUserConfiguration"]]], result)
@@ -9046,7 +9046,7 @@ class BatchPoolUserAccounts:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccountsWindowsUserConfiguration"]]]:
         '''windows_user_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#windows_user_configuration BatchPool#windows_user_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#windows_user_configuration BatchPool#windows_user_configuration}
         '''
         result = self._values.get("windows_user_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchPoolUserAccountsWindowsUserConfiguration"]]], result)
@@ -9077,9 +9077,9 @@ class BatchPoolUserAccountsLinuxUserConfiguration:
         uid: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#gid BatchPool#gid}.
-        :param ssh_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#ssh_private_key BatchPool#ssh_private_key}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#uid BatchPool#uid}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#gid BatchPool#gid}.
+        :param ssh_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#ssh_private_key BatchPool#ssh_private_key}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#uid BatchPool#uid}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__860ff867c9bef3745df858028ed162906d9a2f7676cbb570adada9d1f2f01e3c)
@@ -9096,19 +9096,19 @@ class BatchPoolUserAccountsLinuxUserConfiguration:
 
     @builtins.property
     def gid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#gid BatchPool#gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#gid BatchPool#gid}.'''
         result = self._values.get("gid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ssh_private_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#ssh_private_key BatchPool#ssh_private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#ssh_private_key BatchPool#ssh_private_key}.'''
         result = self._values.get("ssh_private_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def uid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#uid BatchPool#uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#uid BatchPool#uid}.'''
         result = self._values.get("uid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -9579,7 +9579,7 @@ class BatchPoolUserAccountsOutputReference(
 class BatchPoolUserAccountsWindowsUserConfiguration:
     def __init__(self, *, login_mode: builtins.str) -> None:
         '''
-        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#login_mode BatchPool#login_mode}.
+        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#login_mode BatchPool#login_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae067d427001b50eac148deca0a356aff3a5dad4fb6164d49e0eb7da8bdd9e71)
@@ -9590,7 +9590,7 @@ class BatchPoolUserAccountsWindowsUserConfiguration:
 
     @builtins.property
     def login_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#login_mode BatchPool#login_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#login_mode BatchPool#login_mode}.'''
         result = self._values.get("login_mode")
         assert result is not None, "Required property 'login_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -9773,7 +9773,7 @@ class BatchPoolWindows:
         enable_automatic_updates: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_automatic_updates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#enable_automatic_updates BatchPool#enable_automatic_updates}.
+        :param enable_automatic_updates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#enable_automatic_updates BatchPool#enable_automatic_updates}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b89b2c44e35b9298eb32de53e4171db49581b1d286039f5d1bbf8d06ca6873ca)
@@ -9786,7 +9786,7 @@ class BatchPoolWindows:
     def enable_automatic_updates(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/batch_pool#enable_automatic_updates BatchPool#enable_automatic_updates}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/batch_pool#enable_automatic_updates BatchPool#enable_automatic_updates}.'''
         result = self._values.get("enable_automatic_updates")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

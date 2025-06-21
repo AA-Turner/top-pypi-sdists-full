@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.12.0
-Requires-Dist: protobuf>=3.20
+Version: 1.13.0
+Requires-Dist: protobuf>=3.20,<6
 Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
 Requires-Dist: types-protobuf>=3.20
 Requires-Dist: typing-extensions>=4.2.0,<5
@@ -9,9 +9,11 @@ Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
+Requires-Dist: openai-agents>=0.0.19 ; extra == 'openai-agents'
 Provides-Extra: grpc
 Provides-Extra: opentelemetry
 Provides-Extra: pydantic
+Provides-Extra: openai-agents
 License-File: LICENSE
 Summary: Temporal.io Python SDK
 Keywords: temporal,workflow
@@ -51,9 +53,7 @@ starting a workflow with an `int` parameter when it accepts a `str` parameter wo
 
 **Different Activity Types**
 
-The activity worker has been developed to work with `async def`, threaded, and multiprocess activities. While
-`async def` activities are the easiest and recommended, care has been taken to make heartbeating and cancellation also
-work across threads/processes.
+The activity worker has been developed to work with `async def`, threaded, and multiprocess activities. Threaded activities are the initial recommendation, and further guidance can be found in [the docs](https://docs.temporal.io/develop/python/python-sdk-sync-vs-async).
 
 **Custom `asyncio` Event Loop**
 
@@ -342,10 +342,11 @@ The default data converter supports converting multiple types including:
   * Iterables including ones JSON dump may not support by default, e.g. `set`
   * [IntEnum, StrEnum](https://docs.python.org/3/library/enum.html) based enumerates
   * [UUID](https://docs.python.org/3/library/uuid.html)
+  * `datetime.datetime`
 
 To use pydantic model instances, see [Pydantic Support](#pydantic-support).
 
-`datetime.date`, `datetime.time`, and `datetime.datetime` can only be used with the Pydantic data converter.
+`datetime.date` and `datetime.time` can only be used with the Pydantic data converter.
 
 Although workflows, updates, signals, and queries can all be defined with multiple input parameters, users are strongly
 encouraged to use a single `dataclass` or Pydantic model parameter, so that fields with defaults can be easily added

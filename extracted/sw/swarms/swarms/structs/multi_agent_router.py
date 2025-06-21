@@ -16,12 +16,13 @@ from pydantic import BaseModel, Field
 from swarms.utils.function_caller_model import OpenAIFunctionCaller
 from swarms.structs.agent import Agent
 from swarms.structs.conversation import Conversation
-from swarms.structs.output_types import OutputType
+from swarms.utils.output_types import OutputType
 from swarms.utils.any_to_str import any_to_str
 from swarms.utils.history_output_formatter import (
     history_output_formatter,
 )
 from swarms.utils.formatter import formatter
+from typing import Callable, Union
 
 
 class AgentResponse(BaseModel):
@@ -59,7 +60,7 @@ class MultiAgentRouter:
         self,
         name: str = "swarm-router",
         description: str = "Routes tasks to specialized agents based on their capabilities",
-        agents: List[Agent] = [],
+        agents: List[Union[Agent, Callable]] = [],
         model: str = "gpt-4o-mini",
         temperature: float = 0.1,
         shared_memory_system: callable = None,

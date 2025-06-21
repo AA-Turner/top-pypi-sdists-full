@@ -1,7 +1,7 @@
 r'''
 # `azurerm_api_management_api`
 
-Refer to the Terraform Registry for docs: [`azurerm_api_management_api`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api).
+Refer to the Terraform Registry for docs: [`azurerm_api_management_api`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiManagementApi(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.apiManagementApi.ApiManagementApi",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api azurerm_api_management_api}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api azurerm_api_management_api}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class ApiManagementApi(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api azurerm_api_management_api} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api azurerm_api_management_api} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.
-        :param api_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.
-        :param contact: contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#description ApiManagementApi#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#id ApiManagementApi#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#import ApiManagementApi#import}
-        :param license: license block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#license ApiManagementApi#license}
-        :param oauth2_authorization: oauth2_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
-        :param openid_authentication: openid_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#path ApiManagementApi#path}.
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.
-        :param revision_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.
-        :param service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.
-        :param source_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.
-        :param subscription_key_parameter_names: subscription_key_parameter_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
-        :param subscription_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.
-        :param terms_of_service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version ApiManagementApi#version}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.
-        :param version_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.
+        :param api_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.
+        :param contact: contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#description ApiManagementApi#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#id ApiManagementApi#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#import ApiManagementApi#import}
+        :param license: license block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#license ApiManagementApi#license}
+        :param oauth2_authorization: oauth2_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
+        :param openid_authentication: openid_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#path ApiManagementApi#path}.
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.
+        :param revision_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.
+        :param service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.
+        :param source_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.
+        :param subscription_key_parameter_names: subscription_key_parameter_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
+        :param subscription_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.
+        :param terms_of_service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version ApiManagementApi#version}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.
+        :param version_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class ApiManagementApi(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiManagementApi to import.
-        :param import_from_id: The id of the existing ApiManagementApi that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiManagementApi that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiManagementApi to import is found.
         '''
         if __debug__:
@@ -195,9 +195,9 @@ class ApiManagementApi(
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#email ApiManagementApi#email}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#email ApiManagementApi#email}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.
         '''
         value = ApiManagementApiContact(email=email, name=name, url=url)
 
@@ -212,9 +212,9 @@ class ApiManagementApi(
         wsdl_selector: typing.Optional[typing.Union["ApiManagementApiImportWsdlSelector", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param content_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.
-        :param content_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.
-        :param wsdl_selector: wsdl_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
+        :param content_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.
+        :param content_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.
+        :param wsdl_selector: wsdl_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
         '''
         value = ApiManagementApiImport(
             content_format=content_format,
@@ -232,8 +232,8 @@ class ApiManagementApi(
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.
         '''
         value = ApiManagementApiLicense(name=name, url=url)
 
@@ -247,8 +247,8 @@ class ApiManagementApi(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authorization_server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.
+        :param authorization_server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.
         '''
         value = ApiManagementApiOauth2Authorization(
             authorization_server_name=authorization_server_name, scope=scope
@@ -264,8 +264,8 @@ class ApiManagementApi(
         bearer_token_sending_methods: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param openid_provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.
-        :param bearer_token_sending_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.
+        :param openid_provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.
+        :param bearer_token_sending_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.
         '''
         value = ApiManagementApiOpenidAuthentication(
             openid_provider_name=openid_provider_name,
@@ -282,8 +282,8 @@ class ApiManagementApi(
         query: builtins.str,
     ) -> None:
         '''
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#header ApiManagementApi#header}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#query ApiManagementApi#query}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#header ApiManagementApi#header}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#query ApiManagementApi#query}.
         '''
         value = ApiManagementApiSubscriptionKeyParameterNames(
             header=header, query=query
@@ -301,10 +301,10 @@ class ApiManagementApi(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#create ApiManagementApi#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#read ApiManagementApi#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#update ApiManagementApi#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#create ApiManagementApi#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#read ApiManagementApi#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#update ApiManagementApi#update}.
         '''
         value = ApiManagementApiTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -900,31 +900,31 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.
-        :param api_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.
-        :param contact: contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#description ApiManagementApi#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#id ApiManagementApi#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#import ApiManagementApi#import}
-        :param license: license block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#license ApiManagementApi#license}
-        :param oauth2_authorization: oauth2_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
-        :param openid_authentication: openid_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#path ApiManagementApi#path}.
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.
-        :param revision_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.
-        :param service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.
-        :param source_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.
-        :param subscription_key_parameter_names: subscription_key_parameter_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
-        :param subscription_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.
-        :param terms_of_service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version ApiManagementApi#version}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.
-        :param version_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.
+        :param api_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.
+        :param contact: contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#description ApiManagementApi#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#id ApiManagementApi#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_: import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#import ApiManagementApi#import}
+        :param license: license block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#license ApiManagementApi#license}
+        :param oauth2_authorization: oauth2_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
+        :param openid_authentication: openid_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#path ApiManagementApi#path}.
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.
+        :param revision_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.
+        :param service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.
+        :param source_api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.
+        :param subscription_key_parameter_names: subscription_key_parameter_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
+        :param subscription_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.
+        :param terms_of_service_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version ApiManagementApi#version}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.
+        :param version_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1105,35 +1105,35 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_management_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_management_name ApiManagementApi#api_management_name}.'''
         result = self._values.get("api_management_name")
         assert result is not None, "Required property 'api_management_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#resource_group_name ApiManagementApi#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revision(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision ApiManagementApi#revision}.'''
         result = self._values.get("revision")
         assert result is not None, "Required property 'revision' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#api_type ApiManagementApi#api_type}.'''
         result = self._values.get("api_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1141,26 +1141,26 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def contact(self) -> typing.Optional["ApiManagementApiContact"]:
         '''contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#contact ApiManagementApi#contact}
         '''
         result = self._values.get("contact")
         return typing.cast(typing.Optional["ApiManagementApiContact"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#description ApiManagementApi#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#description ApiManagementApi#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#display_name ApiManagementApi#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#id ApiManagementApi#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#id ApiManagementApi#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1172,7 +1172,7 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def import_(self) -> typing.Optional["ApiManagementApiImport"]:
         '''import block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#import ApiManagementApi#import}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#import ApiManagementApi#import}
         '''
         result = self._values.get("import_")
         return typing.cast(typing.Optional["ApiManagementApiImport"], result)
@@ -1181,7 +1181,7 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def license(self) -> typing.Optional["ApiManagementApiLicense"]:
         '''license block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#license ApiManagementApi#license}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#license ApiManagementApi#license}
         '''
         result = self._values.get("license")
         return typing.cast(typing.Optional["ApiManagementApiLicense"], result)
@@ -1192,7 +1192,7 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementApiOauth2Authorization"]:
         '''oauth2_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#oauth2_authorization ApiManagementApi#oauth2_authorization}
         '''
         result = self._values.get("oauth2_authorization")
         return typing.cast(typing.Optional["ApiManagementApiOauth2Authorization"], result)
@@ -1203,38 +1203,38 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementApiOpenidAuthentication"]:
         '''openid_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_authentication ApiManagementApi#openid_authentication}
         '''
         result = self._values.get("openid_authentication")
         return typing.cast(typing.Optional["ApiManagementApiOpenidAuthentication"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#path ApiManagementApi#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#path ApiManagementApi#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#protocols ApiManagementApi#protocols}.'''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def revision_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#revision_description ApiManagementApi#revision_description}.'''
         result = self._values.get("revision_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_url ApiManagementApi#service_url}.'''
         result = self._values.get("service_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_api_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#source_api_id ApiManagementApi#source_api_id}.'''
         result = self._values.get("source_api_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1244,7 +1244,7 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementApiSubscriptionKeyParameterNames"]:
         '''subscription_key_parameter_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_key_parameter_names ApiManagementApi#subscription_key_parameter_names}
         '''
         result = self._values.get("subscription_key_parameter_names")
         return typing.cast(typing.Optional["ApiManagementApiSubscriptionKeyParameterNames"], result)
@@ -1253,13 +1253,13 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def subscription_required(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#subscription_required ApiManagementApi#subscription_required}.'''
         result = self._values.get("subscription_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def terms_of_service_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#terms_of_service_url ApiManagementApi#terms_of_service_url}.'''
         result = self._values.get("terms_of_service_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1267,26 +1267,26 @@ class ApiManagementApiConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApiManagementApiTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#timeouts ApiManagementApi#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApiManagementApiTimeouts"], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version ApiManagementApi#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version ApiManagementApi#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_description ApiManagementApi#version_description}.'''
         result = self._values.get("version_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#version_set_id ApiManagementApi#version_set_id}.'''
         result = self._values.get("version_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1316,9 +1316,9 @@ class ApiManagementApiContact:
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#email ApiManagementApi#email}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#email ApiManagementApi#email}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e2a14ba1d4d0003356f7ab773207a3056a45b36b308bbefef89d43ffa334228)
@@ -1335,19 +1335,19 @@ class ApiManagementApiContact:
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#email ApiManagementApi#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#email ApiManagementApi#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1477,9 +1477,9 @@ class ApiManagementApiImport:
         wsdl_selector: typing.Optional[typing.Union["ApiManagementApiImportWsdlSelector", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param content_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.
-        :param content_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.
-        :param wsdl_selector: wsdl_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
+        :param content_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.
+        :param content_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.
+        :param wsdl_selector: wsdl_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
         '''
         if isinstance(wsdl_selector, dict):
             wsdl_selector = ApiManagementApiImportWsdlSelector(**wsdl_selector)
@@ -1497,14 +1497,14 @@ class ApiManagementApiImport:
 
     @builtins.property
     def content_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_format ApiManagementApi#content_format}.'''
         result = self._values.get("content_format")
         assert result is not None, "Required property 'content_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#content_value ApiManagementApi#content_value}.'''
         result = self._values.get("content_value")
         assert result is not None, "Required property 'content_value' is missing"
         return typing.cast(builtins.str, result)
@@ -1513,7 +1513,7 @@ class ApiManagementApiImport:
     def wsdl_selector(self) -> typing.Optional["ApiManagementApiImportWsdlSelector"]:
         '''wsdl_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#wsdl_selector ApiManagementApi#wsdl_selector}
         '''
         result = self._values.get("wsdl_selector")
         return typing.cast(typing.Optional["ApiManagementApiImportWsdlSelector"], result)
@@ -1558,8 +1558,8 @@ class ApiManagementApiImportOutputReference(
         service_name: builtins.str,
     ) -> None:
         '''
-        :param endpoint_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.
+        :param endpoint_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.
         '''
         value = ApiManagementApiImportWsdlSelector(
             endpoint_name=endpoint_name, service_name=service_name
@@ -1643,8 +1643,8 @@ class ApiManagementApiImportWsdlSelector:
         service_name: builtins.str,
     ) -> None:
         '''
-        :param endpoint_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.
+        :param endpoint_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40c91dd770b812dd739ecbe388c8085b2a92b4629f22f112a6cde6eb35747d41)
@@ -1657,14 +1657,14 @@ class ApiManagementApiImportWsdlSelector:
 
     @builtins.property
     def endpoint_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#endpoint_name ApiManagementApi#endpoint_name}.'''
         result = self._values.get("endpoint_name")
         assert result is not None, "Required property 'endpoint_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#service_name ApiManagementApi#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1764,8 +1764,8 @@ class ApiManagementApiLicense:
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a7b2fa20716471190ce2b29193746c9e923fa6dd7ba87991fb1173bdabb45ad)
@@ -1779,13 +1779,13 @@ class ApiManagementApiLicense:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#name ApiManagementApi#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#url ApiManagementApi#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#url ApiManagementApi#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1892,8 +1892,8 @@ class ApiManagementApiOauth2Authorization:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authorization_server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.
+        :param authorization_server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e01d1ca22f3139e4cd886c1e95ab02b2f267e368a1fb612b22a519efa911ac7)
@@ -1907,14 +1907,14 @@ class ApiManagementApiOauth2Authorization:
 
     @builtins.property
     def authorization_server_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#authorization_server_name ApiManagementApi#authorization_server_name}.'''
         result = self._values.get("authorization_server_name")
         assert result is not None, "Required property 'authorization_server_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#scope ApiManagementApi#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2020,8 +2020,8 @@ class ApiManagementApiOpenidAuthentication:
         bearer_token_sending_methods: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param openid_provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.
-        :param bearer_token_sending_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.
+        :param openid_provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.
+        :param bearer_token_sending_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4af1c2b6c8d900992aa4e6c80216b9a4f8121afe118ef7e28ce97fc834e30e51)
@@ -2035,7 +2035,7 @@ class ApiManagementApiOpenidAuthentication:
 
     @builtins.property
     def openid_provider_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#openid_provider_name ApiManagementApi#openid_provider_name}.'''
         result = self._values.get("openid_provider_name")
         assert result is not None, "Required property 'openid_provider_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2044,7 +2044,7 @@ class ApiManagementApiOpenidAuthentication:
     def bearer_token_sending_methods(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#bearer_token_sending_methods ApiManagementApi#bearer_token_sending_methods}.'''
         result = self._values.get("bearer_token_sending_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2144,8 +2144,8 @@ class ApiManagementApiOpenidAuthenticationOutputReference(
 class ApiManagementApiSubscriptionKeyParameterNames:
     def __init__(self, *, header: builtins.str, query: builtins.str) -> None:
         '''
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#header ApiManagementApi#header}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#query ApiManagementApi#query}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#header ApiManagementApi#header}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#query ApiManagementApi#query}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c13e8ff35bc8cf79b4b478fa937956b52160828d5a763c643df1953fdb1cf5ce)
@@ -2158,14 +2158,14 @@ class ApiManagementApiSubscriptionKeyParameterNames:
 
     @builtins.property
     def header(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#header ApiManagementApi#header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#header ApiManagementApi#header}.'''
         result = self._values.get("header")
         assert result is not None, "Required property 'header' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def query(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#query ApiManagementApi#query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#query ApiManagementApi#query}.'''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
         return typing.cast(builtins.str, result)
@@ -2274,10 +2274,10 @@ class ApiManagementApiTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#create ApiManagementApi#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#read ApiManagementApi#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#update ApiManagementApi#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#create ApiManagementApi#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#read ApiManagementApi#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#update ApiManagementApi#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0da2083f154a02291e577a0dbc4c85ede39aa9a3ba2bdd1da6ab9d6e4aa039d0)
@@ -2297,25 +2297,25 @@ class ApiManagementApiTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#create ApiManagementApi#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#create ApiManagementApi#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#delete ApiManagementApi#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#read ApiManagementApi#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#read ApiManagementApi#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/api_management_api#update ApiManagementApi#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/api_management_api#update ApiManagementApi#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

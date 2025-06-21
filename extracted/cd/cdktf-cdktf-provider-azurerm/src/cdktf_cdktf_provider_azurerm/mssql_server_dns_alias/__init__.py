@@ -1,7 +1,7 @@
 r'''
 # `azurerm_mssql_server_dns_alias`
 
-Refer to the Terraform Registry for docs: [`azurerm_mssql_server_dns_alias`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias).
+Refer to the Terraform Registry for docs: [`azurerm_mssql_server_dns_alias`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MssqlServerDnsAlias(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.mssqlServerDnsAlias.MssqlServerDnsAlias",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias azurerm_mssql_server_dns_alias}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias azurerm_mssql_server_dns_alias}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class MssqlServerDnsAlias(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias azurerm_mssql_server_dns_alias} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias azurerm_mssql_server_dns_alias} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param mssql_server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
+        :param mssql_server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class MssqlServerDnsAlias(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MssqlServerDnsAlias to import.
-        :param import_from_id: The id of the existing MssqlServerDnsAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MssqlServerDnsAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MssqlServerDnsAlias to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class MssqlServerDnsAlias(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.
         '''
         value = MssqlServerDnsAliasTimeouts(create=create, delete=delete, read=read)
 
@@ -271,10 +271,10 @@ class MssqlServerDnsAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param mssql_server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
+        :param mssql_server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -382,21 +382,21 @@ class MssqlServerDnsAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mssql_server_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#mssql_server_id MssqlServerDnsAlias#mssql_server_id}.'''
         result = self._values.get("mssql_server_id")
         assert result is not None, "Required property 'mssql_server_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#name MssqlServerDnsAlias#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#id MssqlServerDnsAlias#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -408,7 +408,7 @@ class MssqlServerDnsAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MssqlServerDnsAliasTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#timeouts MssqlServerDnsAlias#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MssqlServerDnsAliasTimeouts"], result)
@@ -439,9 +439,9 @@ class MssqlServerDnsAliasTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f57a297e4db5fd6d7b186b700f4fca1b5acc9981b67dbe12bbb8c2fb26f340c)
@@ -458,19 +458,19 @@ class MssqlServerDnsAliasTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#create MssqlServerDnsAlias#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#delete MssqlServerDnsAlias#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/mssql_server_dns_alias#read MssqlServerDnsAlias#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

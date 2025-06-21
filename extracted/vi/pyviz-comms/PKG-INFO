@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyviz_comms
-Version: 3.0.5
+Version: 3.0.6
 Dynamic: Keywords
 Summary: A JupyterLab extension for rendering HoloViz content.
 Project-URL: Homepage, https://github.com/holoviz/pyviz_comms

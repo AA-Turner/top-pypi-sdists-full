@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dependency-injector
-Version: 4.48.0
+Version: 4.48.1
 Summary: Dependency injection framework for Python
 Author-email: Roman Mogylatov <rmogilatov@gmail.com>
 Maintainer-email: Roman Mogylatov <rmogilatov@gmail.com>
@@ -64,6 +64,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
+Requires-Dist: typing-extensions; python_version < "3.11"
 Provides-Extra: yaml
 Requires-Dist: pyyaml; extra == "yaml"
 Provides-Extra: pydantic

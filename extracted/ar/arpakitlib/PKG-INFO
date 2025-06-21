@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: arpakitlib
-Version: 1.8.115
+Version: 1.8.134
 Summary: arpakitlib
 License: Apache-2.0
 Keywords: arpakitlib,arpakit,arpakit-company,arpakitcompany,arpakit_company
@@ -110,5 +110,6 @@ poetry run arpakitlib -c init_arpakit_project_template -version 5 -project_dirpa
 ---
 
 ## ❤️ Made by ARPAKIT Company ❤️
+
 
 

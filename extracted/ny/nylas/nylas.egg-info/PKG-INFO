@@ -1,12 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nylas
-Version: 6.9.0
+Version: 6.10.0
 Summary: Python bindings for the Nylas API platform.
 Home-page: https://github.com/nylas/nylas-python
 Author: Nylas Team
-Author-email: support@nylas.com
+Author-email: Nylas Team <support@nylas.com>
 License: MIT
-Keywords: inbox app appserver email nylas contacts calendar
+Project-URL: Homepage, https://github.com/nylas/nylas-python
+Project-URL: Repository, https://github.com/nylas/nylas-python
+Keywords: inbox,app,appserver,email,nylas,contacts,calendar
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -27,6 +29,10 @@ Requires-Dist: mkdocs-literate-nav>=0.6.0; extra == "docs"
 Provides-Extra: release
 Requires-Dist: bumpversion>=0.6.0; extra == "release"
 Requires-Dist: twine>=4.0.2; extra == "release"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 <a href="https://www.nylas.com/">
     <img src="https://brand.nylas.com/assets/downloads/logo_horizontal_png/Nylas-Logo-Horizontal-Blue_.png" alt="Aimeos logo" title="Aimeos" align="right" height="60" />

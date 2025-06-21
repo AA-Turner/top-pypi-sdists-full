@@ -4414,6 +4414,8 @@ class CfnEventInvokeConfig(
         ) -> None:
             '''A configuration object that specifies the destination of an event after Lambda processes it.
 
+            For more information, see `Adding a destination <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations>`_ .
+
             :param on_failure: The destination configuration for failed invocations. .. epigraph:: When using an Amazon SQS queue as a destination, FIFO queues cannot be used.
             :param on_success: The destination configuration for successful invocations. .. epigraph:: When using an Amazon SQS queue as a destination, FIFO queues cannot be used.
 
@@ -4495,7 +4497,7 @@ class CfnEventInvokeConfig(
         def __init__(self, *, destination: builtins.str) -> None:
             '''A destination for events that failed processing.
 
-            See `Capturing records of Lambda asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html>`_ for more information.
+            For more information, see `Adding a destination <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations>`_ .
 
             :param destination: The Amazon Resource Name (ARN) of the destination resource. To retain records of unsuccessful `asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, Amazon S3 bucket, Lambda function, or Amazon EventBridge event bus as the destination. To retain records of failed invocations from `Kinesis <https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html>`_ , `DynamoDB <https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html>`_ , `self-managed Kafka <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html#services-smaa-onfailure-destination>`_ or `Amazon MSK <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-onfailure-destination>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, or Amazon S3 bucket as the destination.
 
@@ -4554,6 +4556,9 @@ class CfnEventInvokeConfig(
             '''A destination for events that were processed successfully.
 
             To retain records of successful `asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, Lambda function, or Amazon EventBridge event bus as the destination.
+            .. epigraph::
+
+               ``OnSuccess`` is not supported in ``CreateEventSourceMapping`` or ``UpdateEventSourceMapping`` requests.
 
             :param destination: The Amazon Resource Name (ARN) of the destination resource.
 
@@ -5556,6 +5561,8 @@ class CfnEventSourceMapping(
         ) -> None:
             '''A configuration object that specifies the destination of an event after Lambda processes it.
 
+            For more information, see `Adding a destination <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations>`_ .
+
             :param on_failure: The destination configuration for failed invocations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-destinationconfig.html
@@ -5934,7 +5941,7 @@ class CfnEventSourceMapping(
         ) -> None:
             '''A destination for events that failed processing.
 
-            See `Capturing records of Lambda asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html>`_ for more information.
+            For more information, see `Adding a destination <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations>`_ .
 
             :param destination: The Amazon Resource Name (ARN) of the destination resource. To retain records of unsuccessful `asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, Amazon S3 bucket, Lambda function, or Amazon EventBridge event bus as the destination. To retain records of failed invocations from `Kinesis <https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html>`_ , `DynamoDB <https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html>`_ , `self-managed Kafka <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html#services-smaa-onfailure-destination>`_ or `Amazon MSK <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-onfailure-destination>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, or Amazon S3 bucket as the destination.
 
@@ -13868,6 +13875,78 @@ class EventInvokeConfigProps(EventInvokeConfigOptions):
         )
 
 
+class EventRecordFormat(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.EventRecordFormat",
+):
+    '''The format target function should recieve record in.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
+        from aws_cdk.aws_secretsmanager import Secret
+        
+        # Your MSK cluster arn
+        # cluster_arn: str
+        
+        # my_function: lambda.Function
+        
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=3
+            ),
+            schema_registry_config=ConfluentSchemaRegistry(
+                schema_registry_uri="https://example.com",
+                event_record_format=lambda_.EventRecordFormat.JSON,
+                authentication_type=lambda_.KafkaSchemaRegistryAccessConfigType.BASIC_AUTH,
+                secret=secret,
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+            )
+        ))
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, name: builtins.str) -> "EventRecordFormat":
+        '''A custom event record format.
+
+        :param name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__913b83169547e1e27e0d17d4e5a189f10545dca54ca45db7a5dc40a7d5cc2999)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast("EventRecordFormat", jsii.sinvoke(cls, "of", [name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="JSON")
+    def JSON(cls) -> "EventRecordFormat":
+        '''The target function will recieve records as json objects.'''
+        return typing.cast("EventRecordFormat", jsii.sget(cls, "JSON"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SOURCE")
+    def SOURCE(cls) -> "EventRecordFormat":
+        '''The target function will recieve records in same format as the schema source.'''
+        return typing.cast("EventRecordFormat", jsii.sget(cls, "SOURCE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''The enum to use in ``SchemaRegistryConfig.EventRecordFormat`` property in CloudFormation.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda.EventSourceMappingOptions",
     jsii_struct_bases=[],
@@ -13890,6 +13969,7 @@ class EventInvokeConfigProps(EventInvokeConfigOptions):
         "provisioned_poller_config": "provisionedPollerConfig",
         "report_batch_item_failures": "reportBatchItemFailures",
         "retry_attempts": "retryAttempts",
+        "schema_registry_config": "schemaRegistryConfig",
         "source_access_configurations": "sourceAccessConfigurations",
         "starting_position": "startingPosition",
         "starting_position_timestamp": "startingPositionTimestamp",
@@ -13919,6 +13999,7 @@ class EventSourceMappingOptions:
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["ISchemaRegistry"] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union["SourceAccessConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional["StartingPosition"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -13944,6 +14025,7 @@ class EventSourceMappingOptions:
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -13963,6 +14045,7 @@ class EventSourceMappingOptions:
             # event_source_dlq: lambda.IEventSourceDlq
             # filters: Any
             # key: kms.Key
+            # schema_registry: lambda.ISchemaRegistry
             # source_access_configuration_type: lambda.SourceAccessConfigurationType
             
             event_source_mapping_options = lambda.EventSourceMappingOptions(
@@ -13991,6 +14074,7 @@ class EventSourceMappingOptions:
                 ),
                 report_batch_item_failures=False,
                 retry_attempts=123,
+                schema_registry_config=schema_registry,
                 source_access_configurations=[lambda.SourceAccessConfiguration(
                     type=source_access_configuration_type,
                     uri="uri"
@@ -14025,6 +14109,7 @@ class EventSourceMappingOptions:
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             check_type(argname="argument source_access_configurations", value=source_access_configurations, expected_type=type_hints["source_access_configurations"])
             check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
@@ -14067,6 +14152,8 @@ class EventSourceMappingOptions:
             self._values["report_batch_item_failures"] = report_batch_item_failures
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if schema_registry_config is not None:
+            self._values["schema_registry_config"] = schema_registry_config
         if source_access_configurations is not None:
             self._values["source_access_configurations"] = source_access_configurations
         if starting_position is not None:
@@ -14293,6 +14380,15 @@ class EventSourceMappingOptions:
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schema_registry_config(self) -> typing.Optional["ISchemaRegistry"]:
+        '''Specific configuration settings for a Kafka schema registry.
+
+        :default: - none
+        '''
+        result = self._values.get("schema_registry_config")
+        return typing.cast(typing.Optional["ISchemaRegistry"], result)
 
     @builtins.property
     def source_access_configurations(
@@ -14387,6 +14483,7 @@ class EventSourceMappingOptions:
         "provisioned_poller_config": "provisionedPollerConfig",
         "report_batch_item_failures": "reportBatchItemFailures",
         "retry_attempts": "retryAttempts",
+        "schema_registry_config": "schemaRegistryConfig",
         "source_access_configurations": "sourceAccessConfigurations",
         "starting_position": "startingPosition",
         "starting_position_timestamp": "startingPositionTimestamp",
@@ -14417,6 +14514,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["ISchemaRegistry"] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union["SourceAccessConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional["StartingPosition"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -14444,6 +14542,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -14465,6 +14564,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             # filters: Any
             # function_: lambda.Function
             # key: kms.Key
+            # schema_registry: lambda.ISchemaRegistry
             # source_access_configuration_type: lambda.SourceAccessConfigurationType
             
             event_source_mapping_props = lambda.EventSourceMappingProps(
@@ -14496,6 +14596,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
                 ),
                 report_batch_item_failures=False,
                 retry_attempts=123,
+                schema_registry_config=schema_registry,
                 source_access_configurations=[lambda.SourceAccessConfiguration(
                     type=source_access_configuration_type,
                     uri="uri"
@@ -14530,6 +14631,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
             check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             check_type(argname="argument source_access_configurations", value=source_access_configurations, expected_type=type_hints["source_access_configurations"])
             check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
@@ -14575,6 +14677,8 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             self._values["report_batch_item_failures"] = report_batch_item_failures
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if schema_registry_config is not None:
+            self._values["schema_registry_config"] = schema_registry_config
         if source_access_configurations is not None:
             self._values["source_access_configurations"] = source_access_configurations
         if starting_position is not None:
@@ -14801,6 +14905,15 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schema_registry_config(self) -> typing.Optional["ISchemaRegistry"]:
+        '''Specific configuration settings for a Kafka schema registry.
+
+        :default: - none
+        '''
+        result = self._values.get("schema_registry_config")
+        return typing.cast(typing.Optional["ISchemaRegistry"], result)
 
     @builtins.property
     def source_access_configurations(
@@ -18291,6 +18404,7 @@ class IFunction(
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["ISchemaRegistry"] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union["SourceAccessConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional["StartingPosition"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -18318,6 +18432,7 @@ class IFunction(
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -18733,6 +18848,7 @@ class _IFunctionProxy(
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional["ISchemaRegistry"] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union["SourceAccessConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional["StartingPosition"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -18760,6 +18876,7 @@ class _IFunctionProxy(
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -18788,6 +18905,7 @@ class _IFunctionProxy(
             provisioned_poller_config=provisioned_poller_config,
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
+            schema_registry_config=schema_registry_config,
             source_access_configurations=source_access_configurations,
             starting_position=starting_position,
             starting_position_timestamp=starting_position_timestamp,
@@ -19527,6 +19645,50 @@ class _IScalableFunctionAttributeProxy(
 typing.cast(typing.Any, IScalableFunctionAttribute).__jsii_proxy_class__ = lambda : _IScalableFunctionAttributeProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.ISchemaRegistry")
+class ISchemaRegistry(typing_extensions.Protocol):
+    '''A schema registry for an event source.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        target: IEventSourceMapping,
+        target_handler: IFunction,
+    ) -> "KafkaSchemaRegistryConfig":
+        '''Returns the schema registry config of the event source.
+
+        :param target: -
+        :param target_handler: -
+        '''
+        ...
+
+
+class _ISchemaRegistryProxy:
+    '''A schema registry for an event source.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lambda.ISchemaRegistry"
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        target: IEventSourceMapping,
+        target_handler: IFunction,
+    ) -> "KafkaSchemaRegistryConfig":
+        '''Returns the schema registry config of the event source.
+
+        :param target: -
+        :param target_handler: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c68a1588ffc2bca6786310b7681f323e4368d6bf66e13c5fbdc7ef0ad571a22)
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument target_handler", value=target_handler, expected_type=type_hints["target_handler"])
+        return typing.cast("KafkaSchemaRegistryConfig", jsii.invoke(self, "bind", [target, target_handler]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISchemaRegistry).__jsii_proxy_class__ = lambda : _ISchemaRegistryProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_lambda.IVersion")
 class IVersion(IFunction, typing_extensions.Protocol):
     @builtins.property
@@ -19743,6 +19905,408 @@ class InvokeMode(enum.Enum):
     Lambda invokes your function using the InvokeWithResponseStream API operation.
     The maximum response payload size is 20 MB, however, you can request a quota increase.
     '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaRegistryAccessConfig",
+    jsii_struct_bases=[],
+    name_mapping={"type": "type", "uri": "uri"},
+)
+class KafkaSchemaRegistryAccessConfig:
+    def __init__(
+        self,
+        *,
+        type: "KafkaSchemaRegistryAccessConfigType",
+        uri: builtins.str,
+    ) -> None:
+        '''Specific access configuration settings that tell Lambda how to authenticate with your schema registry.
+
+        If you're working with an AWS Glue schema registry, don't provide authentication details in this object. Instead, ensure that your execution role has the required permissions for Lambda to access your cluster.
+
+        If you're working with a Confluent schema registry, choose the authentication method in the Type field, and provide the AWS Secrets Manager secret ARN in the URI field.
+
+        :param type: The type of authentication Lambda uses to access your schema registry.
+        :param uri: The URI of the secret (Secrets Manager secret ARN) to authenticate with your schema registry.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            # kafka_schema_registry_access_config_type: lambda.KafkaSchemaRegistryAccessConfigType
+            
+            kafka_schema_registry_access_config = lambda.KafkaSchemaRegistryAccessConfig(
+                type=kafka_schema_registry_access_config_type,
+                uri="uri"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9ed7f710fdd20a96eb8eeb709bbea9f1e52b3ca20bed4ca85cf8341031090d2)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+            "uri": uri,
+        }
+
+    @builtins.property
+    def type(self) -> "KafkaSchemaRegistryAccessConfigType":
+        '''The type of authentication Lambda uses to access your schema registry.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("KafkaSchemaRegistryAccessConfigType", result)
+
+    @builtins.property
+    def uri(self) -> builtins.str:
+        '''The URI of the secret (Secrets Manager secret ARN) to authenticate with your schema registry.
+
+        :see: KafkaSchemaRegistryAccessConfigType
+        '''
+        result = self._values.get("uri")
+        assert result is not None, "Required property 'uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KafkaSchemaRegistryAccessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class KafkaSchemaRegistryAccessConfigType(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaRegistryAccessConfigType",
+):
+    '''The type of authentication protocol for your schema registry.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
+        from aws_cdk.aws_secretsmanager import Secret
+        
+        # Your MSK cluster arn
+        # cluster_arn: str
+        
+        # my_function: lambda.Function
+        
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=3
+            ),
+            schema_registry_config=ConfluentSchemaRegistry(
+                schema_registry_uri="https://example.com",
+                event_record_format=lambda_.EventRecordFormat.JSON,
+                authentication_type=lambda_.KafkaSchemaRegistryAccessConfigType.BASIC_AUTH,
+                secret=secret,
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+            )
+        ))
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, name: builtins.str) -> "KafkaSchemaRegistryAccessConfigType":
+        '''A custom source access configuration property for schema registry.
+
+        :param name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bc6850ec99a0d35e26da78049f4174bb567964e6b20083c7a1e29e3f120f831)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast("KafkaSchemaRegistryAccessConfigType", jsii.sinvoke(cls, "of", [name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="BASIC_AUTH")
+    def BASIC_AUTH(cls) -> "KafkaSchemaRegistryAccessConfigType":
+        '''The Secrets Manager secret that stores your broker credentials.'''
+        return typing.cast("KafkaSchemaRegistryAccessConfigType", jsii.sget(cls, "BASIC_AUTH"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CLIENT_CERTIFICATE_TLS_AUTH")
+    def CLIENT_CERTIFICATE_TLS_AUTH(cls) -> "KafkaSchemaRegistryAccessConfigType":
+        '''The Secrets Manager ARN of your secret key containing the certificate chain (X.509 PEM), private key (PKCS#8 PEM), and private key password (optional) used for mutual TLS authentication of your schema registry.'''
+        return typing.cast("KafkaSchemaRegistryAccessConfigType", jsii.sget(cls, "CLIENT_CERTIFICATE_TLS_AUTH"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SERVER_ROOT_CA_CERTIFICATE")
+    def SERVER_ROOT_CA_CERTIFICATE(cls) -> "KafkaSchemaRegistryAccessConfigType":
+        '''The Secrets Manager ARN of your secret key containing the root CA certificate (X.509 PEM) used for TLS encryption of your schema registry.'''
+        return typing.cast("KafkaSchemaRegistryAccessConfigType", jsii.sget(cls, "SERVER_ROOT_CA_CERTIFICATE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The key to use in ``SchemaRegistryConfig.AccessConfig.Type`` property in CloudFormation.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaRegistryConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_record_format": "eventRecordFormat",
+        "schema_registry_uri": "schemaRegistryUri",
+        "schema_validation_configs": "schemaValidationConfigs",
+        "access_configs": "accessConfigs",
+    },
+)
+class KafkaSchemaRegistryConfig:
+    def __init__(
+        self,
+        *,
+        event_record_format: EventRecordFormat,
+        schema_registry_uri: builtins.str,
+        schema_validation_configs: typing.Sequence[typing.Union["KafkaSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]],
+        access_configs: typing.Optional[typing.Sequence[typing.Union[KafkaSchemaRegistryAccessConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''(Amazon MSK and self-managed Apache Kafka only) Specific configuration settings for a Kafka schema registry.
+
+        :param event_record_format: The record format that Lambda delivers to your function after schema validation. - Choose JSON to have Lambda deliver the record to your function as a standard JSON object. - Choose SOURCE to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function. Default: - none
+        :param schema_registry_uri: The URI for your schema registry. The correct URI format depends on the type of schema registry you're using. Default: - none
+        :param schema_validation_configs: An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry. Default: - none
+        :param access_configs: An array of access configuration objects that tell Lambda how to authenticate with your schema registry. Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            # event_record_format: lambda.EventRecordFormat
+            # kafka_schema_registry_access_config_type: lambda.KafkaSchemaRegistryAccessConfigType
+            # kafka_schema_validation_attribute: lambda.KafkaSchemaValidationAttribute
+            
+            kafka_schema_registry_config = lambda.KafkaSchemaRegistryConfig(
+                event_record_format=event_record_format,
+                schema_registry_uri="schemaRegistryUri",
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(
+                    attribute=kafka_schema_validation_attribute
+                )],
+            
+                # the properties below are optional
+                access_configs=[lambda.KafkaSchemaRegistryAccessConfig(
+                    type=kafka_schema_registry_access_config_type,
+                    uri="uri"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3171876130664545cc7c6ac22856db59c006c52bb5f546cb11b18d515fef45e)
+            check_type(argname="argument event_record_format", value=event_record_format, expected_type=type_hints["event_record_format"])
+            check_type(argname="argument schema_registry_uri", value=schema_registry_uri, expected_type=type_hints["schema_registry_uri"])
+            check_type(argname="argument schema_validation_configs", value=schema_validation_configs, expected_type=type_hints["schema_validation_configs"])
+            check_type(argname="argument access_configs", value=access_configs, expected_type=type_hints["access_configs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_record_format": event_record_format,
+            "schema_registry_uri": schema_registry_uri,
+            "schema_validation_configs": schema_validation_configs,
+        }
+        if access_configs is not None:
+            self._values["access_configs"] = access_configs
+
+    @builtins.property
+    def event_record_format(self) -> EventRecordFormat:
+        '''The record format that Lambda delivers to your function after schema validation.
+
+        - Choose JSON to have Lambda deliver the record to your function as a standard JSON object.
+        - Choose SOURCE to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function.
+
+        :default: - none
+        '''
+        result = self._values.get("event_record_format")
+        assert result is not None, "Required property 'event_record_format' is missing"
+        return typing.cast(EventRecordFormat, result)
+
+    @builtins.property
+    def schema_registry_uri(self) -> builtins.str:
+        '''The URI for your schema registry.
+
+        The correct URI format depends on the type of schema registry you're using.
+
+        :default: - none
+        '''
+        result = self._values.get("schema_registry_uri")
+        assert result is not None, "Required property 'schema_registry_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schema_validation_configs(self) -> typing.List["KafkaSchemaValidationConfig"]:
+        '''An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+        :default: - none
+        '''
+        result = self._values.get("schema_validation_configs")
+        assert result is not None, "Required property 'schema_validation_configs' is missing"
+        return typing.cast(typing.List["KafkaSchemaValidationConfig"], result)
+
+    @builtins.property
+    def access_configs(
+        self,
+    ) -> typing.Optional[typing.List[KafkaSchemaRegistryAccessConfig]]:
+        '''An array of access configuration objects that tell Lambda how to authenticate with your schema registry.
+
+        :default: - none
+        '''
+        result = self._values.get("access_configs")
+        return typing.cast(typing.Optional[typing.List[KafkaSchemaRegistryAccessConfig]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KafkaSchemaRegistryConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class KafkaSchemaValidationAttribute(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaValidationAttribute",
+):
+    '''Specific schema validation configuration settings that tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource, ConfluentSchemaRegistry
+        from aws_cdk.aws_secretsmanager import Secret
+        
+        # Your MSK cluster arn
+        # cluster_arn: str
+        
+        # my_function: lambda.Function
+        
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            provisioned_poller_config=ProvisionedPollerConfig(
+                minimum_pollers=1,
+                maximum_pollers=3
+            ),
+            schema_registry_config=ConfluentSchemaRegistry(
+                schema_registry_uri="https://example.com",
+                event_record_format=lambda_.EventRecordFormat.JSON,
+                authentication_type=lambda_.KafkaSchemaRegistryAccessConfigType.BASIC_AUTH,
+                secret=secret,
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+            )
+        ))
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, name: builtins.str) -> "KafkaSchemaValidationAttribute":
+        '''A custom schema validation attribute property.
+
+        :param name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90f583f1aa63ef4c8f67ca1d84697d67f4e81ae0ea5473533af46b85cc17e696)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast("KafkaSchemaValidationAttribute", jsii.sinvoke(cls, "of", [name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="KEY")
+    def KEY(cls) -> "KafkaSchemaValidationAttribute":
+        '''De-serialize the key field of the parload to target function.'''
+        return typing.cast("KafkaSchemaValidationAttribute", jsii.sget(cls, "KEY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VALUE")
+    def VALUE(cls) -> "KafkaSchemaValidationAttribute":
+        '''De-serialize the value field of the parload to target function.'''
+        return typing.cast("KafkaSchemaValidationAttribute", jsii.sget(cls, "VALUE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''The enum to use in ``SchemaRegistryConfig.SchemaValidationConfigs.Attribute`` property in CloudFormation.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaValidationConfig",
+    jsii_struct_bases=[],
+    name_mapping={"attribute": "attribute"},
+)
+class KafkaSchemaValidationConfig:
+    def __init__(self, *, attribute: KafkaSchemaValidationAttribute) -> None:
+        '''Specific schema validation configuration settings that tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+        :param attribute: The attributes you want your schema registry to validate and filter for. If you selected JSON as the EventRecordFormat, Lambda also deserializes the selected message attributes.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            # kafka_schema_validation_attribute: lambda.KafkaSchemaValidationAttribute
+            
+            kafka_schema_validation_config = lambda.KafkaSchemaValidationConfig(
+                attribute=kafka_schema_validation_attribute
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89fd450fee20fb5d81fd39157485acaae3ba70536153566208b1778d213a1ae8)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "attribute": attribute,
+        }
+
+    @builtins.property
+    def attribute(self) -> KafkaSchemaValidationAttribute:
+        '''The attributes you want your schema registry to validate and filter for.
+
+        If you selected JSON as the EventRecordFormat, Lambda also deserializes the selected message attributes.
+        '''
+        result = self._values.get("attribute")
+        assert result is not None, "Required property 'attribute' is missing"
+        return typing.cast(KafkaSchemaValidationAttribute, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KafkaSchemaValidationConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class LambdaInsightsVersion(
@@ -22315,6 +22879,88 @@ class S3CodeV2(
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.SchemaRegistryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_record_format": "eventRecordFormat",
+        "schema_validation_configs": "schemaValidationConfigs",
+    },
+)
+class SchemaRegistryProps:
+    def __init__(
+        self,
+        *,
+        event_record_format: EventRecordFormat,
+        schema_validation_configs: typing.Sequence[typing.Union[KafkaSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for schema registry configuration.
+
+        :param event_record_format: The record format that Lambda delivers to your function after schema validation. - Choose JSON to have Lambda deliver the record to your function as a standard JSON object. - Choose SOURCE to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function. Default: - none
+        :param schema_validation_configs: An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry. Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            # event_record_format: lambda.EventRecordFormat
+            # kafka_schema_validation_attribute: lambda.KafkaSchemaValidationAttribute
+            
+            schema_registry_props = lambda.SchemaRegistryProps(
+                event_record_format=event_record_format,
+                schema_validation_configs=[lambda.KafkaSchemaValidationConfig(
+                    attribute=kafka_schema_validation_attribute
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0915a5e0439a722acf480d4010d03236559e242684c698d0a460dffc5709933b)
+            check_type(argname="argument event_record_format", value=event_record_format, expected_type=type_hints["event_record_format"])
+            check_type(argname="argument schema_validation_configs", value=schema_validation_configs, expected_type=type_hints["schema_validation_configs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_record_format": event_record_format,
+            "schema_validation_configs": schema_validation_configs,
+        }
+
+    @builtins.property
+    def event_record_format(self) -> EventRecordFormat:
+        '''The record format that Lambda delivers to your function after schema validation.
+
+        - Choose JSON to have Lambda deliver the record to your function as a standard JSON object.
+        - Choose SOURCE to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function.
+
+        :default: - none
+        '''
+        result = self._values.get("event_record_format")
+        assert result is not None, "Required property 'event_record_format' is missing"
+        return typing.cast(EventRecordFormat, result)
+
+    @builtins.property
+    def schema_validation_configs(self) -> typing.List[KafkaSchemaValidationConfig]:
+        '''An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+        :default: - none
+        '''
+        result = self._values.get("schema_validation_configs")
+        assert result is not None, "Required property 'schema_validation_configs' is missing"
+        return typing.cast(typing.List[KafkaSchemaValidationConfig], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SchemaRegistryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda.SingletonFunctionProps",
     jsii_struct_bases=[FunctionProps],
     name_mapping={
@@ -23551,20 +24197,30 @@ class StartingPosition(enum.Enum):
 
     Example::
 
-        import aws_cdk.aws_kinesis as kinesis
-        from aws_cdk.aws_lambda_event_sources import KinesisConsumerEventSource
+        from aws_cdk.aws_lambda_event_sources import ManagedKafkaEventSource
+        from aws_cdk.aws_kms import Key
         
         # my_function: lambda.Function
         
         
-        stream = kinesis.Stream(self, "MyStream")
-        stream_consumer = kinesis.StreamConsumer(self, "MyStreamConsumer",
-            stream=stream,
-            stream_consumer_name="MyStreamConsumer"
-        )
-        my_function.add_event_source(KinesisConsumerEventSource(stream_consumer,
-            batch_size=100,  # default
-            starting_position=lambda_.StartingPosition.TRIM_HORIZON
+        # Your MSK cluster arn
+        cluster_arn = "arn:aws:kafka:us-east-1:0123456789019:cluster/SalesCluster/abcd1234-abcd-cafe-abab-9876543210ab-4"
+        
+        # The Kafka topic you want to subscribe to
+        topic = "some-cool-topic"
+        
+        # Your self managed KMS key
+        my_key = Key.from_key_arn(self, "SourceBucketEncryptionKey", "arn:aws:kms:us-east-1:123456789012:key/<key-id>")
+        my_function.add_event_source(ManagedKafkaEventSource(
+            cluster_arn=cluster_arn,
+            topic=topic,
+            starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+            filters=[
+                lambda_.FilterCriteria.filter({
+                    "string_equals": lambda_.FilterRule.is_equal("test")
+                })
+            ],
+            filter_encryption=my_key
         ))
     '''
 
@@ -26278,6 +26934,7 @@ class EventSourceMapping(
         # filters: Any
         # function_: lambda.Function
         # key: kms.Key
+        # schema_registry: lambda.ISchemaRegistry
         # source_access_configuration_type: lambda.SourceAccessConfigurationType
         
         event_source_mapping = lambda_.EventSourceMapping(self, "MyEventSourceMapping",
@@ -26309,6 +26966,7 @@ class EventSourceMapping(
             ),
             report_batch_item_failures=False,
             retry_attempts=123,
+            schema_registry_config=schema_registry,
             source_access_configurations=[lambda.SourceAccessConfiguration(
                 type=source_access_configuration_type,
                 uri="uri"
@@ -26344,6 +27002,7 @@ class EventSourceMapping(
         provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional[ISchemaRegistry] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional[StartingPosition] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -26372,6 +27031,7 @@ class EventSourceMapping(
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -26402,6 +27062,7 @@ class EventSourceMapping(
             provisioned_poller_config=provisioned_poller_config,
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
+            schema_registry_config=schema_registry_config,
             source_access_configurations=source_access_configurations,
             starting_position=starting_position,
             starting_position_timestamp=starting_position_timestamp,
@@ -26529,6 +27190,7 @@ class FunctionBase(
         provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional[ISchemaRegistry] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional[StartingPosition] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -26556,6 +27218,7 @@ class FunctionBase(
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -26584,6 +27247,7 @@ class FunctionBase(
             provisioned_poller_config=provisioned_poller_config,
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
+            schema_registry_config=schema_registry_config,
             source_access_configurations=source_access_configurations,
             starting_position=starting_position,
             starting_position_timestamp=starting_position_timestamp,
@@ -29618,6 +30282,7 @@ __all__ = [
     "EventInvokeConfig",
     "EventInvokeConfigOptions",
     "EventInvokeConfigProps",
+    "EventRecordFormat",
     "EventSourceMapping",
     "EventSourceMappingOptions",
     "EventSourceMappingProps",
@@ -29648,9 +30313,15 @@ __all__ = [
     "IFunctionUrl",
     "ILayerVersion",
     "IScalableFunctionAttribute",
+    "ISchemaRegistry",
     "IVersion",
     "InlineCode",
     "InvokeMode",
+    "KafkaSchemaRegistryAccessConfig",
+    "KafkaSchemaRegistryAccessConfigType",
+    "KafkaSchemaRegistryConfig",
+    "KafkaSchemaValidationAttribute",
+    "KafkaSchemaValidationConfig",
     "LambdaInsightsVersion",
     "LambdaRuntimeProps",
     "LayerVersion",
@@ -29677,6 +30348,7 @@ __all__ = [
     "RuntimeManagementMode",
     "S3Code",
     "S3CodeV2",
+    "SchemaRegistryProps",
     "SingletonFunction",
     "SingletonFunctionProps",
     "SnapStartConf",
@@ -31503,6 +32175,12 @@ def _typecheckingstub__39c1b3a3185624e50b391ccba8992ee288e54789a9b063a9fbffc3207
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__913b83169547e1e27e0d17d4e5a189f10545dca54ca45db7a5dc40a7d5cc2999(
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7442d2bd60e56a826eab54e95fa6a6ebc8961285a26558c7189840a124a0a2e0(
     *,
     batch_size: typing.Optional[jsii.Number] = None,
@@ -31523,6 +32201,7 @@ def _typecheckingstub__7442d2bd60e56a826eab54e95fa6a6ebc8961285a26558c7189840a12
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[ISchemaRegistry] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[StartingPosition] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -31552,6 +32231,7 @@ def _typecheckingstub__e74d0bc5516fc715f7302bdf199df23dddf769e98771f0bac2ff026a4
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[ISchemaRegistry] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[StartingPosition] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -31835,6 +32515,7 @@ def _typecheckingstub__726375d512fd3c0da30be8d20d1c4016974ba77359e6bac8eb3569126
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[ISchemaRegistry] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[StartingPosition] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -31941,6 +32622,13 @@ def _typecheckingstub__6400e52bafb7e00e3113dbb1e115c4dea946b786b17eee75a6aa6706a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0c68a1588ffc2bca6786310b7681f323e4368d6bf66e13c5fbdc7ef0ad571a22(
+    target: IEventSourceMapping,
+    target_handler: IFunction,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d163f09d3cc5fe40599d7400b73c5f0814fcf5b50dccd44d5740a368a0d84cf9(
     alias_name: builtins.str,
     *,
@@ -31963,6 +32651,43 @@ def _typecheckingstub__f10011decd156dc2381735c3153037cdca1af6b5a8e0c63d0023a96ed
 
 def _typecheckingstub__68701e0be659943818e792689f9c11f6ea386ae16b7e76ef2e090037d1e4bff1(
     _scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9ed7f710fdd20a96eb8eeb709bbea9f1e52b3ca20bed4ca85cf8341031090d2(
+    *,
+    type: KafkaSchemaRegistryAccessConfigType,
+    uri: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bc6850ec99a0d35e26da78049f4174bb567964e6b20083c7a1e29e3f120f831(
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3171876130664545cc7c6ac22856db59c006c52bb5f546cb11b18d515fef45e(
+    *,
+    event_record_format: EventRecordFormat,
+    schema_registry_uri: builtins.str,
+    schema_validation_configs: typing.Sequence[typing.Union[KafkaSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]],
+    access_configs: typing.Optional[typing.Sequence[typing.Union[KafkaSchemaRegistryAccessConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90f583f1aa63ef4c8f67ca1d84697d67f4e81ae0ea5473533af46b85cc17e696(
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89fd450fee20fb5d81fd39157485acaae3ba70536153566208b1778d213a1ae8(
+    *,
+    attribute: KafkaSchemaValidationAttribute,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32214,6 +32939,14 @@ def _typecheckingstub__b41ca6a89b02f4abbd158513a5c812e15217b49cbb3e409cff1690bdb
 
 def _typecheckingstub__304505e97ff3b397f5306079c5410e06bb217281e1cc348ada6eef6ae77771f2(
     _scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0915a5e0439a722acf480d4010d03236559e242684c698d0a460dffc5709933b(
+    *,
+    event_record_format: EventRecordFormat,
+    schema_validation_configs: typing.Sequence[typing.Union[KafkaSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32553,6 +33286,7 @@ def _typecheckingstub__b0460bc5250777612d2b42ec799737ce019fcdc03fe86c6540ab2ecec
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[ISchemaRegistry] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[StartingPosition] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -32609,6 +33343,7 @@ def _typecheckingstub__bfc312bd9bc4e64c5ae8419715155a56676bb9fe40870f57ffa4f3030
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[ISchemaRegistry] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[SourceAccessConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[StartingPosition] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,

@@ -7,7 +7,7 @@ packages = [{ include = "airbyte" }]
 
 # This project uses dynamic versioning
 # https://github.com/mtkennerly/poetry-dynamic-versioning
-version = "0.25.1"
+version = "0.25.2"
 
 [tool.poetry-dynamic-versioning]
 enable = false
@@ -83,7 +83,8 @@ build-backend = "poetry_dynamic_versioning.backend"
 # Pytest configuration as follows:
 # - No test can take longer than 10 minutes (600 seconds)
 # - Markers must be declared explicitly
-addopts = "-rs --strict-markers --timeout=600"
+# - Generate junit test results at a deterministic location
+addopts = "-rs --strict-markers --timeout=600 --junit-xml=build/test-results/test-results.xml"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "super_slow: these super slow tests will not run in CI; they will only ever run on-demand",

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_kubernetes_cluster`
 
-Refer to the Terraform Registry for docs: [`azurerm_kubernetes_cluster`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster).
+Refer to the Terraform Registry for docs: [`azurerm_kubernetes_cluster`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KubernetesCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.kubernetesCluster.KubernetesCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster azurerm_kubernetes_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster azurerm_kubernetes_cluster}.'''
 
     def __init__(
         self,
@@ -116,67 +116,67 @@ class KubernetesCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster azurerm_kubernetes_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster azurerm_kubernetes_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_node_pool: default_node_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.
-        :param aci_connector_linux: aci_connector_linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
-        :param api_server_access_profile: api_server_access_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
-        :param automatic_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.
-        :param auto_scaler_profile: auto_scaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
-        :param azure_active_directory_role_based_access_control: azure_active_directory_role_based_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
-        :param azure_policy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.
-        :param confidential_computing: confidential_computing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
-        :param cost_analysis_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.
-        :param disk_encryption_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.
-        :param dns_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.
-        :param dns_prefix_private_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.
-        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.
-        :param http_application_routing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.
-        :param http_proxy_config: http_proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
-        :param image_cleaner_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.
-        :param image_cleaner_interval_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.
-        :param ingress_application_gateway: ingress_application_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
-        :param key_management_service: key_management_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
-        :param key_vault_secrets_provider: key_vault_secrets_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
-        :param kubelet_identity: kubelet_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
-        :param kubernetes_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.
-        :param linux_profile: linux_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
-        :param local_account_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
-        :param maintenance_window_auto_upgrade: maintenance_window_auto_upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
-        :param maintenance_window_node_os: maintenance_window_node_os block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
-        :param microsoft_defender: microsoft_defender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
-        :param monitor_metrics: monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
-        :param network_profile: network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
-        :param node_os_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.
-        :param node_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.
-        :param oidc_issuer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.
-        :param oms_agent: oms_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
-        :param open_service_mesh_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.
-        :param private_cluster_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.
-        :param private_cluster_public_fqdn_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.
-        :param private_dns_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.
-        :param role_based_access_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.
-        :param run_command_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.
-        :param service_mesh_profile: service_mesh_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
-        :param service_principal: service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
-        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.
-        :param storage_profile: storage_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
-        :param support_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
-        :param upgrade_override: upgrade_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
-        :param web_app_routing: web_app_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
-        :param windows_profile: windows_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
-        :param workload_autoscaler_profile: workload_autoscaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
-        :param workload_identity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.
+        :param default_node_pool: default_node_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.
+        :param aci_connector_linux: aci_connector_linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
+        :param api_server_access_profile: api_server_access_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
+        :param automatic_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.
+        :param auto_scaler_profile: auto_scaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
+        :param azure_active_directory_role_based_access_control: azure_active_directory_role_based_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
+        :param azure_policy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.
+        :param confidential_computing: confidential_computing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
+        :param cost_analysis_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.
+        :param disk_encryption_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.
+        :param dns_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.
+        :param dns_prefix_private_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.
+        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.
+        :param http_application_routing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.
+        :param http_proxy_config: http_proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
+        :param image_cleaner_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.
+        :param image_cleaner_interval_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.
+        :param ingress_application_gateway: ingress_application_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
+        :param key_management_service: key_management_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
+        :param key_vault_secrets_provider: key_vault_secrets_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
+        :param kubelet_identity: kubelet_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
+        :param kubernetes_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.
+        :param linux_profile: linux_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
+        :param local_account_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
+        :param maintenance_window_auto_upgrade: maintenance_window_auto_upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
+        :param maintenance_window_node_os: maintenance_window_node_os block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
+        :param microsoft_defender: microsoft_defender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
+        :param monitor_metrics: monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
+        :param network_profile: network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
+        :param node_os_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.
+        :param node_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.
+        :param oidc_issuer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.
+        :param oms_agent: oms_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
+        :param open_service_mesh_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.
+        :param private_cluster_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.
+        :param private_cluster_public_fqdn_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.
+        :param private_dns_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.
+        :param role_based_access_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.
+        :param run_command_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.
+        :param service_mesh_profile: service_mesh_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
+        :param service_principal: service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
+        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.
+        :param storage_profile: storage_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
+        :param support_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
+        :param upgrade_override: upgrade_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
+        :param web_app_routing: web_app_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
+        :param windows_profile: windows_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
+        :param workload_autoscaler_profile: workload_autoscaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
+        :param workload_identity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -271,7 +271,7 @@ class KubernetesCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KubernetesCluster to import.
-        :param import_from_id: The id of the existing KubernetesCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KubernetesCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KubernetesCluster to import is found.
         '''
         if __debug__:
@@ -285,7 +285,7 @@ class KubernetesCluster(
     @jsii.member(jsii_name="putAciConnectorLinux")
     def put_aci_connector_linux(self, *, subnet_name: builtins.str) -> None:
         '''
-        :param subnet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.
+        :param subnet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.
         '''
         value = KubernetesClusterAciConnectorLinux(subnet_name=subnet_name)
 
@@ -298,7 +298,7 @@ class KubernetesCluster(
         authorized_ip_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param authorized_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.
+        :param authorized_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.
         '''
         value = KubernetesClusterApiServerAccessProfile(
             authorized_ip_ranges=authorized_ip_ranges
@@ -332,26 +332,26 @@ class KubernetesCluster(
         skip_nodes_with_system_pods: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param balance_similar_node_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.
-        :param daemonset_eviction_for_empty_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.
-        :param daemonset_eviction_for_occupied_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.
-        :param empty_bulk_delete_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.
-        :param expander: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.
-        :param ignore_daemonsets_utilization_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.
-        :param max_graceful_termination_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.
-        :param max_node_provisioning_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.
-        :param max_unready_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.
-        :param max_unready_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.
-        :param new_pod_scale_up_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.
-        :param scale_down_delay_after_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.
-        :param scale_down_delay_after_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.
-        :param scale_down_delay_after_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.
-        :param scale_down_unneeded: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.
-        :param scale_down_unready: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.
-        :param scale_down_utilization_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.
-        :param scan_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.
-        :param skip_nodes_with_local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.
-        :param skip_nodes_with_system_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.
+        :param balance_similar_node_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.
+        :param daemonset_eviction_for_empty_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.
+        :param daemonset_eviction_for_occupied_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.
+        :param empty_bulk_delete_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.
+        :param expander: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.
+        :param ignore_daemonsets_utilization_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.
+        :param max_graceful_termination_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.
+        :param max_node_provisioning_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.
+        :param max_unready_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.
+        :param max_unready_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.
+        :param new_pod_scale_up_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.
+        :param scale_down_delay_after_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.
+        :param scale_down_delay_after_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.
+        :param scale_down_delay_after_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.
+        :param scale_down_unneeded: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.
+        :param scale_down_unready: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.
+        :param scale_down_utilization_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.
+        :param scan_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.
+        :param skip_nodes_with_local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.
+        :param skip_nodes_with_system_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.
         '''
         value = KubernetesClusterAutoScalerProfile(
             balance_similar_node_groups=balance_similar_node_groups,
@@ -387,9 +387,9 @@ class KubernetesCluster(
         tenant_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param admin_group_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.
-        :param azure_rbac_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.
+        :param admin_group_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.
+        :param azure_rbac_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.
         '''
         value = KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl(
             admin_group_object_ids=admin_group_object_ids,
@@ -406,7 +406,7 @@ class KubernetesCluster(
         sgx_quote_helper_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param sgx_quote_helper_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.
+        :param sgx_quote_helper_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.
         '''
         value = KubernetesClusterConfidentialComputing(
             sgx_quote_helper_enabled=sgx_quote_helper_enabled
@@ -456,42 +456,42 @@ class KubernetesCluster(
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
-        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.
-        :param capacity_reservation_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.
-        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.
-        :param gpu_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.
-        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.
-        :param host_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
-        :param kubelet_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.
-        :param linux_os_config: linux_os_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
-        :param max_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.
-        :param min_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.
-        :param node_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.
-        :param node_network_profile: node_network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
-        :param node_public_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.
-        :param node_public_ip_prefix_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.
-        :param only_critical_addons_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.
-        :param orchestrator_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.
-        :param os_disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.
-        :param os_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.
-        :param os_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.
-        :param pod_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.
-        :param proximity_placement_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.
-        :param scale_down_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
-        :param temporary_name_for_rotation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
-        :param ultra_ssd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
-        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.
-        :param vnet_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.
-        :param workload_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
+        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.
+        :param capacity_reservation_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.
+        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.
+        :param gpu_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.
+        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.
+        :param host_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
+        :param kubelet_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.
+        :param linux_os_config: linux_os_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
+        :param max_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.
+        :param min_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.
+        :param node_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.
+        :param node_network_profile: node_network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
+        :param node_public_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.
+        :param node_public_ip_prefix_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.
+        :param only_critical_addons_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.
+        :param orchestrator_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.
+        :param os_disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.
+        :param os_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.
+        :param os_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.
+        :param pod_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.
+        :param proximity_placement_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.
+        :param scale_down_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
+        :param temporary_name_for_rotation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
+        :param ultra_ssd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
+        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.
+        :param vnet_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.
+        :param workload_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.
         '''
         value = KubernetesClusterDefaultNodePool(
             name=name,
@@ -544,10 +544,10 @@ class KubernetesCluster(
         trusted_ca: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.
-        :param https_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.
-        :param no_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.
-        :param trusted_ca: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.
+        :param http_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.
+        :param https_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.
+        :param no_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.
+        :param trusted_ca: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.
         '''
         value = KubernetesClusterHttpProxyConfig(
             http_proxy=http_proxy,
@@ -566,8 +566,8 @@ class KubernetesCluster(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.
         '''
         value = KubernetesClusterIdentity(type=type, identity_ids=identity_ids)
 
@@ -583,10 +583,10 @@ class KubernetesCluster(
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.
-        :param gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.
-        :param subnet_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.
+        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.
+        :param gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.
+        :param subnet_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.
         '''
         value = KubernetesClusterIngressApplicationGateway(
             gateway_id=gateway_id,
@@ -605,8 +605,8 @@ class KubernetesCluster(
         key_vault_network_access: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.
-        :param key_vault_network_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.
+        :param key_vault_network_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.
         '''
         value = KubernetesClusterKeyManagementService(
             key_vault_key_id=key_vault_key_id,
@@ -623,8 +623,8 @@ class KubernetesCluster(
         secret_rotation_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.
-        :param secret_rotation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.
+        :param secret_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.
+        :param secret_rotation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.
         '''
         value = KubernetesClusterKeyVaultSecretsProvider(
             secret_rotation_enabled=secret_rotation_enabled,
@@ -642,9 +642,9 @@ class KubernetesCluster(
         user_assigned_identity_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
-        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
+        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.
         '''
         value = KubernetesClusterKubeletIdentity(
             client_id=client_id,
@@ -662,8 +662,8 @@ class KubernetesCluster(
         ssh_key: typing.Union["KubernetesClusterLinuxProfileSshKey", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
-        :param ssh_key: ssh_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
+        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
+        :param ssh_key: ssh_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
         '''
         value = KubernetesClusterLinuxProfile(
             admin_username=admin_username, ssh_key=ssh_key
@@ -679,8 +679,8 @@ class KubernetesCluster(
         not_allowed: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KubernetesClusterMaintenanceWindowNotAllowed", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed: allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param allowed: allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
         '''
         value = KubernetesClusterMaintenanceWindow(
             allowed=allowed, not_allowed=not_allowed
@@ -704,16 +704,16 @@ class KubernetesCluster(
         week_index: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
-        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
-        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
-        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
+        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
+        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
+        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
         '''
         value = KubernetesClusterMaintenanceWindowAutoUpgrade(
             duration=duration,
@@ -746,16 +746,16 @@ class KubernetesCluster(
         week_index: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
-        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
-        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
-        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
+        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
+        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
+        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
         '''
         value = KubernetesClusterMaintenanceWindowNodeOs(
             duration=duration,
@@ -779,7 +779,7 @@ class KubernetesCluster(
         log_analytics_workspace_id: builtins.str,
     ) -> None:
         '''
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
         '''
         value = KubernetesClusterMicrosoftDefender(
             log_analytics_workspace_id=log_analytics_workspace_id
@@ -795,8 +795,8 @@ class KubernetesCluster(
         labels_allowed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param annotations_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.
-        :param labels_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.
+        :param annotations_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.
+        :param labels_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.
         '''
         value = KubernetesClusterMonitorMetrics(
             annotations_allowed=annotations_allowed, labels_allowed=labels_allowed
@@ -825,21 +825,21 @@ class KubernetesCluster(
         service_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param network_plugin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.
-        :param dns_service_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.
-        :param ip_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.
-        :param load_balancer_profile: load_balancer_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
-        :param load_balancer_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.
-        :param nat_gateway_profile: nat_gateway_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
-        :param network_data_plane: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.
-        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.
-        :param network_plugin_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.
-        :param network_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.
-        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.
-        :param pod_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.
-        :param pod_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.
-        :param service_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.
-        :param service_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.
+        :param network_plugin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.
+        :param dns_service_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.
+        :param ip_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.
+        :param load_balancer_profile: load_balancer_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
+        :param load_balancer_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.
+        :param nat_gateway_profile: nat_gateway_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
+        :param network_data_plane: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.
+        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.
+        :param network_plugin_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.
+        :param network_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.
+        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.
+        :param pod_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.
+        :param pod_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.
+        :param service_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.
+        :param service_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.
         '''
         value = KubernetesClusterNetworkProfile(
             network_plugin=network_plugin,
@@ -869,8 +869,8 @@ class KubernetesCluster(
         msi_auth_for_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
-        :param msi_auth_for_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
+        :param msi_auth_for_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.
         '''
         value = KubernetesClusterOmsAgent(
             log_analytics_workspace_id=log_analytics_workspace_id,
@@ -890,11 +890,11 @@ class KubernetesCluster(
         internal_ingress_gateway_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.
-        :param revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.
-        :param certificate_authority: certificate_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
-        :param external_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.
-        :param internal_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.
+        :param revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.
+        :param certificate_authority: certificate_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
+        :param external_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.
+        :param internal_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.
         '''
         value = KubernetesClusterServiceMeshProfile(
             mode=mode,
@@ -914,8 +914,8 @@ class KubernetesCluster(
         client_secret: builtins.str,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.
         '''
         value = KubernetesClusterServicePrincipal(
             client_id=client_id, client_secret=client_secret
@@ -933,10 +933,10 @@ class KubernetesCluster(
         snapshot_controller_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param blob_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.
-        :param disk_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.
-        :param file_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.
-        :param snapshot_controller_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.
+        :param blob_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.
+        :param disk_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.
+        :param file_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.
+        :param snapshot_controller_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.
         '''
         value = KubernetesClusterStorageProfile(
             blob_driver_enabled=blob_driver_enabled,
@@ -957,10 +957,10 @@ class KubernetesCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.
         '''
         value = KubernetesClusterTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -976,8 +976,8 @@ class KubernetesCluster(
         effective_until: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param force_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.
-        :param effective_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.
+        :param force_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.
+        :param effective_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.
         '''
         value = KubernetesClusterUpgradeOverride(
             force_upgrade_enabled=force_upgrade_enabled,
@@ -993,7 +993,7 @@ class KubernetesCluster(
         dns_zone_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.
+        :param dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.
         '''
         value = KubernetesClusterWebAppRouting(dns_zone_ids=dns_zone_ids)
 
@@ -1009,10 +1009,10 @@ class KubernetesCluster(
         license: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.
-        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
-        :param gmsa: gmsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
-        :param license: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.
+        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.
+        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
+        :param gmsa: gmsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
+        :param license: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.
         '''
         value = KubernetesClusterWindowsProfile(
             admin_password=admin_password,
@@ -1031,8 +1031,8 @@ class KubernetesCluster(
         vertical_pod_autoscaler_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param keda_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.
-        :param vertical_pod_autoscaler_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.
+        :param keda_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.
+        :param vertical_pod_autoscaler_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.
         '''
         value = KubernetesClusterWorkloadAutoscalerProfile(
             keda_enabled=keda_enabled,
@@ -2261,7 +2261,7 @@ class KubernetesCluster(
 class KubernetesClusterAciConnectorLinux:
     def __init__(self, *, subnet_name: builtins.str) -> None:
         '''
-        :param subnet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.
+        :param subnet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__607074898a400d1dbfc83ab061e17f21f4556d702ad0ce681441ad7002a1c528)
@@ -2272,7 +2272,7 @@ class KubernetesClusterAciConnectorLinux:
 
     @builtins.property
     def subnet_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_name KubernetesCluster#subnet_name}.'''
         result = self._values.get("subnet_name")
         assert result is not None, "Required property 'subnet_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2517,7 +2517,7 @@ class KubernetesClusterApiServerAccessProfile:
         authorized_ip_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param authorized_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.
+        :param authorized_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2f80c0476335ddfd25bc56c78be3214dc28598fa997c75f1cf37b2f58afc342)
@@ -2528,7 +2528,7 @@ class KubernetesClusterApiServerAccessProfile:
 
     @builtins.property
     def authorized_ip_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#authorized_ip_ranges KubernetesCluster#authorized_ip_ranges}.'''
         result = self._values.get("authorized_ip_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2655,26 +2655,26 @@ class KubernetesClusterAutoScalerProfile:
         skip_nodes_with_system_pods: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param balance_similar_node_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.
-        :param daemonset_eviction_for_empty_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.
-        :param daemonset_eviction_for_occupied_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.
-        :param empty_bulk_delete_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.
-        :param expander: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.
-        :param ignore_daemonsets_utilization_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.
-        :param max_graceful_termination_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.
-        :param max_node_provisioning_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.
-        :param max_unready_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.
-        :param max_unready_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.
-        :param new_pod_scale_up_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.
-        :param scale_down_delay_after_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.
-        :param scale_down_delay_after_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.
-        :param scale_down_delay_after_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.
-        :param scale_down_unneeded: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.
-        :param scale_down_unready: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.
-        :param scale_down_utilization_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.
-        :param scan_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.
-        :param skip_nodes_with_local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.
-        :param skip_nodes_with_system_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.
+        :param balance_similar_node_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.
+        :param daemonset_eviction_for_empty_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.
+        :param daemonset_eviction_for_occupied_nodes_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.
+        :param empty_bulk_delete_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.
+        :param expander: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.
+        :param ignore_daemonsets_utilization_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.
+        :param max_graceful_termination_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.
+        :param max_node_provisioning_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.
+        :param max_unready_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.
+        :param max_unready_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.
+        :param new_pod_scale_up_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.
+        :param scale_down_delay_after_add: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.
+        :param scale_down_delay_after_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.
+        :param scale_down_delay_after_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.
+        :param scale_down_unneeded: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.
+        :param scale_down_unready: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.
+        :param scale_down_utilization_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.
+        :param scan_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.
+        :param skip_nodes_with_local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.
+        :param skip_nodes_with_system_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__831617a446d26cf4b19da83eeef042df1a97ed16a3bb453321366b344e56437e)
@@ -2744,7 +2744,7 @@ class KubernetesClusterAutoScalerProfile:
     def balance_similar_node_groups(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#balance_similar_node_groups KubernetesCluster#balance_similar_node_groups}.'''
         result = self._values.get("balance_similar_node_groups")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2752,7 +2752,7 @@ class KubernetesClusterAutoScalerProfile:
     def daemonset_eviction_for_empty_nodes_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_empty_nodes_enabled KubernetesCluster#daemonset_eviction_for_empty_nodes_enabled}.'''
         result = self._values.get("daemonset_eviction_for_empty_nodes_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2760,19 +2760,19 @@ class KubernetesClusterAutoScalerProfile:
     def daemonset_eviction_for_occupied_nodes_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#daemonset_eviction_for_occupied_nodes_enabled KubernetesCluster#daemonset_eviction_for_occupied_nodes_enabled}.'''
         result = self._values.get("daemonset_eviction_for_occupied_nodes_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def empty_bulk_delete_max(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#empty_bulk_delete_max KubernetesCluster#empty_bulk_delete_max}.'''
         result = self._values.get("empty_bulk_delete_max")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def expander(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#expander KubernetesCluster#expander}.'''
         result = self._values.get("expander")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2780,79 +2780,79 @@ class KubernetesClusterAutoScalerProfile:
     def ignore_daemonsets_utilization_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ignore_daemonsets_utilization_enabled KubernetesCluster#ignore_daemonsets_utilization_enabled}.'''
         result = self._values.get("ignore_daemonsets_utilization_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def max_graceful_termination_sec(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_graceful_termination_sec KubernetesCluster#max_graceful_termination_sec}.'''
         result = self._values.get("max_graceful_termination_sec")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_node_provisioning_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_node_provisioning_time KubernetesCluster#max_node_provisioning_time}.'''
         result = self._values.get("max_node_provisioning_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_unready_nodes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_nodes KubernetesCluster#max_unready_nodes}.'''
         result = self._values.get("max_unready_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_unready_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_unready_percentage KubernetesCluster#max_unready_percentage}.'''
         result = self._values.get("max_unready_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def new_pod_scale_up_delay(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#new_pod_scale_up_delay KubernetesCluster#new_pod_scale_up_delay}.'''
         result = self._values.get("new_pod_scale_up_delay")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_delay_after_add(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_add KubernetesCluster#scale_down_delay_after_add}.'''
         result = self._values.get("scale_down_delay_after_add")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_delay_after_delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_delete KubernetesCluster#scale_down_delay_after_delete}.'''
         result = self._values.get("scale_down_delay_after_delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_delay_after_failure(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_delay_after_failure KubernetesCluster#scale_down_delay_after_failure}.'''
         result = self._values.get("scale_down_delay_after_failure")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_unneeded(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unneeded KubernetesCluster#scale_down_unneeded}.'''
         result = self._values.get("scale_down_unneeded")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_unready(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_unready KubernetesCluster#scale_down_unready}.'''
         result = self._values.get("scale_down_unready")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_utilization_threshold(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_utilization_threshold KubernetesCluster#scale_down_utilization_threshold}.'''
         result = self._values.get("scale_down_utilization_threshold")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scan_interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scan_interval KubernetesCluster#scan_interval}.'''
         result = self._values.get("scan_interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2860,7 +2860,7 @@ class KubernetesClusterAutoScalerProfile:
     def skip_nodes_with_local_storage(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_local_storage KubernetesCluster#skip_nodes_with_local_storage}.'''
         result = self._values.get("skip_nodes_with_local_storage")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2868,7 +2868,7 @@ class KubernetesClusterAutoScalerProfile:
     def skip_nodes_with_system_pods(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#skip_nodes_with_system_pods KubernetesCluster#skip_nodes_with_system_pods}.'''
         result = self._values.get("skip_nodes_with_system_pods")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3400,9 +3400,9 @@ class KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl:
         tenant_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param admin_group_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.
-        :param azure_rbac_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.
+        :param admin_group_object_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.
+        :param azure_rbac_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40d8040b4e7c0b0f85eff013a32ec1b824579b9f264b11867ce58475fc2248a5)
@@ -3419,7 +3419,7 @@ class KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl:
 
     @builtins.property
     def admin_group_object_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_group_object_ids KubernetesCluster#admin_group_object_ids}.'''
         result = self._values.get("admin_group_object_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3427,13 +3427,13 @@ class KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl:
     def azure_rbac_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_rbac_enabled KubernetesCluster#azure_rbac_enabled}.'''
         result = self._values.get("azure_rbac_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tenant_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tenant_id KubernetesCluster#tenant_id}.'''
         result = self._values.get("tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3571,7 +3571,7 @@ class KubernetesClusterConfidentialComputing:
         sgx_quote_helper_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param sgx_quote_helper_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.
+        :param sgx_quote_helper_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3aadd44074465a1bbb65fef85289e9acb114837e505cb657a81e59b9e622c19f)
@@ -3584,7 +3584,7 @@ class KubernetesClusterConfidentialComputing:
     def sgx_quote_helper_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sgx_quote_helper_enabled KubernetesCluster#sgx_quote_helper_enabled}.'''
         result = self._values.get("sgx_quote_helper_enabled")
         assert result is not None, "Required property 'sgx_quote_helper_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3808,63 +3808,63 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_node_pool: default_node_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.
-        :param aci_connector_linux: aci_connector_linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
-        :param api_server_access_profile: api_server_access_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
-        :param automatic_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.
-        :param auto_scaler_profile: auto_scaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
-        :param azure_active_directory_role_based_access_control: azure_active_directory_role_based_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
-        :param azure_policy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.
-        :param confidential_computing: confidential_computing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
-        :param cost_analysis_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.
-        :param disk_encryption_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.
-        :param dns_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.
-        :param dns_prefix_private_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.
-        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.
-        :param http_application_routing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.
-        :param http_proxy_config: http_proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
-        :param image_cleaner_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.
-        :param image_cleaner_interval_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.
-        :param ingress_application_gateway: ingress_application_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
-        :param key_management_service: key_management_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
-        :param key_vault_secrets_provider: key_vault_secrets_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
-        :param kubelet_identity: kubelet_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
-        :param kubernetes_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.
-        :param linux_profile: linux_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
-        :param local_account_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.
-        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
-        :param maintenance_window_auto_upgrade: maintenance_window_auto_upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
-        :param maintenance_window_node_os: maintenance_window_node_os block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
-        :param microsoft_defender: microsoft_defender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
-        :param monitor_metrics: monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
-        :param network_profile: network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
-        :param node_os_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.
-        :param node_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.
-        :param oidc_issuer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.
-        :param oms_agent: oms_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
-        :param open_service_mesh_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.
-        :param private_cluster_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.
-        :param private_cluster_public_fqdn_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.
-        :param private_dns_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.
-        :param role_based_access_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.
-        :param run_command_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.
-        :param service_mesh_profile: service_mesh_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
-        :param service_principal: service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
-        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.
-        :param storage_profile: storage_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
-        :param support_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
-        :param upgrade_override: upgrade_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
-        :param web_app_routing: web_app_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
-        :param windows_profile: windows_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
-        :param workload_autoscaler_profile: workload_autoscaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
-        :param workload_identity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.
+        :param default_node_pool: default_node_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.
+        :param aci_connector_linux: aci_connector_linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
+        :param api_server_access_profile: api_server_access_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
+        :param automatic_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.
+        :param auto_scaler_profile: auto_scaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
+        :param azure_active_directory_role_based_access_control: azure_active_directory_role_based_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
+        :param azure_policy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.
+        :param confidential_computing: confidential_computing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
+        :param cost_analysis_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.
+        :param disk_encryption_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.
+        :param dns_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.
+        :param dns_prefix_private_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.
+        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.
+        :param http_application_routing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.
+        :param http_proxy_config: http_proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
+        :param image_cleaner_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.
+        :param image_cleaner_interval_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.
+        :param ingress_application_gateway: ingress_application_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
+        :param key_management_service: key_management_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
+        :param key_vault_secrets_provider: key_vault_secrets_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
+        :param kubelet_identity: kubelet_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
+        :param kubernetes_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.
+        :param linux_profile: linux_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
+        :param local_account_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.
+        :param maintenance_window: maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
+        :param maintenance_window_auto_upgrade: maintenance_window_auto_upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
+        :param maintenance_window_node_os: maintenance_window_node_os block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
+        :param microsoft_defender: microsoft_defender block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
+        :param monitor_metrics: monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
+        :param network_profile: network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
+        :param node_os_upgrade_channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.
+        :param node_resource_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.
+        :param oidc_issuer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.
+        :param oms_agent: oms_agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
+        :param open_service_mesh_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.
+        :param private_cluster_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.
+        :param private_cluster_public_fqdn_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.
+        :param private_dns_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.
+        :param role_based_access_control_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.
+        :param run_command_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.
+        :param service_mesh_profile: service_mesh_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
+        :param service_principal: service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
+        :param sku_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.
+        :param storage_profile: storage_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
+        :param support_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
+        :param upgrade_override: upgrade_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
+        :param web_app_routing: web_app_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
+        :param windows_profile: windows_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
+        :param workload_autoscaler_profile: workload_autoscaler_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
+        :param workload_identity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -4185,7 +4185,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_node_pool(self) -> "KubernetesClusterDefaultNodePool":
         '''default_node_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#default_node_pool KubernetesCluster#default_node_pool}
         '''
         result = self._values.get("default_node_pool")
         assert result is not None, "Required property 'default_node_pool' is missing"
@@ -4193,21 +4193,21 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#location KubernetesCluster#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#resource_group_name KubernetesCluster#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4218,7 +4218,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KubernetesClusterAciConnectorLinux]:
         '''aci_connector_linux block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#aci_connector_linux KubernetesCluster#aci_connector_linux}
         '''
         result = self._values.get("aci_connector_linux")
         return typing.cast(typing.Optional[KubernetesClusterAciConnectorLinux], result)
@@ -4229,14 +4229,14 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KubernetesClusterApiServerAccessProfile]:
         '''api_server_access_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#api_server_access_profile KubernetesCluster#api_server_access_profile}
         '''
         result = self._values.get("api_server_access_profile")
         return typing.cast(typing.Optional[KubernetesClusterApiServerAccessProfile], result)
 
     @builtins.property
     def automatic_upgrade_channel(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#automatic_upgrade_channel KubernetesCluster#automatic_upgrade_channel}.'''
         result = self._values.get("automatic_upgrade_channel")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4246,7 +4246,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KubernetesClusterAutoScalerProfile]:
         '''auto_scaler_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaler_profile KubernetesCluster#auto_scaler_profile}
         '''
         result = self._values.get("auto_scaler_profile")
         return typing.cast(typing.Optional[KubernetesClusterAutoScalerProfile], result)
@@ -4257,7 +4257,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl]:
         '''azure_active_directory_role_based_access_control block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_active_directory_role_based_access_control KubernetesCluster#azure_active_directory_role_based_access_control}
         '''
         result = self._values.get("azure_active_directory_role_based_access_control")
         return typing.cast(typing.Optional[KubernetesClusterAzureActiveDirectoryRoleBasedAccessControl], result)
@@ -4266,7 +4266,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def azure_policy_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#azure_policy_enabled KubernetesCluster#azure_policy_enabled}.'''
         result = self._values.get("azure_policy_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4276,7 +4276,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KubernetesClusterConfidentialComputing]:
         '''confidential_computing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#confidential_computing KubernetesCluster#confidential_computing}
         '''
         result = self._values.get("confidential_computing")
         return typing.cast(typing.Optional[KubernetesClusterConfidentialComputing], result)
@@ -4285,31 +4285,31 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cost_analysis_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cost_analysis_enabled KubernetesCluster#cost_analysis_enabled}.'''
         result = self._values.get("cost_analysis_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def disk_encryption_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_encryption_set_id KubernetesCluster#disk_encryption_set_id}.'''
         result = self._values.get("disk_encryption_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dns_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix KubernetesCluster#dns_prefix}.'''
         result = self._values.get("dns_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dns_prefix_private_cluster(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_prefix_private_cluster KubernetesCluster#dns_prefix_private_cluster}.'''
         result = self._values.get("dns_prefix_private_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def edge_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#edge_zone KubernetesCluster#edge_zone}.'''
         result = self._values.get("edge_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4317,7 +4317,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_application_routing_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_application_routing_enabled KubernetesCluster#http_application_routing_enabled}.'''
         result = self._values.get("http_application_routing_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4325,14 +4325,14 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_proxy_config(self) -> typing.Optional["KubernetesClusterHttpProxyConfig"]:
         '''http_proxy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy_config KubernetesCluster#http_proxy_config}
         '''
         result = self._values.get("http_proxy_config")
         return typing.cast(typing.Optional["KubernetesClusterHttpProxyConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#id KubernetesCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4344,7 +4344,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["KubernetesClusterIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity KubernetesCluster#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["KubernetesClusterIdentity"], result)
@@ -4353,13 +4353,13 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def image_cleaner_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_enabled KubernetesCluster#image_cleaner_enabled}.'''
         result = self._values.get("image_cleaner_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def image_cleaner_interval_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_cleaner_interval_hours KubernetesCluster#image_cleaner_interval_hours}.'''
         result = self._values.get("image_cleaner_interval_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4369,7 +4369,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterIngressApplicationGateway"]:
         '''ingress_application_gateway block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ingress_application_gateway KubernetesCluster#ingress_application_gateway}
         '''
         result = self._values.get("ingress_application_gateway")
         return typing.cast(typing.Optional["KubernetesClusterIngressApplicationGateway"], result)
@@ -4380,7 +4380,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterKeyManagementService"]:
         '''key_management_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_management_service KubernetesCluster#key_management_service}
         '''
         result = self._values.get("key_management_service")
         return typing.cast(typing.Optional["KubernetesClusterKeyManagementService"], result)
@@ -4391,7 +4391,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterKeyVaultSecretsProvider"]:
         '''key_vault_secrets_provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_secrets_provider KubernetesCluster#key_vault_secrets_provider}
         '''
         result = self._values.get("key_vault_secrets_provider")
         return typing.cast(typing.Optional["KubernetesClusterKeyVaultSecretsProvider"], result)
@@ -4400,14 +4400,14 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kubelet_identity(self) -> typing.Optional["KubernetesClusterKubeletIdentity"]:
         '''kubelet_identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_identity KubernetesCluster#kubelet_identity}
         '''
         result = self._values.get("kubelet_identity")
         return typing.cast(typing.Optional["KubernetesClusterKubeletIdentity"], result)
 
     @builtins.property
     def kubernetes_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubernetes_version KubernetesCluster#kubernetes_version}.'''
         result = self._values.get("kubernetes_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4415,7 +4415,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def linux_profile(self) -> typing.Optional["KubernetesClusterLinuxProfile"]:
         '''linux_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_profile KubernetesCluster#linux_profile}
         '''
         result = self._values.get("linux_profile")
         return typing.cast(typing.Optional["KubernetesClusterLinuxProfile"], result)
@@ -4424,7 +4424,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_account_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#local_account_disabled KubernetesCluster#local_account_disabled}.'''
         result = self._values.get("local_account_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4434,7 +4434,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterMaintenanceWindow"]:
         '''maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window KubernetesCluster#maintenance_window}
         '''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional["KubernetesClusterMaintenanceWindow"], result)
@@ -4445,7 +4445,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterMaintenanceWindowAutoUpgrade"]:
         '''maintenance_window_auto_upgrade block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_auto_upgrade KubernetesCluster#maintenance_window_auto_upgrade}
         '''
         result = self._values.get("maintenance_window_auto_upgrade")
         return typing.cast(typing.Optional["KubernetesClusterMaintenanceWindowAutoUpgrade"], result)
@@ -4456,7 +4456,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterMaintenanceWindowNodeOs"]:
         '''maintenance_window_node_os block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#maintenance_window_node_os KubernetesCluster#maintenance_window_node_os}
         '''
         result = self._values.get("maintenance_window_node_os")
         return typing.cast(typing.Optional["KubernetesClusterMaintenanceWindowNodeOs"], result)
@@ -4467,7 +4467,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterMicrosoftDefender"]:
         '''microsoft_defender block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#microsoft_defender KubernetesCluster#microsoft_defender}
         '''
         result = self._values.get("microsoft_defender")
         return typing.cast(typing.Optional["KubernetesClusterMicrosoftDefender"], result)
@@ -4476,7 +4476,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor_metrics(self) -> typing.Optional["KubernetesClusterMonitorMetrics"]:
         '''monitor_metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#monitor_metrics KubernetesCluster#monitor_metrics}
         '''
         result = self._values.get("monitor_metrics")
         return typing.cast(typing.Optional["KubernetesClusterMonitorMetrics"], result)
@@ -4485,20 +4485,20 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_profile(self) -> typing.Optional["KubernetesClusterNetworkProfile"]:
         '''network_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_profile KubernetesCluster#network_profile}
         '''
         result = self._values.get("network_profile")
         return typing.cast(typing.Optional["KubernetesClusterNetworkProfile"], result)
 
     @builtins.property
     def node_os_upgrade_channel(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_os_upgrade_channel KubernetesCluster#node_os_upgrade_channel}.'''
         result = self._values.get("node_os_upgrade_channel")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def node_resource_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_resource_group KubernetesCluster#node_resource_group}.'''
         result = self._values.get("node_resource_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4506,7 +4506,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oidc_issuer_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oidc_issuer_enabled KubernetesCluster#oidc_issuer_enabled}.'''
         result = self._values.get("oidc_issuer_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4514,7 +4514,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oms_agent(self) -> typing.Optional["KubernetesClusterOmsAgent"]:
         '''oms_agent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#oms_agent KubernetesCluster#oms_agent}
         '''
         result = self._values.get("oms_agent")
         return typing.cast(typing.Optional["KubernetesClusterOmsAgent"], result)
@@ -4523,7 +4523,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def open_service_mesh_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#open_service_mesh_enabled KubernetesCluster#open_service_mesh_enabled}.'''
         result = self._values.get("open_service_mesh_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4531,7 +4531,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_cluster_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_enabled KubernetesCluster#private_cluster_enabled}.'''
         result = self._values.get("private_cluster_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4539,13 +4539,13 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_cluster_public_fqdn_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_cluster_public_fqdn_enabled KubernetesCluster#private_cluster_public_fqdn_enabled}.'''
         result = self._values.get("private_cluster_public_fqdn_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def private_dns_zone_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#private_dns_zone_id KubernetesCluster#private_dns_zone_id}.'''
         result = self._values.get("private_dns_zone_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4553,7 +4553,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_based_access_control_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#role_based_access_control_enabled KubernetesCluster#role_based_access_control_enabled}.'''
         result = self._values.get("role_based_access_control_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4561,7 +4561,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def run_command_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#run_command_enabled KubernetesCluster#run_command_enabled}.'''
         result = self._values.get("run_command_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4571,7 +4571,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterServiceMeshProfile"]:
         '''service_mesh_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_mesh_profile KubernetesCluster#service_mesh_profile}
         '''
         result = self._values.get("service_mesh_profile")
         return typing.cast(typing.Optional["KubernetesClusterServiceMeshProfile"], result)
@@ -4580,14 +4580,14 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_principal(self) -> typing.Optional["KubernetesClusterServicePrincipal"]:
         '''service_principal block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_principal KubernetesCluster#service_principal}
         '''
         result = self._values.get("service_principal")
         return typing.cast(typing.Optional["KubernetesClusterServicePrincipal"], result)
 
     @builtins.property
     def sku_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sku_tier KubernetesCluster#sku_tier}.'''
         result = self._values.get("sku_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4595,20 +4595,20 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_profile(self) -> typing.Optional["KubernetesClusterStorageProfile"]:
         '''storage_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#storage_profile KubernetesCluster#storage_profile}
         '''
         result = self._values.get("storage_profile")
         return typing.cast(typing.Optional["KubernetesClusterStorageProfile"], result)
 
     @builtins.property
     def support_plan(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#support_plan KubernetesCluster#support_plan}.'''
         result = self._values.get("support_plan")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -4616,7 +4616,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KubernetesClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#timeouts KubernetesCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KubernetesClusterTimeouts"], result)
@@ -4625,7 +4625,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def upgrade_override(self) -> typing.Optional["KubernetesClusterUpgradeOverride"]:
         '''upgrade_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_override KubernetesCluster#upgrade_override}
         '''
         result = self._values.get("upgrade_override")
         return typing.cast(typing.Optional["KubernetesClusterUpgradeOverride"], result)
@@ -4634,7 +4634,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def web_app_routing(self) -> typing.Optional["KubernetesClusterWebAppRouting"]:
         '''web_app_routing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#web_app_routing KubernetesCluster#web_app_routing}
         '''
         result = self._values.get("web_app_routing")
         return typing.cast(typing.Optional["KubernetesClusterWebAppRouting"], result)
@@ -4643,7 +4643,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def windows_profile(self) -> typing.Optional["KubernetesClusterWindowsProfile"]:
         '''windows_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#windows_profile KubernetesCluster#windows_profile}
         '''
         result = self._values.get("windows_profile")
         return typing.cast(typing.Optional["KubernetesClusterWindowsProfile"], result)
@@ -4654,7 +4654,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KubernetesClusterWorkloadAutoscalerProfile"]:
         '''workload_autoscaler_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_autoscaler_profile KubernetesCluster#workload_autoscaler_profile}
         '''
         result = self._values.get("workload_autoscaler_profile")
         return typing.cast(typing.Optional["KubernetesClusterWorkloadAutoscalerProfile"], result)
@@ -4663,7 +4663,7 @@ class KubernetesClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def workload_identity_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_identity_enabled KubernetesCluster#workload_identity_enabled}.'''
         result = self._values.get("workload_identity_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4763,42 +4763,42 @@ class KubernetesClusterDefaultNodePool:
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
-        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.
-        :param capacity_reservation_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.
-        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.
-        :param gpu_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.
-        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.
-        :param host_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
-        :param kubelet_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.
-        :param linux_os_config: linux_os_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
-        :param max_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.
-        :param min_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.
-        :param node_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.
-        :param node_network_profile: node_network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
-        :param node_public_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.
-        :param node_public_ip_prefix_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.
-        :param only_critical_addons_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.
-        :param orchestrator_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.
-        :param os_disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.
-        :param os_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.
-        :param os_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.
-        :param pod_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.
-        :param proximity_placement_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.
-        :param scale_down_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
-        :param temporary_name_for_rotation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
-        :param ultra_ssd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
-        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.
-        :param vnet_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.
-        :param workload_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.
-        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.
+        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.
+        :param capacity_reservation_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.
+        :param fips_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.
+        :param gpu_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.
+        :param host_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.
+        :param host_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
+        :param kubelet_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.
+        :param linux_os_config: linux_os_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
+        :param max_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.
+        :param min_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.
+        :param node_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.
+        :param node_network_profile: node_network_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
+        :param node_public_ip_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.
+        :param node_public_ip_prefix_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.
+        :param only_critical_addons_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.
+        :param orchestrator_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.
+        :param os_disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.
+        :param os_disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.
+        :param os_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.
+        :param pod_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.
+        :param proximity_placement_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.
+        :param scale_down_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.
+        :param temporary_name_for_rotation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
+        :param ultra_ssd_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
+        :param vm_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.
+        :param vnet_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.
+        :param workload_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.
+        :param zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.
         '''
         if isinstance(kubelet_config, dict):
             kubelet_config = KubernetesClusterDefaultNodePoolKubeletConfig(**kubelet_config)
@@ -4922,7 +4922,7 @@ class KubernetesClusterDefaultNodePool:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#name KubernetesCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4931,13 +4931,13 @@ class KubernetesClusterDefaultNodePool:
     def auto_scaling_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#auto_scaling_enabled KubernetesCluster#auto_scaling_enabled}.'''
         result = self._values.get("auto_scaling_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def capacity_reservation_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#capacity_reservation_group_id KubernetesCluster#capacity_reservation_group_id}.'''
         result = self._values.get("capacity_reservation_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4945,13 +4945,13 @@ class KubernetesClusterDefaultNodePool:
     def fips_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fips_enabled KubernetesCluster#fips_enabled}.'''
         result = self._values.get("fips_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def gpu_instance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gpu_instance KubernetesCluster#gpu_instance}.'''
         result = self._values.get("gpu_instance")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4959,13 +4959,13 @@ class KubernetesClusterDefaultNodePool:
     def host_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_encryption_enabled KubernetesCluster#host_encryption_enabled}.'''
         result = self._values.get("host_encryption_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def host_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#host_group_id KubernetesCluster#host_group_id}.'''
         result = self._values.get("host_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4975,14 +4975,14 @@ class KubernetesClusterDefaultNodePool:
     ) -> typing.Optional["KubernetesClusterDefaultNodePoolKubeletConfig"]:
         '''kubelet_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_config KubernetesCluster#kubelet_config}
         '''
         result = self._values.get("kubelet_config")
         return typing.cast(typing.Optional["KubernetesClusterDefaultNodePoolKubeletConfig"], result)
 
     @builtins.property
     def kubelet_disk_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kubelet_disk_type KubernetesCluster#kubelet_disk_type}.'''
         result = self._values.get("kubelet_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4992,32 +4992,32 @@ class KubernetesClusterDefaultNodePool:
     ) -> typing.Optional["KubernetesClusterDefaultNodePoolLinuxOsConfig"]:
         '''linux_os_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#linux_os_config KubernetesCluster#linux_os_config}
         '''
         result = self._values.get("linux_os_config")
         return typing.cast(typing.Optional["KubernetesClusterDefaultNodePoolLinuxOsConfig"], result)
 
     @builtins.property
     def max_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_count KubernetesCluster#max_count}.'''
         result = self._values.get("max_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_pods(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_pods KubernetesCluster#max_pods}.'''
         result = self._values.get("max_pods")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#min_count KubernetesCluster#min_count}.'''
         result = self._values.get("min_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def node_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_count KubernetesCluster#node_count}.'''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5025,7 +5025,7 @@ class KubernetesClusterDefaultNodePool:
     def node_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_labels KubernetesCluster#node_labels}.'''
         result = self._values.get("node_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -5035,7 +5035,7 @@ class KubernetesClusterDefaultNodePool:
     ) -> typing.Optional["KubernetesClusterDefaultNodePoolNodeNetworkProfile"]:
         '''node_network_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_network_profile KubernetesCluster#node_network_profile}
         '''
         result = self._values.get("node_network_profile")
         return typing.cast(typing.Optional["KubernetesClusterDefaultNodePoolNodeNetworkProfile"], result)
@@ -5044,13 +5044,13 @@ class KubernetesClusterDefaultNodePool:
     def node_public_ip_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_enabled KubernetesCluster#node_public_ip_enabled}.'''
         result = self._values.get("node_public_ip_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def node_public_ip_prefix_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_prefix_id KubernetesCluster#node_public_ip_prefix_id}.'''
         result = self._values.get("node_public_ip_prefix_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5058,73 +5058,73 @@ class KubernetesClusterDefaultNodePool:
     def only_critical_addons_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#only_critical_addons_enabled KubernetesCluster#only_critical_addons_enabled}.'''
         result = self._values.get("only_critical_addons_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def orchestrator_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#orchestrator_version KubernetesCluster#orchestrator_version}.'''
         result = self._values.get("orchestrator_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os_disk_size_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_size_gb KubernetesCluster#os_disk_size_gb}.'''
         result = self._values.get("os_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def os_disk_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_disk_type KubernetesCluster#os_disk_type}.'''
         result = self._values.get("os_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os_sku(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#os_sku KubernetesCluster#os_sku}.'''
         result = self._values.get("os_sku")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pod_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_subnet_id KubernetesCluster#pod_subnet_id}.'''
         result = self._values.get("pod_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def proximity_placement_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#proximity_placement_group_id KubernetesCluster#proximity_placement_group_id}.'''
         result = self._values.get("proximity_placement_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#scale_down_mode KubernetesCluster#scale_down_mode}.'''
         result = self._values.get("scale_down_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_id KubernetesCluster#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#tags KubernetesCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def temporary_name_for_rotation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#temporary_name_for_rotation KubernetesCluster#temporary_name_for_rotation}.'''
         result = self._values.get("temporary_name_for_rotation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5132,7 +5132,7 @@ class KubernetesClusterDefaultNodePool:
     def ultra_ssd_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ultra_ssd_enabled KubernetesCluster#ultra_ssd_enabled}.'''
         result = self._values.get("ultra_ssd_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5142,32 +5142,32 @@ class KubernetesClusterDefaultNodePool:
     ) -> typing.Optional["KubernetesClusterDefaultNodePoolUpgradeSettings"]:
         '''upgrade_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#upgrade_settings KubernetesCluster#upgrade_settings}
         '''
         result = self._values.get("upgrade_settings")
         return typing.cast(typing.Optional["KubernetesClusterDefaultNodePoolUpgradeSettings"], result)
 
     @builtins.property
     def vm_size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_size KubernetesCluster#vm_size}.'''
         result = self._values.get("vm_size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vnet_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vnet_subnet_id KubernetesCluster#vnet_subnet_id}.'''
         result = self._values.get("vnet_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def workload_runtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#workload_runtime KubernetesCluster#workload_runtime}.'''
         result = self._values.get("workload_runtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#zones KubernetesCluster#zones}.'''
         result = self._values.get("zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5215,16 +5215,16 @@ class KubernetesClusterDefaultNodePoolKubeletConfig:
         topology_manager_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.
-        :param container_log_max_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.
-        :param container_log_max_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.
-        :param cpu_cfs_quota_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.
-        :param cpu_cfs_quota_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.
-        :param cpu_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.
-        :param image_gc_high_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.
-        :param image_gc_low_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.
-        :param pod_max_pid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.
-        :param topology_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.
+        :param allowed_unsafe_sysctls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.
+        :param container_log_max_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.
+        :param container_log_max_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.
+        :param cpu_cfs_quota_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.
+        :param cpu_cfs_quota_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.
+        :param cpu_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.
+        :param image_gc_high_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.
+        :param image_gc_low_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.
+        :param pod_max_pid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.
+        :param topology_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b35ae5283ebb4881dfe0c3bbeb03011e24335d939ae4594fed70911b5a4c73e5)
@@ -5262,19 +5262,19 @@ class KubernetesClusterDefaultNodePoolKubeletConfig:
 
     @builtins.property
     def allowed_unsafe_sysctls(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.'''
         result = self._values.get("allowed_unsafe_sysctls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def container_log_max_line(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.'''
         result = self._values.get("container_log_max_line")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def container_log_max_size_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.'''
         result = self._values.get("container_log_max_size_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5282,43 +5282,43 @@ class KubernetesClusterDefaultNodePoolKubeletConfig:
     def cpu_cfs_quota_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.'''
         result = self._values.get("cpu_cfs_quota_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cpu_cfs_quota_period(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.'''
         result = self._values.get("cpu_cfs_quota_period")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cpu_manager_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.'''
         result = self._values.get("cpu_manager_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_gc_high_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.'''
         result = self._values.get("image_gc_high_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def image_gc_low_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.'''
         result = self._values.get("image_gc_low_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def pod_max_pid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.'''
         result = self._values.get("pod_max_pid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def topology_manager_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.'''
         result = self._values.get("topology_manager_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5611,10 +5611,10 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfig:
         transparent_huge_page_enabled: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param swap_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.
-        :param sysctl_config: sysctl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
-        :param transparent_huge_page_defrag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.
-        :param transparent_huge_page_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.
+        :param swap_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.
+        :param sysctl_config: sysctl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
+        :param transparent_huge_page_defrag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.
+        :param transparent_huge_page_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.
         '''
         if isinstance(sysctl_config, dict):
             sysctl_config = KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig(**sysctl_config)
@@ -5636,7 +5636,7 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfig:
 
     @builtins.property
     def swap_file_size_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.'''
         result = self._values.get("swap_file_size_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5646,20 +5646,20 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfig:
     ) -> typing.Optional["KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig"]:
         '''sysctl_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
         '''
         result = self._values.get("sysctl_config")
         return typing.cast(typing.Optional["KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig"], result)
 
     @builtins.property
     def transparent_huge_page_defrag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.'''
         result = self._values.get("transparent_huge_page_defrag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transparent_huge_page_enabled(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.'''
         result = self._values.get("transparent_huge_page_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5730,35 +5730,35 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfigOutputReference(
         vm_vfs_cache_pressure: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fs_aio_max_nr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.
-        :param fs_file_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.
-        :param fs_inotify_max_user_watches: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.
-        :param fs_nr_open: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.
-        :param kernel_threads_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.
-        :param net_core_netdev_max_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.
-        :param net_core_optmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.
-        :param net_core_rmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.
-        :param net_core_rmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.
-        :param net_core_somaxconn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.
-        :param net_core_wmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.
-        :param net_core_wmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.
-        :param net_ipv4_ip_local_port_range_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.
-        :param net_ipv4_ip_local_port_range_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.
-        :param net_ipv4_neigh_default_gc_thresh1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.
-        :param net_ipv4_neigh_default_gc_thresh2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.
-        :param net_ipv4_neigh_default_gc_thresh3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.
-        :param net_ipv4_tcp_fin_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.
-        :param net_ipv4_tcp_keepalive_intvl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.
-        :param net_ipv4_tcp_keepalive_probes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.
-        :param net_ipv4_tcp_keepalive_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.
-        :param net_ipv4_tcp_max_syn_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.
-        :param net_ipv4_tcp_max_tw_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.
-        :param net_ipv4_tcp_tw_reuse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.
-        :param net_netfilter_nf_conntrack_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.
-        :param net_netfilter_nf_conntrack_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.
-        :param vm_max_map_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.
-        :param vm_swappiness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.
-        :param vm_vfs_cache_pressure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.
+        :param fs_aio_max_nr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.
+        :param fs_file_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.
+        :param fs_inotify_max_user_watches: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.
+        :param fs_nr_open: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.
+        :param kernel_threads_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.
+        :param net_core_netdev_max_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.
+        :param net_core_optmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.
+        :param net_core_rmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.
+        :param net_core_rmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.
+        :param net_core_somaxconn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.
+        :param net_core_wmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.
+        :param net_core_wmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.
+        :param net_ipv4_ip_local_port_range_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.
+        :param net_ipv4_ip_local_port_range_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.
+        :param net_ipv4_neigh_default_gc_thresh1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.
+        :param net_ipv4_neigh_default_gc_thresh2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.
+        :param net_ipv4_neigh_default_gc_thresh3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.
+        :param net_ipv4_tcp_fin_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.
+        :param net_ipv4_tcp_keepalive_intvl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.
+        :param net_ipv4_tcp_keepalive_probes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.
+        :param net_ipv4_tcp_keepalive_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.
+        :param net_ipv4_tcp_max_syn_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.
+        :param net_ipv4_tcp_max_tw_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.
+        :param net_ipv4_tcp_tw_reuse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.
+        :param net_netfilter_nf_conntrack_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.
+        :param net_netfilter_nf_conntrack_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.
+        :param vm_max_map_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.
+        :param vm_swappiness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.
+        :param vm_vfs_cache_pressure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.
         '''
         value = KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig(
             fs_aio_max_nr=fs_aio_max_nr,
@@ -5963,35 +5963,35 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig:
         vm_vfs_cache_pressure: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fs_aio_max_nr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.
-        :param fs_file_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.
-        :param fs_inotify_max_user_watches: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.
-        :param fs_nr_open: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.
-        :param kernel_threads_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.
-        :param net_core_netdev_max_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.
-        :param net_core_optmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.
-        :param net_core_rmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.
-        :param net_core_rmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.
-        :param net_core_somaxconn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.
-        :param net_core_wmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.
-        :param net_core_wmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.
-        :param net_ipv4_ip_local_port_range_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.
-        :param net_ipv4_ip_local_port_range_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.
-        :param net_ipv4_neigh_default_gc_thresh1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.
-        :param net_ipv4_neigh_default_gc_thresh2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.
-        :param net_ipv4_neigh_default_gc_thresh3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.
-        :param net_ipv4_tcp_fin_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.
-        :param net_ipv4_tcp_keepalive_intvl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.
-        :param net_ipv4_tcp_keepalive_probes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.
-        :param net_ipv4_tcp_keepalive_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.
-        :param net_ipv4_tcp_max_syn_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.
-        :param net_ipv4_tcp_max_tw_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.
-        :param net_ipv4_tcp_tw_reuse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.
-        :param net_netfilter_nf_conntrack_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.
-        :param net_netfilter_nf_conntrack_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.
-        :param vm_max_map_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.
-        :param vm_swappiness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.
-        :param vm_vfs_cache_pressure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.
+        :param fs_aio_max_nr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.
+        :param fs_file_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.
+        :param fs_inotify_max_user_watches: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.
+        :param fs_nr_open: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.
+        :param kernel_threads_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.
+        :param net_core_netdev_max_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.
+        :param net_core_optmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.
+        :param net_core_rmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.
+        :param net_core_rmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.
+        :param net_core_somaxconn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.
+        :param net_core_wmem_default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.
+        :param net_core_wmem_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.
+        :param net_ipv4_ip_local_port_range_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.
+        :param net_ipv4_ip_local_port_range_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.
+        :param net_ipv4_neigh_default_gc_thresh1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.
+        :param net_ipv4_neigh_default_gc_thresh2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.
+        :param net_ipv4_neigh_default_gc_thresh3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.
+        :param net_ipv4_tcp_fin_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.
+        :param net_ipv4_tcp_keepalive_intvl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.
+        :param net_ipv4_tcp_keepalive_probes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.
+        :param net_ipv4_tcp_keepalive_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.
+        :param net_ipv4_tcp_max_syn_backlog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.
+        :param net_ipv4_tcp_max_tw_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.
+        :param net_ipv4_tcp_tw_reuse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.
+        :param net_netfilter_nf_conntrack_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.
+        :param net_netfilter_nf_conntrack_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.
+        :param vm_max_map_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.
+        :param vm_swappiness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.
+        :param vm_vfs_cache_pressure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e227dc27495a78cd0a014f0c5d59f7387bcc3f645f4219d7673ffaba224f86b8)
@@ -6086,139 +6086,139 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig:
 
     @builtins.property
     def fs_aio_max_nr(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_aio_max_nr KubernetesCluster#fs_aio_max_nr}.'''
         result = self._values.get("fs_aio_max_nr")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def fs_file_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_file_max KubernetesCluster#fs_file_max}.'''
         result = self._values.get("fs_file_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def fs_inotify_max_user_watches(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_inotify_max_user_watches KubernetesCluster#fs_inotify_max_user_watches}.'''
         result = self._values.get("fs_inotify_max_user_watches")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def fs_nr_open(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#fs_nr_open KubernetesCluster#fs_nr_open}.'''
         result = self._values.get("fs_nr_open")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kernel_threads_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#kernel_threads_max KubernetesCluster#kernel_threads_max}.'''
         result = self._values.get("kernel_threads_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_netdev_max_backlog(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_netdev_max_backlog KubernetesCluster#net_core_netdev_max_backlog}.'''
         result = self._values.get("net_core_netdev_max_backlog")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_optmem_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_optmem_max KubernetesCluster#net_core_optmem_max}.'''
         result = self._values.get("net_core_optmem_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_rmem_default(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_default KubernetesCluster#net_core_rmem_default}.'''
         result = self._values.get("net_core_rmem_default")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_rmem_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_rmem_max KubernetesCluster#net_core_rmem_max}.'''
         result = self._values.get("net_core_rmem_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_somaxconn(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_somaxconn KubernetesCluster#net_core_somaxconn}.'''
         result = self._values.get("net_core_somaxconn")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_wmem_default(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_default KubernetesCluster#net_core_wmem_default}.'''
         result = self._values.get("net_core_wmem_default")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_core_wmem_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_core_wmem_max KubernetesCluster#net_core_wmem_max}.'''
         result = self._values.get("net_core_wmem_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_ip_local_port_range_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_max KubernetesCluster#net_ipv4_ip_local_port_range_max}.'''
         result = self._values.get("net_ipv4_ip_local_port_range_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_ip_local_port_range_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_ip_local_port_range_min KubernetesCluster#net_ipv4_ip_local_port_range_min}.'''
         result = self._values.get("net_ipv4_ip_local_port_range_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_neigh_default_gc_thresh1(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh1 KubernetesCluster#net_ipv4_neigh_default_gc_thresh1}.'''
         result = self._values.get("net_ipv4_neigh_default_gc_thresh1")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_neigh_default_gc_thresh2(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh2 KubernetesCluster#net_ipv4_neigh_default_gc_thresh2}.'''
         result = self._values.get("net_ipv4_neigh_default_gc_thresh2")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_neigh_default_gc_thresh3(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_neigh_default_gc_thresh3 KubernetesCluster#net_ipv4_neigh_default_gc_thresh3}.'''
         result = self._values.get("net_ipv4_neigh_default_gc_thresh3")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_fin_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_fin_timeout KubernetesCluster#net_ipv4_tcp_fin_timeout}.'''
         result = self._values.get("net_ipv4_tcp_fin_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_keepalive_intvl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_intvl KubernetesCluster#net_ipv4_tcp_keepalive_intvl}.'''
         result = self._values.get("net_ipv4_tcp_keepalive_intvl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_keepalive_probes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_probes KubernetesCluster#net_ipv4_tcp_keepalive_probes}.'''
         result = self._values.get("net_ipv4_tcp_keepalive_probes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_keepalive_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_keepalive_time KubernetesCluster#net_ipv4_tcp_keepalive_time}.'''
         result = self._values.get("net_ipv4_tcp_keepalive_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_max_syn_backlog(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_syn_backlog KubernetesCluster#net_ipv4_tcp_max_syn_backlog}.'''
         result = self._values.get("net_ipv4_tcp_max_syn_backlog")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_ipv4_tcp_max_tw_buckets(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_max_tw_buckets KubernetesCluster#net_ipv4_tcp_max_tw_buckets}.'''
         result = self._values.get("net_ipv4_tcp_max_tw_buckets")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6226,37 +6226,37 @@ class KubernetesClusterDefaultNodePoolLinuxOsConfigSysctlConfig:
     def net_ipv4_tcp_tw_reuse(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_ipv4_tcp_tw_reuse KubernetesCluster#net_ipv4_tcp_tw_reuse}.'''
         result = self._values.get("net_ipv4_tcp_tw_reuse")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def net_netfilter_nf_conntrack_buckets(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_buckets KubernetesCluster#net_netfilter_nf_conntrack_buckets}.'''
         result = self._values.get("net_netfilter_nf_conntrack_buckets")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def net_netfilter_nf_conntrack_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#net_netfilter_nf_conntrack_max KubernetesCluster#net_netfilter_nf_conntrack_max}.'''
         result = self._values.get("net_netfilter_nf_conntrack_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def vm_max_map_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_max_map_count KubernetesCluster#vm_max_map_count}.'''
         result = self._values.get("vm_max_map_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def vm_swappiness(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_swappiness KubernetesCluster#vm_swappiness}.'''
         result = self._values.get("vm_swappiness")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def vm_vfs_cache_pressure(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vm_vfs_cache_pressure KubernetesCluster#vm_vfs_cache_pressure}.'''
         result = self._values.get("vm_vfs_cache_pressure")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6944,9 +6944,9 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfile:
         node_public_ip_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_host_ports: allowed_host_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
-        :param application_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.
-        :param node_public_ip_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.
+        :param allowed_host_ports: allowed_host_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
+        :param application_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.
+        :param node_public_ip_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e3e543bab7cb59a583c459683c6789de3aca943d0c55267a74dd211b209fa0a)
@@ -6967,7 +6967,7 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfile:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterDefaultNodePoolNodeNetworkProfileAllowedHostPorts"]]]:
         '''allowed_host_ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
         '''
         result = self._values.get("allowed_host_ports")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterDefaultNodePoolNodeNetworkProfileAllowedHostPorts"]]], result)
@@ -6976,7 +6976,7 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfile:
     def application_security_group_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.'''
         result = self._values.get("application_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6984,7 +6984,7 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfile:
     def node_public_ip_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.'''
         result = self._values.get("node_public_ip_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -7018,9 +7018,9 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfileAllowedHostPorts:
         protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#port_end KubernetesCluster#port_end}.
-        :param port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#port_start KubernetesCluster#port_start}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#protocol KubernetesCluster#protocol}.
+        :param port_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#port_end KubernetesCluster#port_end}.
+        :param port_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#port_start KubernetesCluster#port_start}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#protocol KubernetesCluster#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f67c04951ff7aea70cc7f67d58911300e7a9bba894b6c68deb05e0c860f8e2b)
@@ -7037,19 +7037,19 @@ class KubernetesClusterDefaultNodePoolNodeNetworkProfileAllowedHostPorts:
 
     @builtins.property
     def port_end(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#port_end KubernetesCluster#port_end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#port_end KubernetesCluster#port_end}.'''
         result = self._values.get("port_end")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def port_start(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#port_start KubernetesCluster#port_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#port_start KubernetesCluster#port_start}.'''
         result = self._values.get("port_start")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#protocol KubernetesCluster#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#protocol KubernetesCluster#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7419,16 +7419,16 @@ class KubernetesClusterDefaultNodePoolOutputReference(
         topology_manager_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.
-        :param container_log_max_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.
-        :param container_log_max_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.
-        :param cpu_cfs_quota_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.
-        :param cpu_cfs_quota_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.
-        :param cpu_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.
-        :param image_gc_high_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.
-        :param image_gc_low_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.
-        :param pod_max_pid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.
-        :param topology_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.
+        :param allowed_unsafe_sysctls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_unsafe_sysctls KubernetesCluster#allowed_unsafe_sysctls}.
+        :param container_log_max_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_line KubernetesCluster#container_log_max_line}.
+        :param container_log_max_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#container_log_max_size_mb KubernetesCluster#container_log_max_size_mb}.
+        :param cpu_cfs_quota_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_enabled KubernetesCluster#cpu_cfs_quota_enabled}.
+        :param cpu_cfs_quota_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_cfs_quota_period KubernetesCluster#cpu_cfs_quota_period}.
+        :param cpu_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cpu_manager_policy KubernetesCluster#cpu_manager_policy}.
+        :param image_gc_high_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_high_threshold KubernetesCluster#image_gc_high_threshold}.
+        :param image_gc_low_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#image_gc_low_threshold KubernetesCluster#image_gc_low_threshold}.
+        :param pod_max_pid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_max_pid KubernetesCluster#pod_max_pid}.
+        :param topology_manager_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#topology_manager_policy KubernetesCluster#topology_manager_policy}.
         '''
         value = KubernetesClusterDefaultNodePoolKubeletConfig(
             allowed_unsafe_sysctls=allowed_unsafe_sysctls,
@@ -7455,10 +7455,10 @@ class KubernetesClusterDefaultNodePoolOutputReference(
         transparent_huge_page_enabled: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param swap_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.
-        :param sysctl_config: sysctl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
-        :param transparent_huge_page_defrag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.
-        :param transparent_huge_page_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.
+        :param swap_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#swap_file_size_mb KubernetesCluster#swap_file_size_mb}.
+        :param sysctl_config: sysctl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#sysctl_config KubernetesCluster#sysctl_config}
+        :param transparent_huge_page_defrag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_defrag KubernetesCluster#transparent_huge_page_defrag}.
+        :param transparent_huge_page_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#transparent_huge_page_enabled KubernetesCluster#transparent_huge_page_enabled}.
         '''
         value = KubernetesClusterDefaultNodePoolLinuxOsConfig(
             swap_file_size_mb=swap_file_size_mb,
@@ -7478,9 +7478,9 @@ class KubernetesClusterDefaultNodePoolOutputReference(
         node_public_ip_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_host_ports: allowed_host_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
-        :param application_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.
-        :param node_public_ip_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.
+        :param allowed_host_ports: allowed_host_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed_host_ports KubernetesCluster#allowed_host_ports}
+        :param application_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#application_security_group_ids KubernetesCluster#application_security_group_ids}.
+        :param node_public_ip_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_public_ip_tags KubernetesCluster#node_public_ip_tags}.
         '''
         value = KubernetesClusterDefaultNodePoolNodeNetworkProfile(
             allowed_host_ports=allowed_host_ports,
@@ -7499,9 +7499,9 @@ class KubernetesClusterDefaultNodePoolOutputReference(
         node_soak_duration_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_surge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.
-        :param drain_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.
-        :param node_soak_duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.
+        :param max_surge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.
+        :param drain_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.
+        :param node_soak_duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.
         '''
         value = KubernetesClusterDefaultNodePoolUpgradeSettings(
             max_surge=max_surge,
@@ -8327,9 +8327,9 @@ class KubernetesClusterDefaultNodePoolUpgradeSettings:
         node_soak_duration_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_surge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.
-        :param drain_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.
-        :param node_soak_duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.
+        :param max_surge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.
+        :param drain_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.
+        :param node_soak_duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cae54277c4d532648f73822e0310f438ccece2a230bfabfbab63790f5296bf61)
@@ -8346,20 +8346,20 @@ class KubernetesClusterDefaultNodePoolUpgradeSettings:
 
     @builtins.property
     def max_surge(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#max_surge KubernetesCluster#max_surge}.'''
         result = self._values.get("max_surge")
         assert result is not None, "Required property 'max_surge' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def drain_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#drain_timeout_in_minutes KubernetesCluster#drain_timeout_in_minutes}.'''
         result = self._values.get("drain_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def node_soak_duration_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#node_soak_duration_in_minutes KubernetesCluster#node_soak_duration_in_minutes}.'''
         result = self._values.get("node_soak_duration_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -8492,10 +8492,10 @@ class KubernetesClusterHttpProxyConfig:
         trusted_ca: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.
-        :param https_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.
-        :param no_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.
-        :param trusted_ca: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.
+        :param http_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.
+        :param https_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.
+        :param no_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.
+        :param trusted_ca: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7af0909251cf11f8f833f74912bb6bbae414ce55bdff403d8ac797fa6872e50e)
@@ -8515,25 +8515,25 @@ class KubernetesClusterHttpProxyConfig:
 
     @builtins.property
     def http_proxy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#http_proxy KubernetesCluster#http_proxy}.'''
         result = self._values.get("http_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def https_proxy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#https_proxy KubernetesCluster#https_proxy}.'''
         result = self._values.get("https_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def no_proxy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#no_proxy KubernetesCluster#no_proxy}.'''
         result = self._values.get("no_proxy")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def trusted_ca(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#trusted_ca KubernetesCluster#trusted_ca}.'''
         result = self._values.get("trusted_ca")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8682,8 +8682,8 @@ class KubernetesClusterIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eebbe8d1d175e77d27b65e2cbdc93fd1d7e8243f0fe7d751a852050d2d0085bd)
@@ -8697,14 +8697,14 @@ class KubernetesClusterIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#type KubernetesCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#identity_ids KubernetesCluster#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8821,10 +8821,10 @@ class KubernetesClusterIngressApplicationGateway:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.
-        :param gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.
-        :param subnet_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.
+        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.
+        :param gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.
+        :param subnet_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b52b210b26014cc6ce6aa05405d2c165f3243010a1f89465def1b3c2b2b0e96b)
@@ -8844,25 +8844,25 @@ class KubernetesClusterIngressApplicationGateway:
 
     @builtins.property
     def gateway_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_id KubernetesCluster#gateway_id}.'''
         result = self._values.get("gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gateway_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gateway_name KubernetesCluster#gateway_name}.'''
         result = self._values.get("gateway_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_cidr KubernetesCluster#subnet_cidr}.'''
         result = self._values.get("subnet_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#subnet_id KubernetesCluster#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9184,8 +9184,8 @@ class KubernetesClusterKeyManagementService:
         key_vault_network_access: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.
-        :param key_vault_network_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.
+        :param key_vault_network_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6ce0e6819ed49fb511cf6389979db732ec46e4aa08eb020208f771553c5f469)
@@ -9199,14 +9199,14 @@ class KubernetesClusterKeyManagementService:
 
     @builtins.property
     def key_vault_key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_key_id KubernetesCluster#key_vault_key_id}.'''
         result = self._values.get("key_vault_key_id")
         assert result is not None, "Required property 'key_vault_key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_vault_network_access(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_network_access KubernetesCluster#key_vault_network_access}.'''
         result = self._values.get("key_vault_network_access")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9312,8 +9312,8 @@ class KubernetesClusterKeyVaultSecretsProvider:
         secret_rotation_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.
-        :param secret_rotation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.
+        :param secret_rotation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.
+        :param secret_rotation_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__867f4869c30749b75f936a03661ecc4157644a6e5d891c1b77e4902317813611)
@@ -9329,13 +9329,13 @@ class KubernetesClusterKeyVaultSecretsProvider:
     def secret_rotation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_enabled KubernetesCluster#secret_rotation_enabled}.'''
         result = self._values.get("secret_rotation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def secret_rotation_interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#secret_rotation_interval KubernetesCluster#secret_rotation_interval}.'''
         result = self._values.get("secret_rotation_interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9954,9 +9954,9 @@ class KubernetesClusterKubeletIdentity:
         user_assigned_identity_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
-        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
+        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__596030cd7f36ba076f24601952972881a2910d69a8d725842f4b07d1f2054041)
@@ -9973,19 +9973,19 @@ class KubernetesClusterKubeletIdentity:
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def object_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#object_id KubernetesCluster#object_id}.'''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#user_assigned_identity_id KubernetesCluster#user_assigned_identity_id}.'''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10113,8 +10113,8 @@ class KubernetesClusterLinuxProfile:
         ssh_key: typing.Union["KubernetesClusterLinuxProfileSshKey", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
-        :param ssh_key: ssh_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
+        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
+        :param ssh_key: ssh_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
         '''
         if isinstance(ssh_key, dict):
             ssh_key = KubernetesClusterLinuxProfileSshKey(**ssh_key)
@@ -10129,7 +10129,7 @@ class KubernetesClusterLinuxProfile:
 
     @builtins.property
     def admin_username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.'''
         result = self._values.get("admin_username")
         assert result is not None, "Required property 'admin_username' is missing"
         return typing.cast(builtins.str, result)
@@ -10138,7 +10138,7 @@ class KubernetesClusterLinuxProfile:
     def ssh_key(self) -> "KubernetesClusterLinuxProfileSshKey":
         '''ssh_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ssh_key KubernetesCluster#ssh_key}
         '''
         result = self._values.get("ssh_key")
         assert result is not None, "Required property 'ssh_key' is missing"
@@ -10179,7 +10179,7 @@ class KubernetesClusterLinuxProfileOutputReference(
     @jsii.member(jsii_name="putSshKey")
     def put_ssh_key(self, *, key_data: builtins.str) -> None:
         '''
-        :param key_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.
+        :param key_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.
         '''
         value = KubernetesClusterLinuxProfileSshKey(key_data=key_data)
 
@@ -10236,7 +10236,7 @@ class KubernetesClusterLinuxProfileOutputReference(
 class KubernetesClusterLinuxProfileSshKey:
     def __init__(self, *, key_data: builtins.str) -> None:
         '''
-        :param key_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.
+        :param key_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3103f9abfbe333f7d6fa1621e69368ead3606d669d3c8abc3e32b00e7f18a70b)
@@ -10247,7 +10247,7 @@ class KubernetesClusterLinuxProfileSshKey:
 
     @builtins.property
     def key_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_data KubernetesCluster#key_data}.'''
         result = self._values.get("key_data")
         assert result is not None, "Required property 'key_data' is missing"
         return typing.cast(builtins.str, result)
@@ -10330,8 +10330,8 @@ class KubernetesClusterMaintenanceWindow:
         not_allowed: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KubernetesClusterMaintenanceWindowNotAllowed", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed: allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param allowed: allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e620fc6d5af60e4413a94f4f560137489625d1d21022fcf2bafce0d1b451b240)
@@ -10349,7 +10349,7 @@ class KubernetesClusterMaintenanceWindow:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowAllowed"]]]:
         '''allowed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#allowed KubernetesCluster#allowed}
         '''
         result = self._values.get("allowed")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowAllowed"]]], result)
@@ -10360,7 +10360,7 @@ class KubernetesClusterMaintenanceWindow:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowNotAllowed"]]]:
         '''not_allowed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
         '''
         result = self._values.get("not_allowed")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowNotAllowed"]]], result)
@@ -10390,8 +10390,8 @@ class KubernetesClusterMaintenanceWindowAllowed:
         hours: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day KubernetesCluster#day}.
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#hours KubernetesCluster#hours}.
+        :param day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day KubernetesCluster#day}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#hours KubernetesCluster#hours}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77b192ac3c1ddbcfdafa15e776e4d9a29941f0906f3518016a5e801d986697cd)
@@ -10404,14 +10404,14 @@ class KubernetesClusterMaintenanceWindowAllowed:
 
     @builtins.property
     def day(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day KubernetesCluster#day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day KubernetesCluster#day}.'''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hours(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#hours KubernetesCluster#hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#hours KubernetesCluster#hours}.'''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -10631,16 +10631,16 @@ class KubernetesClusterMaintenanceWindowAutoUpgrade:
         week_index: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
-        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
-        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
-        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
+        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
+        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
+        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57ccee2d996433b2b1e83a5885eddb9cbe013d9cd3e95daf8f1845308a760a36)
@@ -10676,34 +10676,34 @@ class KubernetesClusterMaintenanceWindowAutoUpgrade:
 
     @builtins.property
     def duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.'''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def day_of_month(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.'''
         result = self._values.get("day_of_month")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def day_of_week(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.'''
         result = self._values.get("day_of_week")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10713,32 +10713,32 @@ class KubernetesClusterMaintenanceWindowAutoUpgrade:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowAutoUpgradeNotAllowed"]]]:
         '''not_allowed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
         '''
         result = self._values.get("not_allowed")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowAutoUpgradeNotAllowed"]]], result)
 
     @builtins.property
     def start_date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.'''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def utc_offset(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.'''
         result = self._values.get("utc_offset")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def week_index(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.'''
         result = self._values.get("week_index")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10762,8 +10762,8 @@ class KubernetesClusterMaintenanceWindowAutoUpgrade:
 class KubernetesClusterMaintenanceWindowAutoUpgradeNotAllowed:
     def __init__(self, *, end: builtins.str, start: builtins.str) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7c7627cf890e8043ba35747cbcd3754062a56f5939e51efe886a771dc48d827)
@@ -10776,14 +10776,14 @@ class KubernetesClusterMaintenanceWindowAutoUpgradeNotAllowed:
 
     @builtins.property
     def end(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)
@@ -11249,16 +11249,16 @@ class KubernetesClusterMaintenanceWindowNodeOs:
         week_index: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
-        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
-        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
-        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
-        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
-        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.
+        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.
+        :param not_allowed: not_allowed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        :param start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.
+        :param utc_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.
+        :param week_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27abed8076e20540d0a27a94c529b27d8ed7f9025d627e4252c91f84caf571f3)
@@ -11294,34 +11294,34 @@ class KubernetesClusterMaintenanceWindowNodeOs:
 
     @builtins.property
     def duration(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#duration KubernetesCluster#duration}.'''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#frequency KubernetesCluster#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#interval KubernetesCluster#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def day_of_month(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_month KubernetesCluster#day_of_month}.'''
         result = self._values.get("day_of_month")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def day_of_week(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#day_of_week KubernetesCluster#day_of_week}.'''
         result = self._values.get("day_of_week")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11331,32 +11331,32 @@ class KubernetesClusterMaintenanceWindowNodeOs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowNodeOsNotAllowed"]]]:
         '''not_allowed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#not_allowed KubernetesCluster#not_allowed}
         '''
         result = self._values.get("not_allowed")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KubernetesClusterMaintenanceWindowNodeOsNotAllowed"]]], result)
 
     @builtins.property
     def start_date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_date KubernetesCluster#start_date}.'''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start_time KubernetesCluster#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def utc_offset(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#utc_offset KubernetesCluster#utc_offset}.'''
         result = self._values.get("utc_offset")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def week_index(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#week_index KubernetesCluster#week_index}.'''
         result = self._values.get("week_index")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11380,8 +11380,8 @@ class KubernetesClusterMaintenanceWindowNodeOs:
 class KubernetesClusterMaintenanceWindowNodeOsNotAllowed:
     def __init__(self, *, end: builtins.str, start: builtins.str) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4d27c1b999afe227e0027631762cf777de8f5dd7b4718224de6db556134eda5)
@@ -11394,14 +11394,14 @@ class KubernetesClusterMaintenanceWindowNodeOsNotAllowed:
 
     @builtins.property
     def end(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)
@@ -11841,8 +11841,8 @@ class KubernetesClusterMaintenanceWindowNodeOsOutputReference(
 class KubernetesClusterMaintenanceWindowNotAllowed:
     def __init__(self, *, end: builtins.str, start: builtins.str) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__662d46c75a06e22ea7735591c2cb2bf7739da5d42d6081ca02313c91f1b4370b)
@@ -11855,14 +11855,14 @@ class KubernetesClusterMaintenanceWindowNotAllowed:
 
     @builtins.property
     def end(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#end KubernetesCluster#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#start KubernetesCluster#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)
@@ -12152,7 +12152,7 @@ class KubernetesClusterMaintenanceWindowOutputReference(
 class KubernetesClusterMicrosoftDefender:
     def __init__(self, *, log_analytics_workspace_id: builtins.str) -> None:
         '''
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__083c7c2416298c9d99cfd18c635950df112c5583290ca653505edc307373c0d6)
@@ -12163,7 +12163,7 @@ class KubernetesClusterMicrosoftDefender:
 
     @builtins.property
     def log_analytics_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.'''
         result = self._values.get("log_analytics_workspace_id")
         assert result is not None, "Required property 'log_analytics_workspace_id' is missing"
         return typing.cast(builtins.str, result)
@@ -12249,8 +12249,8 @@ class KubernetesClusterMonitorMetrics:
         labels_allowed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param annotations_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.
-        :param labels_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.
+        :param annotations_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.
+        :param labels_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f6288c0c064236591bb73e3eb9a38a0e777f4c69e2ade10fe560d8c10455433)
@@ -12264,13 +12264,13 @@ class KubernetesClusterMonitorMetrics:
 
     @builtins.property
     def annotations_allowed(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#annotations_allowed KubernetesCluster#annotations_allowed}.'''
         result = self._values.get("annotations_allowed")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def labels_allowed(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#labels_allowed KubernetesCluster#labels_allowed}.'''
         result = self._values.get("labels_allowed")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12406,21 +12406,21 @@ class KubernetesClusterNetworkProfile:
         service_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param network_plugin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.
-        :param dns_service_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.
-        :param ip_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.
-        :param load_balancer_profile: load_balancer_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
-        :param load_balancer_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.
-        :param nat_gateway_profile: nat_gateway_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
-        :param network_data_plane: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.
-        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.
-        :param network_plugin_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.
-        :param network_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.
-        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.
-        :param pod_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.
-        :param pod_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.
-        :param service_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.
-        :param service_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.
+        :param network_plugin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.
+        :param dns_service_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.
+        :param ip_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.
+        :param load_balancer_profile: load_balancer_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
+        :param load_balancer_sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.
+        :param nat_gateway_profile: nat_gateway_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
+        :param network_data_plane: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.
+        :param network_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.
+        :param network_plugin_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.
+        :param network_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.
+        :param outbound_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.
+        :param pod_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.
+        :param pod_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.
+        :param service_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.
+        :param service_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.
         '''
         if isinstance(load_balancer_profile, dict):
             load_balancer_profile = KubernetesClusterNetworkProfileLoadBalancerProfile(**load_balancer_profile)
@@ -12477,20 +12477,20 @@ class KubernetesClusterNetworkProfile:
 
     @builtins.property
     def network_plugin(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin KubernetesCluster#network_plugin}.'''
         result = self._values.get("network_plugin")
         assert result is not None, "Required property 'network_plugin' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dns_service_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_service_ip KubernetesCluster#dns_service_ip}.'''
         result = self._values.get("dns_service_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ip_versions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#ip_versions KubernetesCluster#ip_versions}.'''
         result = self._values.get("ip_versions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -12500,14 +12500,14 @@ class KubernetesClusterNetworkProfile:
     ) -> typing.Optional["KubernetesClusterNetworkProfileLoadBalancerProfile"]:
         '''load_balancer_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_profile KubernetesCluster#load_balancer_profile}
         '''
         result = self._values.get("load_balancer_profile")
         return typing.cast(typing.Optional["KubernetesClusterNetworkProfileLoadBalancerProfile"], result)
 
     @builtins.property
     def load_balancer_sku(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#load_balancer_sku KubernetesCluster#load_balancer_sku}.'''
         result = self._values.get("load_balancer_sku")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12517,62 +12517,62 @@ class KubernetesClusterNetworkProfile:
     ) -> typing.Optional["KubernetesClusterNetworkProfileNatGatewayProfile"]:
         '''nat_gateway_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#nat_gateway_profile KubernetesCluster#nat_gateway_profile}
         '''
         result = self._values.get("nat_gateway_profile")
         return typing.cast(typing.Optional["KubernetesClusterNetworkProfileNatGatewayProfile"], result)
 
     @builtins.property
     def network_data_plane(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_data_plane KubernetesCluster#network_data_plane}.'''
         result = self._values.get("network_data_plane")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_mode KubernetesCluster#network_mode}.'''
         result = self._values.get("network_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_plugin_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_plugin_mode KubernetesCluster#network_plugin_mode}.'''
         result = self._values.get("network_plugin_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def network_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#network_policy KubernetesCluster#network_policy}.'''
         result = self._values.get("network_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def outbound_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_type KubernetesCluster#outbound_type}.'''
         result = self._values.get("outbound_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pod_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidr KubernetesCluster#pod_cidr}.'''
         result = self._values.get("pod_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pod_cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#pod_cidrs KubernetesCluster#pod_cidrs}.'''
         result = self._values.get("pod_cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def service_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidr KubernetesCluster#service_cidr}.'''
         result = self._values.get("service_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#service_cidrs KubernetesCluster#service_cidrs}.'''
         result = self._values.get("service_cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -12614,13 +12614,13 @@ class KubernetesClusterNetworkProfileLoadBalancerProfile:
         outbound_ports_allocated: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backend_pool_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
-        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
-        :param managed_outbound_ipv6_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.
-        :param outbound_ip_address_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.
-        :param outbound_ip_prefix_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.
-        :param outbound_ports_allocated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.
+        :param backend_pool_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
+        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
+        :param managed_outbound_ipv6_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.
+        :param outbound_ip_address_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.
+        :param outbound_ip_prefix_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.
+        :param outbound_ports_allocated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60e83523dc4eb212b800322c3a9cb717e713cedcbf9be86e251cf107828c8fa8)
@@ -12649,43 +12649,43 @@ class KubernetesClusterNetworkProfileLoadBalancerProfile:
 
     @builtins.property
     def backend_pool_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.'''
         result = self._values.get("backend_pool_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def idle_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.'''
         result = self._values.get("idle_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def managed_outbound_ip_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.'''
         result = self._values.get("managed_outbound_ip_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def managed_outbound_ipv6_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.'''
         result = self._values.get("managed_outbound_ipv6_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def outbound_ip_address_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.'''
         result = self._values.get("outbound_ip_address_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def outbound_ip_prefix_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.'''
         result = self._values.get("outbound_ip_prefix_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def outbound_ports_allocated(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.'''
         result = self._values.get("outbound_ports_allocated")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -12911,8 +12911,8 @@ class KubernetesClusterNetworkProfileNatGatewayProfile:
         managed_outbound_ip_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
-        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
+        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a63a1c52f508c3b522d4afae369a55ca9fe5879a1d5209b8b6df3f41fbca5a00)
@@ -12926,13 +12926,13 @@ class KubernetesClusterNetworkProfileNatGatewayProfile:
 
     @builtins.property
     def idle_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.'''
         result = self._values.get("idle_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def managed_outbound_ip_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.'''
         result = self._values.get("managed_outbound_ip_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -13066,13 +13066,13 @@ class KubernetesClusterNetworkProfileOutputReference(
         outbound_ports_allocated: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backend_pool_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
-        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
-        :param managed_outbound_ipv6_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.
-        :param outbound_ip_address_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.
-        :param outbound_ip_prefix_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.
-        :param outbound_ports_allocated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.
+        :param backend_pool_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#backend_pool_type KubernetesCluster#backend_pool_type}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
+        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
+        :param managed_outbound_ipv6_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ipv6_count KubernetesCluster#managed_outbound_ipv6_count}.
+        :param outbound_ip_address_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_address_ids KubernetesCluster#outbound_ip_address_ids}.
+        :param outbound_ip_prefix_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ip_prefix_ids KubernetesCluster#outbound_ip_prefix_ids}.
+        :param outbound_ports_allocated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#outbound_ports_allocated KubernetesCluster#outbound_ports_allocated}.
         '''
         value = KubernetesClusterNetworkProfileLoadBalancerProfile(
             backend_pool_type=backend_pool_type,
@@ -13094,8 +13094,8 @@ class KubernetesClusterNetworkProfileOutputReference(
         managed_outbound_ip_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
-        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#idle_timeout_in_minutes KubernetesCluster#idle_timeout_in_minutes}.
+        :param managed_outbound_ip_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#managed_outbound_ip_count KubernetesCluster#managed_outbound_ip_count}.
         '''
         value = KubernetesClusterNetworkProfileNatGatewayProfile(
             idle_timeout_in_minutes=idle_timeout_in_minutes,
@@ -13441,8 +13441,8 @@ class KubernetesClusterOmsAgent:
         msi_auth_for_monitoring_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
-        :param msi_auth_for_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.
+        :param log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.
+        :param msi_auth_for_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82f84ad6672e0a6753be9e68d7dff07b264beb3521d185e86b84c57389cb78a4)
@@ -13456,7 +13456,7 @@ class KubernetesClusterOmsAgent:
 
     @builtins.property
     def log_analytics_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#log_analytics_workspace_id KubernetesCluster#log_analytics_workspace_id}.'''
         result = self._values.get("log_analytics_workspace_id")
         assert result is not None, "Required property 'log_analytics_workspace_id' is missing"
         return typing.cast(builtins.str, result)
@@ -13465,7 +13465,7 @@ class KubernetesClusterOmsAgent:
     def msi_auth_for_monitoring_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#msi_auth_for_monitoring_enabled KubernetesCluster#msi_auth_for_monitoring_enabled}.'''
         result = self._values.get("msi_auth_for_monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -13742,11 +13742,11 @@ class KubernetesClusterServiceMeshProfile:
         internal_ingress_gateway_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.
-        :param revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.
-        :param certificate_authority: certificate_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
-        :param external_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.
-        :param internal_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.
+        :param revisions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.
+        :param certificate_authority: certificate_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
+        :param external_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.
+        :param internal_ingress_gateway_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.
         '''
         if isinstance(certificate_authority, dict):
             certificate_authority = KubernetesClusterServiceMeshProfileCertificateAuthority(**certificate_authority)
@@ -13770,14 +13770,14 @@ class KubernetesClusterServiceMeshProfile:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#mode KubernetesCluster#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def revisions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#revisions KubernetesCluster#revisions}.'''
         result = self._values.get("revisions")
         assert result is not None, "Required property 'revisions' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -13788,7 +13788,7 @@ class KubernetesClusterServiceMeshProfile:
     ) -> typing.Optional["KubernetesClusterServiceMeshProfileCertificateAuthority"]:
         '''certificate_authority block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#certificate_authority KubernetesCluster#certificate_authority}
         '''
         result = self._values.get("certificate_authority")
         return typing.cast(typing.Optional["KubernetesClusterServiceMeshProfileCertificateAuthority"], result)
@@ -13797,7 +13797,7 @@ class KubernetesClusterServiceMeshProfile:
     def external_ingress_gateway_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#external_ingress_gateway_enabled KubernetesCluster#external_ingress_gateway_enabled}.'''
         result = self._values.get("external_ingress_gateway_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -13805,7 +13805,7 @@ class KubernetesClusterServiceMeshProfile:
     def internal_ingress_gateway_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#internal_ingress_gateway_enabled KubernetesCluster#internal_ingress_gateway_enabled}.'''
         result = self._values.get("internal_ingress_gateway_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -13843,11 +13843,11 @@ class KubernetesClusterServiceMeshProfileCertificateAuthority:
         root_cert_object_name: builtins.str,
     ) -> None:
         '''
-        :param cert_chain_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.
-        :param cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.
-        :param key_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.
-        :param root_cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.
+        :param cert_chain_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.
+        :param cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.
+        :param key_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.
+        :param root_cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e010568695dace64a33c8595e5b0f1e9d35df9fd36e40fe380efc8fbe9340882)
@@ -13866,35 +13866,35 @@ class KubernetesClusterServiceMeshProfileCertificateAuthority:
 
     @builtins.property
     def cert_chain_object_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.'''
         result = self._values.get("cert_chain_object_name")
         assert result is not None, "Required property 'cert_chain_object_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cert_object_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.'''
         result = self._values.get("cert_object_name")
         assert result is not None, "Required property 'cert_object_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_object_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.'''
         result = self._values.get("key_object_name")
         assert result is not None, "Required property 'key_object_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.'''
         result = self._values.get("key_vault_id")
         assert result is not None, "Required property 'key_vault_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def root_cert_object_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.'''
         result = self._values.get("root_cert_object_name")
         assert result is not None, "Required property 'root_cert_object_name' is missing"
         return typing.cast(builtins.str, result)
@@ -14065,11 +14065,11 @@ class KubernetesClusterServiceMeshProfileOutputReference(
         root_cert_object_name: builtins.str,
     ) -> None:
         '''
-        :param cert_chain_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.
-        :param cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.
-        :param key_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.
-        :param root_cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.
+        :param cert_chain_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_chain_object_name KubernetesCluster#cert_chain_object_name}.
+        :param cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#cert_object_name KubernetesCluster#cert_object_name}.
+        :param key_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_object_name KubernetesCluster#key_object_name}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#key_vault_id KubernetesCluster#key_vault_id}.
+        :param root_cert_object_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_cert_object_name KubernetesCluster#root_cert_object_name}.
         '''
         value = KubernetesClusterServiceMeshProfileCertificateAuthority(
             cert_chain_object_name=cert_chain_object_name,
@@ -14213,8 +14213,8 @@ class KubernetesClusterServiceMeshProfileOutputReference(
 class KubernetesClusterServicePrincipal:
     def __init__(self, *, client_id: builtins.str, client_secret: builtins.str) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c27a6ad5302f87187270a018540ec56cff3453aa93864bfbb76a40dc951e521a)
@@ -14227,14 +14227,14 @@ class KubernetesClusterServicePrincipal:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_id KubernetesCluster#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#client_secret KubernetesCluster#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
@@ -14341,10 +14341,10 @@ class KubernetesClusterStorageProfile:
         snapshot_controller_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param blob_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.
-        :param disk_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.
-        :param file_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.
-        :param snapshot_controller_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.
+        :param blob_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.
+        :param disk_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.
+        :param file_driver_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.
+        :param snapshot_controller_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90da5eedfd0735040239804ee62907180ec96aaea00d7fdf57cc1fb3a7ef12ca)
@@ -14366,7 +14366,7 @@ class KubernetesClusterStorageProfile:
     def blob_driver_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#blob_driver_enabled KubernetesCluster#blob_driver_enabled}.'''
         result = self._values.get("blob_driver_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -14374,7 +14374,7 @@ class KubernetesClusterStorageProfile:
     def disk_driver_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#disk_driver_enabled KubernetesCluster#disk_driver_enabled}.'''
         result = self._values.get("disk_driver_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -14382,7 +14382,7 @@ class KubernetesClusterStorageProfile:
     def file_driver_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#file_driver_enabled KubernetesCluster#file_driver_enabled}.'''
         result = self._values.get("file_driver_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -14390,7 +14390,7 @@ class KubernetesClusterStorageProfile:
     def snapshot_controller_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#snapshot_controller_enabled KubernetesCluster#snapshot_controller_enabled}.'''
         result = self._values.get("snapshot_controller_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -14574,10 +14574,10 @@ class KubernetesClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdbbbf1e369b91597cf9a6c5e089cc1b752794d4ad8e122c0fd6f57bc64dff54)
@@ -14597,25 +14597,25 @@ class KubernetesClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#create KubernetesCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#delete KubernetesCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#read KubernetesCluster#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#update KubernetesCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -14769,8 +14769,8 @@ class KubernetesClusterUpgradeOverride:
         effective_until: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param force_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.
-        :param effective_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.
+        :param force_upgrade_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.
+        :param effective_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f55b6bb960750bb5b8c54d11d2feff24b0c4535f232838637e11b8a2bac15d7a)
@@ -14786,14 +14786,14 @@ class KubernetesClusterUpgradeOverride:
     def force_upgrade_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#force_upgrade_enabled KubernetesCluster#force_upgrade_enabled}.'''
         result = self._values.get("force_upgrade_enabled")
         assert result is not None, "Required property 'force_upgrade_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def effective_until(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#effective_until KubernetesCluster#effective_until}.'''
         result = self._values.get("effective_until")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -14898,7 +14898,7 @@ class KubernetesClusterUpgradeOverrideOutputReference(
 class KubernetesClusterWebAppRouting:
     def __init__(self, *, dns_zone_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.
+        :param dns_zone_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cc8e36a6a1403e5a55da6779e6fe55e40731d6d31e9655c1f891e5188075d78)
@@ -14909,7 +14909,7 @@ class KubernetesClusterWebAppRouting:
 
     @builtins.property
     def dns_zone_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_zone_ids KubernetesCluster#dns_zone_ids}.'''
         result = self._values.get("dns_zone_ids")
         assert result is not None, "Required property 'dns_zone_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -15162,10 +15162,10 @@ class KubernetesClusterWindowsProfile:
         license: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.
-        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
-        :param gmsa: gmsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
-        :param license: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.
+        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.
+        :param admin_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.
+        :param gmsa: gmsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
+        :param license: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.
         '''
         if isinstance(gmsa, dict):
             gmsa = KubernetesClusterWindowsProfileGmsa(**gmsa)
@@ -15186,14 +15186,14 @@ class KubernetesClusterWindowsProfile:
 
     @builtins.property
     def admin_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_password KubernetesCluster#admin_password}.'''
         result = self._values.get("admin_password")
         assert result is not None, "Required property 'admin_password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def admin_username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#admin_username KubernetesCluster#admin_username}.'''
         result = self._values.get("admin_username")
         assert result is not None, "Required property 'admin_username' is missing"
         return typing.cast(builtins.str, result)
@@ -15202,14 +15202,14 @@ class KubernetesClusterWindowsProfile:
     def gmsa(self) -> typing.Optional["KubernetesClusterWindowsProfileGmsa"]:
         '''gmsa block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#gmsa KubernetesCluster#gmsa}
         '''
         result = self._values.get("gmsa")
         return typing.cast(typing.Optional["KubernetesClusterWindowsProfileGmsa"], result)
 
     @builtins.property
     def license(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#license KubernetesCluster#license}.'''
         result = self._values.get("license")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -15233,8 +15233,8 @@ class KubernetesClusterWindowsProfile:
 class KubernetesClusterWindowsProfileGmsa:
     def __init__(self, *, dns_server: builtins.str, root_domain: builtins.str) -> None:
         '''
-        :param dns_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.
-        :param root_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.
+        :param dns_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.
+        :param root_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36bd0c91b8e72a2056406fa782c8f9fd0db193ccb0ca8a34b83688fd4df62f65)
@@ -15247,14 +15247,14 @@ class KubernetesClusterWindowsProfileGmsa:
 
     @builtins.property
     def dns_server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.'''
         result = self._values.get("dns_server")
         assert result is not None, "Required property 'dns_server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def root_domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.'''
         result = self._values.get("root_domain")
         assert result is not None, "Required property 'root_domain' is missing"
         return typing.cast(builtins.str, result)
@@ -15364,8 +15364,8 @@ class KubernetesClusterWindowsProfileOutputReference(
     @jsii.member(jsii_name="putGmsa")
     def put_gmsa(self, *, dns_server: builtins.str, root_domain: builtins.str) -> None:
         '''
-        :param dns_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.
-        :param root_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.
+        :param dns_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#dns_server KubernetesCluster#dns_server}.
+        :param root_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#root_domain KubernetesCluster#root_domain}.
         '''
         value = KubernetesClusterWindowsProfileGmsa(
             dns_server=dns_server, root_domain=root_domain
@@ -15474,8 +15474,8 @@ class KubernetesClusterWorkloadAutoscalerProfile:
         vertical_pod_autoscaler_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param keda_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.
-        :param vertical_pod_autoscaler_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.
+        :param keda_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.
+        :param vertical_pod_autoscaler_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e3c4199bfb704a8068c80eadeb69f30272bd04e54c9fcf95f0ef73e0a1c6f28)
@@ -15491,7 +15491,7 @@ class KubernetesClusterWorkloadAutoscalerProfile:
     def keda_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#keda_enabled KubernetesCluster#keda_enabled}.'''
         result = self._values.get("keda_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -15499,7 +15499,7 @@ class KubernetesClusterWorkloadAutoscalerProfile:
     def vertical_pod_autoscaler_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kubernetes_cluster#vertical_pod_autoscaler_enabled KubernetesCluster#vertical_pod_autoscaler_enabled}.'''
         result = self._values.get("vertical_pod_autoscaler_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

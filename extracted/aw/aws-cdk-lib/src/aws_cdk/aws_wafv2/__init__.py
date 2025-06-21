@@ -2280,6 +2280,7 @@ class CfnRuleGroup(
                 # all: Any
                 # all_query_arguments: Any
                 # and_statement_property_: wafv2.CfnRuleGroup.AndStatementProperty
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
@@ -2293,6 +2294,13 @@ class CfnRuleGroup(
                 and_statement_property = wafv2.CfnRuleGroup.AndStatementProperty(
                     statements=[wafv2.CfnRuleGroup.StatementProperty(
                         and_statement=and_statement_property_,
+                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                            asn_list=[123],
+                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                                fallback_behavior="fallbackBehavior",
+                                header_name="headerName"
+                            )
+                        ),
                         byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                             field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
                                 all_query_arguments=all_query_arguments,
@@ -2386,6 +2394,7 @@ class CfnRuleGroup(
                 
                             # the properties below are optional
                             custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                                asn=asn,
                                 cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                                     name="name",
                                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -2753,6 +2762,83 @@ class CfnRuleGroup(
 
         def __repr__(self) -> str:
             return "AndStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.AsnMatchStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "asn_list": "asnList",
+            "forwarded_ip_config": "forwardedIpConfig",
+        },
+    )
+    class AsnMatchStatementProperty:
+        def __init__(
+            self,
+            *,
+            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param asn_list: 
+            :param forwarded_ip_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                asn_match_statement_property = wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                    asn_list=[123],
+                    forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                        fallback_behavior="fallbackBehavior",
+                        header_name="headerName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1b7bfd70c769fabe423acc42aa4ce7a934b8907c56a69421327294c209c8da78)
+                check_type(argname="argument asn_list", value=asn_list, expected_type=type_hints["asn_list"])
+                check_type(argname="argument forwarded_ip_config", value=forwarded_ip_config, expected_type=type_hints["forwarded_ip_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if asn_list is not None:
+                self._values["asn_list"] = asn_list
+            if forwarded_ip_config is not None:
+                self._values["forwarded_ip_config"] = forwarded_ip_config
+
+        @builtins.property
+        def asn_list(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-asnlist
+            '''
+            result = self._values.get("asn_list")
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def forwarded_ip_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-forwardedipconfig
+            '''
+            result = self._values.get("forwarded_ip_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AsnMatchStatementProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5615,6 +5701,7 @@ class CfnRuleGroup(
                 
                 # all: Any
                 # all_query_arguments: Any
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
@@ -5630,6 +5717,13 @@ class CfnRuleGroup(
                     statement=wafv2.CfnRuleGroup.StatementProperty(
                         and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
                             statements=[statement_property_]
+                        ),
+                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                            asn_list=[123],
+                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                                fallback_behavior="fallbackBehavior",
+                                header_name="headerName"
+                            )
                         ),
                         byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                             field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
@@ -5722,6 +5816,7 @@ class CfnRuleGroup(
                 
                             # the properties below are optional
                             custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                                asn=asn,
                                 cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                                     name="name",
                                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -6120,6 +6215,7 @@ class CfnRuleGroup(
                 
                 # all: Any
                 # all_query_arguments: Any
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
@@ -6135,6 +6231,13 @@ class CfnRuleGroup(
                     statements=[wafv2.CfnRuleGroup.StatementProperty(
                         and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
                             statements=[statement_property_]
+                        ),
+                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                            asn_list=[123],
+                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                                fallback_behavior="fallbackBehavior",
+                                header_name="headerName"
+                            )
                         ),
                         byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                             field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
@@ -6227,6 +6330,7 @@ class CfnRuleGroup(
                 
                             # the properties below are optional
                             custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                                asn=asn,
                                 cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                                     name="name",
                                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -6601,6 +6705,7 @@ class CfnRuleGroup(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "asn": "asn",
             "cookie": "cookie",
             "forwarded_ip": "forwardedIp",
             "header": "header",
@@ -6618,6 +6723,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
+            asn: typing.Any = None,
             cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             forwarded_ip: typing.Any = None,
             header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6636,6 +6742,7 @@ class CfnRuleGroup(
 
                Web requests that are missing any of the components specified in the aggregation keys are omitted from the rate-based rule evaluation and handling.
 
+            :param asn: Specifies the request's ASN as an aggregate key for a rate-based rule.
             :param cookie: Use the value of a cookie in the request as an aggregate key. Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
             :param forwarded_ip: Use the first IP address in an HTTP header as an aggregate key. Each distinct forwarded IP address contributes to the aggregation instance. When you specify an IP or forwarded IP in the custom key settings, you must also specify at least one other key to use. You can aggregate on only the forwarded IP address by specifying ``FORWARDED_IP`` in your rate-based statement's ``AggregateKeyType`` . With this option, you must specify the header to use in the rate-based rule's ``ForwardedIPConfig`` property.
             :param header: Use the value of a header in the request as an aggregate key. Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -6657,11 +6764,13 @@ class CfnRuleGroup(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
                 
                 rate_based_statement_custom_key_property = wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                    asn=asn,
                     cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                         name="name",
                         text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -6711,6 +6820,7 @@ class CfnRuleGroup(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__6bc232408309212f7b145d76c0106073269f111e106ab6d74a4d2168f41f248b)
+                check_type(argname="argument asn", value=asn, expected_type=type_hints["asn"])
                 check_type(argname="argument cookie", value=cookie, expected_type=type_hints["cookie"])
                 check_type(argname="argument forwarded_ip", value=forwarded_ip, expected_type=type_hints["forwarded_ip"])
                 check_type(argname="argument header", value=header, expected_type=type_hints["header"])
@@ -6723,6 +6833,8 @@ class CfnRuleGroup(
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
                 check_type(argname="argument uri_path", value=uri_path, expected_type=type_hints["uri_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if asn is not None:
+                self._values["asn"] = asn
             if cookie is not None:
                 self._values["cookie"] = cookie
             if forwarded_ip is not None:
@@ -6745,6 +6857,15 @@ class CfnRuleGroup(
                 self._values["query_string"] = query_string
             if uri_path is not None:
                 self._values["uri_path"] = uri_path
+
+        @builtins.property
+        def asn(self) -> typing.Any:
+            '''Specifies the request's ASN as an aggregate key for a rate-based rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-asn
+            '''
+            result = self._values.get("asn")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def cookie(
@@ -6986,6 +7107,7 @@ class CfnRuleGroup(
                 
                 # all: Any
                 # all_query_arguments: Any
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
@@ -7003,6 +7125,7 @@ class CfnRuleGroup(
                 
                     # the properties below are optional
                     custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                        asn=asn,
                         cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                             name="name",
                             text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -7057,6 +7180,13 @@ class CfnRuleGroup(
                     scope_down_statement=wafv2.CfnRuleGroup.StatementProperty(
                         and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
                             statements=[statement_property_]
+                        ),
+                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                            asn_list=[123],
+                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                                fallback_behavior="fallbackBehavior",
+                                header_name="headerName"
+                            )
                         ),
                         byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                             field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
@@ -8625,6 +8755,7 @@ class CfnRuleGroup(
                 # all: Any
                 # allow: Any
                 # all_query_arguments: Any
+                # asn: Any
                 # block: Any
                 # captcha: Any
                 # challenge: Any
@@ -8645,6 +8776,13 @@ class CfnRuleGroup(
                     statement=wafv2.CfnRuleGroup.StatementProperty(
                         and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
                             statements=[statement_property_]
+                        ),
+                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                            asn_list=[123],
+                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                                fallback_behavior="fallbackBehavior",
+                                header_name="headerName"
+                            )
                         ),
                         byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                             field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
@@ -8739,6 +8877,7 @@ class CfnRuleGroup(
                 
                             # the properties below are optional
                             custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                                asn=asn,
                                 cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                                     name="name",
                                     text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -9721,6 +9860,7 @@ class CfnRuleGroup(
         jsii_struct_bases=[],
         name_mapping={
             "and_statement": "andStatement",
+            "asn_match_statement": "asnMatchStatement",
             "byte_match_statement": "byteMatchStatement",
             "geo_match_statement": "geoMatchStatement",
             "ip_set_reference_statement": "ipSetReferenceStatement",
@@ -9740,6 +9880,7 @@ class CfnRuleGroup(
             self,
             *,
             and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9756,6 +9897,7 @@ class CfnRuleGroup(
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
             :param and_statement: A logical rule statement used to combine other rule statements with AND logic. You provide more than one ``Statement`` within the ``AndStatement`` .
+            :param asn_match_statement: 
             :param byte_match_statement: A rule statement that defines a string match search for AWS WAF to apply to web requests. The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
             :param geo_match_statement: A rule statement that labels web requests by country and region and that matches against web requests based on country code. A geo match rule labels every request that it inspects regardless of whether it finds a match. - To manage requests only by country, you can use this statement by itself and specify the countries that you want to match against in the ``CountryCodes`` array. - Otherwise, configure your geo match rule with Count action so that it only labels requests. Then, add one or more label match rules to run after the geo match rule and configure them to match against the geographic labels and handle the requests as needed. AWS WAF labels requests using the alpha-2 country and region codes from the International Organization for Standardization (ISO) 3166 standard. AWS WAF determines the codes using either the IP address in the web request origin or, if you specify it, the address in the geo match ``ForwardedIPConfig`` . If you use the web request origin, the label formats are ``awswaf:clientip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:clientip:geo:country:<ISO country code>`` . If you use a forwarded IP address, the label formats are ``awswaf:forwardedip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:forwardedip:geo:country:<ISO country code>`` . For additional details, see `Geographic match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param ip_set_reference_statement: A rule statement used to detect web requests coming from particular IP addresses or address ranges. To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement. Each IP set rule statement references an IP set. You create and maintain the set independent of your rules. This allows you to use the single set in multiple rules. When you update the referenced set, AWS WAF automatically updates all rules that reference it.
@@ -9780,6 +9922,7 @@ class CfnRuleGroup(
                 
                 # all: Any
                 # all_query_arguments: Any
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
@@ -9793,6 +9936,13 @@ class CfnRuleGroup(
                 statement_property = wafv2.CfnRuleGroup.StatementProperty(
                     and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
                         statements=[statement_property_]
+                    ),
+                    asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
+                        asn_list=[123],
+                        forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
+                            fallback_behavior="fallbackBehavior",
+                            header_name="headerName"
+                        )
                     ),
                     byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
                         field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
@@ -9887,6 +10037,7 @@ class CfnRuleGroup(
                 
                         # the properties below are optional
                         custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
+                            asn=asn,
                             cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
                                 name="name",
                                 text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
@@ -10227,6 +10378,7 @@ class CfnRuleGroup(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c10bc3e3f69d89ad06f25a44daee62e7de586ae4280e39230f29c24092fe4a4f)
                 check_type(argname="argument and_statement", value=and_statement, expected_type=type_hints["and_statement"])
+                check_type(argname="argument asn_match_statement", value=asn_match_statement, expected_type=type_hints["asn_match_statement"])
                 check_type(argname="argument byte_match_statement", value=byte_match_statement, expected_type=type_hints["byte_match_statement"])
                 check_type(argname="argument geo_match_statement", value=geo_match_statement, expected_type=type_hints["geo_match_statement"])
                 check_type(argname="argument ip_set_reference_statement", value=ip_set_reference_statement, expected_type=type_hints["ip_set_reference_statement"])
@@ -10242,6 +10394,8 @@ class CfnRuleGroup(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if and_statement is not None:
                 self._values["and_statement"] = and_statement
+            if asn_match_statement is not None:
+                self._values["asn_match_statement"] = asn_match_statement
             if byte_match_statement is not None:
                 self._values["byte_match_statement"] = byte_match_statement
             if geo_match_statement is not None:
@@ -10279,6 +10433,16 @@ class CfnRuleGroup(
             '''
             result = self._values.get("and_statement")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AndStatementProperty"]], result)
+
+        @builtins.property
+        def asn_match_statement(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AsnMatchStatementProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-asnmatchstatement
+            '''
+            result = self._values.get("asn_match_statement")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AsnMatchStatementProperty"]], result)
 
         @builtins.property
         def byte_match_statement(
@@ -11191,7 +11355,7 @@ class CfnWebACL(
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
-        :param on_source_d_do_s_protection_config: 
+        :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
         :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
@@ -11472,6 +11636,7 @@ class CfnWebACL(
     @builtins.property
     @jsii.member(jsii_name="onSourceDDoSProtectionConfig")
     def on_source_d_do_s_protection_config(self) -> typing.Any:
+        '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.'''
         return typing.cast(typing.Any, jsii.get(self, "onSourceDDoSProtectionConfig"))
 
     @on_source_d_do_s_protection_config.setter
@@ -11549,6 +11714,8 @@ class CfnWebACL(
             '''Details for your use of the account creation fraud prevention managed rule group, ``AWSManagedRulesACFPRuleSet`` .
 
             This configuration is used in ``ManagedRuleGroupConfig`` .
+
+            For additional information about this and the other intelligent threat mitigation rule groups, see `Intelligent threat mitigation in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`_ and `AWS Managed Rules rule groups list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`_ in the *AWS WAF Developer Guide* .
 
             :param creation_path: The path of the account creation endpoint for your application. This is the page on your website that accepts the completed registration form for a new user. This page must accept ``POST`` requests. For example, for the URL ``https://example.com/web/newaccount`` , you would provide the path ``/web/newaccount`` . Account creation page paths that start with the path that you provide are considered a match. For example ``/web/newaccount`` matches the account creation paths ``/web/newaccount`` , ``/web/newaccount/`` , ``/web/newaccountPage`` , and ``/web/newaccount/thisPage`` , but doesn't match the path ``/home/web/newaccount`` or ``/website/newaccount`` .
             :param registration_page_path: The path of the account registration endpoint for your application. This is the page on your website that presents the registration form to new users. .. epigraph:: This page must accept ``GET`` text/html requests. For example, for the URL ``https://example.com/web/registration`` , you would provide the path ``/web/registration`` . Registration page paths that start with the path that you provide are considered a match. For example ``/web/registration`` matches the registration paths ``/web/registration`` , ``/web/registration/`` , ``/web/registrationPage`` , and ``/web/registration/thisPage`` , but doesn't match the path ``/home/web/registration`` or ``/website/registration`` .
@@ -11735,6 +11902,8 @@ class CfnWebACL(
 
             This configuration is used in ``ManagedRuleGroupConfig`` .
 
+            For additional information about this and the other intelligent threat mitigation rule groups, see `Intelligent threat mitigation in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`_ and `AWS Managed Rules rule groups list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`_ in the *AWS WAF Developer Guide* .
+
             :param login_path: The path of the login endpoint for your application. For example, for the URL ``https://example.com/web/login`` , you would provide the path ``/web/login`` . Login paths that start with the path that you provide are considered a match. For example ``/web/login`` matches the login paths ``/web/login`` , ``/web/login/`` , ``/web/loginPage`` , and ``/web/login/thisPage`` , but doesn't match the login path ``/home/web/login`` or ``/website/login`` . The rule group inspects only HTTP ``POST`` requests to your specified login endpoint.
             :param enable_regex_in_path: Allow the use of regular expressions in the login page path.
             :param request_inspection: The criteria for inspecting login requests, used by the ATP rule group to validate credentials usage.
@@ -11866,6 +12035,93 @@ class CfnWebACL(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_side_action_config": "clientSideActionConfig",
+            "sensitivity_to_block": "sensitivityToBlock",
+        },
+    )
+    class AWSManagedRulesAntiDDoSRuleSetProperty:
+        def __init__(
+            self,
+            *,
+            client_side_action_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            sensitivity_to_block: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
+
+            :param client_side_action_config: Client side action config for AntiDDOS AMR.
+            :param sensitivity_to_block: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                a_wSManaged_rules_anti_dDo_sRule_set_property = wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
+                    client_side_action_config=wafv2.CfnWebACL.ClientSideActionConfigProperty(
+                        challenge=wafv2.CfnWebACL.ClientSideActionProperty(
+                            usage_of_action="usageOfAction",
+                
+                            # the properties below are optional
+                            exempt_uri_regular_expressions=[wafv2.CfnWebACL.RegexProperty(
+                                regex_string="regexString"
+                            )],
+                            sensitivity="sensitivity"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    sensitivity_to_block="sensitivityToBlock"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9315d92e3528c134a601f6cf9b27df2b90e082b1e29a17eadf8fbf68ac10e8c4)
+                check_type(argname="argument client_side_action_config", value=client_side_action_config, expected_type=type_hints["client_side_action_config"])
+                check_type(argname="argument sensitivity_to_block", value=sensitivity_to_block, expected_type=type_hints["sensitivity_to_block"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_side_action_config": client_side_action_config,
+            }
+            if sensitivity_to_block is not None:
+                self._values["sensitivity_to_block"] = sensitivity_to_block
+
+        @builtins.property
+        def client_side_action_config(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionConfigProperty"]:
+            '''Client side action config for AntiDDOS AMR.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html#cfn-wafv2-webacl-awsmanagedrulesantiddosruleset-clientsideactionconfig
+            '''
+            result = self._values.get("client_side_action_config")
+            assert result is not None, "Required property 'client_side_action_config' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionConfigProperty"], result)
+
+        @builtins.property
+        def sensitivity_to_block(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html#cfn-wafv2-webacl-awsmanagedrulesantiddosruleset-sensitivitytoblock
+            '''
+            result = self._values.get("sensitivity_to_block")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AWSManagedRulesAntiDDoSRuleSetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.AWSManagedRulesBotControlRuleSetProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -11883,6 +12139,8 @@ class CfnWebACL(
             '''Details for your use of the Bot Control managed rule group, ``AWSManagedRulesBotControlRuleSet`` .
 
             This configuration is used in ``ManagedRuleGroupConfig`` .
+
+            For additional information about this and the other intelligent threat mitigation rule groups, see `Intelligent threat mitigation in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`_ and `AWS Managed Rules rule groups list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`_ in the *AWS WAF Developer Guide* .
 
             :param inspection_level: The inspection level to use for the Bot Control rule group. The common level is the least expensive. The targeted level includes all common level rules and adds rules with more advanced inspection criteria. For details, see `AWS WAF Bot Control rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html>`_ in the *AWS WAF Developer Guide* .
             :param enable_machine_learning: Applies only to the targeted inspection level. Determines whether to use machine learning (ML) to analyze your web traffic for bot-related activity. Machine learning is required for the Bot Control rules ``TGT_ML_CoordinatedActivityLow`` and ``TGT_ML_CoordinatedActivityMedium`` , which inspect for anomalous behavior that might indicate distributed, coordinated bot activity. For more information about this choice, see the listing for these rules in the table at `Bot Control rules listing <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html#aws-managed-rule-groups-bot-rules>`_ in the *AWS WAF Developer Guide* . Default: ``TRUE``
@@ -12073,6 +12331,83 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "AndStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.AsnMatchStatementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "asn_list": "asnList",
+            "forwarded_ip_config": "forwardedIpConfig",
+        },
+    )
+    class AsnMatchStatementProperty:
+        def __init__(
+            self,
+            *,
+            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param asn_list: 
+            :param forwarded_ip_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                asn_match_statement_property = wafv2.CfnWebACL.AsnMatchStatementProperty(
+                    asn_list=[123],
+                    forwarded_ip_config=wafv2.CfnWebACL.ForwardedIPConfigurationProperty(
+                        fallback_behavior="fallbackBehavior",
+                        header_name="headerName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8995ed18208bf9dcca46075f2ba4072467a8327472896fee5efcf1415648dfe8)
+                check_type(argname="argument asn_list", value=asn_list, expected_type=type_hints["asn_list"])
+                check_type(argname="argument forwarded_ip_config", value=forwarded_ip_config, expected_type=type_hints["forwarded_ip_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if asn_list is not None:
+                self._values["asn_list"] = asn_list
+            if forwarded_ip_config is not None:
+                self._values["forwarded_ip_config"] = forwarded_ip_config
+
+        @builtins.property
+        def asn_list(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-asnlist
+            '''
+            result = self._values.get("asn_list")
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def forwarded_ip_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-forwardedipconfig
+            '''
+            result = self._values.get("forwarded_ip_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AsnMatchStatementProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12802,6 +13137,165 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "ChallengeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ClientSideActionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"challenge": "challenge"},
+    )
+    class ClientSideActionConfigProperty:
+        def __init__(
+            self,
+            *,
+            challenge: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Client side action config for AntiDDOS AMR.
+
+            :param challenge: Client side action config for AntiDDOS AMR.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideactionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                client_side_action_config_property = wafv2.CfnWebACL.ClientSideActionConfigProperty(
+                    challenge=wafv2.CfnWebACL.ClientSideActionProperty(
+                        usage_of_action="usageOfAction",
+                
+                        # the properties below are optional
+                        exempt_uri_regular_expressions=[wafv2.CfnWebACL.RegexProperty(
+                            regex_string="regexString"
+                        )],
+                        sensitivity="sensitivity"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__776e223dfae595baf3dc144792b2d7158c77847ddf24785048d19516ebcb955b)
+                check_type(argname="argument challenge", value=challenge, expected_type=type_hints["challenge"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "challenge": challenge,
+            }
+
+        @builtins.property
+        def challenge(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionProperty"]:
+            '''Client side action config for AntiDDOS AMR.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideactionconfig.html#cfn-wafv2-webacl-clientsideactionconfig-challenge
+            '''
+            result = self._values.get("challenge")
+            assert result is not None, "Required property 'challenge' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientSideActionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ClientSideActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "usage_of_action": "usageOfAction",
+            "exempt_uri_regular_expressions": "exemptUriRegularExpressions",
+            "sensitivity": "sensitivity",
+        },
+    )
+    class ClientSideActionProperty:
+        def __init__(
+            self,
+            *,
+            usage_of_action: builtins.str,
+            exempt_uri_regular_expressions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RegexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sensitivity: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Client side action config for AntiDDOS AMR.
+
+            :param usage_of_action: 
+            :param exempt_uri_regular_expressions: 
+            :param sensitivity: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                client_side_action_property = wafv2.CfnWebACL.ClientSideActionProperty(
+                    usage_of_action="usageOfAction",
+                
+                    # the properties below are optional
+                    exempt_uri_regular_expressions=[wafv2.CfnWebACL.RegexProperty(
+                        regex_string="regexString"
+                    )],
+                    sensitivity="sensitivity"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__de331114f33ba80cf8bd042358ad9467ab930574012abea7782f175fd2a7b649)
+                check_type(argname="argument usage_of_action", value=usage_of_action, expected_type=type_hints["usage_of_action"])
+                check_type(argname="argument exempt_uri_regular_expressions", value=exempt_uri_regular_expressions, expected_type=type_hints["exempt_uri_regular_expressions"])
+                check_type(argname="argument sensitivity", value=sensitivity, expected_type=type_hints["sensitivity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "usage_of_action": usage_of_action,
+            }
+            if exempt_uri_regular_expressions is not None:
+                self._values["exempt_uri_regular_expressions"] = exempt_uri_regular_expressions
+            if sensitivity is not None:
+                self._values["sensitivity"] = sensitivity
+
+        @builtins.property
+        def usage_of_action(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-usageofaction
+            '''
+            result = self._values.get("usage_of_action")
+            assert result is not None, "Required property 'usage_of_action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def exempt_uri_regular_expressions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-exempturiregularexpressions
+            '''
+            result = self._values.get("exempt_uri_regular_expressions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexProperty"]]]], result)
+
+        @builtins.property
+        def sensitivity(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-sensitivity
+            '''
+            result = self._values.get("sensitivity")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientSideActionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15456,6 +15950,7 @@ class CfnWebACL(
         jsii_struct_bases=[],
         name_mapping={
             "aws_managed_rules_acfp_rule_set": "awsManagedRulesAcfpRuleSet",
+            "aws_managed_rules_anti_d_do_s_rule_set": "awsManagedRulesAntiDDoSRuleSet",
             "aws_managed_rules_atp_rule_set": "awsManagedRulesAtpRuleSet",
             "aws_managed_rules_bot_control_rule_set": "awsManagedRulesBotControlRuleSet",
             "login_path": "loginPath",
@@ -15469,6 +15964,7 @@ class CfnWebACL(
             self,
             *,
             aws_managed_rules_acfp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesACFPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_managed_rules_anti_d_do_s_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             aws_managed_rules_atp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesATPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             aws_managed_rules_bot_control_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesBotControlRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             login_path: typing.Optional[builtins.str] = None,
@@ -15485,6 +15981,7 @@ class CfnWebACL(
             - Use the ``AWSManagedRulesBotControlRuleSet`` configuration object to configure the protection level that you want the Bot Control rule group to use.
 
             :param aws_managed_rules_acfp_rule_set: Additional configuration for using the account creation fraud prevention (ACFP) managed rule group, ``AWSManagedRulesACFPRuleSet`` . Use this to provide account creation request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to account creation requests. For information about using the ACFP managed rule group, see `AWS WAF Fraud Control account creation fraud prevention (ACFP) rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-acfp.html>`_ and `AWS WAF Fraud Control account creation fraud prevention (ACFP) <https://docs.aws.amazon.com/waf/latest/developerguide/waf-acfp.html>`_ in the *AWS WAF Developer Guide* .
+            :param aws_managed_rules_anti_d_do_s_rule_set: Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
             :param aws_managed_rules_atp_rule_set: Additional configuration for using the account takeover prevention (ATP) managed rule group, ``AWSManagedRulesATPRuleSet`` . Use this to provide login request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to login requests. This configuration replaces the individual configuration fields in ``ManagedRuleGroupConfig`` and provides additional feature configuration. For information about using the ATP managed rule group, see `AWS WAF Fraud Control account takeover prevention (ATP) rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-atp.html>`_ and `AWS WAF Fraud Control account takeover prevention (ATP) <https://docs.aws.amazon.com/waf/latest/developerguide/waf-atp.html>`_ in the *AWS WAF Developer Guide* .
             :param aws_managed_rules_bot_control_rule_set: Additional configuration for using the Bot Control managed rule group. Use this to specify the inspection level that you want to use. For information about using the Bot Control managed rule group, see `AWS WAF Bot Control rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html>`_ and `AWS WAF Bot Control <https://docs.aws.amazon.com/waf/latest/developerguide/waf-bot-control.html>`_ in the *AWS WAF Developer Guide* .
             :param login_path: .. epigraph:: Instead of this setting, provide your configuration under ``AWSManagedRulesATPRuleSet`` .
@@ -15549,6 +16046,22 @@ class CfnWebACL(
                             )
                         )
                     ),
+                    aws_managed_rules_anti_dDo_sRule_set=wafv2.CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty(
+                        client_side_action_config=wafv2.CfnWebACL.ClientSideActionConfigProperty(
+                            challenge=wafv2.CfnWebACL.ClientSideActionProperty(
+                                usage_of_action="usageOfAction",
+                
+                                # the properties below are optional
+                                exempt_uri_regular_expressions=[wafv2.CfnWebACL.RegexProperty(
+                                    regex_string="regexString"
+                                )],
+                                sensitivity="sensitivity"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        sensitivity_to_block="sensitivityToBlock"
+                    ),
                     aws_managed_rules_atp_rule_set=wafv2.CfnWebACL.AWSManagedRulesATPRuleSetProperty(
                         login_path="loginPath",
                 
@@ -15603,6 +16116,7 @@ class CfnWebACL(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__517661cb97cc58c609587fc6ca9907b2e23d8f3cd6e1e4034f3f6d82b85d2d77)
                 check_type(argname="argument aws_managed_rules_acfp_rule_set", value=aws_managed_rules_acfp_rule_set, expected_type=type_hints["aws_managed_rules_acfp_rule_set"])
+                check_type(argname="argument aws_managed_rules_anti_d_do_s_rule_set", value=aws_managed_rules_anti_d_do_s_rule_set, expected_type=type_hints["aws_managed_rules_anti_d_do_s_rule_set"])
                 check_type(argname="argument aws_managed_rules_atp_rule_set", value=aws_managed_rules_atp_rule_set, expected_type=type_hints["aws_managed_rules_atp_rule_set"])
                 check_type(argname="argument aws_managed_rules_bot_control_rule_set", value=aws_managed_rules_bot_control_rule_set, expected_type=type_hints["aws_managed_rules_bot_control_rule_set"])
                 check_type(argname="argument login_path", value=login_path, expected_type=type_hints["login_path"])
@@ -15612,6 +16126,8 @@ class CfnWebACL(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if aws_managed_rules_acfp_rule_set is not None:
                 self._values["aws_managed_rules_acfp_rule_set"] = aws_managed_rules_acfp_rule_set
+            if aws_managed_rules_anti_d_do_s_rule_set is not None:
+                self._values["aws_managed_rules_anti_d_do_s_rule_set"] = aws_managed_rules_anti_d_do_s_rule_set
             if aws_managed_rules_atp_rule_set is not None:
                 self._values["aws_managed_rules_atp_rule_set"] = aws_managed_rules_atp_rule_set
             if aws_managed_rules_bot_control_rule_set is not None:
@@ -15639,6 +16155,17 @@ class CfnWebACL(
             '''
             result = self._values.get("aws_managed_rules_acfp_rule_set")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesACFPRuleSetProperty"]], result)
+
+        @builtins.property
+        def aws_managed_rules_anti_d_do_s_rule_set(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]]:
+            '''Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesantiddosruleset
+            '''
+            result = self._values.get("aws_managed_rules_anti_d_do_s_rule_set")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]], result)
 
         @builtins.property
         def aws_managed_rules_atp_rule_set(
@@ -15766,8 +16293,8 @@ class CfnWebACL(
             :param name: The name of the managed rule group. You use this, along with the vendor name, to identify the rule group.
             :param vendor_name: The name of the managed rule group vendor. You use this, along with the rule group name, to identify a rule group.
             :param excluded_rules: Rules in the referenced rule group whose actions are set to ``Count`` . .. epigraph:: Instead of this option, use ``RuleActionOverrides`` . It accepts any valid action setting, including ``Count`` .
-            :param managed_rule_group_configs: Additional information that's used by a managed rule group. Many managed rule groups don't require this. The rule groups used for intelligent threat mitigation require additional configuration: - Use the ``AWSManagedRulesACFPRuleSet`` configuration object to configure the account creation fraud prevention managed rule group. The configuration includes the registration and sign-up pages of your application and the locations in the account creation request payload of data, such as the user email and phone number fields. - Use the ``AWSManagedRulesATPRuleSet`` configuration object to configure the account takeover prevention managed rule group. The configuration includes the sign-in page of your application and the locations in the login request payload of data such as the username and password. - Use the ``AWSManagedRulesBotControlRuleSet`` configuration object to configure the protection level that you want the Bot Control rule group to use.
-            :param rule_action_overrides: Action settings to use in the place of the rule actions that are configured inside the rule group. You specify one override for each rule whose action you want to change. .. epigraph:: Take care to verify the rule names in your overrides. If you provide a rule name that doesn't match the name of any rule in the rule group, AWS WAF doesn't return an error and doesn't apply the override setting. You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
+            :param managed_rule_group_configs: Additional information that's used by a managed rule group. Many managed rule groups don't require this. The rule groups used for intelligent threat mitigation require additional configuration: - Use the ``AWSManagedRulesACFPRuleSet`` configuration object to configure the account creation fraud prevention managed rule group. The configuration includes the registration and sign-up pages of your application and the locations in the account creation request payload of data, such as the user email and phone number fields. - Use the ``AWSManagedRulesAntiDDoSRuleSet`` configuration object to configure the anti-DDoS managed rule group. The configuration includes the sensitivity levels to use in the rules that typically block and challenge requests that might be participating in DDoS attacks and the specification to use to indicate whether a request can handle a silent browser challenge. - Use the ``AWSManagedRulesATPRuleSet`` configuration object to configure the account takeover prevention managed rule group. The configuration includes the sign-in page of your application and the locations in the login request payload of data such as the username and password. - Use the ``AWSManagedRulesBotControlRuleSet`` configuration object to configure the protection level that you want the Bot Control rule group to use.
+            :param rule_action_overrides: Action settings to use in the place of the rule actions that are configured inside the rule group. You specify one override for each rule whose action you want to change. .. epigraph:: Verify the rule names in your overrides carefully. With managed rule groups, AWS WAF silently ignores any override that uses an invalid rule name. With customer-owned rule groups, invalid rule names in your overrides will cause web ACL updates to fail. An invalid rule name is any name that doesn't exactly match the case-sensitive name of an existing rule in the rule group. You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
             :param scope_down_statement: An optional nested statement that narrows the scope of the web requests that are evaluated by the managed rule group. Requests are only evaluated by the rule group if they match the scope-down statement. You can use any nestable ``Statement`` in the scope-down statement, and you can nest statements at any level, the same as you can for a rule statement.
             :param version: The version of the managed rule group to use. If you specify this, the version setting is fixed until you change it. If you don't specify this, AWS WAF uses the vendor's default version, and then keeps the version at the vendor's default when the vendor updates the managed rule group settings.
 
@@ -15850,6 +16377,7 @@ class CfnWebACL(
             The rule groups used for intelligent threat mitigation require additional configuration:
 
             - Use the ``AWSManagedRulesACFPRuleSet`` configuration object to configure the account creation fraud prevention managed rule group. The configuration includes the registration and sign-up pages of your application and the locations in the account creation request payload of data, such as the user email and phone number fields.
+            - Use the ``AWSManagedRulesAntiDDoSRuleSet`` configuration object to configure the anti-DDoS managed rule group. The configuration includes the sensitivity levels to use in the rules that typically block and challenge requests that might be participating in DDoS attacks and the specification to use to indicate whether a request can handle a silent browser challenge.
             - Use the ``AWSManagedRulesATPRuleSet`` configuration object to configure the account takeover prevention managed rule group. The configuration includes the sign-in page of your application and the locations in the login request payload of data such as the username and password.
             - Use the ``AWSManagedRulesBotControlRuleSet`` configuration object to configure the protection level that you want the Bot Control rule group to use.
 
@@ -15867,7 +16395,7 @@ class CfnWebACL(
             You specify one override for each rule whose action you want to change.
             .. epigraph::
 
-               Take care to verify the rule names in your overrides. If you provide a rule name that doesn't match the name of any rule in the rule group, AWS WAF doesn't return an error and doesn't apply the override setting.
+               Verify the rule names in your overrides carefully. With managed rule groups, AWS WAF silently ignores any override that uses an invalid rule name. With customer-owned rule groups, invalid rule names in your overrides will cause web ACL updates to fail. An invalid rule name is any name that doesn't exactly match the case-sensitive name of an existing rule in the rule group.
 
             You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
 
@@ -15964,6 +16492,57 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "NotStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.OnSourceDDoSProtectionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alb_low_reputation_mode": "albLowReputationMode"},
+    )
+    class OnSourceDDoSProtectionConfigProperty:
+        def __init__(self, *, alb_low_reputation_mode: builtins.str) -> None:
+            '''Configures the options for on-source DDoS protection provided by supported resource type.
+
+            :param alb_low_reputation_mode: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-onsourceddosprotectionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                on_source_dDo_sProtection_config_property = wafv2.CfnWebACL.OnSourceDDoSProtectionConfigProperty(
+                    alb_low_reputation_mode="albLowReputationMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b1d55e97c88ee1084655df55da4bb940ea39dc6807c3b4f425073a3a747e0dbc)
+                check_type(argname="argument alb_low_reputation_mode", value=alb_low_reputation_mode, expected_type=type_hints["alb_low_reputation_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alb_low_reputation_mode": alb_low_reputation_mode,
+            }
+
+        @builtins.property
+        def alb_low_reputation_mode(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-onsourceddosprotectionconfig.html#cfn-wafv2-webacl-onsourceddosprotectionconfig-alblowreputationmode
+            '''
+            result = self._values.get("alb_low_reputation_mode")
+            assert result is not None, "Required property 'alb_low_reputation_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OnSourceDDoSProtectionConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -16113,6 +16692,7 @@ class CfnWebACL(
         jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.RateBasedStatementCustomKeyProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "asn": "asn",
             "cookie": "cookie",
             "forwarded_ip": "forwardedIp",
             "header": "header",
@@ -16130,6 +16710,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
+            asn: typing.Any = None,
             cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             forwarded_ip: typing.Any = None,
             header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16148,6 +16729,7 @@ class CfnWebACL(
 
                Web requests that are missing any of the components specified in the aggregation keys are omitted from the rate-based rule evaluation and handling.
 
+            :param asn: Specifies the request's ASN as an aggregate key for a rate-based rule.
             :param cookie: Use the value of a cookie in the request as an aggregate key. Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
             :param forwarded_ip: Use the first IP address in an HTTP header as an aggregate key. Each distinct forwarded IP address contributes to the aggregation instance. When you specify an IP or forwarded IP in the custom key settings, you must also specify at least one other key to use. You can aggregate on only the forwarded IP address by specifying ``FORWARDED_IP`` in your rate-based statement's ``AggregateKeyType`` . With this option, you must specify the header to use in the rate-based rule's ``ForwardedIPConfig`` property.
             :param header: Use the value of a header in the request as an aggregate key. Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -16169,11 +16751,13 @@ class CfnWebACL(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_wafv2 as wafv2
                 
+                # asn: Any
                 # forwarded_ip: Any
                 # http_method: Any
                 # ip: Any
                 
                 rate_based_statement_custom_key_property = wafv2.CfnWebACL.RateBasedStatementCustomKeyProperty(
+                    asn=asn,
                     cookie=wafv2.CfnWebACL.RateLimitCookieProperty(
                         name="name",
                         text_transformations=[wafv2.CfnWebACL.TextTransformationProperty(
@@ -16223,6 +16807,7 @@ class CfnWebACL(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__2edac52bcb13f69d4349ba55a4d083851908f1dd71831794e88ac043e1ade5a3)
+                check_type(argname="argument asn", value=asn, expected_type=type_hints["asn"])
                 check_type(argname="argument cookie", value=cookie, expected_type=type_hints["cookie"])
                 check_type(argname="argument forwarded_ip", value=forwarded_ip, expected_type=type_hints["forwarded_ip"])
                 check_type(argname="argument header", value=header, expected_type=type_hints["header"])
@@ -16235,6 +16820,8 @@ class CfnWebACL(
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
                 check_type(argname="argument uri_path", value=uri_path, expected_type=type_hints["uri_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if asn is not None:
+                self._values["asn"] = asn
             if cookie is not None:
                 self._values["cookie"] = cookie
             if forwarded_ip is not None:
@@ -16257,6 +16844,15 @@ class CfnWebACL(
                 self._values["query_string"] = query_string
             if uri_path is not None:
                 self._values["uri_path"] = uri_path
+
+        @builtins.property
+        def asn(self) -> typing.Any:
+            '''Specifies the request's ASN as an aggregate key for a rate-based rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-asn
+            '''
+            result = self._values.get("asn")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def cookie(
@@ -17491,6 +18087,60 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "RegexPatternSetReferenceStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.RegexProperty",
+        jsii_struct_bases=[],
+        name_mapping={"regex_string": "regexString"},
+    )
+    class RegexProperty:
+        def __init__(
+            self,
+            *,
+            regex_string: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Regex.
+
+            :param regex_string: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                regex_property = wafv2.CfnWebACL.RegexProperty(
+                    regex_string="regexString"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__91e754c074f286d30a035b0cb9d25503568a265d4426fe4f4bfc0766c9c71d90)
+                check_type(argname="argument regex_string", value=regex_string, expected_type=type_hints["regex_string"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if regex_string is not None:
+                self._values["regex_string"] = regex_string
+
+        @builtins.property
+        def regex_string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regex.html#cfn-wafv2-webacl-regex-regexstring
+            '''
+            result = self._values.get("regex_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegexProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18762,7 +19412,7 @@ class CfnWebACL(
 
             :param arn: The Amazon Resource Name (ARN) of the entity.
             :param excluded_rules: Rules in the referenced rule group whose actions are set to ``Count`` . .. epigraph:: Instead of this option, use ``RuleActionOverrides`` . It accepts any valid action setting, including ``Count`` .
-            :param rule_action_overrides: Action settings to use in the place of the rule actions that are configured inside the rule group. You specify one override for each rule whose action you want to change. .. epigraph:: Take care to verify the rule names in your overrides. If you provide a rule name that doesn't match the name of any rule in the rule group, AWS WAF doesn't return an error and doesn't apply the override setting. You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
+            :param rule_action_overrides: Action settings to use in the place of the rule actions that are configured inside the rule group. You specify one override for each rule whose action you want to change. .. epigraph:: Verify the rule names in your overrides carefully. With managed rule groups, AWS WAF silently ignores any override that uses an invalid rule name. With customer-owned rule groups, invalid rule names in your overrides will cause web ACL updates to fail. An invalid rule name is any name that doesn't exactly match the case-sensitive name of an existing rule in the rule group. You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rulegroupreferencestatement.html
             :exampleMetadata: fixture=_generated
@@ -18878,7 +19528,7 @@ class CfnWebACL(
             You specify one override for each rule whose action you want to change.
             .. epigraph::
 
-               Take care to verify the rule names in your overrides. If you provide a rule name that doesn't match the name of any rule in the rule group, AWS WAF doesn't return an error and doesn't apply the override setting.
+               Verify the rule names in your overrides carefully. With managed rule groups, AWS WAF silently ignores any override that uses an invalid rule name. With customer-owned rule groups, invalid rule names in your overrides will cause web ACL updates to fail. An invalid rule name is any name that doesn't exactly match the case-sensitive name of an existing rule in the rule group.
 
             You can use overrides for testing, for example you can override all of rule actions to ``Count`` and then monitor the resulting count metrics to understand how the rule group would handle your web traffic. You can also permanently override some or all actions, to modify how the rule group manages your web traffic.
 
@@ -19595,6 +20245,7 @@ class CfnWebACL(
         jsii_struct_bases=[],
         name_mapping={
             "and_statement": "andStatement",
+            "asn_match_statement": "asnMatchStatement",
             "byte_match_statement": "byteMatchStatement",
             "geo_match_statement": "geoMatchStatement",
             "ip_set_reference_statement": "ipSetReferenceStatement",
@@ -19616,6 +20267,7 @@ class CfnWebACL(
             self,
             *,
             and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19634,6 +20286,7 @@ class CfnWebACL(
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
             :param and_statement: A logical rule statement used to combine other rule statements with AND logic. You provide more than one ``Statement`` within the ``AndStatement`` .
+            :param asn_match_statement: 
             :param byte_match_statement: A rule statement that defines a string match search for AWS WAF to apply to web requests. The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
             :param geo_match_statement: A rule statement that labels web requests by country and region and that matches against web requests based on country code. A geo match rule labels every request that it inspects regardless of whether it finds a match. - To manage requests only by country, you can use this statement by itself and specify the countries that you want to match against in the ``CountryCodes`` array. - Otherwise, configure your geo match rule with Count action so that it only labels requests. Then, add one or more label match rules to run after the geo match rule and configure them to match against the geographic labels and handle the requests as needed. AWS WAF labels requests using the alpha-2 country and region codes from the International Organization for Standardization (ISO) 3166 standard. AWS WAF determines the codes using either the IP address in the web request origin or, if you specify it, the address in the geo match ``ForwardedIPConfig`` . If you use the web request origin, the label formats are ``awswaf:clientip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:clientip:geo:country:<ISO country code>`` . If you use a forwarded IP address, the label formats are ``awswaf:forwardedip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:forwardedip:geo:country:<ISO country code>`` . For additional details, see `Geographic match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param ip_set_reference_statement: A rule statement used to detect web requests coming from particular IP addresses or address ranges. To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement. Each IP set rule statement references an IP set. You create and maintain the set independent of your rules. This allows you to use the single set in multiple rules. When you update the referenced set, AWS WAF automatically updates all rules that reference it.
@@ -19659,6 +20312,7 @@ class CfnWebACL(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0382dea984940e1444b28282683162580df37103e33ab59384736c3a85a2ec11)
                 check_type(argname="argument and_statement", value=and_statement, expected_type=type_hints["and_statement"])
+                check_type(argname="argument asn_match_statement", value=asn_match_statement, expected_type=type_hints["asn_match_statement"])
                 check_type(argname="argument byte_match_statement", value=byte_match_statement, expected_type=type_hints["byte_match_statement"])
                 check_type(argname="argument geo_match_statement", value=geo_match_statement, expected_type=type_hints["geo_match_statement"])
                 check_type(argname="argument ip_set_reference_statement", value=ip_set_reference_statement, expected_type=type_hints["ip_set_reference_statement"])
@@ -19676,6 +20330,8 @@ class CfnWebACL(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if and_statement is not None:
                 self._values["and_statement"] = and_statement
+            if asn_match_statement is not None:
+                self._values["asn_match_statement"] = asn_match_statement
             if byte_match_statement is not None:
                 self._values["byte_match_statement"] = byte_match_statement
             if geo_match_statement is not None:
@@ -19717,6 +20373,16 @@ class CfnWebACL(
             '''
             result = self._values.get("and_statement")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AndStatementProperty"]], result)
+
+        @builtins.property
+        def asn_match_statement(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AsnMatchStatementProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-asnmatchstatement
+            '''
+            result = self._values.get("asn_match_statement")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AsnMatchStatementProperty"]], result)
 
         @builtins.property
         def byte_match_statement(
@@ -20632,7 +21298,7 @@ class CfnWebACLProps:
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
-        :param on_source_d_do_s_protection_config: 
+        :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
         :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
@@ -20827,7 +21493,8 @@ class CfnWebACLProps:
 
     @builtins.property
     def on_source_d_do_s_protection_config(self) -> typing.Any:
-        '''
+        '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-onsourceddosprotectionconfig
         '''
         result = self._values.get("on_source_d_do_s_protection_config")
@@ -21276,6 +21943,14 @@ def _typecheckingstub__563d7c7c3c7b0cea107ea61895bf83f08deacaa77dd306915bce97452
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1b7bfd70c769fabe423acc42aa4ce7a934b8907c56a69421327294c209c8da78(
+    *,
+    asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.ForwardedIPConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__48d37744c2bde6e8969fbbe9f60128093f4d69360ff6c086fcb635ca42f3ae63(
     *,
     custom_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomResponseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21533,6 +22208,7 @@ def _typecheckingstub__ac0f7a31c2c062eaaca70b7d43c11c1e6b78ce7502ec2206e832cabc7
 
 def _typecheckingstub__6bc232408309212f7b145d76c0106073269f111e106ab6d74a4d2168f41f248b(
     *,
+    asn: typing.Any = None,
     cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RateLimitCookieProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     forwarded_ip: typing.Any = None,
     header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RateLimitHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21698,6 +22374,7 @@ def _typecheckingstub__b9ae549bd77f9cf10d97954d1e78a797db181843dcc5510b91fc32672
 def _typecheckingstub__c10bc3e3f69d89ad06f25a44daee62e7de586ae4280e39230f29c24092fe4a4f(
     *,
     and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.AndStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.AsnMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.ByteMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.GeoMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.IPSetReferenceStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21901,6 +22578,14 @@ def _typecheckingstub__f9aee7f94c21473b0495313f92d8a99724499d3f5a99e7229679efb1e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9315d92e3528c134a601f6cf9b27df2b90e082b1e29a17eadf8fbf68ac10e8c4(
+    *,
+    client_side_action_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ClientSideActionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    sensitivity_to_block: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__23917b7bd12237aafb58493973b8f61366778e01800aad21ea2f95a01294dc76(
     *,
     inspection_level: builtins.str,
@@ -21919,6 +22604,14 @@ def _typecheckingstub__69dee3824024f4ebf455961564f0743db7a203a492aae72706c2b03ec
 def _typecheckingstub__e3977b616ebe935b8882258fb7fe1261468bceabf99977afc1c05b1df5a70def(
     *,
     statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.StatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8995ed18208bf9dcca46075f2ba4072467a8327472896fee5efcf1415648dfe8(
+    *,
+    asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ForwardedIPConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21979,6 +22672,22 @@ def _typecheckingstub__3e00e6c1f2ede04c7bc1e9b6ad5856518734b5452ceecd17f5010c545
 def _typecheckingstub__e59d4e09b55c6fb1e18f3dbf3d0659f147db2659c300a744e836928d4b000e7b(
     *,
     immunity_time_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ImmunityTimePropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__776e223dfae595baf3dc144792b2d7158c77847ddf24785048d19516ebcb955b(
+    *,
+    challenge: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ClientSideActionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de331114f33ba80cf8bd042358ad9467ab930574012abea7782f175fd2a7b649(
+    *,
+    usage_of_action: builtins.str,
+    exempt_uri_regular_expressions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RegexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sensitivity: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22214,6 +22923,7 @@ def _typecheckingstub__bf81be90baf4410ecf4fe3290d007b8b6c18da545bbac600a4ec86a29
 def _typecheckingstub__517661cb97cc58c609587fc6ca9907b2e23d8f3cd6e1e4034f3f6d82b85d2d77(
     *,
     aws_managed_rules_acfp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AWSManagedRulesACFPRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_managed_rules_anti_d_do_s_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     aws_managed_rules_atp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AWSManagedRulesATPRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     aws_managed_rules_bot_control_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AWSManagedRulesBotControlRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     login_path: typing.Optional[builtins.str] = None,
@@ -22244,6 +22954,13 @@ def _typecheckingstub__6323d964e28230f9d2649acc0c25b70ee57b1f6721b37df85848f3c96
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b1d55e97c88ee1084655df55da4bb940ea39dc6807c3b4f425073a3a747e0dbc(
+    *,
+    alb_low_reputation_mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__857a9b37018dee0d151e0a05984b557cea8bf5f8e57f6957cacb75335b7f4985(
     *,
     statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.StatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -22261,6 +22978,7 @@ def _typecheckingstub__799e1b838f491914647df091fcbac72eb8119756fda0c013be732c461
 
 def _typecheckingstub__2edac52bcb13f69d4349ba55a4d083851908f1dd71831794e88ac043e1ade5a3(
     *,
+    asn: typing.Any = None,
     cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RateLimitCookieProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     forwarded_ip: typing.Any = None,
     header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RateLimitHeaderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22361,6 +23079,13 @@ def _typecheckingstub__02b7d36560bfd4ed2bd6508818cf89b216972c719200032cdc4b3a04e
     arn: builtins.str,
     field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.TextTransformationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91e754c074f286d30a035b0cb9d25503568a265d4426fe4f4bfc0766c9c71d90(
+    *,
+    regex_string: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22516,6 +23241,7 @@ def _typecheckingstub__58178c25f953747f989ea51846855e784a44825b0202fe8e0a5c3920a
 def _typecheckingstub__0382dea984940e1444b28282683162580df37103e33ab59384736c3a85a2ec11(
     *,
     and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AndStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AsnMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ByteMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.GeoMatchStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.IPSetReferenceStatementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

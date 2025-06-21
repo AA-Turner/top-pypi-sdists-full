@@ -33,6 +33,7 @@ from typing import (
 )
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from chalk.clogging import chalk_logger
 from chalk.features import Feature, FeatureConverter, Features, FeatureWrapper, unwrap_feature
@@ -805,6 +806,76 @@ def _extract_features(feature_set: Features, prefix: str, targets: List[Label], 
 insert_size_limit = 10_000
 
 
+def _replace_float16_with_float_64(t: pa.DataType) -> pa.DataType:
+    if t == pa.float16():
+        return pa.float64()
+    if pa.types.is_fixed_size_list(t):
+        elem_type = t.field(0).type
+        elem_type_replaced = _replace_float16_with_float_64(elem_type)
+        if elem_type_replaced is elem_type:
+            return t
+        return pa.list_(elem_type_replaced, list_size=t.list_size)
+    if pa.types.is_large_list(t):
+        elem_type = t.field(0).type
+        elem_type_replaced = _replace_float16_with_float_64(elem_type)
+        if elem_type_replaced is elem_type:
+            return t
+        return pa.large_list(elem_type_replaced)
+    if pa.types.is_list(t):
+        elem_type = t.field(0).type
+        elem_type_replaced = _replace_float16_with_float_64(elem_type)
+        if elem_type_replaced is elem_type:
+            return t
+        return pa.list_(elem_type_replaced)
+    if pa.types.is_struct(t):
+        new_elems: List[pa.Field] = []
+        any_new_elem = False
+        for field_index in range(t.num_fields):
+            f = t.field(field_index)
+            elem_replaced = _replace_float16_with_float_64(f.type)
+            if elem_replaced is f.type:
+                new_elems.append(f)
+            else:
+                any_new_elem = True
+                new_elems.append(f.with_type(elem_replaced))
+
+        if not any_new_elem:
+            return t
+
+        return pa.struct(new_elems)
+
+    if pa.types.is_map(t):
+        as_struct = t.field(0).type
+        new_value_type = _replace_float16_with_float_64(as_struct.field(1).type)
+        if new_value_type is as_struct.field(1).type:
+            return t
+        return pa.map_(as_struct.field(0), as_struct.field(1).with_type(new_value_type))
+
+    return t
+
+
+def _convert_to_arrow_array(
+    data: List[Any],
+    *,
+    type: pa.DataType,
+    field_name: str,
+) -> pa.Array:
+    try:
+        return pa.array(data, type=type)
+    except Exception as e:
+        # pyarrow<=20.0 has a bug where it cannot read in float16 values from regular `float`s.
+
+        type_without_float16 = _replace_float16_with_float_64(type)
+        if type_without_float16 is not type:
+            try:
+                regular_float_array = pa.array(data, type=type_without_float16)
+                return pc.cast(regular_float_array, type)
+            except Exception as e:
+                raise ValueError(f"Unable to convert values for feature '{field_name}' into pyarrow type '{type}': {e}")
+
+        raise ValueError(f"Unable to convert values for feature '{field_name}' into pyarrow type '{type}': {e}")
+
+
 def _convert_to_record_batch(
     data: Mapping[str, List[Any]],
     schema: pa.Schema,
@@ -816,10 +887,9 @@ def _convert_to_record_batch(
     """
     data_arrays: dict[str, pa.Array] = dict()
     for k, v in data.items():
-        try:
-            data_arrays[k] = pa.array(v, type=schema.field(k).type)
-        except Exception as e:
-            raise ValueError(
-                f"Unable to convert values for feature '{k}' into pyarrow type '{schema.field(k).type}': {e}"
-            )
+        data_arrays[k] = _convert_to_arrow_array(
+            v,
+            type=schema.field(k).type,
+            field_name=k,
+        )
     return pa.RecordBatch.from_pydict(data_arrays, schema=schema)

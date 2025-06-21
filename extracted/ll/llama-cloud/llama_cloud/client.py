@@ -14,12 +14,14 @@ from .resources.embedding_model_configs.client import AsyncEmbeddingModelConfigs
 from .resources.evals.client import AsyncEvalsClient, EvalsClient
 from .resources.files.client import AsyncFilesClient, FilesClient
 from .resources.jobs.client import AsyncJobsClient, JobsClient
+from .resources.llama_apps.client import AsyncLlamaAppsClient, LlamaAppsClient
 from .resources.llama_extract.client import AsyncLlamaExtractClient, LlamaExtractClient
 from .resources.organizations.client import AsyncOrganizationsClient, OrganizationsClient
 from .resources.parsing.client import AsyncParsingClient, ParsingClient
 from .resources.pipelines.client import AsyncPipelinesClient, PipelinesClient
 from .resources.projects.client import AsyncProjectsClient, ProjectsClient
 from .resources.reports.client import AsyncReportsClient, ReportsClient
+from .resources.responses.client import AsyncResponsesClient, ResponsesClient
 from .resources.retrievers.client import AsyncRetrieversClient, RetrieversClient
 
 
@@ -45,11 +47,13 @@ class LlamaCloud:
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.files = FilesClient(client_wrapper=self._client_wrapper)
         self.pipelines = PipelinesClient(client_wrapper=self._client_wrapper)
+        self.responses = ResponsesClient(client_wrapper=self._client_wrapper)
         self.retrievers = RetrieversClient(client_wrapper=self._client_wrapper)
         self.jobs = JobsClient(client_wrapper=self._client_wrapper)
         self.evals = EvalsClient(client_wrapper=self._client_wrapper)
         self.parsing = ParsingClient(client_wrapper=self._client_wrapper)
         self.chat_apps = ChatAppsClient(client_wrapper=self._client_wrapper)
+        self.llama_apps = LlamaAppsClient(client_wrapper=self._client_wrapper)
         self.llama_extract = LlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = ReportsClient(client_wrapper=self._client_wrapper)
         self.beta = BetaClient(client_wrapper=self._client_wrapper)
@@ -77,11 +81,13 @@ class AsyncLlamaCloud:
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.files = AsyncFilesClient(client_wrapper=self._client_wrapper)
         self.pipelines = AsyncPipelinesClient(client_wrapper=self._client_wrapper)
+        self.responses = AsyncResponsesClient(client_wrapper=self._client_wrapper)
         self.retrievers = AsyncRetrieversClient(client_wrapper=self._client_wrapper)
         self.jobs = AsyncJobsClient(client_wrapper=self._client_wrapper)
         self.evals = AsyncEvalsClient(client_wrapper=self._client_wrapper)
         self.parsing = AsyncParsingClient(client_wrapper=self._client_wrapper)
         self.chat_apps = AsyncChatAppsClient(client_wrapper=self._client_wrapper)
+        self.llama_apps = AsyncLlamaAppsClient(client_wrapper=self._client_wrapper)
         self.llama_extract = AsyncLlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = AsyncReportsClient(client_wrapper=self._client_wrapper)
         self.beta = AsyncBetaClient(client_wrapper=self._client_wrapper)

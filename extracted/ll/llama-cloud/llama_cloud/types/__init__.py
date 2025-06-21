@@ -15,7 +15,10 @@ from .advanced_mode_transform_config_segmentation_config import (
     AdvancedModeTransformConfigSegmentationConfig_None,
     AdvancedModeTransformConfigSegmentationConfig_Page,
 )
+from .agent_deployment_list import AgentDeploymentList
+from .agent_deployment_summary import AgentDeploymentSummary
 from .app_schema_chat_chat_message import AppSchemaChatChatMessage
+from .app_schema_responses_message_role import AppSchemaResponsesMessageRole
 from .audio_block import AudioBlock
 from .auto_transform_config import AutoTransformConfig
 from .azure_open_ai_embedding import AzureOpenAiEmbedding
@@ -108,6 +111,7 @@ from .eval_execution_params import EvalExecutionParams
 from .extract_agent import ExtractAgent
 from .extract_agent_data_schema_value import ExtractAgentDataSchemaValue
 from .extract_config import ExtractConfig
+from .extract_config_priority import ExtractConfigPriority
 from .extract_job import ExtractJob
 from .extract_job_create import ExtractJobCreate
 from .extract_job_create_data_schema_override import ExtractJobCreateDataSchemaOverride
@@ -125,6 +129,8 @@ from .extract_run_data_item_value import ExtractRunDataItemValue
 from .extract_run_data_schema_value import ExtractRunDataSchemaValue
 from .extract_run_data_zero_value import ExtractRunDataZeroValue
 from .extract_run_extraction_metadata_value import ExtractRunExtractionMetadataValue
+from .extract_schema_generate_response import ExtractSchemaGenerateResponse
+from .extract_schema_generate_response_data_schema_value import ExtractSchemaGenerateResponseDataSchemaValue
 from .extract_schema_validate_response import ExtractSchemaValidateResponse
 from .extract_schema_validate_response_data_schema_value import ExtractSchemaValidateResponseDataSchemaValue
 from .extract_state import ExtractState
@@ -175,19 +181,22 @@ from .llama_index_core_base_llms_types_chat_message_blocks_item import (
     LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image,
     LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text,
 )
+from .llama_index_core_base_llms_types_message_role import LlamaIndexCoreBaseLlmsTypesMessageRole
 from .llama_parse_parameters import LlamaParseParameters
+from .llama_parse_parameters_priority import LlamaParseParametersPriority
 from .llama_parse_supported_file_extensions import LlamaParseSupportedFileExtensions
 from .llm_model_data import LlmModelData
 from .llm_parameters import LlmParameters
 from .load_files_job_config import LoadFilesJobConfig
 from .managed_ingestion_status import ManagedIngestionStatus
 from .managed_ingestion_status_response import ManagedIngestionStatusResponse
+from .message import Message
 from .message_annotation import MessageAnnotation
-from .message_role import MessageRole
 from .metadata_filter import MetadataFilter
 from .metadata_filter_value import MetadataFilterValue
 from .metadata_filters import MetadataFilters
 from .metadata_filters_filters_item import MetadataFiltersFiltersItem
+from .model_configuration import ModelConfiguration
 from .node_relationship import NodeRelationship
 from .none_chunking_config import NoneChunkingConfig
 from .none_segmentation_config import NoneSegmentationConfig
@@ -207,6 +216,7 @@ from .paginated_list_cloud_documents_response import PaginatedListCloudDocuments
 from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesResponse
 from .paginated_report_response import PaginatedReportResponse
 from .parse_job_config import ParseJobConfig
+from .parse_job_config_priority import ParseJobConfigPriority
 from .parse_plan_level import ParsePlanLevel
 from .parser_languages import ParserLanguages
 from .parsing_history_item import ParsingHistoryItem
@@ -324,6 +334,7 @@ from .struct_parse_conf import StructParseConf
 from .supported_llm_model import SupportedLlmModel
 from .supported_llm_model_names import SupportedLlmModelNames
 from .text_block import TextBlock
+from .text_content_block import TextContentBlock
 from .text_node import TextNode
 from .text_node_relationships_value import TextNodeRelationshipsValue
 from .text_node_with_score import TextNodeWithScore
@@ -355,7 +366,10 @@ __all__ = [
     "AdvancedModeTransformConfigSegmentationConfig_Element",
     "AdvancedModeTransformConfigSegmentationConfig_None",
     "AdvancedModeTransformConfigSegmentationConfig_Page",
+    "AgentDeploymentList",
+    "AgentDeploymentSummary",
     "AppSchemaChatChatMessage",
+    "AppSchemaResponsesMessageRole",
     "AudioBlock",
     "AutoTransformConfig",
     "AzureOpenAiEmbedding",
@@ -444,6 +458,7 @@ __all__ = [
     "ExtractAgent",
     "ExtractAgentDataSchemaValue",
     "ExtractConfig",
+    "ExtractConfigPriority",
     "ExtractJob",
     "ExtractJobCreate",
     "ExtractJobCreateDataSchemaOverride",
@@ -461,6 +476,8 @@ __all__ = [
     "ExtractRunDataSchemaValue",
     "ExtractRunDataZeroValue",
     "ExtractRunExtractionMetadataValue",
+    "ExtractSchemaGenerateResponse",
+    "ExtractSchemaGenerateResponseDataSchemaValue",
     "ExtractSchemaValidateResponse",
     "ExtractSchemaValidateResponseDataSchemaValue",
     "ExtractState",
@@ -507,19 +524,22 @@ __all__ = [
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Document",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Image",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text",
+    "LlamaIndexCoreBaseLlmsTypesMessageRole",
     "LlamaParseParameters",
+    "LlamaParseParametersPriority",
     "LlamaParseSupportedFileExtensions",
     "LlmModelData",
     "LlmParameters",
     "LoadFilesJobConfig",
     "ManagedIngestionStatus",
     "ManagedIngestionStatusResponse",
+    "Message",
     "MessageAnnotation",
-    "MessageRole",
     "MetadataFilter",
     "MetadataFilterValue",
     "MetadataFilters",
     "MetadataFiltersFiltersItem",
+    "ModelConfiguration",
     "NodeRelationship",
     "NoneChunkingConfig",
     "NoneSegmentationConfig",
@@ -539,6 +559,7 @@ __all__ = [
     "PaginatedListPipelineFilesResponse",
     "PaginatedReportResponse",
     "ParseJobConfig",
+    "ParseJobConfigPriority",
     "ParsePlanLevel",
     "ParserLanguages",
     "ParsingHistoryItem",
@@ -646,6 +667,7 @@ __all__ = [
     "SupportedLlmModel",
     "SupportedLlmModelNames",
     "TextBlock",
+    "TextContentBlock",
     "TextNode",
     "TextNodeRelationshipsValue",
     "TextNodeWithScore",

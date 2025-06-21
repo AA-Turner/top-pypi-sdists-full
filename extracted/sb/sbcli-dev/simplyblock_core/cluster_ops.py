@@ -12,16 +12,16 @@ import typing as t
 import docker
 import requests
 
+from docker.errors import DockerException
 from simplyblock_core import utils, scripts, constants, mgmt_node_ops, storage_node_ops
-from simplyblock_core.controllers import cluster_events, device_controller, pool_controller, \
-    lvol_controller
+from simplyblock_core.controllers import cluster_events, device_controller
 from simplyblock_core.db_controller import DBController
 from simplyblock_core.models.cluster import Cluster
 from simplyblock_core.models.job_schedule import JobSchedule
 from simplyblock_core.models.lvol_model import LVol
 from simplyblock_core.models.mgmt_node import MgmtNode
 from simplyblock_core.models.pool import Pool
-from simplyblock_core.models.stats import StatsObject
+from simplyblock_core.models.stats import LVolStatObject, ClusterStatObject, NodeStatObject, DeviceStatObject
 from simplyblock_core.models.nvme_device import NVMeDevice
 from simplyblock_core.models.storage_node import StorageNode
 from simplyblock_core.utils import pull_docker_image_with_retry
@@ -153,7 +153,7 @@ def create_cluster(blk_size, page_size_in_blocks, cli_pass,
         c.swarm.leave(force=True)
         try:
             c.volumes.get("monitoring_grafana_data").remove(force=True)
-        except docker.DockerException:
+        except DockerException:
             pass
         time.sleep(3)
 
@@ -179,47 +179,47 @@ def create_cluster(blk_size, page_size_in_blocks, cli_pass,
 
     # validate cluster duplicate
     logger.info("Adding new cluster object")
-    c = Cluster()
-    c.uuid = str(uuid.uuid4())
-    c.blk_size = blk_size
-    c.page_size_in_blocks = page_size_in_blocks
-    c.nqn = f"{constants.CLUSTER_NQN}:{c.uuid}"
-    c.cli_pass = cli_pass
-    c.secret = utils.generate_string(20)
-    c.grafana_secret = c.secret
-    c.db_connection = db_connection
+    cluster = Cluster()
+    cluster.uuid = str(uuid.uuid4())
+    cluster.blk_size = blk_size
+    cluster.page_size_in_blocks = page_size_in_blocks
+    cluster.nqn = f"{constants.CLUSTER_NQN}:{cluster.uuid}"
+    cluster.cli_pass = cli_pass
+    cluster.secret = utils.generate_string(20)
+    cluster.grafana_secret = cluster.secret
+    cluster.db_connection = db_connection
     if cap_warn and cap_warn > 0:
-        c.cap_warn = cap_warn
+        cluster.cap_warn = cap_warn
     if cap_crit and cap_crit > 0:
-        c.cap_crit = cap_crit
+        cluster.cap_crit = cap_crit
     if prov_cap_warn and prov_cap_warn > 0:
-        c.prov_cap_warn = prov_cap_warn
+        cluster.prov_cap_warn = prov_cap_warn
     if prov_cap_crit and prov_cap_crit > 0:
-        c.prov_cap_crit = prov_cap_crit
-    c.distr_ndcs = distr_ndcs
-    c.distr_npcs = distr_npcs
-    c.distr_bs = distr_bs
-    c.distr_chunk_bs = distr_chunk_bs
-    c.ha_type = ha_type
+        cluster.prov_cap_crit = prov_cap_crit
+    cluster.distr_ndcs = distr_ndcs
+    cluster.distr_npcs = distr_npcs
+    cluster.distr_bs = distr_bs
+    cluster.distr_chunk_bs = distr_chunk_bs
+    cluster.ha_type = ha_type
     if grafana_endpoint:
-        c.grafana_endpoint = grafana_endpoint
+        cluster.grafana_endpoint = grafana_endpoint
     else:
-        c.grafana_endpoint = f"http://{dev_ip}/grafana"
-    c.enable_node_affinity = enable_node_affinity
-    c.qpair_count = qpair_count or constants.QPAIR_COUNT
+        cluster.grafana_endpoint = f"http://{dev_ip}/grafana"
+    cluster.enable_node_affinity = enable_node_affinity
+    cluster.qpair_count = qpair_count or constants.QPAIR_COUNT
 
-    c.max_queue_size = max_queue_size
-    c.inflight_io_threshold = inflight_io_threshold
-    c.enable_qos = enable_qos
-    c.strict_node_anti_affinity = strict_node_anti_affinity
-    c.contact_point = contact_point
+    cluster.max_queue_size = max_queue_size
+    cluster.inflight_io_threshold = inflight_io_threshold
+    cluster.enable_qos = enable_qos
+    cluster.strict_node_anti_affinity = strict_node_anti_affinity
+    cluster.contact_point = contact_point
 
-    utils.render_and_deploy_alerting_configs(contact_point, c.grafana_endpoint, c.uuid, c.secret)
+    utils.render_and_deploy_alerting_configs(contact_point, cluster.grafana_endpoint, cluster.uuid, cluster.secret)
 
     logger.info("Deploying swarm stack ...")
     log_level = "DEBUG" if constants.LOG_WEB_DEBUG else "INFO"
-    scripts.deploy_stack(cli_pass, dev_ip, constants.SIMPLY_BLOCK_DOCKER_IMAGE, c.secret, c.uuid,
-                               log_del_interval, metrics_retention_period, log_level, c.grafana_endpoint)
+    scripts.deploy_stack(cli_pass, dev_ip, constants.SIMPLY_BLOCK_DOCKER_IMAGE, cluster.secret, cluster.uuid,
+                               log_del_interval, metrics_retention_period, log_level, cluster.grafana_endpoint)
     logger.info("Deploying swarm stack > Done")
 
     logger.info("Configuring DB...")
@@ -228,22 +228,22 @@ def create_cluster(blk_size, page_size_in_blocks, cli_pass,
 
     _set_max_result_window(dev_ip)
 
-    _add_graylog_input(dev_ip, c.secret)
+    _add_graylog_input(dev_ip, cluster.secret)
 
-    _create_update_user(c.uuid, c.grafana_endpoint, c.grafana_secret, c.secret)
+    _create_update_user(cluster.uuid, cluster.grafana_endpoint, cluster.grafana_secret, cluster.secret)
 
-    c.status = Cluster.STATUS_UNREADY
-    c.create_dt = str(datetime.datetime.now())
+    cluster.status = Cluster.STATUS_UNREADY
+    cluster.create_dt = str(datetime.datetime.now())
     db_controller = DBController()
-    c.write_to_db(db_controller.kv_store)
+    cluster.write_to_db(db_controller.kv_store)
 
-    cluster_events.cluster_create(c)
+    cluster_events.cluster_create(cluster)
 
-    mgmt_node_ops.add_mgmt_node(dev_ip, c.uuid)
+    mgmt_node_ops.add_mgmt_node(dev_ip, cluster.uuid)
 
     logger.info("New Cluster has been created")
-    logger.info(c.uuid)
-    return c.uuid
+    logger.info(cluster.uuid)
+    return cluster.uuid
 
 def parse_nvme_list_output(output, target_model):
     lines = output.splitlines()
@@ -297,112 +297,6 @@ def _run_fio(mount_point) -> None:
         if os.path.exists(config_file):
             os.remove(config_file)
             logger.info("fio configuration file removed.")
-
-
-def deploy_cluster(storage_nodes,test,ha_type,distr_ndcs,distr_npcs,enable_qos,ifname,blk_size, page_size_in_blocks, cli_pass,
-                   cap_warn, cap_crit, prov_cap_warn, prov_cap_crit, log_del_interval, metrics_retention_period,
-                   contact_point, grafana_endpoint, distr_bs, distr_chunk_bs,
-                   enable_node_affinity, qpair_count, max_queue_size, inflight_io_threshold, strict_node_anti_affinity,
-                   data_nics,spdk_image,spdk_debug,small_bufsize,large_bufsize,num_partitions_per_dev,jm_percent,
-                   max_snap,number_of_devices,enable_test_device,enable_ha_jm,
-                   ha_jm_count,namespace,partition_size,
-                   lvol_name, lvol_size, lvol_ha_type, pool_name, pool_max, host_id, comp, crypto, distr_vuid, max_rw_iops,
-                   max_rw_mbytes, max_r_mbytes, max_w_mbytes, with_snapshot, max_size, crypto_key1, crypto_key2,
-                   lvol_priority_class, id_device_by_nqn, fstype) -> None:
-    logger.info("run deploy-cleaner")
-
-    storage_node_ops.deploy_cleaner()
-
-    logger.info("creating cluster")
-    cluster_uuid = create_cluster(
-            blk_size, page_size_in_blocks,
-            cli_pass, cap_warn, cap_crit, prov_cap_warn, prov_cap_crit,
-            ifname, log_del_interval, metrics_retention_period, contact_point, grafana_endpoint,
-            distr_ndcs, distr_npcs, distr_bs, distr_chunk_bs, ha_type, enable_node_affinity,
-            qpair_count, max_queue_size, inflight_io_threshold, enable_qos, strict_node_anti_affinity)
-
-    time.sleep(5)
-
-    storage_nodes_list=storage_nodes.split(",")
-    for node in storage_nodes_list:
-        node_ip = node.strip()
-        dev_ip=f"{node_ip}:5000"
-        add_node_status=storage_node_ops.add_node(cluster_uuid,dev_ip,ifname,data_nics,max_snap,spdk_image,spdk_debug,
-                                  small_bufsize,large_bufsize,num_partitions_per_dev,jm_percent,number_of_devices,
-                                  enable_test_device,namespace,enable_ha_jm,id_device_by_nqn,partition_size,ha_jm_count)
-
-
-        if not add_node_status:
-            raise ValueError("Could not add storage node successfully")
-
-        time.sleep(5)
-
-    cluster_activate(cluster_uuid)
-
-    if not test:
-        return
-
-    pool_id=pool_controller.add_pool(pool_name,pool_max,max_size,
-                        max_rw_iops,max_rw_mbytes,max_r_mbytes,max_w_mbytes,None,cluster_uuid)
-
-    lvol_uuid, msg = lvol_controller.add_lvol_ha(
-                lvol_name, lvol_size, host_id, lvol_ha_type, pool_id, comp, crypto,
-                distr_vuid,
-                max_rw_iops=max_rw_iops,
-                max_rw_mbytes=max_rw_mbytes,
-                max_r_mbytes=max_r_mbytes,
-                max_w_mbytes=max_w_mbytes,
-                with_snapshot=with_snapshot,
-                max_size=max_size,
-                crypto_key1=crypto_key1,
-                crypto_key2=crypto_key2,
-                lvol_priority_class=lvol_priority_class,
-                uid=None, pvc_name=None, namespace=None)
-
-    if not lvol_uuid:
-        raise ValueError(f"lvol creation failed {msg}")
-
-    time.sleep(5)
-
-    subprocess.run("sudo modprobe nvme-tcp", shell=True, check=True)
-
-    connect = lvol_controller.connect_lvol(lvol_uuid)
-
-    if not connect:
-        raise ValueError("connect command generation failed")
-
-    for entry in connect:
-        connect_string = entry.get("connect")
-        subprocess.check_call(connect_string, shell=True)
-
-    nvme_list_command = "sudo nvme list"
-    logger.info(f"Executing NVMe list command: {nvme_list_command}")
-    device_name = parse_nvme_list_output(
-        subprocess.check_output(nvme_list_command, shell=True, text=True),
-        lvol_uuid
-    )
-
-    mkfs_command = f"sudo mkfs.{fstype} {device_name}"
-    subprocess.run(mkfs_command, shell=True, check=True)
-
-
-    mount_point = os.path.join(os.path.expanduser("~"), lvol_uuid)
-    os.makedirs(mount_point, exist_ok=True)
-    mount_command = f"sudo mount {device_name} {mount_point}"
-
-    subprocess.run(mount_command, shell=True, check=True)
-
-    logger.info(f"running fio on mount point {mount_point}")
-
-    _run_fio(mount_point)
-
-    _cleanup_nvme(mount_point, connect[0]['nqn'])
-
-    status=lvol_controller.delete_lvol(lvol_uuid)
-    if not status:
-        raise ValueError('LVol deletion failed')
-
-    pool_controller.delete_pool(pool_id)
 
 
 def add_cluster(blk_size, page_size_in_blocks, cap_warn, cap_crit, prov_cap_warn, prov_cap_crit,
@@ -504,8 +398,6 @@ def cluster_activate(cl_id, force=False, force_lvstore_create=False) -> None:
                 continue
             if snode.secondary_node_id:
                 sec_node = db_controller.get_storage_node_by_id(snode.secondary_node_id)
-                if sec_node is None:
-                    raise ValueError(f"Failed to activate cluster, secondary node {snode.secondary_node_id} not found")
                 sec_node.lvstore_stack_secondary_1 = snode.get_id()
                 sec_node.write_to_db()
                 used_nodes_as_sec.append(snode.secondary_node_id)
@@ -519,8 +411,6 @@ def cluster_activate(cl_id, force=False, force_lvstore_create=False) -> None:
             snode.secondary_node_id = secondary_nodes[0]
             snode.write_to_db()
             sec_node = db_controller.get_storage_node_by_id(snode.secondary_node_id)
-            if sec_node is None:
-                raise ValueError(f"Failed to activate cluster, secondary node {snode.secondary_node_id} not found")
             sec_node.lvstore_stack_secondary_1 = snode.get_id()
             sec_node.write_to_db()
             used_nodes_as_sec.append(snode.secondary_node_id)
@@ -621,8 +511,6 @@ def cluster_expand(cl_id) -> None:
             snode.write_to_db()
 
             sec_node = db_controller.get_storage_node_by_id(snode.secondary_node_id)
-            if sec_node is None:
-                raise ValueError(f"Failed to expand cluster, secondary node {snode.secondary_node_id} not found")
             sec_node.lvstore_stack_secondary_1 = snode.get_id()
             sec_node.write_to_db()
 
@@ -689,17 +577,16 @@ def cluster_set_read_only(cl_id) -> None:
     if cluster.status == Cluster.STATUS_READONLY:
         return
 
-    ret = set_cluster_status(cl_id, Cluster.STATUS_READONLY)
-    if ret:
-        st = db_controller.get_storage_nodes_by_cluster_id(cl_id)
-        for node in st:
-            if node.status not in [StorageNode.STATUS_ONLINE, StorageNode.STATUS_SUSPENDED, StorageNode.STATUS_DOWN]:
-                continue
-            for dev in node.nvme_devices:
-                if dev.status == NVMeDevice.STATUS_ONLINE:
-                    # dev_stat = db_controller.get_device_stats(dev, 1)
-                    # if dev_stat and dev_stat[0].size_util >= cluster.cap_crit:
-                    device_controller.device_set_state(dev.get_id(), NVMeDevice.STATUS_CANNOT_ALLOCATE)
+    set_cluster_status(cl_id, Cluster.STATUS_READONLY)
+    st = db_controller.get_storage_nodes_by_cluster_id(cl_id)
+    for node in st:
+        if node.status not in [StorageNode.STATUS_ONLINE, StorageNode.STATUS_SUSPENDED, StorageNode.STATUS_DOWN]:
+            continue
+        for dev in node.nvme_devices:
+            if dev.status == NVMeDevice.STATUS_ONLINE:
+                # dev_stat = db_controller.get_device_stats(dev, 1)
+                # if dev_stat and dev_stat[0].size_util >= cluster.cap_crit:
+                device_controller.device_set_state(dev.get_id(), NVMeDevice.STATUS_CANNOT_ALLOCATE)
 
 
 def cluster_set_active(cl_id) -> None:
@@ -711,18 +598,17 @@ def cluster_set_active(cl_id) -> None:
     if cluster.status == Cluster.STATUS_ACTIVE:
         return
 
-    ret = set_cluster_status(cl_id, Cluster.STATUS_ACTIVE)
-    if ret:
-        st = db_controller.get_storage_nodes_by_cluster_id(cl_id)
-        for node in st:
-            if node.status not in [StorageNode.STATUS_ONLINE, StorageNode.STATUS_SUSPENDED, StorageNode.STATUS_DOWN]:
-                continue
+    set_cluster_status(cl_id, Cluster.STATUS_ACTIVE)
+    st = db_controller.get_storage_nodes_by_cluster_id(cl_id)
+    for node in st:
+        if node.status not in [StorageNode.STATUS_ONLINE, StorageNode.STATUS_SUSPENDED, StorageNode.STATUS_DOWN]:
+            continue
 
-            for dev in node.nvme_devices:
-                if dev.status in [NVMeDevice.STATUS_CANNOT_ALLOCATE, NVMeDevice.STATUS_READONLY]:
-                    dev_stat = db_controller.get_device_stats(dev, 1)
-                    if dev_stat and dev_stat[0].size_util < cluster.cap_crit:
-                        device_controller.device_set_online(dev.get_id())
+        for dev in node.nvme_devices:
+            if dev.status in [NVMeDevice.STATUS_CANNOT_ALLOCATE, NVMeDevice.STATUS_READONLY]:
+                dev_stat = db_controller.get_device_stats(dev, 1)
+                if dev_stat and dev_stat[0].size_util < cluster.cap_crit:
+                    device_controller.device_set_online(dev.get_id())
 
 
 def list() -> t.List[dict]:
@@ -783,7 +669,7 @@ def list_all_info(cluster_id) -> str:
     if records:
         rec = records[0]
     else:
-        rec = StatsObject()
+        rec = ClusterStatObject()
 
     task_total = 0
     task_running = 0
@@ -859,11 +745,11 @@ def list_all_info(cluster_id) -> str:
     dev_data = []
 
     for node in st:
-        records = db_controller.get_node_capacity(node, 1)
-        if records:
-            rec = records[0]
+        nodecapacityrecs = db_controller.get_node_capacity(node, 1)
+        if nodecapacityrecs:
+            nodecapacityrec = nodecapacityrecs[0]
         else:
-            rec = StatsObject()
+            nodecapacityrec = NodeStatObject()
 
         lvs = db_controller.get_lvols_by_node_id(node.get_id()) or []
         total_devices = len(node.nvme_devices)
@@ -875,18 +761,18 @@ def list_all_info(cluster_id) -> str:
         data.append({
             "Storage node UUID": node.uuid,
 
-            "Size": f"{utils.humanbytes(rec.size_total)}",
-            "Used": f"{utils.humanbytes(rec.size_used)}",
-            "Free": f"{utils.humanbytes(rec.size_free)}",
-            "Util": f"{rec.size_util}%",
+            "Size": f"{utils.humanbytes(nodecapacityrec.size_total)}",
+            "Used": f"{utils.humanbytes(nodecapacityrec.size_used)}",
+            "Free": f"{utils.humanbytes(nodecapacityrec.size_free)}",
+            "Util": f"{nodecapacityrec.size_util}%",
 
-            "Read BW/s": f"{utils.humanbytes(rec.read_bytes_ps)}",
-            "Write BW/s": f"{utils.humanbytes(rec.write_bytes_ps)}",
-            "Read IOP/s": f"{rec.read_io_ps}",
-            "Write IOP/s": f"{rec.write_io_ps}",
+            "Read BW/s": f"{utils.humanbytes(nodecapacityrec.read_bytes_ps)}",
+            "Write BW/s": f"{utils.humanbytes(nodecapacityrec.write_bytes_ps)}",
+            "Read IOP/s": f"{nodecapacityrec.read_io_ps}",
+            "Write IOP/s": f"{nodecapacityrec.write_io_ps}",
 
-            "Size prov": f"{utils.humanbytes(rec.size_prov)}",
-            "Util prov": f"{rec.size_prov_util}%",
+            "Size prov": f"{utils.humanbytes(nodecapacityrec.size_prov)}",
+            "Util prov": f"{nodecapacityrec.size_prov_util}%",
 
             "Devices": f"{total_devices}/{online_devices}",
             "LVols": f"{len(lvs)}",
@@ -895,26 +781,25 @@ def list_all_info(cluster_id) -> str:
         })
 
         for dev in node.nvme_devices:
-            records = db_controller.get_device_capacity(dev)
-            if records:
-                rec = records[0]
+            devicecapacityrecs = db_controller.get_device_capacity(dev)
+            if devicecapacityrecs:
+                devicecapacityrec = devicecapacityrecs[0]
             else:
-                rec = StatsObject()
+                devicecapacityrec = DeviceStatObject()
 
             dev_data.append({
                 "Device UUID": dev.uuid,
-                "Size": f"{utils.humanbytes(rec.size_total)}",
-                "Used": f"{utils.humanbytes(rec.size_used)}",
-                "Free": f"{utils.humanbytes(rec.size_free)}",
-                "Util": f"{rec.size_util}%",
-                "Read BW/s": f"{utils.humanbytes(rec.read_bytes_ps)}",
-                "Write BW/s": f"{utils.humanbytes(rec.write_bytes_ps)}",
-                "Read IOP/s": f"{rec.read_io_ps}",
-                "Write IOP/s": f"{rec.write_io_ps}",
+                "Size": f"{utils.humanbytes(devicecapacityrec.size_total)}",
+                "Used": f"{utils.humanbytes(devicecapacityrec.size_used)}",
+                "Free": f"{utils.humanbytes(devicecapacityrec.size_free)}",
+                "Util": f"{devicecapacityrec.size_util}%",
+                "Read BW/s": f"{utils.humanbytes(devicecapacityrec.read_bytes_ps)}",
+                "Write BW/s": f"{utils.humanbytes(devicecapacityrec.write_bytes_ps)}",
+                "Read IOP/s": f"{devicecapacityrec.read_io_ps}",
+                "Write IOP/s": f"{devicecapacityrec.write_io_ps}",
                 "StorgeID": dev.cluster_device_order,
                 "Health": dev.health_check,
                 "Status": dev.status,
-
             })
 
     out += "\n"
@@ -929,26 +814,24 @@ def list_all_info(cluster_id) -> str:
 
     lvol_data = []
     for lvol in db_controller.get_lvols(cluster_id):
-        records = db_controller.get_lvol_stats(lvol, 1)
-        if records:
-            rec = records[0]
+        lvolstatsrecs = db_controller.get_lvol_stats(lvol, 1)
+        if lvolstatsrecs:
+            lvolstatsrec = lvolstatsrecs[0]
         else:
-            rec = StatsObject()
+            lvolstatsrec = LVolStatObject()
 
         lvol_data.append({
             "LVol UUID": lvol.uuid,
-            "Size": f"{utils.humanbytes(rec.size_total)}",
-            "Used": f"{utils.humanbytes(rec.size_used)}",
-            "Free": f"{utils.humanbytes(rec.size_free)}",
-            "Util": f"{rec.size_util}%",
-            "Read BW/s": f"{utils.humanbytes(rec.read_bytes_ps)}",
-            "Write BW/s": f"{utils.humanbytes(rec.write_bytes_ps)}",
-            "Read IOP/s": f"{rec.read_io_ps}",
-            "Write IOP/s": f"{rec.write_io_ps}",
-            # "Connections": f"{rec.connected_clients}",
+            "Size": f"{utils.humanbytes(lvolstatsrec.size_total)}",
+            "Used": f"{utils.humanbytes(lvolstatsrec.size_used)}",
+            "Free": f"{utils.humanbytes(lvolstatsrec.size_free)}",
+            "Util": f"{lvolstatsrec.size_util}%",
+            "Read BW/s": f"{utils.humanbytes(lvolstatsrec.read_bytes_ps)}",
+            "Write BW/s": f"{utils.humanbytes(lvolstatsrec.write_bytes_ps)}",
+            "Read IOP/s": f"{lvolstatsrec.read_io_ps}",
+            "Write IOP/s": f"{lvolstatsrec.write_io_ps}",
             "Health": lvol.health_check,
             "Status": lvol.status,
-
         })
 
     out += "\n"
@@ -1140,7 +1023,6 @@ def update_cluster(cluster_id, mgmt_only=False, restart=False, spdk_image=None, 
     image_without_tag = constants.SIMPLY_BLOCK_DOCKER_IMAGE.split(":")[0]
     image_without_tag = image_without_tag.split("/")
     image_parts = "/".join(image_without_tag[-2:])
-    service_image = constants.SIMPLY_BLOCK_DOCKER_IMAGE
     if mgmt_image:
         service_image = mgmt_image
         for service in cluster_docker.services.list():
@@ -1195,8 +1077,6 @@ def cluster_grace_startup(cl_id, clear_data=False, spdk_image=None) -> None:
         storage_node_ops.restart_storage_node(node.get_id(), clear_data=clear_data, force=True, spdk_image=spdk_image)
         # time.sleep(5)
         get_node = db_controller.get_storage_node_by_id(node.get_id())
-        if get_node is None:
-            raise KeyError(f"Node {node.get_id()} not found after restart")
         if get_node.status != StorageNode.STATUS_ONLINE:
             raise ValueError("failed to restart node")
 

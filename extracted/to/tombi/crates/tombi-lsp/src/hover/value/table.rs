@@ -7,8 +7,11 @@ use tombi_schema_store::{
 };
 
 use crate::hover::{
-    all_of::get_all_of_hover_content, any_of::get_any_of_hover_content,
-    constraints::ValueConstraints, one_of::get_one_of_hover_content, GetHoverContent, HoverContent,
+    all_of::get_all_of_hover_content,
+    any_of::get_any_of_hover_content,
+    constraints::{build_enumerate_values, ValueConstraints},
+    one_of::get_one_of_hover_content,
+    GetHoverContent, HoverContent,
 };
 
 impl GetHoverContent for tombi_document_tree::Table {
@@ -423,10 +426,11 @@ impl GetHoverContent for TableSchema {
                 accessors: Accessors::new(accessors.to_vec()),
                 value_type: ValueType::Table,
                 constraints: Some(ValueConstraints {
-                    enumerate: self
-                        .enumerate
-                        .as_ref()
-                        .map(|enumerate| enumerate.iter().map(|example| example.into()).collect()),
+                    enumerate: build_enumerate_values(
+                        &self.const_value,
+                        &self.enumerate,
+                        |value| Some(value.into()),
+                    ),
                     default: self.default.as_ref().map(|default| default.into()),
                     examples: self
                         .examples

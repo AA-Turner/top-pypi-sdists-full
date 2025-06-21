@@ -106,26 +106,49 @@ class MarkdownTextSerializer(BaseModel, BaseTextSerializer):
         doc_serializer: BaseDocSerializer,
         doc: DoclingDocument,
         is_inline_scope: bool = False,
+        visited: Optional[set[str]] = None,  # refs of visited items
         **kwargs: Any,
     ) -> SerializationResult:
         """Serializes the passed item."""
+        my_visited = visited if visited is not None else set()
         params = MarkdownParams(**kwargs)
         res_parts: list[SerializationResult] = []
+        text = item.text
         escape_html = True
         escape_underscores = True
-        if isinstance(item, TitleItem):
-            text_part = f"# {item.text}"
-        elif isinstance(item, SectionHeaderItem):
-            text_part = f"{(item.level + 1) * '#'} {item.text}"
+        processing_pending = True
+        if isinstance(item, (TitleItem, SectionHeaderItem)):
+            # case where processing/formatting should be applied first (in inner scope)
+            processing_pending = False
+            if (
+                text == ""
+                and len(item.children) == 1
+                and isinstance(
+                    (child_group := item.children[0].resolve(doc)), InlineGroup
+                )
+            ):
+                # case of heading with inline
+                ser_res = doc_serializer.serialize(item=child_group)
+                text = ser_res.text
+                for span in ser_res.spans:
+                    my_visited.add(span.item.self_ref)
+            else:
+                text = doc_serializer.post_process(
+                    text=text,
+                    escape_html=escape_html,
+                    escape_underscores=escape_underscores,
+                    formatting=item.formatting,
+                    hyperlink=item.hyperlink,
+                )
+            num_hashes = 1 if isinstance(item, TitleItem) else item.level + 1
+            text_part = f"{num_hashes * '#'} {text}"
         elif isinstance(item, CodeItem):
-            text_part = (
-                f"`{item.text}`" if is_inline_scope else f"```\n{item.text}\n```"
-            )
+            text_part = f"`{text}`" if is_inline_scope else f"```\n{text}\n```"
             escape_html = False
             escape_underscores = False
         elif isinstance(item, FormulaItem):
-            if item.text:
-                text_part = f"${item.text}$" if is_inline_scope else f"$${item.text}$$"
+            if text:
+                text_part = f"${text}$" if is_inline_scope else f"$${text}$$"
             elif item.orig:
                 text_part = "<!-- formula-not-decoded -->"
             else:
@@ -133,9 +156,10 @@ class MarkdownTextSerializer(BaseModel, BaseTextSerializer):
             escape_html = False
             escape_underscores = False
         elif params.wrap_width:
-            text_part = textwrap.fill(item.text, width=params.wrap_width)
+            # although wrapping is not guaranteed if post-processing makes changes
+            text_part = textwrap.fill(text, width=params.wrap_width)
         else:
-            text_part = item.text
+            text_part = text
 
         if text_part:
             text_res = create_ser_result(text=text_part, span_source=item)
@@ -147,13 +171,14 @@ class MarkdownTextSerializer(BaseModel, BaseTextSerializer):
                 res_parts.append(cap_res)
 
         text = (" " if is_inline_scope else "\n\n").join([r.text for r in res_parts])
-        text = doc_serializer.post_process(
-            text=text,
-            escape_html=escape_html,
-            escape_underscores=escape_underscores,
-            formatting=item.formatting,
-            hyperlink=item.hyperlink,
-        )
+        if processing_pending:
+            text = doc_serializer.post_process(
+                text=text,
+                escape_html=escape_html,
+                escape_underscores=escape_underscores,
+                formatting=item.formatting,
+                hyperlink=item.hyperlink,
+            )
         return create_ser_result(text=text, span_source=res_parts)
 
 

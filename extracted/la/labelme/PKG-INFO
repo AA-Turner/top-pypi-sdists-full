@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: labelme
-Version: 5.8.1
+Version: 5.8.2
 Summary: Image Polygonal Annotation with Python
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
 License: GPL-3.0-only

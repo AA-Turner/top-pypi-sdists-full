@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-api
-Version: 1.0.2
+Version: 1.0.3
 Summary: Python Server API for LiveKit
 Home-page: https://github.com/livekit/python-sdks
 License: Apache-2.0
@@ -25,7 +25,7 @@ Requires-Dist: pyjwt>=2.0.0
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: protobuf>=4
 Requires-Dist: types-protobuf>=4
-Requires-Dist: livekit-protocol~=1.0
+Requires-Dist: livekit-protocol<2.0.0,>=1.0.4
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -40,3 +40,6 @@ Dynamic: summary
 # LiveKit Server APIs
 
 Access LiveKit server APIs and generate access tokens.
+
+See https://docs.livekit.io/reference/server/server-apis for more information.
+

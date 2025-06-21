@@ -325,12 +325,12 @@ async def extracao_fechamento_contabil(
             date_now = datetime.now().strftime("%Y%m%d%H%M%S")
             data_inicial_arquivo = periodo_inicial.replace("/", "")
             data_final_arquivo = periodo_final.replace("/", "")
-            
+
             # Caminho completo para Downloads
             nome_arquivo = f"C:\\Users\\{getpass.getuser()}\\Downloads\\balancete_{data_inicial_arquivo}_{data_final_arquivo}_{date_now}.XLS"
-           
+
             console.print(f"Salvar arquivo: {nome_arquivo}")
-            
+
             # Inserir nome do arquivo
             input_nome = main_window.child_window(class_name="Edit", found_index=0)
             type_text_into_field(
@@ -344,8 +344,7 @@ async def extracao_fechamento_contabil(
             botao_salvar.click_input()
 
             await worker_sleep(2)
-            
-            
+
             ##### Janela Print #####
 
             app = Application(backend="win32").connect(title="Print")
@@ -375,12 +374,12 @@ async def extracao_fechamento_contabil(
             await worker_sleep(3)
 
             console.print("Criar arquivo JSON")
-            
+
             arquivo_path = Path(nome_arquivo)
             # Altera a extensão para .XLS maiúsculo (caso o EMSys exporte assim)
-            caminho_arquivo = arquivo_path.with_suffix('.XLS')
+            caminho_arquivo = arquivo_path.with_suffix(".XLS")
             # Altera a extensão final para .xls minúsculo
-            caminho_ajustado = caminho_arquivo.with_suffix('.xls')
+            caminho_ajustado = caminho_arquivo.with_suffix(".xls")
             nome_com_extensao = caminho_ajustado.name
             print(nome_com_extensao)
             # Renomeia o arquivo
@@ -435,7 +434,7 @@ async def extracao_fechamento_contabil(
             console.print(json.dumps(dados_json, ensure_ascii=False, indent=2))
 
             await worker_sleep(3)
-            sended_to_datalake= False
+            sended_to_datalake = False
             console.print("Enviar arquivo para o Datalake")
             # Envia o JSON para o datalake
             directory = "balancete_contabil/raw"
@@ -444,10 +443,8 @@ async def extracao_fechamento_contabil(
                 file_bytes = io.BytesIO(file.read())
             try:
                 console.print("Enviando Json para data lake")
-                await send_file_to_datalake(
-                    directory, file_bytes, filename, "json"
-                )
-                sended_to_datalake= True
+                await send_file_to_datalake(directory, file_bytes, filename, "json")
+                sended_to_datalake = True
             except Exception as e:
                 console.print(f"Erro ao enviar o arquivo: {e}", style="bold red")
                 return RpaRetornoProcessoDTO(
@@ -456,7 +453,7 @@ async def extracao_fechamento_contabil(
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
-            sended_to_bof= False
+            sended_to_bof = False
             # lê o arquivo
             with open(f"{caminho_ajustado}", "rb") as file:
                 file_bytes = io.BytesIO(file.read())
@@ -475,7 +472,7 @@ async def extracao_fechamento_contabil(
                 os.remove(f"{caminho_ajustado}")
                 console.print("Removendo arquivo JSON da pasta downloads")
                 os.remove(full_path)
-                sended_to_bof= True
+                sended_to_bof = True
             except Exception as e:
                 result = f"Arquivo Balancete contábil gerado com sucesso, porém gerou erro ao realizar o envio para o backoffice {e} - Arquivo ainda salvo na dispositivo utilizado no diretório {caminho_arquivo} !"
                 console.print(result, style="bold red")
@@ -485,13 +482,12 @@ async def extracao_fechamento_contabil(
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
-            
+
             if sended_to_datalake and sended_to_bof:
                 return RpaRetornoProcessoDTO(
                     sucesso=True,
-                    retorno="Sucesso ao processar Integração Contabil ",
+                    retorno=dados_json,
                     status=RpaHistoricoStatusEnum.Sucesso,
-                    
                 )
         except Exception as erro:
             return RpaRetornoProcessoDTO(

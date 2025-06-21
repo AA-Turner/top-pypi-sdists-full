@@ -9,12 +9,14 @@ from . import (
     evals,
     files,
     jobs,
+    llama_apps,
     llama_extract,
     organizations,
     parsing,
     pipelines,
     projects,
     reports,
+    responses,
     retrievers,
 )
 from .data_sinks import DataSinkUpdateComponent
@@ -98,11 +100,13 @@ __all__ = [
     "evals",
     "files",
     "jobs",
+    "llama_apps",
     "llama_extract",
     "organizations",
     "parsing",
     "pipelines",
     "projects",
     "reports",
+    "responses",
     "retrievers",
 ]

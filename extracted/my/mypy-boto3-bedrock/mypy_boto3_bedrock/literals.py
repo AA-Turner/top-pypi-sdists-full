@@ -35,6 +35,7 @@ __all__ = (
     "FoundationModelLifecycleStatusType",
     "GuardrailContentFilterActionType",
     "GuardrailContentFilterTypeType",
+    "GuardrailContentFiltersTierNameType",
     "GuardrailContextualGroundingActionType",
     "GuardrailContextualGroundingFilterTypeType",
     "GuardrailFilterStrengthType",
@@ -45,6 +46,7 @@ __all__ = (
     "GuardrailStatusType",
     "GuardrailTopicActionType",
     "GuardrailTopicTypeType",
+    "GuardrailTopicsTierNameType",
     "GuardrailWordActionType",
     "InferenceProfileStatusType",
     "InferenceProfileTypeType",
@@ -106,6 +108,7 @@ GuardrailContentFilterActionType = Literal["BLOCK", "NONE"]
 GuardrailContentFilterTypeType = Literal[
     "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
 ]
+GuardrailContentFiltersTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailContextualGroundingActionType = Literal["BLOCK", "NONE"]
 GuardrailContextualGroundingFilterTypeType = Literal["GROUNDING", "RELEVANCE"]
 GuardrailFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
@@ -148,6 +151,7 @@ GuardrailSensitiveInformationActionType = Literal["ANONYMIZE", "BLOCK", "NONE"]
 GuardrailStatusType = Literal["CREATING", "DELETING", "FAILED", "READY", "UPDATING", "VERSIONING"]
 GuardrailTopicActionType = Literal["BLOCK", "NONE"]
 GuardrailTopicTypeType = Literal["DENY"]
+GuardrailTopicsTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailWordActionType = Literal["BLOCK", "NONE"]
 InferenceProfileStatusType = Literal["ACTIVE"]
 InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]

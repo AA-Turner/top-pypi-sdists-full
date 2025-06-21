@@ -12,6 +12,7 @@ use tombi_schema_store::{get_schema_name, SchemaUrl};
 pub enum CompletionContentPriority {
     Custom(String),
     Default,
+    Const,
     Enum,
     Key,
     OptionalKey,
@@ -26,15 +27,18 @@ impl CompletionContentPriority {
     pub fn as_prefix(&self) -> String {
         match self {
             CompletionContentPriority::Custom(value) => value.to_string(),
-            CompletionContentPriority::Default => "1".to_string(),
-            CompletionContentPriority::Enum => "2".to_string(),
-            CompletionContentPriority::Key => "3".to_string(),
-            CompletionContentPriority::OptionalKey => "4".to_string(),
-            CompletionContentPriority::AdditionalKey => "5".to_string(),
-            CompletionContentPriority::TypeHint => "6".to_string(),
-            CompletionContentPriority::TypeHintKey => "7".to_string(),
-            CompletionContentPriority::TypeHintTrue => "8".to_string(),
-            CompletionContentPriority::TypeHintFalse => "9".to_string(),
+            // NOTE: 30 is the prefix for completion items from extensions
+            //       that should be prioritized over basic features.
+            CompletionContentPriority::Default => "30".to_string(),
+            CompletionContentPriority::Const => "31".to_string(),
+            CompletionContentPriority::Enum => "32".to_string(),
+            CompletionContentPriority::Key => "33".to_string(),
+            CompletionContentPriority::OptionalKey => "34".to_string(),
+            CompletionContentPriority::AdditionalKey => "35".to_string(),
+            CompletionContentPriority::TypeHint => "36".to_string(),
+            CompletionContentPriority::TypeHintKey => "37".to_string(),
+            CompletionContentPriority::TypeHintTrue => "38".to_string(),
+            CompletionContentPriority::TypeHintFalse => "39".to_string(),
         }
     }
 }
@@ -55,6 +59,30 @@ pub struct CompletionContent {
 }
 
 impl CompletionContent {
+    pub fn new_const_value(
+        kind: CompletionKind,
+        label: String,
+        detail: Option<String>,
+        documentation: Option<String>,
+        edit: Option<CompletionEdit>,
+        schema_url: Option<&SchemaUrl>,
+        deprecated: Option<bool>,
+    ) -> Self {
+        Self {
+            label: label.clone(),
+            kind,
+            emoji_icon: None,
+            priority: CompletionContentPriority::Const,
+            detail,
+            documentation,
+            filter_text: None,
+            schema_url: schema_url.cloned(),
+            edit,
+            deprecated,
+            preselect: None,
+        }
+    }
+
     pub fn new_enumerate_value(
         kind: CompletionKind,
         label: String,
@@ -434,13 +462,28 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             CompletionContentPriority::Default => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some("Default".to_string()),
+                    description: Some(match &completion_content.detail {
+                        Some(detail) => format!("[Default] {}", detail),
+                        None => "Default".to_string(),
+                    }),
+                })
+            }
+            CompletionContentPriority::Const => {
+                Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
+                    detail: None,
+                    description: Some(match &completion_content.detail {
+                        Some(detail) => detail.to_string(),
+                        None => "Const".to_string(),
+                    }),
                 })
             }
             CompletionContentPriority::Enum => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some("Enum".to_string()),
+                    description: Some(match &completion_content.detail {
+                        Some(detail) => detail.to_string(),
+                        None => "Enum".to_string(),
+                    }),
                 })
             }
             CompletionContentPriority::Key => {

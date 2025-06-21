@@ -29,6 +29,8 @@ from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
 
 logger = structlog.stdlib.get_logger(__name__)
 
+ALL_RETRIABLE_EXCEPTIONS = (asyncio.CancelledError, *RETRIABLE_EXCEPTIONS)
+
 
 class WorkerResult(TypedDict):
     checkpoint: CheckpointPayload | None
@@ -294,7 +296,7 @@ async def worker(
                 await Threads.set_joint_status(
                     conn, run["thread_id"], run_id, status, checkpoint, exception
                 )
-            elif isinstance(exception, RETRIABLE_EXCEPTIONS):
+            elif isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 status = "retry"
                 run_ended_at_dt = datetime.now(UTC)
                 run_ended_at = run_ended_at_dt.isoformat()
@@ -329,7 +331,7 @@ async def worker(
                 )
 
             # delete or set status of thread
-            if not isinstance(exception, RETRIABLE_EXCEPTIONS):
+            if not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 if temporary:
                     await Threads.delete(conn, run["thread_id"])
                 else:
@@ -346,7 +348,7 @@ async def worker(
                         else:
                             raise
 
-        if isinstance(exception, RETRIABLE_EXCEPTIONS):
+        if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)
             # re-raise so Runs.enter knows not to mark as done
             # Runs.enter will catch the exception, but what triggers the retry

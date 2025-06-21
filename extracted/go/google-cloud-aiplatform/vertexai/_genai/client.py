@@ -14,7 +14,6 @@
 #
 
 import importlib
-
 from typing import Optional, Union
 
 import google.auth
@@ -24,11 +23,11 @@ from google.genai import types
 
 
 class AsyncClient:
+
     """Async Client for the GenAI SDK."""
 
     def __init__(self, api_client: client.Client):
         self._api_client = api_client
-        self._aio = AsyncClient(self._api_client)
         self._evals = None
 
     @property
@@ -49,6 +48,8 @@ class AsyncClient:
                     "google-cloud-aiplatform[evaluation]"
                 ) from e
         return self._evals.AsyncEvals(self._api_client)
+
+    # TODO(b/424176979): add async prompt optimizer here.
 
 
 class Client:
@@ -100,7 +101,9 @@ class Client:
             debug_config=self._debug_config,
             http_options=http_options,
         )
+        self._aio = AsyncClient(self._api_client)
         self._evals = None
+        self._prompt_optimizer = None
 
     @property
     @_common.experimental_warning(
@@ -115,8 +118,16 @@ class Client:
                 self._evals = importlib.import_module(".evals", __package__)
             except ImportError as e:
                 raise ImportError(
-                    "The 'evals' module requires 'pandas' and 'tqdm'. "
+                    "The 'evals' module requires additional dependencies. "
                     "Please install them using pip install "
                     "google-cloud-aiplatform[evaluation]"
                 ) from e
         return self._evals.Evals(self._api_client)
+
+    @property
+    @_common.experimental_warning(
+        "The Vertex SDK GenAI async client is experimental, "
+        "and may change in future versions."
+    )
+    def aio(self):
+        return self._aio

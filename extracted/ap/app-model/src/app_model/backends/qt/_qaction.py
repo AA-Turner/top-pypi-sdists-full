@@ -41,7 +41,7 @@ class QCommandAction(QAction):
         command_id: str,
         app: Application | str,
         parent: QObject | None = None,
-    ):
+    ) -> None:
         super().__init__(parent)
         self._app = Application.get_or_create(app) if isinstance(app, str) else app
         self._command_id = command_id
@@ -81,7 +81,7 @@ class QCommandRuleAction(QCommandAction):
         parent: QObject | None = None,
         *,
         use_short_title: bool = False,
-    ):
+    ) -> None:
         super().__init__(command_rule.id, app, parent)
         self._cmd_rule = command_rule
         if use_short_title and command_rule.short_title:
@@ -107,10 +107,8 @@ class QCommandRuleAction(QCommandAction):
         """Update the enabled state of this menu item from `ctx`."""
         self.setEnabled(expr.eval(ctx) if (expr := self._cmd_rule.enablement) else True)
         if expr2 := self._cmd_rule.toggled:
-            if (
-                isinstance(expr2, Expr)
-                or isinstance(expr2, ToggleRule)
-                and (expr2 := expr2.condition)
+            if isinstance(expr2, Expr) or (
+                isinstance(expr2, ToggleRule) and (expr2 := expr2.condition)
             ):
                 self.setChecked(expr2.eval(ctx))
 
@@ -139,16 +137,14 @@ class QMenuItemAction(QCommandRuleAction):
         Optional parent widget, by default None
     """
 
-    _cache: ClassVar[WeakValueDictionary[tuple[int, int], QMenuItemAction]] = (
-        WeakValueDictionary()
-    )
+    _cache: ClassVar[WeakValueDictionary[tuple[int, int], Self]] = WeakValueDictionary()
 
     def __init__(
         self,
         menu_item: MenuItem,
         app: Application | str,
         parent: QObject | None = None,
-    ):
+    ) -> None:
         super().__init__(menu_item.command, app, parent)
         self._menu_item = menu_item
         with contextlib.suppress(NameError):

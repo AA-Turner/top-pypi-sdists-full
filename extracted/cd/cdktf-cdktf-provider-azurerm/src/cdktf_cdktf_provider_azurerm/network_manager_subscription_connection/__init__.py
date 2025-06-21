@@ -1,7 +1,7 @@
 r'''
 # `azurerm_network_manager_subscription_connection`
 
-Refer to the Terraform Registry for docs: [`azurerm_network_manager_subscription_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection).
+Refer to the Terraform Registry for docs: [`azurerm_network_manager_subscription_connection`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkManagerSubscriptionConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.networkManagerSubscriptionConnection.NetworkManagerSubscriptionConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection azurerm_network_manager_subscription_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection azurerm_network_manager_subscription_connection}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class NetworkManagerSubscriptionConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection azurerm_network_manager_subscription_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection azurerm_network_manager_subscription_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.
-        :param network_manager_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.
+        :param network_manager_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class NetworkManagerSubscriptionConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkManagerSubscriptionConnection to import.
-        :param import_from_id: The id of the existing NetworkManagerSubscriptionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkManagerSubscriptionConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkManagerSubscriptionConnection to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class NetworkManagerSubscriptionConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.
         '''
         value = NetworkManagerSubscriptionConnectionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -325,12 +325,12 @@ class NetworkManagerSubscriptionConnectionConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.
-        :param network_manager_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.
+        :param network_manager_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -443,34 +443,34 @@ class NetworkManagerSubscriptionConnectionConfig(
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#name NetworkManagerSubscriptionConnection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def network_manager_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#network_manager_id NetworkManagerSubscriptionConnection#network_manager_id}.'''
         result = self._values.get("network_manager_id")
         assert result is not None, "Required property 'network_manager_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscription_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#subscription_id NetworkManagerSubscriptionConnection#subscription_id}.'''
         result = self._values.get("subscription_id")
         assert result is not None, "Required property 'subscription_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#description NetworkManagerSubscriptionConnection#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#id NetworkManagerSubscriptionConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -484,7 +484,7 @@ class NetworkManagerSubscriptionConnectionConfig(
     ) -> typing.Optional["NetworkManagerSubscriptionConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#timeouts NetworkManagerSubscriptionConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkManagerSubscriptionConnectionTimeouts"], result)
@@ -521,10 +521,10 @@ class NetworkManagerSubscriptionConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b34172b2dd43bd704aa16c97a0470ff4ad50d48bce513590964055a412e0894)
@@ -544,25 +544,25 @@ class NetworkManagerSubscriptionConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#create NetworkManagerSubscriptionConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#delete NetworkManagerSubscriptionConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#read NetworkManagerSubscriptionConnection#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/network_manager_subscription_connection#update NetworkManagerSubscriptionConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

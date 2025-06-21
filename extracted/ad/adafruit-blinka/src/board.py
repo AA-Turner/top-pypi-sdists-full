@@ -11,7 +11,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 """
 
 
-__version__ = "8.60.3"
+__version__ = "8.60.4"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 

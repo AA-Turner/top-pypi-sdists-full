@@ -240,6 +240,65 @@ amplify_app = amplify.App(self, "App",
 )
 ```
 
+If the app uses a monorepo structure, define which appRoot from the build spec the custom response headers should apply to by using the `appRoot` property:
+
+```python
+import aws_cdk.aws_codebuild as codebuild
+
+
+amplify_app = amplify.App(self, "App",
+    source_code_provider=amplify.GitHubSourceCodeProvider(
+        owner="<user>",
+        repository="<repo>",
+        oauth_token=SecretValue.secrets_manager("my-github-token")
+    ),
+    build_spec=codebuild.BuildSpec.from_object_to_yaml({
+        "version": "1.0",
+        "applications": [{
+            "app_root": "frontend",
+            "frontend": {
+                "phases": {
+                    "pre_build": {
+                        "commands": ["npm install"]
+                    },
+                    "build": {
+                        "commands": ["npm run build"]
+                    }
+                }
+            }
+        }, {
+            "app_root": "backend",
+            "backend": {
+                "phases": {
+                    "pre_build": {
+                        "commands": ["npm install"]
+                    },
+                    "build": {
+                        "commands": ["npm run build"]
+                    }
+                }
+            }
+        }
+        ]
+    }),
+    custom_response_headers=[amplify.CustomResponseHeader(
+        app_root="frontend",
+        pattern="*.json",
+        headers={
+            "custom-header-name-1": "custom-header-value-1",
+            "custom-header-name-2": "custom-header-value-2"
+        }
+    ), amplify.CustomResponseHeader(
+        app_root="backend",
+        pattern="/path/*",
+        headers={
+            "custom-header-name-1": "custom-header-value-2"
+        }
+    )
+    ]
+)
+```
+
 ## Configure server side rendering when hosting app
 
 Setting the `platform` field on the Amplify `App` construct can be used to control whether the app will host only static assets or server side rendered assets in addition to static. By default, the value is set to `WEB` (static only), however, server side rendering can be turned on by setting to `WEB_COMPUTE` as follows:
@@ -269,6 +328,16 @@ amplify_app = amplify.App(self, "MyApp",
     platform=amplify.Platform.WEB_COMPUTE,
     compute_role=compute_role
 )
+```
+
+It is also possible to override the compute role for a specific branch by setting `computeRole` in `Branch`:
+
+```python
+# compute_role: iam.Role
+# amplify_app: amplify.App
+
+
+branch = amplify_app.add_branch("dev", compute_role=compute_role)
 ```
 
 ## Cache Config
@@ -422,7 +491,9 @@ class AppProps:
                     repository="<repo>",
                     oauth_token=SecretValue.secrets_manager("my-github-token")
                 ),
-                basic_auth=amplify.BasicAuth.from_generated_password("username")
+                auto_branch_creation=amplify.AutoBranchCreation( # Automatically connect branches that match a pattern set
+                    patterns=["feature/*", "test/*"]),
+                auto_branch_deletion=True
             )
         '''
         if isinstance(auto_branch_creation, dict):
@@ -1159,6 +1230,7 @@ class BasicAuthProps:
         "basic_auth": "basicAuth",
         "branch_name": "branchName",
         "build_spec": "buildSpec",
+        "compute_role": "computeRole",
         "description": "description",
         "environment_variables": "environmentVariables",
         "performance_mode": "performanceMode",
@@ -1177,6 +1249,7 @@ class BranchOptions:
         basic_auth: typing.Optional[BasicAuth] = None,
         branch_name: typing.Optional[builtins.str] = None,
         build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -1192,6 +1265,7 @@ class BranchOptions:
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection for the branch Default: - no password protection
         :param branch_name: (experimental) The name of the branch. Default: - the construct's id
         :param build_spec: (experimental) BuildSpec for the branch. Default: - no build spec
+        :param compute_role: (experimental) The IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. This role overrides the app-level compute role. Default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
         :param description: (experimental) A description for the branch. Default: - no description
         :param environment_variables: (experimental) Environment variables for the branch. All environment variables that you add are encrypted to prevent rogue access so you can use them to store secret information. Default: - application environment variables
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
@@ -1205,11 +1279,11 @@ class BranchOptions:
 
         Example::
 
+            # compute_role: iam.Role
             # amplify_app: amplify.App
             
-            amplify_app.add_branch("feature/next",
-                basic_auth=amplify.BasicAuth.from_generated_password("username")
-            )
+            
+            branch = amplify_app.add_branch("dev", compute_role=compute_role)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb250caeb)
@@ -1218,6 +1292,7 @@ class BranchOptions:
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
+            check_type(argname="argument compute_role", value=compute_role, expected_type=type_hints["compute_role"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument performance_mode", value=performance_mode, expected_type=type_hints["performance_mode"])
@@ -1236,6 +1311,8 @@ class BranchOptions:
             self._values["branch_name"] = branch_name
         if build_spec is not None:
             self._values["build_spec"] = build_spec
+        if compute_role is not None:
+            self._values["compute_role"] = compute_role
         if description is not None:
             self._values["description"] = description
         if environment_variables is not None:
@@ -1312,6 +1389,21 @@ class BranchOptions:
         '''
         result = self._values.get("build_spec")
         return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+
+    @builtins.property
+    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+        '''(experimental) The IAM role to assign to a branch of an SSR app.
+
+        The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions.
+
+        This role overrides the app-level compute role.
+
+        :default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
+
+        :stability: experimental
+        '''
+        result = self._values.get("compute_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1425,6 +1517,7 @@ class BranchOptions:
         "basic_auth": "basicAuth",
         "branch_name": "branchName",
         "build_spec": "buildSpec",
+        "compute_role": "computeRole",
         "description": "description",
         "environment_variables": "environmentVariables",
         "performance_mode": "performanceMode",
@@ -1444,6 +1537,7 @@ class BranchProps(BranchOptions):
         basic_auth: typing.Optional[BasicAuth] = None,
         branch_name: typing.Optional[builtins.str] = None,
         build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -1460,6 +1554,7 @@ class BranchProps(BranchOptions):
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection for the branch Default: - no password protection
         :param branch_name: (experimental) The name of the branch. Default: - the construct's id
         :param build_spec: (experimental) BuildSpec for the branch. Default: - no build spec
+        :param compute_role: (experimental) The IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. This role overrides the app-level compute role. Default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
         :param description: (experimental) A description for the branch. Default: - no description
         :param environment_variables: (experimental) Environment variables for the branch. All environment variables that you add are encrypted to prevent rogue access so you can use them to store secret information. Default: - application environment variables
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
@@ -1478,12 +1573,14 @@ class BranchProps(BranchOptions):
             # The values are placeholders you should change.
             import aws_cdk.aws_amplify_alpha as amplify_alpha
             from aws_cdk import aws_codebuild as codebuild
+            from aws_cdk import aws_iam as iam
             from aws_cdk import aws_s3_assets as s3_assets
             
             # app: amplify_alpha.App
             # asset: s3_assets.Asset
             # basic_auth: amplify_alpha.BasicAuth
             # build_spec: codebuild.BuildSpec
+            # role: iam.Role
             
             branch_props = amplify_alpha.BranchProps(
                 app=app,
@@ -1494,6 +1591,7 @@ class BranchProps(BranchOptions):
                 basic_auth=basic_auth,
                 branch_name="branchName",
                 build_spec=build_spec,
+                compute_role=role,
                 description="description",
                 environment_variables={
                     "environment_variables_key": "environmentVariables"
@@ -1512,6 +1610,7 @@ class BranchProps(BranchOptions):
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
+            check_type(argname="argument compute_role", value=compute_role, expected_type=type_hints["compute_role"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument performance_mode", value=performance_mode, expected_type=type_hints["performance_mode"])
@@ -1533,6 +1632,8 @@ class BranchProps(BranchOptions):
             self._values["branch_name"] = branch_name
         if build_spec is not None:
             self._values["build_spec"] = build_spec
+        if compute_role is not None:
+            self._values["compute_role"] = compute_role
         if description is not None:
             self._values["description"] = description
         if environment_variables is not None:
@@ -1609,6 +1710,21 @@ class BranchProps(BranchOptions):
         '''
         result = self._values.get("build_spec")
         return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+
+    @builtins.property
+    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+        '''(experimental) The IAM role to assign to a branch of an SSR app.
+
+        The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions.
+
+        This role overrides the app-level compute role.
+
+        :default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
+
+        :stability: experimental
+        '''
+        result = self._values.get("compute_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1812,7 +1928,7 @@ class CodeCommitSourceCodeProviderProps:
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-amplify-alpha.CustomResponseHeader",
     jsii_struct_bases=[],
-    name_mapping={"headers": "headers", "pattern": "pattern"},
+    name_mapping={"headers": "headers", "pattern": "pattern", "app_root": "appRoot"},
 )
 class CustomResponseHeader:
     def __init__(
@@ -1820,11 +1936,13 @@ class CustomResponseHeader:
         *,
         headers: typing.Mapping[builtins.str, builtins.str],
         pattern: builtins.str,
+        app_root: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Custom response header of an Amplify App.
 
         :param headers: (experimental) The map of custom headers to be applied.
         :param pattern: (experimental) These custom headers will be applied to all URL file paths that match this pattern.
+        :param app_root: (experimental) If the app uses a monorepo structure, the appRoot from the build spec to apply the custom headers to. Default: - The appRoot is omitted in the custom headers output.
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -1839,17 +1957,23 @@ class CustomResponseHeader:
                 headers={
                     "headers_key": "headers"
                 },
-                pattern="pattern"
+                pattern="pattern",
+            
+                # the properties below are optional
+                app_root="appRoot"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89c1962999fedf4ca1e171bdd7613e146d33a972f8a3275a1c82cf2d83ee1b3d)
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+            check_type(argname="argument app_root", value=app_root, expected_type=type_hints["app_root"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "headers": headers,
             "pattern": pattern,
         }
+        if app_root is not None:
+            self._values["app_root"] = app_root
 
     @builtins.property
     def headers(self) -> typing.Mapping[builtins.str, builtins.str]:
@@ -1870,6 +1994,17 @@ class CustomResponseHeader:
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_root(self) -> typing.Optional[builtins.str]:
+        '''(experimental) If the app uses a monorepo structure, the appRoot from the build spec to apply the custom headers to.
+
+        :default: - The appRoot is omitted in the custom headers output.
+
+        :stability: experimental
+        '''
+        result = self._values.get("app_root")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2638,15 +2773,25 @@ class GitHubSourceCodeProviderProps:
 
         Example::
 
-            amplify_app = amplify.App(self, "MyApp",
+            amplify_app = amplify.App(self, "App",
                 source_code_provider=amplify.GitHubSourceCodeProvider(
                     owner="<user>",
                     repository="<repo>",
                     oauth_token=SecretValue.secrets_manager("my-github-token")
                 ),
-                auto_branch_creation=amplify.AutoBranchCreation( # Automatically connect branches that match a pattern set
-                    patterns=["feature/*", "test/*"]),
-                auto_branch_deletion=True
+                custom_response_headers=[amplify.CustomResponseHeader(
+                    pattern="*.json",
+                    headers={
+                        "custom-header-name-1": "custom-header-value-1",
+                        "custom-header-name-2": "custom-header-value-2"
+                    }
+                ), amplify.CustomResponseHeader(
+                    pattern="/path/*",
+                    headers={
+                        "custom-header-name-1": "custom-header-value-2"
+                    }
+                )
+                ]
             )
         '''
         if __debug__:
@@ -3207,7 +3352,9 @@ class App(
                 repository="<repo>",
                 oauth_token=SecretValue.secrets_manager("my-github-token")
             ),
-            basic_auth=amplify.BasicAuth.from_generated_password("username")
+            auto_branch_creation=amplify.AutoBranchCreation( # Automatically connect branches that match a pattern set
+                patterns=["feature/*", "test/*"]),
+            auto_branch_deletion=True
         )
     '''
 
@@ -3329,6 +3476,7 @@ class App(
         basic_auth: typing.Optional[BasicAuth] = None,
         branch_name: typing.Optional[builtins.str] = None,
         build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -3345,6 +3493,7 @@ class App(
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection for the branch Default: - no password protection
         :param branch_name: (experimental) The name of the branch. Default: - the construct's id
         :param build_spec: (experimental) BuildSpec for the branch. Default: - no build spec
+        :param compute_role: (experimental) The IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. This role overrides the app-level compute role. Default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
         :param description: (experimental) A description for the branch. Default: - no description
         :param environment_variables: (experimental) Environment variables for the branch. All environment variables that you add are encrypted to prevent rogue access so you can use them to store secret information. Default: - application environment variables
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
@@ -3364,6 +3513,7 @@ class App(
             basic_auth=basic_auth,
             branch_name=branch_name,
             build_spec=build_spec,
+            compute_role=compute_role,
             description=description,
             environment_variables=environment_variables,
             performance_mode=performance_mode,
@@ -3507,6 +3657,15 @@ class App(
         '''
         return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], jsii.get(self, "computeRole"))
 
+    @builtins.property
+    @jsii.member(jsii_name="platform")
+    def platform(self) -> typing.Optional[Platform]:
+        '''(experimental) The platform of the app.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[Platform], jsii.get(self, "platform"))
+
 
 @jsii.implements(IBranch)
 class Branch(
@@ -3521,12 +3680,11 @@ class Branch(
 
     Example::
 
-        import aws_cdk.aws_s3_assets as assets
-        
-        # asset: assets.Asset
+        # compute_role: iam.Role
         # amplify_app: amplify.App
         
-        branch = amplify_app.add_branch("dev", asset=asset)
+        
+        branch = amplify_app.add_branch("dev", compute_role=compute_role)
     '''
 
     def __init__(
@@ -3540,6 +3698,7 @@ class Branch(
         basic_auth: typing.Optional[BasicAuth] = None,
         branch_name: typing.Optional[builtins.str] = None,
         build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -3557,6 +3716,7 @@ class Branch(
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection for the branch Default: - no password protection
         :param branch_name: (experimental) The name of the branch. Default: - the construct's id
         :param build_spec: (experimental) BuildSpec for the branch. Default: - no build spec
+        :param compute_role: (experimental) The IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. This role overrides the app-level compute role. Default: undefined - No specific role for the branch. If the app has a compute role, it will be inherited.
         :param description: (experimental) A description for the branch. Default: - no description
         :param environment_variables: (experimental) Environment variables for the branch. All environment variables that you add are encrypted to prevent rogue access so you can use them to store secret information. Default: - application environment variables
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
@@ -3578,6 +3738,7 @@ class Branch(
             basic_auth=basic_auth,
             branch_name=branch_name,
             build_spec=build_spec,
+            compute_role=compute_role,
             description=description,
             environment_variables=environment_variables,
             performance_mode=performance_mode,
@@ -3723,15 +3884,25 @@ class GitHubSourceCodeProvider(
 
     Example::
 
-        amplify_app = amplify.App(self, "MyApp",
+        amplify_app = amplify.App(self, "App",
             source_code_provider=amplify.GitHubSourceCodeProvider(
                 owner="<user>",
                 repository="<repo>",
                 oauth_token=SecretValue.secrets_manager("my-github-token")
             ),
-            auto_branch_creation=amplify.AutoBranchCreation( # Automatically connect branches that match a pattern set
-                patterns=["feature/*", "test/*"]),
-            auto_branch_deletion=True
+            custom_response_headers=[amplify.CustomResponseHeader(
+                pattern="*.json",
+                headers={
+                    "custom-header-name-1": "custom-header-value-1",
+                    "custom-header-name-2": "custom-header-value-2"
+                }
+            ), amplify.CustomResponseHeader(
+                pattern="/path/*",
+                headers={
+                    "custom-header-name-1": "custom-header-value-2"
+                }
+            )
+            ]
         )
     '''
 
@@ -3938,6 +4109,7 @@ def _typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb
     basic_auth: typing.Optional[BasicAuth] = None,
     branch_name: typing.Optional[builtins.str] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+    compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     performance_mode: typing.Optional[builtins.bool] = None,
@@ -3956,6 +4128,7 @@ def _typecheckingstub__529d2fd3c9613ce4eb269675040b4e50e2005444ff5b8d0f0cf4702ad
     basic_auth: typing.Optional[BasicAuth] = None,
     branch_name: typing.Optional[builtins.str] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+    compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     performance_mode: typing.Optional[builtins.bool] = None,
@@ -3979,6 +4152,7 @@ def _typecheckingstub__89c1962999fedf4ca1e171bdd7613e146d33a972f8a3275a1c82cf2d8
     *,
     headers: typing.Mapping[builtins.str, builtins.str],
     pattern: builtins.str,
+    app_root: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4131,6 +4305,7 @@ def _typecheckingstub__e2df726a9de1c19f40cb6ef900a079002cd8f15beecdff87621764c6d
     basic_auth: typing.Optional[BasicAuth] = None,
     branch_name: typing.Optional[builtins.str] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+    compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     performance_mode: typing.Optional[builtins.bool] = None,
@@ -4177,6 +4352,7 @@ def _typecheckingstub__85d9ca053e5c72ede5db7f548cddd267aa4e3612c2ede03b31b18efcb
     basic_auth: typing.Optional[BasicAuth] = None,
     branch_name: typing.Optional[builtins.str] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+    compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     description: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     performance_mode: typing.Optional[builtins.bool] = None,

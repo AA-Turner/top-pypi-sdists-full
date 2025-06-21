@@ -5540,6 +5540,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_EKS_DASHBOARD_CONSOLE_READ_ONLY = "AMAZON_EKS_DASHBOARD_CONSOLE_READ_ONLY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_TABLES_LAKE_FORMATION_SERVICE_ROLE = "AMAZON_S3_TABLES_LAKE_FORMATION_SERVICE_ROLE"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

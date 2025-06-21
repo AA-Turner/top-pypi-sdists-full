@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv and set the python version
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1 # v6.3.0
         with:
           enable-cache: true
           cache-dependency-glob: pyproject.toml
@@ -58,7 +58,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv and set the python version
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1 # v6.3.0
         with:
           enable-cache: true
           cache-dependency-glob: pyproject.toml
@@ -70,7 +70,7 @@ jobs:
       - name: Install python
         run: uv python install ${{ matrix.python }}
 
-      - uses: dawidd6/action-download-artifact@07ab29fd4a977ae4d2b275087cf67563dfdf0295 # v9
+      - uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
         with:
           repo: pyca/infra
           workflow: build-windows-openssl.yml

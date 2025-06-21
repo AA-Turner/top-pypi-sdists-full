@@ -221,6 +221,7 @@ class ParsingClient:
         do_not_unroll_columns: bool,
         extract_charts: bool,
         guess_xlsx_sheet_name: bool,
+        high_res_ocr: bool,
         html_make_all_elements_visible: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
@@ -338,6 +339,8 @@ class ParsingClient:
             - extract_charts: bool.
 
             - guess_xlsx_sheet_name: bool.
+
+            - high_res_ocr: bool.
 
             - html_make_all_elements_visible: bool.
 
@@ -486,6 +489,7 @@ class ParsingClient:
             "do_not_unroll_columns": do_not_unroll_columns,
             "extract_charts": extract_charts,
             "guess_xlsx_sheet_name": guess_xlsx_sheet_name,
+            "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,
@@ -1251,6 +1255,7 @@ class AsyncParsingClient:
         do_not_unroll_columns: bool,
         extract_charts: bool,
         guess_xlsx_sheet_name: bool,
+        high_res_ocr: bool,
         html_make_all_elements_visible: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
@@ -1368,6 +1373,8 @@ class AsyncParsingClient:
             - extract_charts: bool.
 
             - guess_xlsx_sheet_name: bool.
+
+            - high_res_ocr: bool.
 
             - html_make_all_elements_visible: bool.
 
@@ -1516,6 +1523,7 @@ class AsyncParsingClient:
             "do_not_unroll_columns": do_not_unroll_columns,
             "extract_charts": extract_charts,
             "guess_xlsx_sheet_name": guess_xlsx_sheet_name,
+            "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,

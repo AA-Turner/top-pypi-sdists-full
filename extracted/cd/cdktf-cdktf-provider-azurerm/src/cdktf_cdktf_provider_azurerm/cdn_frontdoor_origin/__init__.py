@@ -1,7 +1,7 @@
 r'''
 # `azurerm_cdn_frontdoor_origin`
 
-Refer to the Terraform Registry for docs: [`azurerm_cdn_frontdoor_origin`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin).
+Refer to the Terraform Registry for docs: [`azurerm_cdn_frontdoor_origin`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CdnFrontdoorOrigin(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.cdnFrontdoorOrigin.CdnFrontdoorOrigin",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin azurerm_cdn_frontdoor_origin}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin azurerm_cdn_frontdoor_origin}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class CdnFrontdoorOrigin(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin azurerm_cdn_frontdoor_origin} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin azurerm_cdn_frontdoor_origin} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cdn_frontdoor_origin_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.
-        :param certificate_name_check_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.
-        :param private_link: private_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.
+        :param cdn_frontdoor_origin_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.
+        :param certificate_name_check_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.
+        :param private_link: private_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class CdnFrontdoorOrigin(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CdnFrontdoorOrigin to import.
-        :param import_from_id: The id of the existing CdnFrontdoorOrigin that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CdnFrontdoorOrigin that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CdnFrontdoorOrigin to import is found.
         '''
         if __debug__:
@@ -160,10 +160,10 @@ class CdnFrontdoorOrigin(
         target_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.
-        :param private_link_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.
-        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.
-        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.
+        :param private_link_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.
+        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.
+        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.
         '''
         value = CdnFrontdoorOriginPrivateLink(
             location=location,
@@ -184,10 +184,10 @@ class CdnFrontdoorOrigin(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.
         '''
         value = CdnFrontdoorOriginTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -525,19 +525,19 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cdn_frontdoor_origin_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.
-        :param certificate_name_check_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.
-        :param private_link: private_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.
+        :param cdn_frontdoor_origin_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.
+        :param certificate_name_check_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param origin_host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.
+        :param private_link: private_link block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -672,7 +672,7 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cdn_frontdoor_origin_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#cdn_frontdoor_origin_group_id CdnFrontdoorOrigin#cdn_frontdoor_origin_group_id}.'''
         result = self._values.get("cdn_frontdoor_origin_group_id")
         assert result is not None, "Required property 'cdn_frontdoor_origin_group_id' is missing"
         return typing.cast(builtins.str, result)
@@ -681,21 +681,21 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def certificate_name_check_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#certificate_name_check_enabled CdnFrontdoorOrigin#certificate_name_check_enabled}.'''
         result = self._values.get("certificate_name_check_enabled")
         assert result is not None, "Required property 'certificate_name_check_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def host_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#host_name CdnFrontdoorOrigin#host_name}.'''
         result = self._values.get("host_name")
         assert result is not None, "Required property 'host_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#name CdnFrontdoorOrigin#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -704,25 +704,25 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#enabled CdnFrontdoorOrigin#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def http_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#http_port CdnFrontdoorOrigin#http_port}.'''
         result = self._values.get("http_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def https_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#https_port CdnFrontdoorOrigin#https_port}.'''
         result = self._values.get("https_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#id CdnFrontdoorOrigin#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -732,13 +732,13 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def origin_host_header(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#origin_host_header CdnFrontdoorOrigin#origin_host_header}.'''
         result = self._values.get("origin_host_header")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#priority CdnFrontdoorOrigin#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -746,7 +746,7 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_link(self) -> typing.Optional["CdnFrontdoorOriginPrivateLink"]:
         '''private_link block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link CdnFrontdoorOrigin#private_link}
         '''
         result = self._values.get("private_link")
         return typing.cast(typing.Optional["CdnFrontdoorOriginPrivateLink"], result)
@@ -755,14 +755,14 @@ class CdnFrontdoorOriginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CdnFrontdoorOriginTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#timeouts CdnFrontdoorOrigin#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CdnFrontdoorOriginTimeouts"], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#weight CdnFrontdoorOrigin#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -798,10 +798,10 @@ class CdnFrontdoorOriginPrivateLink:
         target_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.
-        :param private_link_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.
-        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.
-        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.
+        :param private_link_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.
+        :param request_message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.
+        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c313c5cb26930ffa374276c3ee8753c184edda54c63d5f445bd7fa6c6175bfb6)
@@ -820,27 +820,27 @@ class CdnFrontdoorOriginPrivateLink:
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#location CdnFrontdoorOrigin#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_link_target_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#private_link_target_id CdnFrontdoorOrigin#private_link_target_id}.'''
         result = self._values.get("private_link_target_id")
         assert result is not None, "Required property 'private_link_target_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def request_message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#request_message CdnFrontdoorOrigin#request_message}.'''
         result = self._values.get("request_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#target_type CdnFrontdoorOrigin#target_type}.'''
         result = self._values.get("target_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -988,10 +988,10 @@ class CdnFrontdoorOriginTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a42f20b175233797edf47e905690a1e856a8003b7293ffb4984f7d09ecfd8be)
@@ -1011,25 +1011,25 @@ class CdnFrontdoorOriginTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#create CdnFrontdoorOrigin#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#delete CdnFrontdoorOrigin#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#read CdnFrontdoorOrigin#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/cdn_frontdoor_origin#update CdnFrontdoorOrigin#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

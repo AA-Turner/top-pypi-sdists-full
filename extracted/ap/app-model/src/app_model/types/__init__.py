@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from ._action import Action
 from ._command_rule import CommandRule, ToggleRule
-from ._constants import OperatingSystem
+from ._constants import KeyBindingSource, OperatingSystem
 from ._icon import Icon
 from ._keybinding_rule import KeyBindingRule
 from ._keys import (
@@ -13,13 +13,16 @@ from ._keys import (
     KeyCode,
     KeyCombo,
     KeyMod,
+    ScanCode,
     SimpleKeyBinding,
     StandardKeyBinding,
 )
 from ._menu_rule import MenuItem, MenuItemBase, MenuRule, SubmenuItem
 
 if TYPE_CHECKING:
-    from typing import Callable, TypeAlias
+    from typing import Callable
+
+    from typing_extensions import TypeAlias
 
     from ._icon import IconOrDict as IconOrDict
     from ._keybinding_rule import KeyBindingRuleDict as KeyBindingRuleDict
@@ -38,14 +41,15 @@ __all__ = [
     "Icon",
     "KeyBinding",
     "KeyBindingRule",
+    "KeyBindingSource",
     "KeyChord",
     "KeyCode",
     "KeyCombo",
     "KeyMod",
-    "OperatingSystem",
     "MenuItem",
     "MenuItemBase",
     "MenuRule",
+    "OperatingSystem",
     "ScanCode",
     "SimpleKeyBinding",
     "StandardKeyBinding",

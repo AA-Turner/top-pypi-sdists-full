@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lumibot
-Version: 3.15.1
+Version: 3.16.0
 Summary: Backtesting and Trading Library, Made by Lumiwealth
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -18,14 +18,14 @@ Requires-Dist: ibapi==9.81.1.post1
 Requires-Dist: yfinance>=0.2.61
 Requires-Dist: matplotlib>=3.3.3
 Requires-Dist: quandl
-Requires-Dist: numpy<2,>=1.20.0
+Requires-Dist: numpy>=1.20.0
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: pandas_market_calendars>=5.1.0
 Requires-Dist: plotly>=5.18.0
 Requires-Dist: sqlalchemy
 Requires-Dist: bcrypt
 Requires-Dist: pytest
-Requires-Dist: scipy>=1.13.0
+Requires-Dist: scipy>=1.14.0
 Requires-Dist: quantstats-lumi>=1.0.1
 Requires-Dist: python-dotenv
 Requires-Dist: ccxt>=4.4.80
@@ -33,12 +33,12 @@ Requires-Dist: termcolor
 Requires-Dist: jsonpickle
 Requires-Dist: apscheduler>=3.10.4
 Requires-Dist: appdirs
-Requires-Dist: pyarrow
+Requires-Dist: pyarrow>=15.0.0
 Requires-Dist: tqdm
-Requires-Dist: lumiwealth-tradier>=0.1.16
+Requires-Dist: lumiwealth-tradier>=0.1.17
 Requires-Dist: pytz
 Requires-Dist: psycopg2-binary
-Requires-Dist: exchange_calendars>=4.5.2
+Requires-Dist: exchange_calendars>=4.6.0
 Requires-Dist: duckdb
 Requires-Dist: tabulate
 Requires-Dist: thetadata==0.9.11

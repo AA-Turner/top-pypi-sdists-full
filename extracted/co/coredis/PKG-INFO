@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coredis
-Version: 4.23.0
+Version: 4.23.1
 Summary: Python async client for Redis key-value store
 Home-page: https://github.com/alisaifee/coredis
 Author: Ali-Akber Saifee

@@ -1,6 +1,6 @@
 # -*- Mode:Python; indent-tabs-mode:nil; tab-width:4 -*-
 #
-# Copyright 2021-2024 Canonical Ltd.
+# Copyright 2021-2025 Canonical Ltd.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,13 +26,19 @@ from craft_parts import ProjectDirs, errors, packages
 from craft_parts.actions import Action, ActionType
 from craft_parts.executor import filesets, part_handler
 from craft_parts.executor.part_handler import PartHandler
-from craft_parts.executor.step_handler import StageContents, StepContents
+from craft_parts.executor.step_handler import (
+    StagePartitionContents,
+    StepContents,
+    StepPartitionContents,
+)
 from craft_parts.infos import PartInfo, ProjectInfo, StepInfo
 from craft_parts.overlays import OverlayManager
 from craft_parts.parts import Part
 from craft_parts.state_manager import states
+from craft_parts.state_manager.step_state import MigrationState
 from craft_parts.steps import Step
 from craft_parts.utils import os_utils
+from pytest_mock import MockerFixture
 
 # pylint: disable=too-many-lines
 
@@ -178,9 +184,16 @@ class TestPartHandling:
         assert self._mock_mount_overlayfs.mock_calls == []
 
     def test_run_stage(self, mocker):
+        mock_step_contents = StepContents(stage=True, partitions=["default"])
+        mock_step_contents.partitions_contents["default"] = StagePartitionContents(
+            files={"file"},
+            dirs={"dir"},
+            backstage_files={"back_file"},
+            backstage_dirs={"back_dir"},
+        )
         mocker.patch(
             "craft_parts.executor.step_handler.StepHandler._builtin_stage",
-            return_value=StageContents({"file"}, {"dir"}, {"back_file"}, {"back_dir"}),
+            return_value=mock_step_contents,
         )
 
         state = self._handler._run_stage(
@@ -197,9 +210,14 @@ class TestPartHandling:
         )
 
     def test_run_prime(self, new_dir, mocker):
+        mock_step_contents = StepContents(partitions=["default"])
+        mock_step_contents.partitions_contents["default"] = StepPartitionContents(
+            files={"file"},
+            dirs={"dir"},
+        )
         mocker.patch(
             "craft_parts.executor.step_handler.StepHandler._builtin_prime",
-            return_value=StepContents({"file"}, {"dir"}),
+            return_value=mock_step_contents,
         )
         mocker.patch("os.getxattr", return_value=b"pkg")
         mocker.patch("pathlib.Path.exists", return_value=True)
@@ -227,9 +245,14 @@ class TestPartHandling:
         )
 
     def test_run_prime_dont_track_packages(self, mocker):
+        mock_step_contents = StepContents(partitions=["default"])
+        mock_step_contents.partitions_contents["default"] = StepPartitionContents(
+            files={"file"},
+            dirs={"dir"},
+        )
         mocker.patch(
             "craft_parts.executor.step_handler.StepHandler._builtin_prime",
-            return_value=StepContents({"file"}, {"dir"}),
+            return_value=mock_step_contents,
         )
         mocker.patch("os.getxattr", return_value=b"pkg")
 
@@ -870,6 +893,35 @@ class TestPackages:
         )
         assert handler.build_snaps == ["word-salad"]
 
+    def test_get_build_snaps_with_source_type(
+        self, new_dir: Path, partitions: list[str] | None, mocker: MockerFixture
+    ) -> None:
+        p1 = Part(
+            "p1",
+            {
+                "plugin": "make",
+                "source": "source",
+                "source-type": "git",
+                "build-packages": ["pkg1"],
+                "build-snaps": ["foo", "bar"],
+            },
+            partitions=partitions,
+        )
+
+        git_source_mock = mocker.patch(
+            "craft_parts.sources.git_source.GitSource.get_pull_snaps"
+        )
+        git_source_mock.return_value = {"test-snap"}
+
+        info = ProjectInfo(application_name="test", cache_dir=new_dir)
+        part_info = PartInfo(info, p1)
+        ovmgr = OverlayManager(project_info=info, part_list=[p1], base_layer_dir=None)
+        handler = PartHandler(
+            p1, part_info=part_info, part_list=[p1], overlay_manager=ovmgr
+        )
+
+        assert sorted(handler.build_snaps) == sorted(["test-snap", "foo", "bar"])
+
 
 class TestFileFilter:
     """File filter test cases."""
@@ -997,3 +1049,88 @@ class TestHelpers:
     def test_remove_non_existent(self):
         # this should not raise and exception
         part_handler._remove(Path("not_here"))
+
+    @pytest.mark.parametrize(
+        ("consolidated_states", "migrated_files", "migrated_directories", "result"),
+        [
+            (
+                {},
+                {None: {"a": "a"}},
+                {None: {"b": "b"}},
+                {
+                    None: MigrationState(
+                        files={"a"},
+                        directories={"b"},
+                    )
+                },
+            ),
+            (
+                {
+                    "default": MigrationState(
+                        files={"foo"},
+                        directories={"bar"},
+                    )
+                },
+                {"default": {"a-key": "a-value", "c-key": "c-value"}},
+                {"default": {"b-key": "b-value"}},
+                {
+                    "default": MigrationState(
+                        files={"foo", "a-value", "c-value"},
+                        directories={"bar", "b-value"},
+                    )
+                },
+            ),
+            (
+                {
+                    "partition-a": MigrationState(
+                        files={"foo"},
+                        directories={"bar"},
+                    )
+                },
+                {"default": {"a": "a"}},
+                {"default": {"b": "b"}},
+                {
+                    "default": MigrationState(
+                        files={"a"},
+                        directories={"b"},
+                    ),
+                    "partition-a": MigrationState(
+                        files={"foo"},
+                        directories={"bar"},
+                    ),
+                },
+            ),
+            (
+                {
+                    "partition-a": MigrationState(
+                        files={"foo"},
+                        directories={"bar"},
+                    )
+                },
+                {"partition-b": {"a": "a"}},
+                {"partition-c": {"b": "b"}},
+                {
+                    "partition-c": MigrationState(
+                        directories={"b"},
+                    ),
+                    "partition-a": MigrationState(
+                        files={"foo"},
+                        directories={"bar"},
+                    ),
+                    "partition-b": MigrationState(
+                        files={"a"},
+                    ),
+                },
+            ),
+        ],
+    )
+    def test_consolidated_states(
+        self, consolidated_states, migrated_files, migrated_directories, result
+    ):
+        part_handler._consolidate_states(
+            consolidated_states=consolidated_states,
+            migrated_files=migrated_files,
+            migrated_directories=migrated_directories,
+        )
+
+        assert consolidated_states == result

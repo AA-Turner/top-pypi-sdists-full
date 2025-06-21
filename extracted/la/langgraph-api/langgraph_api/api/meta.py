@@ -35,9 +35,9 @@ async def meta_info(request: ApiRequest):
 
 async def meta_metrics(request: ApiRequest):
     # determine output format
-    format = request.query_params.get("format", "prometheus")
-    if format not in METRICS_FORMATS:
-        format = "prometheus"
+    metrics_format = request.query_params.get("format", "prometheus")
+    if metrics_format not in METRICS_FORMATS:
+        metrics_format = "prometheus"
 
     # collect stats
     metrics = get_metrics()
@@ -46,7 +46,7 @@ async def meta_metrics(request: ApiRequest):
     workers_active = worker_metrics["active"]
     workers_available = worker_metrics["available"]
 
-    if format == "json":
+    if metrics_format == "json":
         async with connect() as conn:
             return JSONResponse(
                 {
@@ -55,7 +55,7 @@ async def meta_metrics(request: ApiRequest):
                     "queue": await Runs.stats(conn),
                 }
             )
-    elif format == "prometheus":
+    elif metrics_format == "prometheus":
         # LANGSMITH_HOST_PROJECT_ID and LANGSMITH_HOST_REVISION_ID are injected
         # into the deployed image by host-backend.
         project_id = os.getenv("LANGSMITH_HOST_PROJECT_ID")

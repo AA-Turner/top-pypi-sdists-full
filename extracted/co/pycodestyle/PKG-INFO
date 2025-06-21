@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pycodestyle
-Version: 2.13.0
+Version: 2.14.0
 Summary: Python style guide checker
 Home-page: https://pycodestyle.pycqa.org/
 Author: Johann C. Rocholl
@@ -13,7 +13,6 @@ Keywords: pycodestyle,pep8,PEP 8,PEP-8,PEP8
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

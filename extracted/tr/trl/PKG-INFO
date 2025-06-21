@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.18.2
+Version: 0.19.0
 Summary: Train transformer language models with reinforcement learning.
 Home-page: https://github.com/huggingface/trl
 Author: Leandro von Werra
@@ -20,9 +20,9 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: accelerate>=0.34.0
+Requires-Dist: accelerate>=1.4.0
 Requires-Dist: datasets>=3.0.0
-Requires-Dist: transformers>=4.50.0
+Requires-Dist: transformers>=4.51.0
 Provides-Extra: bco
 Requires-Dist: scikit-learn; extra == "bco"
 Requires-Dist: joblib; extra == "bco"
@@ -35,8 +35,6 @@ Requires-Dist: openai>=1.23.2; extra == "judges"
 Requires-Dist: llm-blender>=0.0.2; extra == "judges"
 Provides-Extra: liger
 Requires-Dist: liger-kernel>=0.5.9; extra == "liger"
-Provides-Extra: mergekit
-Requires-Dist: mergekit>=0.0.5.1; extra == "mergekit"
 Provides-Extra: peft
 Requires-Dist: peft>=0.8.0; extra == "peft"
 Provides-Extra: quantization
@@ -65,7 +63,6 @@ Requires-Dist: diffusers>=0.18.0; extra == "dev"
 Requires-Dist: openai>=1.23.2; extra == "dev"
 Requires-Dist: llm-blender>=0.0.2; extra == "dev"
 Requires-Dist: liger-kernel>=0.5.9; extra == "dev"
-Requires-Dist: mergekit>=0.0.5.1; extra == "dev"
 Requires-Dist: peft>=0.8.0; extra == "dev"
 Requires-Dist: bitsandbytes; extra == "dev"
 Requires-Dist: scikit-learn; extra == "dev"

@@ -1,10 +1,31 @@
 import inspect
 import json
+import os
+import logging
+from threading import Lock
 import time
 from datetime import datetime, date
 from typing import Optional, Any
 import traceback
 from py4j.protocol import Py4JError, Py4JJavaError
+import uuid
+
+from prophecy.executionmetrics.in_memory_store import InMemoryStore
+from prophecy.executionmetrics.models import PipelineStatus, RunType
+from prophecy.executionmetrics.schemas.em import SerializableException
+from prophecy.executionmetrics.schemas.external import (
+    InterimKey,
+    MetricsTableNames,
+    MetricsWriteDetails,
+)
+from prophecy.executionmetrics.utils.common import (
+    get_spark_property_with_logging,
+    is_serverless_env,
+    now_millis,
+)
+from prophecy.executionmetrics.utils.external import add_project_id_to_prophecy_uri
+from prophecy.utils.constants import ProphecySparkConstants
+
 try:
     from pyspark.errors import PySparkAttributeError
 except:
@@ -15,8 +36,11 @@ except:
     pass
 from pyspark.sql import *
 
-from prophecy.utils.monitoring_utils import capture_streams, monkey_patch_print, \
-    revert_monkey_patching
+from prophecy.utils.monitoring_utils import (
+    capture_streams,
+    monkey_patch_print,
+    revert_monkey_patching,
+)
 
 try:
     # For Spark versions before 3.4.0
@@ -26,6 +50,21 @@ except ImportError:
     from pyspark.errors.exceptions.captured import CapturedException
 
 from prophecy.libs.utils import *
+from prophecy.utils.pipeline_monitoring import *
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(handler)
+
+
+is_serverless = is_serverless_env()
+logger.info(f"is_serverless is {is_serverless}")
 
 
 class TaskState:
@@ -33,6 +72,18 @@ class TaskState:
     RUNNING = "RUNNING"
     FAILED = "FAILED"
     FINISHED = "FINISHED"
+
+
+def task_state_to_pipeline_status(state: str) -> str:
+    if state == TaskState.LAUNCHING:
+        return PipelineStatus.STARTED
+    elif state == TaskState.RUNNING:
+        return PipelineStatus.RUNNING
+    elif state == TaskState.FINISHED:
+        return PipelineStatus.SUCCEEDED
+    elif state == TaskState.FAILED:
+        return PipelineStatus.FAILED
+    return PipelineStatus.CANCELLED
 
 
 class ProphecyDataFrame:
@@ -67,25 +118,33 @@ class ProphecyDataFrame:
             self.dataframe = DataFrame(df, self.sqlContext)
 
     def interim(
-            self,
+        self,
+        subgraph,
+        component,
+        port,
+        subPath,
+        numRows,
+        interimOutput,
+        detailedStats=False,
+        run_id: Optional[str] = None,
+        config: Optional[str] = None,
+    ) -> DataFrame:
+        result = self.extended_dataframe.interim(
             subgraph,
             component,
             port,
             subPath,
             numRows,
             interimOutput,
-            detailedStats=False,
-            run_id: Optional[str] = None,
-            config: Optional[str] = None
-    ) -> DataFrame:
-        result = self.extended_dataframe.interim(
-            subgraph, component, port, subPath, numRows, interimOutput, detailedStats, run_id, config
+            detailedStats,
+            run_id,
+            config,
         )
         return DataFrame(result, self.sqlContext)
 
     # Ab Initio extensions to Prophecy DataFrame
     def collectDataFrameColumnsToApplyFilter(
-            self, columnList, filterSourceDataFrame
+        self, columnList, filterSourceDataFrame
     ) -> DataFrame:
         result = self.extended_dataframe.collectDataFrameColumnsToApplyFilter(
             createScalaList(self.spark, columnList), filterSourceDataFrame._jdf
@@ -93,16 +152,16 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def normalize(
-            self,
-            lengthExpression,
-            finishedExpression,
-            finishedCondition,
-            alias,
-            colsToSelect,
-            tempWindowExpr,
-            lengthRelatedGlobalExpressions={},
-            normalizeRelatedGlobalExpressions={},
-            sparkSession=None,
+        self,
+        lengthExpression,
+        finishedExpression,
+        finishedCondition,
+        alias,
+        colsToSelect,
+        tempWindowExpr,
+        lengthRelatedGlobalExpressions={},
+        normalizeRelatedGlobalExpressions={},
+        sparkSession=None,
     ) -> DataFrame:
         result = self.extended_dataframe.normalize(
             createScalaColumnOption(self.spark, lengthExpression),
@@ -118,15 +177,15 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def denormalizeSorted(
-            self,
-            groupByColumns,
-            orderByColumns,
-            denormalizeRecordExpression,
-            finalizeExpressionMap,
-            inputFilter,
-            outputFilter,
-            denormColumnName,
-            countColumnName="count",
+        self,
+        groupByColumns,
+        orderByColumns,
+        denormalizeRecordExpression,
+        finalizeExpressionMap,
+        inputFilter,
+        outputFilter,
+        denormColumnName,
+        countColumnName="count",
     ) -> DataFrame:
         result = self.extended_dataframe.denormalizeSorted(
             self,
@@ -142,7 +201,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def readSeparatedValues(
-            self, inputColumn, outputSchemaColumns, recordSeparator, fieldSeparator
+        self, inputColumn, outputSchemaColumns, recordSeparator, fieldSeparator
     ) -> DataFrame:
         result = self.extended_dataframe.readSeparatedValues(
             inputColumn._jc,
@@ -153,7 +212,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def fuzzyDedup(
-            self, dedupColumnName, threshold, sparkSession, algorithm
+        self, dedupColumnName, threshold, sparkSession, algorithm
     ) -> DataFrame:
         result = self.extended_dataframe.fuzzyDedup(
             dedupColumnName,
@@ -164,7 +223,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def fuzzyPurgeMode(
-            self, recordId, threshold, matchFields, includeSimilarityScore
+        self, recordId, threshold, matchFields, includeSimilarityScore
     ) -> DataFrame:
         result = self.extended_dataframe.fuzzyPurgeMode(
             recordId,
@@ -175,7 +234,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def fuzzyMergeMode(
-            self, recordId, sourceId, threshold, matchFields, includeSimilarityScore
+        self, recordId, sourceId, threshold, matchFields, includeSimilarityScore
     ) -> DataFrame:
         result = self.extended_dataframe.fuzzyMergeMode(
             recordId,
@@ -193,7 +252,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def zipWithIndex(
-            self, startValue, incrementBy, indexColName, sparkSession
+        self, startValue, incrementBy, indexColName, sparkSession
     ) -> DataFrame:
         result = self.extended_dataframe.zipWithIndex(
             startValue, incrementBy, indexColName, sparkSession._jsparkSession
@@ -202,32 +261,63 @@ class ProphecyDataFrame:
 
     def metaPivot(self, pivotColumns, nameField, valueField, sparkSession) -> DataFrame:
         result = self.extended_dataframe.metaPivot(
-            createScalaList(self.spark, pivotColumns), nameField, valueField, sparkSession._jsparkSession
+            createScalaList(self.spark, pivotColumns),
+            nameField,
+            valueField,
+            sparkSession._jsparkSession,
         )
         return DataFrame(result, self.sqlContext)
 
-    def dynamicReplace(self, rulesDf, rulesOrderBy, baseColName, replacementExpressionColumnName,
-                       replacementValueColumnName, sparkSession) -> DataFrame:
-        result = self.extended_dataframe.dynamicReplace(rulesDf, rulesOrderBy, baseColName,
-                                                        replacementExpressionColumnName, replacementValueColumnName,
-                                                        sparkSession._jsparkSession)
+    def dynamicReplace(
+        self,
+        rulesDf,
+        rulesOrderBy,
+        baseColName,
+        replacementExpressionColumnName,
+        replacementValueColumnName,
+        sparkSession,
+    ) -> DataFrame:
+        result = self.extended_dataframe.dynamicReplace(
+            rulesDf,
+            rulesOrderBy,
+            baseColName,
+            replacementExpressionColumnName,
+            replacementValueColumnName,
+            sparkSession._jsparkSession,
+        )
         return DataFrame(result, self.sqlContext)
 
-    def dynamicReplaceExpr(self, rulesDf, rulesOrderBy, baseColName, replacementExpressionColumnName,
-                           replacementValueColumnName, sparkSession) -> DataFrame:
-        result = self.extended_dataframe.dynamicReplaceExpr(rulesDf, rulesOrderBy, baseColName,
-                                                            replacementExpressionColumnName, replacementValueColumnName,
-                                                            sparkSession._jsparkSession)
+    def dynamicReplaceExpr(
+        self,
+        rulesDf,
+        rulesOrderBy,
+        baseColName,
+        replacementExpressionColumnName,
+        replacementValueColumnName,
+        sparkSession,
+    ) -> DataFrame:
+        result = self.extended_dataframe.dynamicReplaceExpr(
+            rulesDf,
+            rulesOrderBy,
+            baseColName,
+            replacementExpressionColumnName,
+            replacementValueColumnName,
+            sparkSession._jsparkSession,
+        )
         return DataFrame(result, self.sqlContext)
 
-    def evaluate_expression(self, userExpression, selectedColumnNames, sparkSession) -> DataFrame:
+    def evaluate_expression(
+        self, userExpression, selectedColumnNames, sparkSession
+    ) -> DataFrame:
         result = self.extended_dataframe.evaluate_expression(
-            userExpression, createScalaList(self.spark, selectedColumnNames), sparkSession._jsparkSession
+            userExpression,
+            createScalaList(self.spark, selectedColumnNames),
+            sparkSession._jsparkSession,
         )
         return DataFrame(result, self.sqlContext)
 
     def compareRecords(
-            self, otherDataFrame, componentName, limit, sparkSession
+        self, otherDataFrame, componentName, limit, sparkSession
     ) -> DataFrame:
         result = self.extended_dataframe.compareRecords(
             otherDataFrame._jdf, componentName, limit, sparkSession._jsparkSession
@@ -235,13 +325,13 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def generateSurrogateKeys(
-            self,
-            keyDF,
-            naturalKeys,
-            surrogateKey,
-            overrideSurrogateKeys,
-            computeOldPortOutput,
-            spark,
+        self,
+        keyDF,
+        naturalKeys,
+        surrogateKey,
+        overrideSurrogateKeys,
+        computeOldPortOutput,
+        spark,
     ) -> (DataFrame, DataFrame, DataFrame):
         result = self.extended_dataframe.generateSurrogateKeys(
             keyDF._jdf,
@@ -259,17 +349,17 @@ class ProphecyDataFrame:
         )
 
     def generateLogOutput(
-            self,
-            componentName,
-            subComponentName,
-            perRowEventTypes,
-            perRowEventTexts,
-            inputRowCount,
-            outputRowCount,
-            finalLogEventType,
-            finalLogEventText,
-            finalEventExtraColumnMap,
-            sparkSession,
+        self,
+        componentName,
+        subComponentName,
+        perRowEventTypes,
+        perRowEventTexts,
+        inputRowCount,
+        outputRowCount,
+        finalLogEventType,
+        finalLogEventText,
+        finalEventExtraColumnMap,
+        sparkSession,
     ) -> DataFrame:
         result = self.extended_dataframe.generateLogOutput(
             componentName,
@@ -287,15 +377,15 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def mergeMultipleFileContentInDataFrame(
-            self,
-            fileNameDF,
-            spark,
-            delimiter,
-            readFormat,
-            joinWithInputDataframe,
-            outputSchema=None,
-            ffSchema=None,
-            abinitioSchema=None,
+        self,
+        fileNameDF,
+        spark,
+        delimiter,
+        readFormat,
+        joinWithInputDataframe,
+        outputSchema=None,
+        ffSchema=None,
+        abinitioSchema=None,
     ) -> DataFrame:
         if outputSchema is not None:
             result = self.extended_dataframe.mergeMultipleFileContentInDataFrame(
@@ -319,7 +409,7 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def breakAndWriteDataFrameForOutputFile(
-            self, outputColumns, fileColumnName, format, delimiter
+        self, outputColumns, fileColumnName, format, delimiter
     ):
         self.extended_dataframe.breakAndWriteDataFrameForOutputFile(
             createScalaList(self.spark, outputColumns),
@@ -327,11 +417,11 @@ class ProphecyDataFrame:
             format,
             createScalaOption(self.spark, delimiter),
             createScalaOption(self.spark, None),
-            True
+            True,
         )
 
     def breakAndWriteDataFrameForOutputFileWithSchema(
-            self, outputSchema, fileColumnName, format, delimiter=None
+        self, outputSchema, fileColumnName, format, delimiter=None
     ):
         self.extended_dataframe.breakAndWriteDataFrameForOutputFileWithSchema(
             outputSchema,
@@ -364,7 +454,8 @@ class ProphecyDataFrame:
 
 
 class InterimConfig:
-    jvm_accessible = False # unused right now, can use in future.
+    jvm_accessible = False  # unused right now, can use in future.
+
     def __init__(self):
         self.isInitialized = False
         self.interimOutput = None
@@ -376,7 +467,7 @@ class InterimConfig:
         self.isInitialized = True
         self.session = sessionForInteractive
         # It's `JavaClass` when scala-libs are present, and `JavaPackage` when they are not present.
-        try :
+        try:
             if (
                 type(spark.sparkContext._jvm.org.apache.spark.sql.InterimOutputHive2)
                 == JavaPackage
@@ -390,7 +481,7 @@ class InterimConfig:
                     sessionForInteractive
                 )
             )
-        except PySparkAttributeError as ae: # spark >= 3.4.1
+        except PySparkAttributeError as ae:  # spark >= 3.4.1
             InterimConfig.jvm_accessible = False
 
     def maybeInitialize(self, spark: SparkSession, sessionForInteractive: str = ""):
@@ -487,7 +578,7 @@ class ProphecyDebugger:
 
     @classmethod
     def is_pipeline_wheel(
-            cls, wheel_path, pipeline_uri, filename="workflow.latest.json"
+        cls, wheel_path, pipeline_uri, filename="workflow.latest.json"
     ):
         import zipfile
 
@@ -519,8 +610,8 @@ class ProphecyDebugger:
     @classmethod
     def find_pipeline_wheel(cls, pipeline_uri):
         wheels = (
-                ProphecyDebugger.wheels_in_path()
-                + ProphecyDebugger.wheels_in_site_packages()
+            ProphecyDebugger.wheels_in_path()
+            + ProphecyDebugger.wheels_in_site_packages()
         )
         for wheel_path in wheels:
             if ProphecyDebugger.is_pipeline_wheel(wheel_path, pipeline_uri):
@@ -610,7 +701,7 @@ class ProphecyDebugger:
 
     @classmethod
     def call_scala_object_method(
-            cls, spark: SparkSession, className: str, methodName: str, args: list = []
+        cls, spark: SparkSession, className: str, methodName: str, args: list = []
     ):
         return spark.sparkContext._jvm.org.apache.spark.sql.ProphecyDebugger.callScalaObjectMethod(
             spark._jsparkSession, className, methodName, args
@@ -618,7 +709,7 @@ class ProphecyDebugger:
 
     @classmethod
     def call_scala_object_method_async(
-            cls, spark: SparkSession, className: str, methodName: str, args: list = []
+        cls, spark: SparkSession, className: str, methodName: str, args: list = []
     ):
         return spark.sparkContext._jvm.org.apache.spark.sql.ProphecyDebugger.callScalaObjectMethodAsync(
             spark._jsparkSession, className, methodName, args
@@ -629,6 +720,681 @@ class MetricsCollector:
 
     jvm_accessible = False
 
+    _lock = Lock()
+    _spark_session_to_id_map: Dict[SparkSession, str] = {}  # Using object id as key
+    _spark_session_id_to_spark_session: Dict[str, SparkSession] = {}
+    _session_data_store: Dict[str, InMemoryStore] = {}
+
+    DEFAULT_UNDEF = "undef"
+
+    @classmethod
+    def get_session_appended_key(cls, key: str, session: str) -> str:
+        """Get session-appended key."""
+        return f"{key}.{session}"
+
+    @classmethod
+    def get_unique_session_id(cls, spark: SparkSession) -> Optional[str]:
+        """Get unique session ID."""
+        with cls._lock:
+            return cls._spark_session_to_id_map.get(spark)
+
+    @classmethod
+    def get_session(cls, session_for_interactive: str) -> str:
+        """Get session ID."""
+        return (
+            str(uuid.uuid4())
+            if not session_for_interactive
+            else session_for_interactive
+        )
+
+    @classmethod
+    def get_job_group(cls, spark: SparkSession) -> str:
+        """Get job group from spark context."""
+        # MOCK: Getting local property from SparkContext
+        return (
+            spark.sparkContext.getLocalProperty(ProphecySparkConstants.GROUP_ID_KEY)
+            or ""
+        )
+
+    @classmethod
+    def generate_job_group(cls) -> str:
+        """Generate a job group ID."""
+        import random
+
+        def generate_random_digits(n: int) -> str:
+            return "".join(str(random.randint(0, 9)) for _ in range(n))
+
+        return f"{generate_random_digits(18)}_{generate_random_digits(19)}_job-{generate_random_digits(12)}-run-{generate_random_digits(8)}"
+
+    @classmethod
+    def get_task_id_from_group(cls, spark: SparkSession) -> str:
+        """Extract task ID from job group."""
+        job_group = cls.get_job_group(spark)
+        logger.info(f"job group is {job_group}")
+
+        parts = job_group.split("_")
+        job_and_run = next((s for s in parts if "job" in s and "run" in s), None)
+
+        if job_and_run:
+            return job_and_run.split("-")[3]  # Extract task id
+        return job_group
+
+    @classmethod
+    def configure_spark_session(cls, spark: SparkSession, session: str):
+        """Configure spark session."""
+        if (
+            not is_serverless
+            and spark.sparkContext.getLocalProperty(ProphecySparkConstants.GROUP_ID_KEY)
+            is None
+        ):
+            spark.sparkContext.setJobGroup(
+                cls.generate_job_group(), "Prophecy: Job Group"
+            )
+
+        # Check if storage format is Hive
+        storage_format = (
+            get_spark_property(
+                cls.get_session_appended_key(
+                    ProphecySparkConstants.SPARK_CONF_STORAGE_FORMAT, session
+                ),
+                spark,
+            )
+            or get_spark_property(
+                ProphecySparkConstants.SPARK_CONF_STORAGE_FORMAT, spark
+            )
+            or "DeltaStore"
+        )
+
+        is_storage_format_hive = storage_format == "Hive"
+        logger.info(f"isStorageFormatHive: {is_storage_format_hive}")
+
+        if is_storage_format_hive:
+            spark.conf.set("hive.exec.dynamic.partition", "true")
+            spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
+
+    @classmethod
+    def _get_spark_execution_url(cls, spark: SparkSession) -> Optional[str]:
+        """Get spark execution URL."""
+        return get_spark_property(
+            ProphecySparkConstants.SPARK_CONF_SERVICE_URL_KEY, spark
+        )
+
+    @classmethod
+    def _decompress(cls, encoded: str) -> str:
+        """
+        Placeholder implementation: assumes each part is
+        base64-encoded + gzipped bytes of UTF-8 JSON text.
+        """
+        raw: bytes = base64.b64decode(encoded)
+        return gzip.decompress(raw).decode("utf-8")
+
+    @classmethod
+    def _get_running_code(cls, spark: SparkSession, session: str) -> Dict[str, str]:
+        """Get running code from spark config."""
+        # Check if code is split into parts
+        parts_key = f"{cls.get_session_appended_key(ProphecySparkConstants.SPARK_CONF_PIPELINE_CODE_KEY, session)}_parts"
+        parts = get_spark_property(parts_key, spark)
+
+        if parts:
+            logger.info(f"Got code split in {parts} parts")
+
+            compressed_code_parts = []
+            for part_id in range(int(parts)):
+                part_key = f"{cls.get_session_appended_key(ProphecySparkConstants.SPARK_CONF_PIPELINE_CODE_KEY, session)}_{part_id}"
+                part_data = get_spark_property(part_key, spark)
+                if part_data:
+                    compressed_code_parts.append(part_data)
+
+            compressed_code = "".join(compressed_code_parts)
+            decompressed_code = cls._decompress(compressed_code)
+
+            try:
+                rdc = json.loads(decompressed_code)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse json using json library", e)
+                rdc = {}
+
+            return rdc
+
+        else:
+            # Try to get non-split code
+            compressed_code = get_spark_property(
+                cls.get_session_appended_key(
+                    ProphecySparkConstants.SPARK_CONF_PIPELINE_CODE_KEY, session
+                ),
+                spark,
+            )
+            if compressed_code:
+                try:
+                    decompressed = cls._decompress(compressed_code)
+                    return json.loads(decompressed)
+                except Exception:
+                    logger.error("Failed to parse json using json library", e)
+
+        return {}
+
+    @classmethod
+    def _should_offload_in_test_env(cls, spark: SparkSession) -> bool:
+        """Check if we should offload in test environment."""
+        return (
+            get_spark_property(
+                ProphecySparkConstants.SPARK_CONF_OFFLOAD_FOR_TEST_ENABLED, spark
+            )
+            == "true"
+        )
+
+    @classmethod
+    def _handle_start_for_serverless(
+        cls,
+        spark: SparkSession,
+        session_for_interactive: str = "",
+        pipeline_id: str = "",
+        pipeline_config_opt=None,
+    ):
+        if not is_serverless:
+            # Extra check so that this does not run on non-serverless
+            return
+
+        try:
+            cls._start_for_serverless(
+                spark, session_for_interactive, pipeline_id, pipeline_config_opt
+            )
+        except Exception as e:
+            logger.info(
+                f"Failed to start for serverless: {e} -- {traceback.format_exc()}"
+            )
+
+    @classmethod
+    def update_gem_progress(
+        cls,
+        spark: SparkSession,
+        process_id: str,
+        state: str,
+        startTime: str,
+        endTime: str,
+        stdout: str,
+        stderr: str,
+        exception: Exception,
+    ):
+        try:
+            uuid_str = cls._spark_session_to_id_map.get(spark)
+
+            logger.info(f"update_gem_progress: spark {spark}, uuid: {uuid_str}")
+
+            # Log in-memory state
+            store = cls._session_data_store.get(uuid_str)
+            if not store:
+                logger.info("Couldn't find in memory state for updating gem progress")
+                return
+
+            store.update_gem_progress(
+                process=process_id,
+                start_time=startTime,
+                end_time=endTime,
+                stdout=[TimestampedOutput.from_content(stdout)] if stdout else None,
+                stderr=[TimestampedOutput.from_content(stderr)] if stderr else None,
+                state=state,
+                exception=(
+                    SerializableException.from_exception(exception)
+                    if exception
+                    else None
+                ),
+            )
+        except Exception as e:
+            logger.info(f"Error updating gem progress for {process_id}: {e}")
+
+    @classmethod
+    def _start_for_serverless(
+        cls,
+        spark: SparkSession,
+        session_for_interactive: str = "",
+        pipeline_id: str = "",
+        pipeline_config_opt=None,
+    ):
+        if not is_serverless:
+            # Extra check so that this does not run on non-serverless
+            return
+
+        session = cls.get_session(session_for_interactive)
+
+        # Handle pipeline URI
+        if not pipeline_id:
+            pipeline_uri = get_spark_property(pipeline_id, spark) or pipeline_id
+        else:
+            project_id = get_spark_property(
+                ProphecySparkConstants.SPARK_CONF_PROJECT_ID, spark
+            )
+            pipeline_uri = add_project_id_to_prophecy_uri(pipeline_id, project_id)
+
+        logger.info(
+            f"MetricsCollector.start method with spark {session} "
+            f"pipelineId {pipeline_uri} and sessionForInteractive {session_for_interactive}"
+        )
+
+        # with self._lock:
+        #     self._spark_session_id_to_spark_session[session] = spark
+
+        #     logger.info(f"spark hashcode before putting in map: {id(spark)}")
+
+        #     old_session = self._spark_session_to_id_map.get(id(spark))
+        #     self._spark_session_to_id_map[id(spark)] = session
+
+        #     if old_session:
+        #         logger.info(
+        #             f"Replaced uuid for spark session. old value: {old_session}, new value: {session}"
+        #         )
+        #     else:
+        #         logger.info(f"Added uuid for spark session value: {session}")
+
+        execution_url_option = cls._get_spark_execution_url(spark)
+
+        cls.configure_spark_session(spark, session)
+
+        # if not execution_url_option:
+        #     return None
+
+        is_job = not session_for_interactive
+
+        logger.info(f"Execution ServiceURL: {execution_url_option}, is_job: {is_job}")
+
+        time_started = now_millis()
+
+        if is_job:
+            cls._handle_job_start(
+                spark, session, pipeline_uri, time_started, pipeline_config_opt
+            )
+        else:
+            cls._handle_interactive_start(
+                spark,
+                session,
+                pipeline_uri,
+                pipeline_id,
+                time_started,
+                pipeline_config_opt,
+            )
+
+    @classmethod
+    def _handle_job_start(
+        cls,
+        spark: SparkSession,
+        session: str,
+        pipeline_uri: str,
+        time_started: int,
+        pipeline_config_optional: Optional[str],
+    ):
+        """Handle job start."""
+        job_uri = get_spark_property(
+            ProphecySparkConstants.SPARK_CONF_JOB_URI_KEY, spark
+        )
+        fabric_id = get_spark_property(
+            ProphecySparkConstants.SPARK_CONF_FABRIC_ID_KEY, spark
+        )
+        user_id = get_spark_property(
+            ProphecySparkConstants.SPARK_CONF_USER_ID_KEY, spark
+        )
+        branch = get_spark_property(ProphecySparkConstants.SPARK_CONF_JOB_BRANCH, spark)
+        prophecy_url = get_spark_property(ProphecySparkConstants.SPARK_CONF_URL, spark)
+
+        expected_interims_str = get_spark_property(
+            ProphecySparkConstants.SPARK_CONF_EXPECTED_INTERIMS, spark
+        )
+        expected_interims = []
+        if expected_interims_str:
+            try:
+                expected_interims_data = json.loads(expected_interims_str)
+                expected_interims = [
+                    InterimKey(**item) for item in expected_interims_data
+                ]
+            except Exception as e:
+                logger.error("Failed to parse expected interims", exc_info=True)
+
+        task_run_id = cls.get_task_id_from_group(spark)
+        uuid_str = str(uuid.uuid4())
+
+        # job_metrics_metadata = JobMetricsMetadata(
+        #     uuid=uuid_str,
+        #     job_uri=job_uri or cls.DEFAULT_UNDEF,
+        #     pipeline_uri=pipeline_uri,
+        #     fabric_id=fabric_id or cls.DEFAULT_UNDEF,
+        #     time_started=time_started,
+        #     is_interactive=get_spark_property(
+        #         ProphecySparkConstants.SPARK_CONF_RUN_TYPE_KEY, spark
+        #     )
+        #     == "true",
+        #     task_run_id=task_run_id,
+        #     user_id=user_id,
+        #     branch=branch or cls.DEFAULT_UNDEF,
+        #     prophecy_url=prophecy_url,
+        #     expected_interims=expected_interims,
+        #     pipeline_config=pipeline_config_optional,
+        # )
+
+        # logger.info(
+        #     f"JobsMetricsEvent {job_metrics_metadata.truncated_string()} "
+        #     f"spark {session} with pipelineUri {pipeline_uri}"
+        # )
+
+        # # Set spark conf for jar path if not already set
+        # if not spark.conf.get(
+        #     ProphecySparkConstants.SPARK_CONF_PIPELINE_PACKAGE_KEY, None
+        # ):
+        #     # MOCK: Getting pipeline jar path
+        #     logger.info("Jar not found in classpath")
+
+        metrics_write_details = cls._get_metrics_write_details(
+            spark, session, is_job=True
+        )
+        run_type = (
+            RunType.ADHOC
+            if get_spark_property(ProphecySparkConstants.SPARK_CONF_RUN_TYPE_KEY, spark)
+            == "true"
+            else RunType.SCHEDULED
+        )
+        store = InMemoryStore(spark, uuid_str)
+        store.init(
+            pipeline_uri=pipeline_uri,
+            job_uri=job_uri or cls.DEFAULT_UNDEF,
+            fabric_uid=fabric_id or cls.DEFAULT_UNDEF,
+            run_type=run_type,
+            created_by=user_id or "0",
+            code=None,
+            branch=branch or "",
+            db_suffix=prophecy_url or "",
+            expected_interims=expected_interims,
+            pipeline_config=pipeline_config_optional,
+            metrics_write_details=metrics_write_details,
+        )
+        with cls._lock:
+            cls._session_data_store[uuid_str] = store
+            cls._spark_session_to_id_map[spark] = uuid_str
+
+    @classmethod
+    def _handle_interactive_start(
+        cls,
+        spark: SparkSession,
+        session: str,
+        pipeline_uri: str,
+        pipeline_id: str,
+        time_started: int,
+        pipeline_config_optional: Optional[str],
+    ):
+        """Handle interactive start."""
+        fabric_id = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_FABRIC_ID_KEY, session
+            ),
+            spark,
+        )
+        user_id = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_USER_ID_KEY, session
+            ),
+            spark,
+        )
+        branch = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_JOB_BRANCH, session
+            ),
+            spark,
+        )
+        prophecy_url = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_URL, session
+            ),
+            spark,
+        )
+
+        # # Get pipeline processes
+        # pipeline_processes = {}
+        # processes_str = get_spark_property(
+        #     cls.get_session_appended_key(
+        #         ProphecySparkConstants.SPARK_CONF_PIPELINE_PROCESSES_KEY, session
+        #     ),
+        #     spark,
+        # )
+        # if processes_str:
+        #     try:
+        #         # Try to decompress first
+        #         decompressed = cls._decompress(processes_str)
+        #         processes_data = json.loads(decompressed)
+        #         pipeline_processes = {
+        #             k: WorkflowProcessNodeInfo(**v) for k, v in processes_data.items()
+        #         }
+        #     except Exception:
+        #         logger.error("Failed to parse pipeline processes", exc_info=True)
+
+        code = cls._get_running_code(spark, session)
+        logger.info(f"Code received contained following files -> {code.keys()}")
+
+        # job_group_matcher = DatabricksJobGroupMatcher(command_id="")
+
+        uuid_str = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_PIPELINE_UUID_KEY, session
+            ),
+            spark,
+        )
+        if not uuid_str:
+            raise RuntimeError(
+                f"session key not found {cls.get_session_appended_key(ProphecySparkConstants.SPARK_CONF_PIPELINE_UUID_KEY, session)}"
+            )
+
+        # Get expected interims
+        expected_interims = []
+        expected_interims_str = get_spark_property(
+            cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_EXPECTED_INTERIMS, session
+            ),
+            spark,
+        )
+        if expected_interims_str:
+            try:
+                decompressed = cls._decompress(expected_interims_str)
+                expected_interims_data = json.loads(decompressed)
+                expected_interims = [
+                    InterimKey(**item) for item in expected_interims_data
+                ]
+            except Exception:
+                logger.error("Failed to parse expected interims", exc_info=True)
+
+        # TODO - Not possible in serverless (find proper usage and set the value correctly)
+        # task_run_id = cls.get_task_id_from_group(spark)
+        task_run_id = uuid_str
+
+        # execution_metrics_metadata = ExecutionMetricsMetadata(
+        #     uuid=uuid_str,
+        #     job_id="",
+        #     pipeline_uid=pipeline_id,
+        #     fabric_id=fabric_id or cls.DEFAULT_UNDEF,
+        #     time_started=time_started,
+        #     run_type=RunType.INTERACTIVE,
+        #     job_run_id=task_run_id,
+        #     task_run_id=task_run_id,
+        #     user_id=user_id or "",
+        #     branch=branch,
+        #     expected_interims=expected_interims,
+        #     code=code,
+        #     prophecy_url=prophecy_url,
+        #     pipeline_config=pipeline_config_optional,
+        # )
+
+        # job_group_status_track_request = JobGroupStatusTrackRequest(
+        #     session=session,
+        #     job_group=cls.get_job_group(spark),
+        #     job_group_matcher=job_group_matcher,
+        #     execution_metrics_metadata=execution_metrics_metadata,
+        # )
+
+        # logger.info(
+        #     f"Interactive metrics collection beginning with metadata {cls._truncate(str(execution_metrics_metadata))}"
+        # )
+
+        metrics_write_details = cls._get_metrics_write_details(
+            spark, session, is_job=False
+        )
+
+        # Create in-memory store
+        store = InMemoryStore(spark, uuid_str)
+        store.init(
+            pipeline_uri=pipeline_uri,
+            job_uri="",
+            fabric_uid=fabric_id or cls.DEFAULT_UNDEF,
+            run_type=RunType.INTERACTIVE,
+            created_by=user_id or "",
+            code=code,
+            branch=branch or "",
+            db_suffix=prophecy_url or "",
+            expected_interims=expected_interims,
+            pipeline_config=pipeline_config_optional,
+            metrics_write_details=metrics_write_details,
+        )
+        with cls._lock:
+            if uuid_str not in cls._session_data_store:
+                cls._session_data_store[uuid_str] = store
+            cls._spark_session_to_id_map[spark] = uuid_str
+            cls._session_data_store[uuid_str].update_run_uid(task_run_id, task_run_id)
+
+    @classmethod
+    def _get_metrics_write_details(
+        cls, spark: SparkSession, session: str, is_job: bool
+    ) -> Optional[MetricsWriteDetails]:
+        """Get metrics write details."""
+        # Check if offload is disabled
+        disable_key = (
+            ProphecySparkConstants.SPARK_CONF_DISABLE_OFFLOAD
+            if is_job
+            else cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_DISABLE_OFFLOAD, session
+            )
+        )
+
+        if get_spark_property_with_logging(disable_key, spark, logger) == "true":
+            logger.info(
+                "Execution metrics are disabled. So not offloading to Metric-Sink"
+            )
+            return None
+
+        # Check catalog implementation
+        catalog_impl = spark.conf.get("spark.sql.catalogImplementation", "hive")
+        if catalog_impl == "in-memory":
+            logger.warning(
+                "Execution metrics will not be stored because catalog implementation is in-memory"
+            )
+            return None
+
+        logger.info(
+            f"Execution metrics will be stored because catalog implementation is {catalog_impl}"
+        )
+
+        # Get table names
+        if is_job:
+            pipeline_table = get_spark_property_with_logging(
+                ProphecySparkConstants.SPARK_CONF_PIPELINE_METRICS_TABLE, spark, logger
+            )
+            component_table = get_spark_property_with_logging(
+                ProphecySparkConstants.SPARK_CONF_COMPONENT_METRICS_TABLE, spark, logger
+            )
+            interims_table = get_spark_property_with_logging(
+                ProphecySparkConstants.SPARK_CONF_INTERIMS_TABLE, spark, logger
+            )
+            storage_format_key = ProphecySparkConstants.SPARK_CONF_STORAGE_FORMAT
+            partitioning_key = (
+                ProphecySparkConstants.SPARK_CONF_TABLE_PARTITIONING_DISABLED
+            )
+        else:
+            pipeline_table = get_spark_property_with_logging(
+                cls.get_session_appended_key(
+                    ProphecySparkConstants.SPARK_CONF_PIPELINE_METRICS_TABLE, session
+                ),
+                spark,
+                logger,
+            )
+            component_table = get_spark_property_with_logging(
+                cls.get_session_appended_key(
+                    ProphecySparkConstants.SPARK_CONF_COMPONENT_METRICS_TABLE, session
+                ),
+                spark,
+                logger,
+            )
+            interims_table = get_spark_property_with_logging(
+                cls.get_session_appended_key(
+                    ProphecySparkConstants.SPARK_CONF_INTERIMS_TABLE, session
+                ),
+                spark,
+                logger,
+            )
+            storage_format_key = cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_STORAGE_FORMAT, session
+            )
+            partitioning_key = cls.get_session_appended_key(
+                ProphecySparkConstants.SPARK_CONF_TABLE_PARTITIONING_DISABLED, session
+            )
+
+        table_names = MetricsTableNames(
+            pipeline_metrics=pipeline_table,
+            component_metrics=component_table,
+            interims=interims_table,
+        )
+
+        # Get storage format
+        storage_format = (
+            get_spark_property_with_logging(storage_format_key, spark, logger)
+            or "DeltaStore"
+        )
+
+        # Get partitioning disabled flag
+        is_partitioning_disabled = (
+            get_spark_property_with_logging(partitioning_key, spark, logger) == "true"
+        )
+
+        return MetricsWriteDetails(
+            table_names, storage_format, is_partitioning_disabled
+        )
+
+    @classmethod
+    def get_inmemory_store(cls, spark: SparkSession) -> InMemoryStore:
+        with cls._lock:
+            uuid_str = cls._spark_session_to_id_map.get(spark)
+            if not uuid_str:
+                logger.info(f"Unable to find InMemoryStore for key {spark}")
+
+            return cls._session_data_store.get(uuid_str)
+
+    @classmethod
+    def _handle_end_for_serverless(
+        cls, spark: SparkSession, pipeline_status=PipelineStatus.SUCCEEDED
+    ):
+        if not is_serverless:
+            # Extra check so that this does not run on non-serverless
+            return
+
+        try:
+            uuid_str = cls._spark_session_to_id_map.get(spark)
+
+            logger.info(f"_handle_end_for_serverless: spark {spark}, uuid: {uuid_str}")
+
+            # Log in-memory state
+            store = cls._session_data_store.get(uuid_str)
+            if store:
+                logger.info(f"In memory state at the end of the run\n{store}")
+            else:
+                logger.info("*Couldn't find in memory state*")
+
+            # Offload metrics if not in test environment
+            if not cls._should_offload_in_test_env(spark):
+                store: InMemoryStore = cls._session_data_store.pop(uuid_str, None)
+                if not store:
+                    logger.info(f"sessionDataStore did not have entry for {uuid_str}")
+                else:
+                    logger.info(
+                        f"Removed {uuid_str} from sessionDataStore. Offloading to storage: {store.has_storage_metadata}"
+                    )
+                    if store.has_storage_metadata:
+                        store.offload(pipeline_status=pipeline_status)
+        except Exception as e:
+            logger.info(f"Exception in _end_for_serverless: {e}")
+            raise e
+
     @classmethod
     def initializeMetrics(cls, spark: SparkSession):
         try:
@@ -637,17 +1403,26 @@ class MetricsCollector:
             )
             cls.jvm_accessible = True
         except:
-            print("Failed to initialize MetricsCollector. Spark context is not available")
+            if is_serverless:
+                # making it falsely true for serverless case
+                cls.jvm_accessible = True
+                logging.info(
+                    f"Failed to initialize MetricsCollector, Spark context is not available, but still making cls.jvm_accessible = {cls.jvm_accessible}"
+                )
+            else:
+                logging.info(
+                    "Failed to initialize MetricsCollector. Spark context is not available"
+                )
 
     # We don't have positional arguments in python code base, thereby moving directly to keyword based argument.
     @classmethod
     def start(
-            cls,
-            spark: SparkSession,
-            sessionForInteractive: str = "",
-            pipelineId: str = "",
-            config=None,
-            **kwargs,
+        cls,
+        spark: SparkSession,
+        sessionForInteractive: str = "",
+        pipelineId: str = "",
+        config=None,
+        **kwargs,
     ):
         global interimConfig
         interimConfig.maybeInitialize(spark, sessionForInteractive)
@@ -698,7 +1473,9 @@ class MetricsCollector:
 
                     # Add items to the stack
                     for item in reversed(current_obj):
-                        stack.append((item, new_list, None))  # Use None since we append to list
+                        stack.append(
+                            (item, new_list, None)
+                        )  # Use None since we append to list
                 elif isinstance(current_obj, dict):
                     # Process dict
                     new_dict = {}
@@ -803,9 +1580,12 @@ class MetricsCollector:
         #         spark.conf.set("spark.prophecy.packages", str1)
         #         ProphecyDebugger.log(spark, "wheels " + str1)
 
-        if cls.jvm_accessible:
+        pipeline_config = None
+        if config is not None:
+            pipeline_config = json.dumps(config, default=to_dict_trampoline, indent=4)
+
+        if not is_serverless and cls.jvm_accessible:
             if config is not None:
-                pipeline_config = json.dumps(config, default=to_dict_trampoline, indent=4)
                 try:
                     spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.start(
                         spark._jsparkSession,
@@ -821,16 +1601,22 @@ class MetricsCollector:
                     spark._jsparkSession, pipelineId, sessionForInteractive
                 )
         else:
-            print("Running pipeline without metrics")
+            logging.info("Running pipeline without metrics")
+
+        if is_serverless:
+            cls._handle_start_for_serverless(
+                spark, sessionForInteractive, pipelineId, pipeline_config
+            )
 
     @classmethod
-    def end(cls, spark: SparkSession):
-        if cls.jvm_accessible:
+    def end(cls, spark: SparkSession, status: str = PipelineStatus.SUCCEEDED):
+        if not is_serverless and cls.jvm_accessible:
             spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.end(
                 spark._jsparkSession
             )
         else:
-            print("Finished pipeline without metrics")
+            logging.info("Finished pipeline without metrics")
+        cls._handle_end_for_serverless(spark, status)
         global interimConfig
         interimConfig.clear()
 
@@ -838,14 +1624,15 @@ class MetricsCollector:
     # Another variation could be annotation based, but going with this right now.
     @classmethod
     def instrument(
-            cls,
-            spark: SparkSession,
-            sessionForInteractive: str = "",
-            pipelineId: str = "",
-            config=None,
-            **kwargs,
+        cls,
+        spark: SparkSession,
+        sessionForInteractive: str = "",
+        pipelineId: str = "",
+        config=None,
+        **kwargs,
     ):
         cls.initializeMetrics(spark)
+
         def wrapper(f):
 
             if cls.jvm_accessible:
@@ -857,8 +1644,9 @@ class MetricsCollector:
                         spark, sessionForInteractive, pipelineId, config, **kwargs
                     )
                     state = TaskState.RUNNING
-                    sendPipelineProgressEvent(spark, sessionForInteractive, pipelineId, state,
-                                              startTime)
+                    sendPipelineProgressEvent(
+                        spark, sessionForInteractive, pipelineId, state, startTime
+                    )
                     try:
                         monkey_patch_print()
                         ret = f(spark)
@@ -880,45 +1668,94 @@ class MetricsCollector:
 
                         if isinstance(e, CapturedException):
                             py4j_error = None
-                            if hasattr(e, 'getErrorClass') and e.getErrorClass():
+                            if hasattr(e, "getErrorClass") and e.getErrorClass():
                                 py4j_error = e._origin
-                            elif e.cause and hasattr(e.cause, 'getErrorClass') and e.cause.getErrorClass():
+                            elif (
+                                e.cause
+                                and hasattr(e.cause, "getErrorClass")
+                                and e.cause.getErrorClass()
+                            ):
                                 py4j_error = e.cause._origin
                             elif e._origin:
                                 py4j_error = e._origin
                             elif e.cause and e.cause._origin:
                                 py4j_error = e.cause._origin
-                            sendPipelineProgressEvent(spark, sessionForInteractive, pipelineId, state,
-                                                      startTime, endTime, py4j_error)
-                            spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
-                                spark._jsparkSession, etype, emsg, etrace, py4j_error
+                            sendPipelineProgressEvent(
+                                spark,
+                                sessionForInteractive,
+                                pipelineId,
+                                state,
+                                startTime,
+                                endTime,
+                                py4j_error,
                             )
+                            if not is_serverless:
+                                # Triggers job completion event at the end
+                                spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
+                                    spark._jsparkSession,
+                                    etype,
+                                    emsg,
+                                    etrace,
+                                    py4j_error,
+                                )
                         elif isinstance(e, Py4JJavaError):
-                            sendPipelineProgressEvent(spark, sessionForInteractive, pipelineId, state,
-                                                      startTime, endTime, e.java_exception)
-                            spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
-                                spark._jsparkSession, etype, emsg, etrace, e.java_exception
+                            sendPipelineProgressEvent(
+                                spark,
+                                sessionForInteractive,
+                                pipelineId,
+                                state,
+                                startTime,
+                                endTime,
+                                e.java_exception,
                             )
+                            if not is_serverless:
+                                # Triggers job completion event at the end
+                                spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
+                                    spark._jsparkSession,
+                                    etype,
+                                    emsg,
+                                    etrace,
+                                    e.java_exception,
+                                )
                         else:
                             # Python exception. Need not be transferred to JVM
-                            send_pipeline_progress_event_on_python_exception(spark, sessionForInteractive,
-                                                                             pipelineId, state,
-                                                                             startTime, endTime, e)
-                            spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
-                                spark._jsparkSession, etype, emsg, etrace
+                            send_pipeline_progress_event_on_python_exception(
+                                spark,
+                                sessionForInteractive,
+                                pipelineId,
+                                state,
+                                startTime,
+                                endTime,
+                                e,
                             )
+                            if not is_serverless:
+                                # Triggers job completion event at the end
+                                spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.setPythonFailedStatus(
+                                    spark._jsparkSession, etype, emsg, etrace
+                                )
                         raise
                 finally:
                     try:
                         if state != TaskState.FAILED:
                             state = TaskState.FINISHED
                             endTime = currentTimeString()
-                            sendPipelineProgressEvent(spark, sessionForInteractive, pipelineId, state,
-                                                      startTime, endTime)
+                            sendPipelineProgressEvent(
+                                spark,
+                                sessionForInteractive,
+                                pipelineId,
+                                state,
+                                startTime,
+                                endTime,
+                            )
                         revert_monkey_patching()
-                        MetricsCollector.end(spark)
-                    except:
-                        pass
+                        MetricsCollector.end(
+                            spark, task_state_to_pipeline_status(state)
+                        )
+                    except Exception as exc:
+                        if "(org.apache.spark.SparkSQLException) [OPERATION_CANCELED]" in str(exc):
+                            raise exc
+                        else:
+                            logging.error(f'Finally block threw exception: {exc}')
 
             else:
                 ret = f(spark)
@@ -943,10 +1780,11 @@ class MetricsCollector:
                 aqe = spark.conf.get("spark.sql.adaptive.enabled")
             except:
                 aqe = None
-            spark.conf.set(
-                "spark.sql.optimizer.excludedRules",
-                spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.getAllExcludesRules(),
-            )
+            if not is_serverless:
+                spark.conf.set(
+                    "spark.sql.optimizer.excludedRules",
+                    spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.getAllExcludesRules(),
+                )
             spark.conf.set("spark.sql.adaptive.enabled", "false")
             try:
                 fn(spark)
@@ -964,14 +1802,14 @@ class MetricsCollector:
 
 
 def collectMetrics(
-        spark: SparkSession,
-        df: DataFrame,
-        subgraph: str,
-        component: str,
-        port: str,
-        numRows: int = 40,
-        run_id: Optional[str] = None,
-        config=None
+    spark: SparkSession,
+    df: DataFrame,
+    subgraph: str,
+    component: str,
+    port: str,
+    numRows: int = 40,
+    run_id: Optional[str] = None,
+    config=None,
 ) -> DataFrame:
     global interimConfig
     interimConfig.maybeInitialize(spark)
@@ -981,13 +1819,20 @@ def collectMetrics(
         conf_str = json.dumps(config.to_dict(), default=str)
 
     return pdf.interim(
-        subgraph, component, port, "dummy", numRows, interimConfig.interimOutput, detailedStats=False, run_id=run_id,
-        config=conf_str
+        subgraph,
+        component,
+        port,
+        "dummy",
+        numRows,
+        interimConfig.interimOutput,
+        detailedStats=False,
+        run_id=run_id,
+        config=conf_str,
     )
 
 
 def createEventSendingListener(
-        spark: SparkSession, execution_url: str, session: str, scheduled: bool
+    spark: SparkSession, execution_url: str, session: str, scheduled: bool
 ):
     spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.addSparkListener(
         spark._jsparkSession, execution_url, session, scheduled
@@ -1069,7 +1914,7 @@ def extract_hierarchical_gem_name(stack, current_frame, function) -> str:
     stack_function_names = [f.function for f in stack]
     start_index = find_first_index(stack_function_names, lambda x: x == "inner_wrapper")
     end_index = find_last_index(stack_function_names, lambda x: x == "pipeline")
-    sliced_stack = stack_function_names[start_index + 1:end_index]
+    sliced_stack = stack_function_names[start_index + 1 : end_index]
     stack_without_wrapper_nesting = [s for s in sliced_stack if s != "inner_wrapper"]
     stack_without_wrapper_nesting.reverse()
 
@@ -1077,112 +1922,240 @@ def extract_hierarchical_gem_name(stack, current_frame, function) -> str:
     class_name = None
 
     # Check if 'self' or 'cls' is in the local variables of the caller's frame
-    if 'self' in frame.f_locals:
-        class_name = frame.f_locals['self'].__class__.__name__
-    elif 'cls' in frame.f_locals:
-        class_name = frame.f_locals['cls'].__name__
+    if "self" in frame.f_locals:
+        class_name = frame.f_locals["self"].__class__.__name__
+    elif "cls" in frame.f_locals:
+        class_name = frame.f_locals["cls"].__name__
 
     if class_name:
         full_stack = stack_without_wrapper_nesting + [class_name, function.__name__]
-        stack_with_class = [s for s in full_stack if s not in ("execute", "apply", "__run__")]
+        stack_with_class = [
+            s for s in full_stack if s not in ("execute", "apply", "__run__")
+        ]
         return ".".join(stack_with_class)
 
     if len(stack) > 1:
         caller_frame = stack[1].frame
-        caller_self = caller_frame.f_locals.get('self', None)
+        caller_self = caller_frame.f_locals.get("self", None)
         if caller_self is not None:
             caller_class_name = caller_self.__class__.__name__
-            full_stack = stack_without_wrapper_nesting + [caller_class_name, function.__name__]
-            stack_with_class = [s for s in full_stack if s not in ("execute", "apply", "__run__")]
+            full_stack = stack_without_wrapper_nesting + [
+                caller_class_name,
+                function.__name__,
+            ]
+            stack_with_class = [
+                s for s in full_stack if s not in ("execute", "apply", "__run__")
+            ]
             return ".".join(stack_with_class)
 
     return ".".join(stack_without_wrapper_nesting + [function.__name__])
 
 
 # Add support for stdout in pipeline progress
-def sendPipelineProgressEvent(spark: SparkSession, userSession: str, pipelineId: str, state: str,
-                              startTime: str, endTime: str = "", exception: Optional[Any] = None):
-    if exception:
-        spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendPipelineProgressEvent(
-            spark._jsparkSession, userSession, pipelineId, state, startTime, endTime, exception
+def sendPipelineProgressEvent(
+    spark: SparkSession,
+    userSession: str,
+    pipelineId: str,
+    state: str,
+    startTime: str,
+    endTime: str = "",
+    exception: Optional[Any] = None,
+):
+    if is_serverless:
+        logging.info(f"Calling python impl sendPipelineProgressEvent2")
+        sendPipelineProgressEvent2(
+            spark, userSession, pipelineId, state, startTime, endTime, exception
+        )
+    else:
+        if exception:
+            spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendPipelineProgressEvent(
+                spark._jsparkSession,
+                userSession,
+                pipelineId,
+                state,
+                startTime,
+                endTime,
+                exception,
+            )
+        else:
+            spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendPipelineProgressEvent(
+                spark._jsparkSession, userSession, pipelineId, state, startTime, endTime
+            )
+
+
+def send_pipeline_progress_event_on_python_exception(
+    spark: SparkSession,
+    userSession: str,
+    pipelineId: str,
+    state: str,
+    startTime: str,
+    endTime: str,
+    exception: BaseException,
+):
+    serializable_exception = SerializableException.from_exception(exception)
+    if is_serverless:
+        sendPipelineProgressEvent3(
+            spark,
+            userSession,
+            pipelineId,
+            state,
+            startTime,
+            endTime,
+            serializable_exception.exception_type,
+            serializable_exception.msg,
+            serializable_exception.cause_msg,
+            serializable_exception.stack_trace,
         )
     else:
         spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendPipelineProgressEvent(
-            spark._jsparkSession, userSession, pipelineId, state, startTime, endTime
+            spark._jsparkSession,
+            userSession,
+            pipelineId,
+            state,
+            startTime,
+            endTime,
+            serializable_exception.exception_type,
+            serializable_exception.msg,
+            serializable_exception.cause_msg,
+            serializable_exception.stack_trace,
         )
 
 
-def send_pipeline_progress_event_on_python_exception(spark: SparkSession, userSession: str,
-                                                     pipelineId: str, state: str, startTime: str,
-                                                     endTime: str, exception: BaseException):
-    serializable_exception = SerializableException.from_python_exception(exception)
-    spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendPipelineProgressEvent(
-        spark._jsparkSession, userSession, pipelineId, state, startTime, endTime,
-        serializable_exception.exception_type, serializable_exception.msg,
-        serializable_exception.cause_msg, serializable_exception.stack_trace
-    )
-
-
-def send_gem_progress_event_on_python_exception(spark: SparkSession, userSession: str, process_id: str,
-                                                state: str, startTime: str, endTime: str, stdout: str,
-                                                stderr: str, exception: BaseException):
-    serializable_exception = SerializableException.from_python_exception(exception)
-    spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
-        spark._jsparkSession, userSession, process_id, state, startTime, endTime, stdout,
-        stderr, serializable_exception.exception_type, serializable_exception.msg,
-        serializable_exception.cause_msg, serializable_exception.stack_trace
-    )
-
-
-def sendGemProgressEvent(spark: SparkSession, userSession: str, process_id: str, state: str,
-                         startTime: str, endTime: str = "", stdout: str = "[]", stderr: str = "[]",
-                         exception: Optional[Any] = None):
-    if exception:
-        spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
-            spark._jsparkSession, userSession, process_id, state, startTime, endTime, stdout,
-            stderr, exception
-        )
-    else:
-        spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
-            spark._jsparkSession, userSession, process_id, state, startTime, endTime, stdout,
+def send_gem_progress_event_on_python_exception(
+    spark: SparkSession,
+    userSession: str,
+    process_id: str,
+    state: str,
+    startTime: str,
+    endTime: str,
+    stdout: str,
+    stderr: str,
+    exception: BaseException,
+):
+    serializable_exception = SerializableException.from_exception(exception)
+    if is_serverless:
+        sendGemProgressEvent3(
+            spark,
+            userSession,
+            process_id,
+            state,
+            startTime,
+            endTime,
+            stdout,
             stderr,
+            serializable_exception.exception_type,
+            serializable_exception.msg,
+            serializable_exception.cause_msg,
+            serializable_exception.stack_trace,
         )
+        MetricsCollector.update_gem_progress(
+            spark=spark,
+            process_id=process_id,
+            state=state,
+            startTime=startTime,
+            endTime=endTime,
+            stdout=stdout,
+            stderr=stderr,
+            exception=exception,
+        )
+    else:
+        spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
+            spark._jsparkSession,
+            userSession,
+            process_id,
+            state,
+            startTime,
+            endTime,
+            stdout,
+            stderr,
+            serializable_exception.exception_type,
+            serializable_exception.msg,
+            serializable_exception.cause_msg,
+            serializable_exception.stack_trace,
+        )
+
+
+def sendGemProgressEvent(
+    spark: SparkSession,
+    userSession: str,
+    process_id: str,
+    state: str,
+    startTime: str,
+    endTime: str = "",
+    stdout: str = "[]",
+    stderr: str = "[]",
+    exception: Optional[Any] = None,
+):
+    if is_serverless:
+        sendGemProgressEvent2(
+            spark,
+            userSession,
+            process_id,
+            state,
+            startTime,
+            endTime,
+            stdout,
+            stderr,
+            exception,
+        )
+        MetricsCollector.update_gem_progress(
+            spark=spark,
+            process_id=process_id,
+            state=state,
+            startTime=startTime,
+            endTime=endTime,
+            stdout=stdout,
+            stderr=stderr,
+            exception=exception,
+        )
+    else:
+        if exception:
+            spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
+                spark._jsparkSession,
+                userSession,
+                process_id,
+                state,
+                startTime,
+                endTime,
+                stdout,
+                stderr,
+                exception,
+            )
+        else:
+            spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.sendGemProgressEvent(
+                spark._jsparkSession,
+                userSession,
+                process_id,
+                state,
+                startTime,
+                endTime,
+                stdout,
+                stderr,
+            )
 
 
 def get_process_from_gem(spark: SparkSession, gemName: str, userSession: str) -> str:
-    return spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.getProcessFromGem(
-        spark._jsparkSession, gemName, userSession)
-
-
-class SerializableException:
-    exception_type: str
-    msg: str
-    cause_msg: str
-    stack_trace: str
-
-    def __init__(self, exception_type, msg, cause_msg, stack_trace):
-        self.exception_type = exception_type
-        self.msg = msg
-        self.cause_msg = cause_msg
-        self.stack_trace = stack_trace
-
-    @staticmethod
-    def from_python_exception(exception: BaseException):
-        exception_type = type(exception).__name__
-        exception_message = str(exception)
-        exception_cause = str(exception.__cause__) if exception.__cause__ else ""
-        exception_stack_trace = ''.join(
-            traceback.format_exception(None, exception, exception.__traceback__))
-        return SerializableException(exception_type, exception_message, exception_cause,
-                                     exception_stack_trace)
+    if is_serverless:
+        logging.info(f"Using python get_process_from_gem")
+        return get_process_from_gem2(spark, gemName, userSession)
+    else:
+        return spark.sparkContext._jvm.org.apache.spark.sql.ProphecySparkSession.getProcessFromGem(
+            spark._jsparkSession, gemName, userSession
+        )
 
 
 def instrument(function):
     def inner_wrapper(*args, **kwargs):
-        if isinstance(args[0], SparkSession):
-            spark = args[0]
+        if is_serverless:
+            if hasattr(args[0], "_spark"):
+                spark = args[0]
+            else:
+                spark = args[1]
         else:
-            spark = args[1]
+            if isinstance(args[0], SparkSession):
+                spark = args[0]
+            else:
+                spark = args[1]
 
         global interimConfig
         if interimConfig.isInitialized:
@@ -1191,14 +2164,15 @@ def instrument(function):
             user_session = ""
         start_time = currentTimeString()
         state = TaskState.LAUNCHING
-        gem_name = extract_hierarchical_gem_name(inspect.stack(), inspect.currentframe(), function)
+        gem_name = extract_hierarchical_gem_name(
+            inspect.stack(), inspect.currentframe(), function
+        )
         process_id = get_process_from_gem(spark, gem_name, user_session)
         sendGemProgressEvent(spark, user_session, process_id, state, start_time)
         with capture_streams() as data_manager:
             try:
                 state = TaskState.RUNNING
-                sendGemProgressEvent(spark, user_session, process_id, state,
-                                     start_time)
+                sendGemProgressEvent(spark, user_session, process_id, state, start_time)
                 result = function(*args, **kwargs)
                 return result
             # Handle PythonException separately, probably similar to normal exception below?
@@ -1207,49 +2181,94 @@ def instrument(function):
                 captured_stdout, captured_stderr = data_manager.drain_thread_output()
                 py4j_error = None
 
-                if hasattr(captured_error, 'getErrorClass') and captured_error.getErrorClass():
+                if (
+                    hasattr(captured_error, "getErrorClass")
+                    and captured_error.getErrorClass()
+                ):
                     py4j_error = captured_error._origin
-                elif captured_error.cause and hasattr(captured_error.cause,
-                                                      'getErrorClass') and captured_error.cause.getErrorClass():
+                elif (
+                    captured_error.cause
+                    and hasattr(captured_error.cause, "getErrorClass")
+                    and captured_error.cause.getErrorClass()
+                ):
                     py4j_error = captured_error.cause._origin
                 elif captured_error._origin:
                     py4j_error = captured_error._origin
                 elif captured_error.cause and captured_error.cause._origin:
                     py4j_error = captured_error.cause._origin
-                sendGemProgressEvent(spark, user_session, process_id, state,
-                                     start_time, currentTimeString(), captured_stdout,
-                                     captured_stderr, py4j_error)
+                sendGemProgressEvent(
+                    spark,
+                    user_session,
+                    process_id,
+                    state,
+                    start_time,
+                    currentTimeString(),
+                    captured_stdout,
+                    captured_stderr,
+                    py4j_error,
+                )
                 raise captured_error
             except Py4JJavaError as py4j_error:
                 state = TaskState.FAILED
                 captured_stdout, captured_stderr = data_manager.drain_thread_output()
-                sendGemProgressEvent(spark, user_session, process_id, state,
-                                     start_time, currentTimeString(), captured_stdout,
-                                     captured_stderr, py4j_error.java_exception)
+                sendGemProgressEvent(
+                    spark,
+                    user_session,
+                    process_id,
+                    state,
+                    start_time,
+                    currentTimeString(),
+                    captured_stdout,
+                    captured_stderr,
+                    py4j_error.java_exception,
+                )
                 raise py4j_error
             except Exception as exception:
                 state = TaskState.FAILED
                 captured_stdout, captured_stderr = data_manager.drain_thread_output()
-                send_gem_progress_event_on_python_exception(spark, user_session, process_id, state,
-                                                            start_time, currentTimeString(),
-                                                            captured_stdout,
-                                                            captured_stderr, exception)
+                send_gem_progress_event_on_python_exception(
+                    spark,
+                    user_session,
+                    process_id,
+                    state,
+                    start_time,
+                    currentTimeString(),
+                    captured_stdout,
+                    captured_stderr,
+                    exception,
+                )
                 raise exception
             except BaseException as base_exception:
                 state = TaskState.FAILED
                 captured_stdout, captured_stderr = data_manager.drain_thread_output()
-                send_gem_progress_event_on_python_exception(spark, user_session, process_id, state,
-                                                            start_time, currentTimeString(),
-                                                            captured_stdout,
-                                                            captured_stderr, base_exception)
+                send_gem_progress_event_on_python_exception(
+                    spark,
+                    user_session,
+                    process_id,
+                    state,
+                    start_time,
+                    currentTimeString(),
+                    captured_stdout,
+                    captured_stderr,
+                    base_exception,
+                )
                 raise base_exception
             finally:
                 if state != TaskState.FAILED:
                     state = TaskState.FINISHED
-                    captured_stdout, captured_stderr = data_manager.drain_thread_output()
-                    sendGemProgressEvent(spark, user_session, process_id, state,
-                                         start_time,
-                                         currentTimeString(), captured_stdout, captured_stderr)
+                    captured_stdout, captured_stderr = (
+                        data_manager.drain_thread_output()
+                    )
+                    sendGemProgressEvent(
+                        spark,
+                        user_session,
+                        process_id,
+                        state,
+                        start_time,
+                        currentTimeString(),
+                        captured_stdout,
+                        captured_stderr,
+                    )
 
     return inner_wrapper
 
@@ -1259,7 +2278,12 @@ class SecretManager:
     def __init__(self, spark: SparkSession):
         self.jvm = spark.sparkContext._jvm
         self.spark = spark
-        self.secret_manager = self.jvm.io.prophecy.libs.secrets.ProphecySecrets
+        if is_serverless:
+            from prophecy.utils.secrets import ProphecySecrets
+
+            self.secret_manager = ProphecySecrets
+        else:
+            self.secret_manager = self.jvm.io.prophecy.libs.secrets.ProphecySecrets
 
     def get(self, scope: str, key: str, provider: str):
         return self.secret_manager.get(scope, key, provider)

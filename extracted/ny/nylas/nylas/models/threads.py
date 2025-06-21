@@ -65,13 +65,13 @@ class Thread:
     has_drafts: bool
     starred: bool
     unread: bool
-    earliest_message_date: int
     message_ids: List[str]
     folders: List[str]
     latest_draft_or_message: Union[Message, Draft] = field(
         metadata=config(decoder=_decode_draft_or_message)
     )
     object: str = "thread"
+    earliest_message_date: Optional[int] = None
     latest_message_received_date: Optional[int] = None
     draft_ids: Optional[List[str]] = None
     snippet: Optional[str] = None
@@ -112,6 +112,7 @@ ListThreadsQueryParams = TypedDict(
         "unread": NotRequired[bool],
         "starred": NotRequired[bool],
         "thread_id": NotRequired[str],
+        "earliest_message_date": NotRequired[int],
         "latest_message_before": NotRequired[int],
         "latest_message_after": NotRequired[int],
         "has_attachment": NotRequired[bool],
@@ -133,6 +134,7 @@ Attributes:
     unread: Filter threads by unread status.
     starred: Filter threads by starred status.
     thread_id: Filter threads by thread_id.
+    earliest_message_date: Unix timestamp of the earliest or first message in the thread.
     latest_message_before: Return threads whose most recent message was received before this Unix timestamp.
     latest_message_after: Return threads whose most recent message was received after this Unix timestamp.
     has_attachment: Filter threads by whether they have an attachment.

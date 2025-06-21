@@ -5,6 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .fail_page_mode import FailPageMode
+from .parse_job_config_priority import ParseJobConfigPriority
 from .parser_languages import ParserLanguages
 from .parsing_mode import ParsingMode
 
@@ -22,6 +23,7 @@ class ParseJobConfig(pydantic.BaseModel):
     Configuration for llamaparse job
     """
 
+    priority: typing.Optional[ParseJobConfigPriority]
     custom_metadata: typing.Optional[typing.Dict[str, typing.Any]]
     resource_info: typing.Optional[typing.Dict[str, typing.Any]]
     languages: typing.Optional[typing.List[ParserLanguages]]
@@ -43,6 +45,7 @@ class ParseJobConfig(pydantic.BaseModel):
     gpt_4_o_api_key: typing.Optional[str] = pydantic.Field(alias="gpt4o_api_key")
     do_not_unroll_columns: typing.Optional[bool]
     extract_layout: typing.Optional[bool]
+    high_res_ocr: typing.Optional[bool]
     html_make_all_elements_visible: typing.Optional[bool]
     html_remove_navigation_elements: typing.Optional[bool]
     html_remove_fixed_elements: typing.Optional[bool]

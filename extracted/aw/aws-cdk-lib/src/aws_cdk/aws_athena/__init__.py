@@ -2140,12 +2140,12 @@ class CfnWorkGroup(
             enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''The configuration for the managed query results and encryption option.
+            '''The configuration for storing results in Athena owned storage, which includes whether this feature is enabled;
 
-            ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+            whether encryption configuration, if any, is used for encrypting query results.
 
-            :param enabled: 
-            :param encryption_configuration: Indicates the encryption configuration for Athena Managed Storage. If not setting this field, Managed Storage will encrypt the query results with Athena's encryption key
+            :param enabled: If set to true, allows you to store query results in Athena owned storage. If set to false, workgroup member stores query results in location specified under ``ResultConfiguration$OutputLocation`` . The default is false. A workgroup cannot have the ``ResultConfiguration$OutputLocation`` parameter when you set this field to true.
+            :param encryption_configuration: If you encrypt query and calculation results in Athena owned storage, this field indicates the encryption option (for example, SSE_KMS or CSE_KMS) and key information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2177,7 +2177,10 @@ class CfnWorkGroup(
         def enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''If set to true, allows you to store query results in Athena owned storage.
+
+            If set to false, workgroup member stores query results in location specified under ``ResultConfiguration$OutputLocation`` . The default is false. A workgroup cannot have the ``ResultConfiguration$OutputLocation`` parameter when you set this field to true.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html#cfn-athena-workgroup-managedqueryresultsconfiguration-enabled
             '''
             result = self._values.get("enabled")
@@ -2187,9 +2190,7 @@ class CfnWorkGroup(
         def encryption_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty"]]:
-            '''Indicates the encryption configuration for Athena Managed Storage.
-
-            If not setting this field, Managed Storage will encrypt the query results with Athena's encryption key
+            '''If you encrypt query and calculation results in Athena owned storage, this field indicates the encryption option (for example, SSE_KMS or CSE_KMS) and key information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html#cfn-athena-workgroup-managedqueryresultsconfiguration-encryptionconfiguration
             '''
@@ -2631,7 +2632,7 @@ class CfnWorkGroup(
             :param enforce_work_group_configuration: If set to "true", the settings for the workgroup override client-side settings. If set to "false", client-side settings are used. For more information, see `Override client-side settings <https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings-override.html>`_ .
             :param engine_version: The engine version that all queries running on the workgroup use.
             :param execution_role: Role used to access user resources in an Athena for Apache Spark session. This property applies only to Spark-enabled workgroups in Athena.
-            :param managed_query_results_configuration: The configuration for the managed query results and encryption option. ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+            :param managed_query_results_configuration: The configuration for storing results in Athena owned storage, which includes whether this feature is enabled; whether encryption configuration, if any, is used for encrypting query results.
             :param publish_cloud_watch_metrics_enabled: Indicates that the Amazon CloudWatch metrics are enabled for the workgroup.
             :param requester_pays_enabled: If set to ``true`` , allows members assigned to a workgroup to reference Amazon S3 Requester Pays buckets in queries. If set to ``false`` , workgroup members cannot query data from Requester Pays buckets, and queries that retrieve data from Requester Pays buckets cause an error. The default is ``false`` . For more information about Requester Pays buckets, see `Requester Pays Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/RequesterPaysBuckets.html>`_ in the *Amazon Simple Storage Service Developer Guide* .
             :param result_configuration: Specifies the location in Amazon S3 where query results are stored and the encryption option, if any, used for query results. For more information, see `Work with query results and recent queries <https://docs.aws.amazon.com/athena/latest/ug/querying.html>`_ .
@@ -2789,9 +2790,9 @@ class CfnWorkGroup(
         def managed_query_results_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedQueryResultsConfigurationProperty"]]:
-            '''The configuration for the managed query results and encryption option.
+            '''The configuration for storing results in Athena owned storage, which includes whether this feature is enabled;
 
-            ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+            whether encryption configuration, if any, is used for encrypting query results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-workgroupconfiguration.html#cfn-athena-workgroup-workgroupconfiguration-managedqueryresultsconfiguration
             '''

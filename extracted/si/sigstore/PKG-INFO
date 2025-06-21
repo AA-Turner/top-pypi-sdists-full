@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore
-Version: 3.6.3
+Version: 3.6.4
 Summary: A tool for signing Python package distributions
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
 Requires-Python: >=3.9
@@ -28,7 +28,7 @@ Requires-Dist: pyOpenSSL >= 23.0.0
 Requires-Dist: requests
 Requires-Dist: rich >= 13,< 15
 Requires-Dist: rfc8785 ~= 0.1.2
-Requires-Dist: rfc3161-client >= 0.1.2,< 1.1.0
+Requires-Dist: rfc3161-client >= 1.0.3,< 1.1.0
 Requires-Dist: sigstore-protobuf-specs == 0.3.2
 Requires-Dist: sigstore-rekor-types == 0.0.18
 Requires-Dist: tuf ~= 6.0

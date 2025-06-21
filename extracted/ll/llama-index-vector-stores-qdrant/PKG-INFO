@@ -1,21 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-vector-stores-qdrant
-Version: 0.6.0
+Version: 0.6.1
 Summary: llama-index vector_stores qdrant integration
-License: MIT
-Author: Your Name
-Author-email: you@example.com
-Requires-Python: >=3.10,<3.14
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
+Author-email: Your Name <you@example.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <3.14,>=3.9
+Requires-Dist: grpcio<2,>=1.60.0
+Requires-Dist: llama-index-core<0.13,>=0.12.7
+Requires-Dist: qdrant-client>=1.7.1
 Provides-Extra: fastembed
-Requires-Dist: grpcio (>=1.60.0,<2.0.0)
-Requires-Dist: llama-index-core (>=0.12.7,<0.13.0)
-Requires-Dist: qdrant-client (>=1.7.1)
 Description-Content-Type: text/markdown
 
 # LlamaIndex Vector_Stores Integration: Qdrant
-

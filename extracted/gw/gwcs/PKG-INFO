@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gwcs
-Version: 0.25.0
+Version: 0.25.1
 Summary: Generalized World Coordinate System
 Author-email: gwcs developers <help@stsci.edu>
 Project-URL: Homepage, https://github.com/spacetelescope/gwcs
@@ -12,11 +12,10 @@ Description-Content-Type: text/x-rst
 License-File: licenses/LICENSE.rst
 Requires-Dist: asdf>=3.3.0
 Requires-Dist: astropy>=6.0
-Requires-Dist: numpy>1.26
+Requires-Dist: numpy>=1.25
 Requires-Dist: scipy>=1.14.1
 Requires-Dist: asdf_wcs_schemas>=0.5.0
 Requires-Dist: asdf-astropy>=0.8.0
-Requires-Dist: importlib-metadata>=4.11.4; python_version <= "3.11"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-automodapi; extra == "docs"

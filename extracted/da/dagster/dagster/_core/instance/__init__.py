@@ -90,8 +90,6 @@ from dagster._core.storage.tags import (
 )
 from dagster._core.types.pagination import PaginatedResults
 from dagster._serdes import ConfigurableClass
-from dagster._streamline.asset_check_health import AssetCheckHealthState
-from dagster._streamline.asset_freshness_health import AssetFreshnessHealthState
 from dagster._time import datetime_from_timestamp, get_current_datetime, get_current_timestamp
 from dagster._utils import PrintFn, is_uuid, traced
 from dagster._utils.error import serializable_error_info_from_exc_info
@@ -116,6 +114,13 @@ RUNLESS_JOB_NAME = ""
 if TYPE_CHECKING:
     from dagster._core.debug import DebugRunPayload
     from dagster._core.definitions.asset_check_spec import AssetCheckKey
+    from dagster._core.definitions.asset_health.asset_check_health import AssetCheckHealthState
+    from dagster._core.definitions.asset_health.asset_freshness_health import (
+        AssetFreshnessHealthState,
+    )
+    from dagster._core.definitions.asset_health.asset_materialization_health import (
+        AssetMaterializationHealthState,
+    )
     from dagster._core.definitions.asset_key import EntityKey
     from dagster._core.definitions.base_asset_graph import BaseAssetGraph
     from dagster._core.definitions.job_definition import JobDefinition
@@ -196,7 +201,6 @@ if TYPE_CHECKING:
     from dagster._core.storage.sql import AlembicVersion
     from dagster._core.workspace.context import BaseWorkspaceRequestContext
     from dagster._daemon.types import DaemonHeartbeat, DaemonStatus
-    from dagster._streamline.asset_materialization_health import AssetMaterializationHealthState
 
 
 DagsterInstanceOverrides: TypeAlias = Mapping[str, Any]
@@ -1749,6 +1753,8 @@ class DagsterInstance(DynamicPartitionsStore):
         # find the set of planned assets and checks
         to_reexecute: set[EntityKey] = set()
         for step in execution_plan_snapshot.steps:
+            if step.key not in execution_plan_snapshot.step_keys_to_execute:
+                continue
             to_reexecute_for_step = {
                 key
                 for key in step.entity_keys
@@ -2454,9 +2460,19 @@ class DagsterInstance(DynamicPartitionsStore):
         Args:
             asset_keys (Sequence[AssetKey]): Asset keys to wipe.
         """
+        from dagster._core.events import AssetWipedData, DagsterEvent, DagsterEventType
+
         check.list_param(asset_keys, "asset_keys", of_type=AssetKey)
         for asset_key in asset_keys:
             self._event_storage.wipe_asset(asset_key)
+            self.report_dagster_event(
+                run_id=RUNLESS_RUN_ID,
+                dagster_event=DagsterEvent(
+                    event_type_value=DagsterEventType.ASSET_WIPED.value,
+                    event_specific_data=AssetWipedData(asset_key=asset_key, partition_keys=None),
+                    job_name=RUNLESS_JOB_NAME,
+                ),
+            )
 
     def wipe_asset_partitions(
         self,
@@ -2466,10 +2482,22 @@ class DagsterInstance(DynamicPartitionsStore):
         """Wipes asset event history from the event log for the given asset key and partition keys.
 
         Args:
-            asset_key (Sequence[AssetKey]): Asset key to wipe.
+            asset_key (AssetKey): Asset key to wipe.
             partition_keys (Sequence[str]): Partition keys to wipe.
         """
+        from dagster._core.events import AssetWipedData, DagsterEvent, DagsterEventType
+
         self._event_storage.wipe_asset_partitions(asset_key, partition_keys)
+        self.report_dagster_event(
+            run_id=RUNLESS_RUN_ID,
+            dagster_event=DagsterEvent(
+                event_type_value=DagsterEventType.ASSET_WIPED.value,
+                event_specific_data=AssetWipedData(
+                    asset_key=asset_key, partition_keys=partition_keys
+                ),
+                job_name=RUNLESS_JOB_NAME,
+            ),
+        )
 
     @traced
     def get_materialized_partitions(
@@ -3608,6 +3636,9 @@ class DagsterInstance(DynamicPartitionsStore):
     def dagster_observe_supported(self) -> bool:
         return False
 
+    def dagster_asset_health_queries_supported(self) -> bool:
+        return False
+
     def can_read_failure_events_for_asset(self, asset_record: "AssetRecord") -> bool:
         return False
 
@@ -3622,12 +3653,12 @@ class DagsterInstance(DynamicPartitionsStore):
 
     def get_asset_check_health_state_for_assets(
         self, asset_keys: Sequence[AssetKey]
-    ) -> Optional[Mapping[AssetKey, Optional[AssetCheckHealthState]]]:
+    ) -> Optional[Mapping[AssetKey, Optional["AssetCheckHealthState"]]]:
         return None
 
     def get_asset_freshness_health_state_for_assets(
         self, asset_keys: Sequence[AssetKey]
-    ) -> Optional[Mapping[AssetKey, Optional[AssetFreshnessHealthState]]]:
+    ) -> Optional[Mapping[AssetKey, Optional["AssetFreshnessHealthState"]]]:
         return None
 
     def get_asset_materialization_health_state_for_assets(

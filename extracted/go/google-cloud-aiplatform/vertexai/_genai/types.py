@@ -21,7 +21,17 @@ import json
 import logging
 import re
 import typing
-from typing import Any, Callable, ClassVar, Literal, Optional, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 from google.genai import _common
 from google.genai import types as genai_types
 from pydantic import (
@@ -2063,6 +2073,12 @@ class EvaluationDataset(_common.BaseModel):
         description="""The BigQuery source for the evaluation dataset.""",
     )
 
+    def show(self) -> None:
+        """Shows the evaluation dataset."""
+        from . import _evals_visualization
+
+        _evals_visualization.display_evaluation_dataset(self)
+
 
 class EvaluationDatasetDict(TypedDict, total=False):
     """The dataset used for evaluation."""
@@ -2379,6 +2395,81 @@ class EvaluateDatasetOperationDict(TypedDict, total=False):
 
 EvaluateDatasetOperationOrDict = Union[
     EvaluateDatasetOperation, EvaluateDatasetOperationDict
+]
+
+
+class OptimizeConfig(_common.BaseModel):
+    """Config for Prompt Optimizer."""
+
+    http_options: Optional[HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class OptimizeConfigDict(TypedDict, total=False):
+    """Config for Prompt Optimizer."""
+
+    http_options: Optional[HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+OptimizeConfigOrDict = Union[OptimizeConfig, OptimizeConfigDict]
+
+
+class _OptimizeRequestParameters(_common.BaseModel):
+    """Parameters for the optimize_prompt method."""
+
+    config: Optional[OptimizeConfig] = Field(default=None, description="""""")
+
+
+class _OptimizeRequestParametersDict(TypedDict, total=False):
+    """Parameters for the optimize_prompt method."""
+
+    config: Optional[OptimizeConfigDict]
+    """"""
+
+
+_OptimizeRequestParametersOrDict = Union[
+    _OptimizeRequestParameters, _OptimizeRequestParametersDict
+]
+
+
+class OptimizeResponse(_common.BaseModel):
+    """Response for the optimize_prompt method."""
+
+    pass
+
+
+class OptimizeResponseDict(TypedDict, total=False):
+    """Response for the optimize_prompt method."""
+
+    pass
+
+
+OptimizeResponseOrDict = Union[OptimizeResponse, OptimizeResponseDict]
+
+
+class PromptOptimizerVAPOConfig(_common.BaseModel):
+    """VAPO Prompt Optimizer Config."""
+
+    config_path: Optional[str] = Field(
+        default=None, description="""The gcs path to the config file."""
+    )
+    wait_for_completion: Optional[bool] = Field(default=None, description="""""")
+
+
+class PromptOptimizerVAPOConfigDict(TypedDict, total=False):
+    """VAPO Prompt Optimizer Config."""
+
+    config_path: Optional[str]
+    """The gcs path to the config file."""
+
+    wait_for_completion: Optional[bool]
+    """"""
+
+
+PromptOptimizerVAPOConfigOrDict = Union[
+    PromptOptimizerVAPOConfig, PromptOptimizerVAPOConfigDict
 ]
 
 
@@ -2749,12 +2840,16 @@ class MetricPromptBuilder(PromptTemplate):
 
         template_parts.extend(
             [
-                "\n# User Inputs and AI-generated Response",
-                "## User Inputs",
+                "\n",
+                "# User Inputs and AI-generated Response",
+                "## User Prompt",
+                "<prompt>{prompt}</prompt>",
+                "\n",
+                "## AI-generated Response",
+                "<response>{response}</response>",
             ]
         )
 
-        template_parts.extend(["## AI-generated Response", "{response}"])
         constructed_text = "\n".join(template_parts)
 
         data["text"] = constructed_text
@@ -2806,6 +2901,31 @@ class EvalRunInferenceConfigDict(TypedDict, total=False):
 
 
 EvalRunInferenceConfigOrDict = Union[EvalRunInferenceConfig, EvalRunInferenceConfigDict]
+
+
+class WinRateStats(_common.BaseModel):
+    """Statistics for win rates for a single metric."""
+
+    win_rates: Optional[list[float]] = Field(
+        default=None,
+        description="""Win rates for the metric, one for each candidate.""",
+    )
+    tie_rate: Optional[float] = Field(
+        default=None, description="""Tie rate for the metric."""
+    )
+
+
+class WinRateStatsDict(TypedDict, total=False):
+    """Statistics for win rates for a single metric."""
+
+    win_rates: Optional[list[float]]
+    """Win rates for the metric, one for each candidate."""
+
+    tie_rate: Optional[float]
+    """Tie rate for the metric."""
+
+
+WinRateStatsOrDict = Union[WinRateStats, WinRateStatsDict]
 
 
 class EvalCaseMetricResult(_common.BaseModel):
@@ -2930,10 +3050,6 @@ class AggregatedMetricResult(_common.BaseModel):
     stdev_score: Optional[float] = Field(
         default=None, description="""Standard deviation of the metric."""
     )
-    win_rate: Optional[dict[str, float]] = Field(
-        default=None,
-        description="""A dictionary of win rates for each response.""",
-    )
 
     # Allow extra fields to support custom aggregation stats.
     model_config = ConfigDict(extra="allow")
@@ -2959,9 +3075,6 @@ class AggregatedMetricResultDict(TypedDict, total=False):
 
     stdev_score: Optional[float]
     """Standard deviation of the metric."""
-
-    win_rate: Optional[dict[str, float]]
-    """A dictionary of win rates for each response."""
 
 
 AggregatedMetricResultOrDict = Union[AggregatedMetricResult, AggregatedMetricResultDict]
@@ -3018,9 +3131,28 @@ class EvaluationResult(_common.BaseModel):
         default=None,
         description="""A list of summary-level evaluation results for each metric.""",
     )
+    win_rates: Optional[dict[str, WinRateStats]] = Field(
+        default=None,
+        description="""A dictionary of win rates for each metric, only populated for multi-response evaluation runs.""",
+    )
+    evaluation_dataset: Optional[list[EvaluationDataset]] = Field(
+        default=None,
+        description="""The input evaluation dataset(s) for the evaluation run.""",
+    )
     metadata: Optional[EvaluationRunMetadata] = Field(
         default=None, description="""Metadata for the evaluation run."""
     )
+
+    def show(self, candidate_names: Optional[List[str]] = None) -> None:
+        """Shows the evaluation result.
+
+        Args:
+            candidate_names: list of names for the evaluated candidates, used in
+              comparison reports.
+        """
+        from . import _evals_visualization
+
+        _evals_visualization.display_evaluation_result(self, candidate_names)
 
 
 class EvaluationResultDict(TypedDict, total=False):
@@ -3031,6 +3163,12 @@ class EvaluationResultDict(TypedDict, total=False):
 
     summary_metrics: Optional[list[AggregatedMetricResultDict]]
     """A list of summary-level evaluation results for each metric."""
+
+    win_rates: Optional[dict[str, WinRateStatsDict]]
+    """A dictionary of win rates for each metric, only populated for multi-response evaluation runs."""
+
+    evaluation_dataset: Optional[list[EvaluationDatasetDict]]
+    """The input evaluation dataset(s) for the evaluation run."""
 
     metadata: Optional[EvaluationRunMetadataDict]
     """Metadata for the evaluation run."""

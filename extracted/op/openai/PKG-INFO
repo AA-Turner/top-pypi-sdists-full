@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 1.88.0
+Version: 1.90.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -29,6 +29,9 @@ Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: tqdm>4
 Requires-Dist: typing-extensions<5,>=4.11
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
 Provides-Extra: datalib
 Requires-Dist: numpy>=1; extra == 'datalib'
 Requires-Dist: pandas-stubs>=1.1.0.11; extra == 'datalib'
@@ -42,7 +45,7 @@ Description-Content-Type: text/markdown
 
 # OpenAI Python API library
 
-[![PyPI version](https://img.shields.io/pypi/v/openai.svg)](https://pypi.org/project/openai/)
+[![PyPI version](https://github.com/openai/openai-python/tree/main/<https://img.shields.io/pypi/v/openai.svg?label=pypi%20(stable)>)](https://pypi.org/project/openai/)
 
 The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.8+
 application. The library includes type definitions for all request params and response fields,
@@ -186,6 +189,45 @@ asyncio.run(main())
 ```
 
 Functionality between the synchronous and asynchronous clients is otherwise identical.
+
+### With aiohttp
+
+By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
+
+You can enable this by installing `aiohttp`:
+
+```sh
+# install from PyPI
+pip install openai[aiohttp]
+```
+
+Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
+
+```python
+import os
+import asyncio
+from openai import DefaultAioHttpClient
+from openai import AsyncOpenAI
+
+
+async def main() -> None:
+    async with AsyncOpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),  # This is the default and can be omitted
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Say this is a test",
+                }
+            ],
+            model="gpt-4o",
+        )
+
+
+asyncio.run(main())
+```
 
 ## Streaming responses
 

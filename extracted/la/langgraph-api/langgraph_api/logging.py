@@ -15,6 +15,7 @@ log_env = Config()
 LOG_JSON = log_env("LOG_JSON", cast=bool, default=False)
 LOG_COLOR = log_env("LOG_COLOR", cast=bool, default=True)
 LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
+LOG_DICT_TRACEBACKS = log_env("LOG_DICT_TRACEBACKS", cast=bool, default=True)
 
 logging.getLogger().setLevel(LOG_LEVEL.upper())
 logging.getLogger("psycopg").setLevel(logging.WARNING)
@@ -105,7 +106,7 @@ shared_processors = [
     structlog.processors.StackInfoRenderer(),
     (
         structlog.processors.dict_tracebacks
-        if LOG_JSON
+        if LOG_JSON and LOG_DICT_TRACEBACKS
         else structlog.processors.format_exc_info
     ),
     structlog.processors.UnicodeDecoder(),

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_function_app_slot`
 
-Refer to the Terraform Registry for docs: [`azurerm_function_app_slot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot).
+Refer to the Terraform Registry for docs: [`azurerm_function_app_slot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FunctionAppSlot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.functionAppSlot.FunctionAppSlot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot azurerm_function_app_slot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot azurerm_function_app_slot}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class FunctionAppSlot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot azurerm_function_app_slot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot azurerm_function_app_slot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.
-        :param function_app_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.
-        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.
-        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
-        :param daily_memory_time_quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.
-        :param enable_builtin_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#id FunctionAppSlot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
-        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.
+        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.
+        :param function_app_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.
+        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.
+        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
+        :param daily_memory_time_quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.
+        :param enable_builtin_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#id FunctionAppSlot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
+        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class FunctionAppSlot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FunctionAppSlot to import.
-        :param import_from_id: The id of the existing FunctionAppSlot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FunctionAppSlot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FunctionAppSlot to import is found.
         '''
         if __debug__:
@@ -194,20 +194,20 @@ class FunctionAppSlot(
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
-        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.
-        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.
-        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.
-        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.
-        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
-        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
+        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.
+        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.
+        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.
+        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.
+        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
+        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.
         '''
         value = FunctionAppSlotAuthSettings(
             enabled=enabled,
@@ -249,8 +249,8 @@ class FunctionAppSlot(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.
         '''
         value = FunctionAppSlotIdentity(type=type, identity_ids=identity_ids)
 
@@ -283,27 +283,27 @@ class FunctionAppSlot(
         websockets_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.
-        :param app_scale_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.
-        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
-        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.
-        :param elastic_instance_minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.
-        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.
-        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.
-        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.
-        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.
-        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.
-        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.
-        :param pre_warmed_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.
-        :param runtime_scale_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.
-        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.
-        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.
-        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.
-        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.
-        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.
-        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.
+        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.
+        :param app_scale_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.
+        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
+        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.
+        :param elastic_instance_minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.
+        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.
+        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.
+        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.
+        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.
+        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.
+        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.
+        :param pre_warmed_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.
+        :param runtime_scale_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.
+        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.
+        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.
+        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.
+        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.
+        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.
+        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.
         '''
         value = FunctionAppSlotSiteConfig(
             always_on=always_on,
@@ -341,10 +341,10 @@ class FunctionAppSlot(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.
         '''
         value = FunctionAppSlotTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -832,20 +832,20 @@ class FunctionAppSlotAuthSettings:
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
-        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.
-        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.
-        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.
-        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.
-        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
-        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
+        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.
+        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.
+        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.
+        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.
+        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
+        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.
         '''
         if isinstance(active_directory, dict):
             active_directory = FunctionAppSlotAuthSettingsActiveDirectory(**active_directory)
@@ -905,7 +905,7 @@ class FunctionAppSlotAuthSettings:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -916,7 +916,7 @@ class FunctionAppSlotAuthSettings:
     ) -> typing.Optional["FunctionAppSlotAuthSettingsActiveDirectory"]:
         '''active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#active_directory FunctionAppSlot#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional["FunctionAppSlotAuthSettingsActiveDirectory"], result)
@@ -925,7 +925,7 @@ class FunctionAppSlotAuthSettings:
     def additional_login_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#additional_login_params FunctionAppSlot#additional_login_params}.'''
         result = self._values.get("additional_login_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -933,13 +933,13 @@ class FunctionAppSlotAuthSettings:
     def allowed_external_redirect_urls(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_external_redirect_urls FunctionAppSlot#allowed_external_redirect_urls}.'''
         result = self._values.get("allowed_external_redirect_urls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def default_provider(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#default_provider FunctionAppSlot#default_provider}.'''
         result = self._values.get("default_provider")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -947,7 +947,7 @@ class FunctionAppSlotAuthSettings:
     def facebook(self) -> typing.Optional["FunctionAppSlotAuthSettingsFacebook"]:
         '''facebook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#facebook FunctionAppSlot#facebook}
         '''
         result = self._values.get("facebook")
         return typing.cast(typing.Optional["FunctionAppSlotAuthSettingsFacebook"], result)
@@ -956,14 +956,14 @@ class FunctionAppSlotAuthSettings:
     def google(self) -> typing.Optional["FunctionAppSlotAuthSettingsGoogle"]:
         '''google block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#google FunctionAppSlot#google}
         '''
         result = self._values.get("google")
         return typing.cast(typing.Optional["FunctionAppSlotAuthSettingsGoogle"], result)
 
     @builtins.property
     def issuer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#issuer FunctionAppSlot#issuer}.'''
         result = self._values.get("issuer")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -971,20 +971,20 @@ class FunctionAppSlotAuthSettings:
     def microsoft(self) -> typing.Optional["FunctionAppSlotAuthSettingsMicrosoft"]:
         '''microsoft block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#microsoft FunctionAppSlot#microsoft}
         '''
         result = self._values.get("microsoft")
         return typing.cast(typing.Optional["FunctionAppSlotAuthSettingsMicrosoft"], result)
 
     @builtins.property
     def runtime_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_version FunctionAppSlot#runtime_version}.'''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def token_refresh_extension_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_refresh_extension_hours FunctionAppSlot#token_refresh_extension_hours}.'''
         result = self._values.get("token_refresh_extension_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -992,7 +992,7 @@ class FunctionAppSlotAuthSettings:
     def token_store_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#token_store_enabled FunctionAppSlot#token_store_enabled}.'''
         result = self._values.get("token_store_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1000,14 +1000,14 @@ class FunctionAppSlotAuthSettings:
     def twitter(self) -> typing.Optional["FunctionAppSlotAuthSettingsTwitter"]:
         '''twitter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#twitter FunctionAppSlot#twitter}
         '''
         result = self._values.get("twitter")
         return typing.cast(typing.Optional["FunctionAppSlotAuthSettingsTwitter"], result)
 
     @builtins.property
     def unauthenticated_client_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#unauthenticated_client_action FunctionAppSlot#unauthenticated_client_action}.'''
         result = self._values.get("unauthenticated_client_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1041,9 +1041,9 @@ class FunctionAppSlotAuthSettingsActiveDirectory:
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f23b8f88bca95e872ed630b263c7dfcef4032564c5629cfc5e20ebce0c9bbfc4)
@@ -1060,20 +1060,20 @@ class FunctionAppSlotAuthSettingsActiveDirectory:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.'''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def client_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1204,9 +1204,9 @@ class FunctionAppSlotAuthSettingsFacebook:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.
-        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.
+        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95ad3122ecf48c92bf4c83da4c50d8f4442989336aa80464b7e2793b8ce50383)
@@ -1222,21 +1222,21 @@ class FunctionAppSlotAuthSettingsFacebook:
 
     @builtins.property
     def app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.'''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def app_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.'''
         result = self._values.get("app_secret")
         assert result is not None, "Required property 'app_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1361,9 +1361,9 @@ class FunctionAppSlotAuthSettingsGoogle:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e1eabfd0484adcc4dba139a80fa2040a95c48c09ec938dc4a3c0d045c8c6896)
@@ -1379,21 +1379,21 @@ class FunctionAppSlotAuthSettingsGoogle:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1518,9 +1518,9 @@ class FunctionAppSlotAuthSettingsMicrosoft:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ead862c760e4a22e8bad0d6001839a1fa1d16f95a339d05dfd7f690f49c97c2e)
@@ -1536,21 +1536,21 @@ class FunctionAppSlotAuthSettingsMicrosoft:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1686,9 +1686,9 @@ class FunctionAppSlotAuthSettingsOutputReference(
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_audiences FunctionAppSlot#allowed_audiences}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
         '''
         value = FunctionAppSlotAuthSettingsActiveDirectory(
             client_id=client_id,
@@ -1707,9 +1707,9 @@ class FunctionAppSlotAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.
-        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_id FunctionAppSlot#app_id}.
+        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_secret FunctionAppSlot#app_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         value = FunctionAppSlotAuthSettingsFacebook(
             app_id=app_id, app_secret=app_secret, oauth_scopes=oauth_scopes
@@ -1726,9 +1726,9 @@ class FunctionAppSlotAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         value = FunctionAppSlotAuthSettingsGoogle(
             client_id=client_id, client_secret=client_secret, oauth_scopes=oauth_scopes
@@ -1745,9 +1745,9 @@ class FunctionAppSlotAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_id FunctionAppSlot#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#client_secret FunctionAppSlot#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#oauth_scopes FunctionAppSlot#oauth_scopes}.
         '''
         value = FunctionAppSlotAuthSettingsMicrosoft(
             client_id=client_id, client_secret=client_secret, oauth_scopes=oauth_scopes
@@ -1763,8 +1763,8 @@ class FunctionAppSlotAuthSettingsOutputReference(
         consumer_secret: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.
-        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.
+        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.
+        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.
         '''
         value = FunctionAppSlotAuthSettingsTwitter(
             consumer_key=consumer_key, consumer_secret=consumer_secret
@@ -2079,8 +2079,8 @@ class FunctionAppSlotAuthSettingsTwitter:
         consumer_secret: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.
-        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.
+        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.
+        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a41c622d2e827cbdb670b6ab2cdad14cba49c42a2582ff56dd882d6c77ee10c)
@@ -2093,14 +2093,14 @@ class FunctionAppSlotAuthSettingsTwitter:
 
     @builtins.property
     def consumer_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_key FunctionAppSlot#consumer_key}.'''
         result = self._values.get("consumer_key")
         assert result is not None, "Required property 'consumer_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def consumer_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#consumer_secret FunctionAppSlot#consumer_secret}.'''
         result = self._values.get("consumer_secret")
         assert result is not None, "Required property 'consumer_secret' is missing"
         return typing.cast(builtins.str, result)
@@ -2262,27 +2262,27 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.
-        :param function_app_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.
-        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.
-        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
-        :param daily_memory_time_quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.
-        :param enable_builtin_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#id FunctionAppSlot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
-        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.
+        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.
+        :param function_app_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.
+        :param storage_account_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.
+        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
+        :param daily_memory_time_quota: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.
+        :param enable_builtin_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#id FunctionAppSlot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
+        :param os_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2442,49 +2442,49 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def app_service_plan_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_service_plan_id FunctionAppSlot#app_service_plan_id}.'''
         result = self._values.get("app_service_plan_id")
         assert result is not None, "Required property 'app_service_plan_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def function_app_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#function_app_name FunctionAppSlot#function_app_name}.'''
         result = self._values.get("function_app_name")
         assert result is not None, "Required property 'function_app_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#location FunctionAppSlot#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#resource_group_name FunctionAppSlot#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_access_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_access_key FunctionAppSlot#storage_account_access_key}.'''
         result = self._values.get("storage_account_access_key")
         assert result is not None, "Required property 'storage_account_access_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#storage_account_name FunctionAppSlot#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         assert result is not None, "Required property 'storage_account_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2493,7 +2493,7 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_settings(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_settings FunctionAppSlot#app_settings}.'''
         result = self._values.get("app_settings")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2501,7 +2501,7 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_settings(self) -> typing.Optional[FunctionAppSlotAuthSettings]:
         '''auth_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auth_settings FunctionAppSlot#auth_settings}
         '''
         result = self._values.get("auth_settings")
         return typing.cast(typing.Optional[FunctionAppSlotAuthSettings], result)
@@ -2512,14 +2512,14 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotConnectionString"]]]:
         '''connection_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#connection_string FunctionAppSlot#connection_string}
         '''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotConnectionString"]]], result)
 
     @builtins.property
     def daily_memory_time_quota(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#daily_memory_time_quota FunctionAppSlot#daily_memory_time_quota}.'''
         result = self._values.get("daily_memory_time_quota")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2527,7 +2527,7 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_builtin_logging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enable_builtin_logging FunctionAppSlot#enable_builtin_logging}.'''
         result = self._values.get("enable_builtin_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2535,7 +2535,7 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#enabled FunctionAppSlot#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2543,13 +2543,13 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#https_only FunctionAppSlot#https_only}.'''
         result = self._values.get("https_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#id FunctionAppSlot#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#id FunctionAppSlot#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2561,14 +2561,14 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["FunctionAppSlotIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity FunctionAppSlot#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["FunctionAppSlotIdentity"], result)
 
     @builtins.property
     def os_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#os_type FunctionAppSlot#os_type}.'''
         result = self._values.get("os_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2576,14 +2576,14 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def site_config(self) -> typing.Optional["FunctionAppSlotSiteConfig"]:
         '''site_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#site_config FunctionAppSlot#site_config}
         '''
         result = self._values.get("site_config")
         return typing.cast(typing.Optional["FunctionAppSlotSiteConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#tags FunctionAppSlot#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2591,14 +2591,14 @@ class FunctionAppSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FunctionAppSlotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#timeouts FunctionAppSlot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FunctionAppSlotTimeouts"], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#version FunctionAppSlot#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2628,9 +2628,9 @@ class FunctionAppSlotConnectionString:
         value: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#value FunctionAppSlot#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#value FunctionAppSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__398e7daaf3a042e50c38a0a691c52778c50c375b66eb8c5331b342f54ec8352a)
@@ -2645,21 +2645,21 @@ class FunctionAppSlotConnectionString:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#value FunctionAppSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#value FunctionAppSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2877,8 +2877,8 @@ class FunctionAppSlotIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__422895589d7fb1142623408f9a5bfb51ae1ae40e7533130a424da3973a263eff)
@@ -2892,14 +2892,14 @@ class FunctionAppSlotIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#type FunctionAppSlot#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#identity_ids FunctionAppSlot#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3050,27 +3050,27 @@ class FunctionAppSlotSiteConfig:
         websockets_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.
-        :param app_scale_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.
-        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
-        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.
-        :param elastic_instance_minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.
-        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.
-        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.
-        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.
-        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.
-        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.
-        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.
-        :param pre_warmed_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.
-        :param runtime_scale_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.
-        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.
-        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.
-        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.
-        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.
-        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.
-        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.
+        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.
+        :param app_scale_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.
+        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
+        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.
+        :param elastic_instance_minimum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.
+        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.
+        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.
+        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.
+        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.
+        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.
+        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.
+        :param pre_warmed_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.
+        :param runtime_scale_monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.
+        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.
+        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.
+        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.
+        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.
+        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.
+        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.
         '''
         if isinstance(cors, dict):
             cors = FunctionAppSlotSiteConfigCors(**cors)
@@ -3145,19 +3145,19 @@ class FunctionAppSlotSiteConfig:
     def always_on(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#always_on FunctionAppSlot#always_on}.'''
         result = self._values.get("always_on")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def app_scale_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#app_scale_limit FunctionAppSlot#app_scale_limit}.'''
         result = self._values.get("app_scale_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def auto_swap_slot_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#auto_swap_slot_name FunctionAppSlot#auto_swap_slot_name}.'''
         result = self._values.get("auto_swap_slot_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3165,32 +3165,32 @@ class FunctionAppSlotSiteConfig:
     def cors(self) -> typing.Optional["FunctionAppSlotSiteConfigCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#cors FunctionAppSlot#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["FunctionAppSlotSiteConfigCors"], result)
 
     @builtins.property
     def dotnet_framework_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#dotnet_framework_version FunctionAppSlot#dotnet_framework_version}.'''
         result = self._values.get("dotnet_framework_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def elastic_instance_minimum(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#elastic_instance_minimum FunctionAppSlot#elastic_instance_minimum}.'''
         result = self._values.get("elastic_instance_minimum")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ftps_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ftps_state FunctionAppSlot#ftps_state}.'''
         result = self._values.get("ftps_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def health_check_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#health_check_path FunctionAppSlot#health_check_path}.'''
         result = self._values.get("health_check_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3198,7 +3198,7 @@ class FunctionAppSlotSiteConfig:
     def http2_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#http2_enabled FunctionAppSlot#http2_enabled}.'''
         result = self._values.get("http2_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3206,31 +3206,31 @@ class FunctionAppSlotSiteConfig:
     def ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigIpRestriction"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_restriction FunctionAppSlot#ip_restriction}.'''
         result = self._values.get("ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigIpRestriction"]]], result)
 
     @builtins.property
     def java_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#java_version FunctionAppSlot#java_version}.'''
         result = self._values.get("java_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def linux_fx_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#linux_fx_version FunctionAppSlot#linux_fx_version}.'''
         result = self._values.get("linux_fx_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_tls_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#min_tls_version FunctionAppSlot#min_tls_version}.'''
         result = self._values.get("min_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pre_warmed_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#pre_warmed_instance_count FunctionAppSlot#pre_warmed_instance_count}.'''
         result = self._values.get("pre_warmed_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3238,7 +3238,7 @@ class FunctionAppSlotSiteConfig:
     def runtime_scale_monitoring_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#runtime_scale_monitoring_enabled FunctionAppSlot#runtime_scale_monitoring_enabled}.'''
         result = self._values.get("runtime_scale_monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3246,13 +3246,13 @@ class FunctionAppSlotSiteConfig:
     def scm_ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigScmIpRestriction"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_ip_restriction FunctionAppSlot#scm_ip_restriction}.'''
         result = self._values.get("scm_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigScmIpRestriction"]]], result)
 
     @builtins.property
     def scm_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_type FunctionAppSlot#scm_type}.'''
         result = self._values.get("scm_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3260,7 +3260,7 @@ class FunctionAppSlotSiteConfig:
     def scm_use_main_ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#scm_use_main_ip_restriction FunctionAppSlot#scm_use_main_ip_restriction}.'''
         result = self._values.get("scm_use_main_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3268,7 +3268,7 @@ class FunctionAppSlotSiteConfig:
     def use32_bit_worker_process(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#use_32_bit_worker_process FunctionAppSlot#use_32_bit_worker_process}.'''
         result = self._values.get("use32_bit_worker_process")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3276,7 +3276,7 @@ class FunctionAppSlotSiteConfig:
     def vnet_route_all_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#vnet_route_all_enabled FunctionAppSlot#vnet_route_all_enabled}.'''
         result = self._values.get("vnet_route_all_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3284,7 +3284,7 @@ class FunctionAppSlotSiteConfig:
     def websockets_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#websockets_enabled FunctionAppSlot#websockets_enabled}.'''
         result = self._values.get("websockets_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3316,8 +3316,8 @@ class FunctionAppSlotSiteConfigCors:
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.
-        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.
+        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1c41485a03bb2cdf339bf14983e8b3459f11a2d4cdb4ff3a27605d703a05b35)
@@ -3331,7 +3331,7 @@ class FunctionAppSlotSiteConfigCors:
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3340,7 +3340,7 @@ class FunctionAppSlotSiteConfigCors:
     def support_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.'''
         result = self._values.get("support_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3463,13 +3463,13 @@ class FunctionAppSlotSiteConfigIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.
-        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.
+        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__002c76fdc4b88543baa3170c5b121e98b7fe1cf744d143b10131af136b3848a5)
@@ -3498,7 +3498,7 @@ class FunctionAppSlotSiteConfigIpRestriction:
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3506,37 +3506,37 @@ class FunctionAppSlotSiteConfigIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigIpRestrictionHeaders"]]], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.'''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.'''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3572,10 +3572,10 @@ class FunctionAppSlotSiteConfigIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05656fd8bd11012349344704c4d38307d50162472cf2b0c637079d8e9fd9d06f)
@@ -3595,25 +3595,25 @@ class FunctionAppSlotSiteConfigIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4170,8 +4170,8 @@ class FunctionAppSlotSiteConfigOutputReference(
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.
-        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#allowed_origins FunctionAppSlot#allowed_origins}.
+        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#support_credentials FunctionAppSlot#support_credentials}.
         '''
         value = FunctionAppSlotSiteConfigCors(
             allowed_origins=allowed_origins, support_credentials=support_credentials
@@ -4713,13 +4713,13 @@ class FunctionAppSlotSiteConfigScmIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.
-        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.
+        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbfa67aac78313b033301aa7a60097d6c43db13c242aa6d3c177adcee46f38a5)
@@ -4748,7 +4748,7 @@ class FunctionAppSlotSiteConfigScmIpRestriction:
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#action FunctionAppSlot#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4756,37 +4756,37 @@ class FunctionAppSlotSiteConfigScmIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigScmIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#headers FunctionAppSlot#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppSlotSiteConfigScmIpRestrictionHeaders"]]], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#ip_address FunctionAppSlot#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#name FunctionAppSlot#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#priority FunctionAppSlot#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#service_tag FunctionAppSlot#service_tag}.'''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#virtual_network_subnet_id FunctionAppSlot#virtual_network_subnet_id}.'''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4822,10 +4822,10 @@ class FunctionAppSlotSiteConfigScmIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad6b609f9598f02967bfbe56cc416bb637f2cebcd9d641163f5f0a399d47e846)
@@ -4845,25 +4845,25 @@ class FunctionAppSlotSiteConfigScmIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_azure_fdid FunctionAppSlot#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_fd_health_probe FunctionAppSlot#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_for FunctionAppSlot#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#x_forwarded_host FunctionAppSlot#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5558,10 +5558,10 @@ class FunctionAppSlotTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc21dd4cda90713c15cd6bac822bff857f1f43ad4fa19f80353080d279f477c9)
@@ -5581,25 +5581,25 @@ class FunctionAppSlotTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#create FunctionAppSlot#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#delete FunctionAppSlot#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#read FunctionAppSlot#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_slot#update FunctionAppSlot#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

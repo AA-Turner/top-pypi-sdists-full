@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-spanner
-Version: 1.13.0
+Version: 1.13.1
 Summary: SQLAlchemy dialect integrated into Cloud Spanner database
 Home-page: https://github.com/cloudspannerecosystem/python-spanner-sqlalchemy
 Author: Google LLC

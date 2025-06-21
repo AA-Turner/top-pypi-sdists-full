@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -25,6 +25,10 @@ counters = []
 # when enabled, pre-eval and post-eval callbacks are enabled. This is useful for
 # debugging and tracing of programs.
 pre-eval = []
+
+# when enabled, NodePtr will contain additional metadata to assert that they are
+# used correctly
+allocator-debug = []
 
 # On UNIX-based platforms, you may get a speed boost on `sha256` operations by building
 # with OpenSSL when enabled

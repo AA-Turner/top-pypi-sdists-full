@@ -1295,7 +1295,25 @@ When using a CloudFront PublicKey, only the `comment` field can be updated after
 Resource handler returned message: "Invalid request provided: AWS::CloudFront::PublicKey"
 ```
 
-To update the `encodedKey`, you must change the logical ID of the public key resource in your template. This causes CloudFormation to create a new `cloudfront.PublicKey` resource and delete the old one during the next deployment.
+To update the `encodedKey`, you must change the ID of the public key resource in your template. This causes CloudFormation to create a new `cloudfront.PublicKey` resource and delete the old one during the next deployment.
+
+Example:
+
+```python
+# Step 1: Original deployment
+original_key = cloudfront.PublicKey(self, "MyPublicKeyV1",
+    encoded_key="..."
+)
+```
+
+Regenerate a new key and change the construct id in the code:
+
+```python
+# Step 2: In a subsequent deployment, create a new key with a different ID
+updated_key = cloudfront.PublicKey(self, "MyPublicKeyV2",
+    encoded_key="..."
+)
+```
 
 See:
 
@@ -23425,26 +23443,13 @@ class PublicKey(
 
     Example::
 
-        # Validating signed URLs or signed cookies with Trusted Key Groups
-        
-        # public key in PEM format
-        # public_key: str
-        
-        pub_key = cloudfront.PublicKey(self, "MyPubKey",
-            encoded_key=public_key
-        )
-        
-        key_group = cloudfront.KeyGroup(self, "MyKeyGroup",
-            items=[pub_key
+        # Create a key group to use with CloudFront signed URLs and signed cookies.
+        cloudfront.KeyGroup(self, "MyKeyGroup",
+            items=[
+                cloudfront.PublicKey(self, "MyPublicKey",
+                    encoded_key="..."
+                )
             ]
-        )
-        
-        cloudfront.Distribution(self, "Dist",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.HttpOrigin("www.example.com"),
-                trusted_key_groups=[key_group
-                ]
-            )
         )
     '''
 
@@ -23535,26 +23540,13 @@ class PublicKeyProps:
 
         Example::
 
-            # Validating signed URLs or signed cookies with Trusted Key Groups
-            
-            # public key in PEM format
-            # public_key: str
-            
-            pub_key = cloudfront.PublicKey(self, "MyPubKey",
-                encoded_key=public_key
-            )
-            
-            key_group = cloudfront.KeyGroup(self, "MyKeyGroup",
-                items=[pub_key
+            # Create a key group to use with CloudFront signed URLs and signed cookies.
+            cloudfront.KeyGroup(self, "MyKeyGroup",
+                items=[
+                    cloudfront.PublicKey(self, "MyPublicKey",
+                        encoded_key="..."
+                    )
                 ]
-            )
-            
-            cloudfront.Distribution(self, "Dist",
-                default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.HttpOrigin("www.example.com"),
-                    trusted_key_groups=[key_group
-                    ]
-                )
             )
         '''
         if __debug__:

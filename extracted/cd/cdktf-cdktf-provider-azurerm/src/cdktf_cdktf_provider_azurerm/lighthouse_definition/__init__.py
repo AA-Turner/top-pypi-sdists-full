@@ -1,7 +1,7 @@
 r'''
 # `azurerm_lighthouse_definition`
 
-Refer to the Terraform Registry for docs: [`azurerm_lighthouse_definition`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition).
+Refer to the Terraform Registry for docs: [`azurerm_lighthouse_definition`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LighthouseDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.lighthouseDefinition.LighthouseDefinition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition azurerm_lighthouse_definition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition azurerm_lighthouse_definition}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class LighthouseDefinition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition azurerm_lighthouse_definition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition azurerm_lighthouse_definition} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
-        :param managing_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.
-        :param eligible_authorization: eligible_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lighthouse_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
+        :param managing_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.
+        :param eligible_authorization: eligible_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lighthouse_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class LighthouseDefinition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LighthouseDefinition to import.
-        :param import_from_id: The id of the existing LighthouseDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LighthouseDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LighthouseDefinition to import is found.
         '''
         if __debug__:
@@ -177,10 +177,10 @@ class LighthouseDefinition(
         version: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.
         '''
         value = LighthouseDefinitionPlan(
             name=name, product=product, publisher=publisher, version=version
@@ -198,10 +198,10 @@ class LighthouseDefinition(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.
         '''
         value = LighthouseDefinitionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -415,10 +415,10 @@ class LighthouseDefinitionAuthorization:
         principal_display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
-        :param role_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.
-        :param delegated_role_definition_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#delegated_role_definition_ids LighthouseDefinition#delegated_role_definition_ids}.
-        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
+        :param role_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.
+        :param delegated_role_definition_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#delegated_role_definition_ids LighthouseDefinition#delegated_role_definition_ids}.
+        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6cc5cd3734149ea82a8cd004fb301783d31a4bf1fa3edac605e734141fb836ec)
@@ -437,14 +437,14 @@ class LighthouseDefinitionAuthorization:
 
     @builtins.property
     def principal_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
         result = self._values.get("principal_id")
         assert result is not None, "Required property 'principal_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_definition_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.'''
         result = self._values.get("role_definition_id")
         assert result is not None, "Required property 'role_definition_id' is missing"
         return typing.cast(builtins.str, result)
@@ -453,13 +453,13 @@ class LighthouseDefinitionAuthorization:
     def delegated_role_definition_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#delegated_role_definition_ids LighthouseDefinition#delegated_role_definition_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#delegated_role_definition_ids LighthouseDefinition#delegated_role_definition_ids}.'''
         result = self._values.get("delegated_role_definition_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def principal_display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
         result = self._values.get("principal_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -743,16 +743,16 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
-        :param managing_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.
-        :param eligible_authorization: eligible_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lighthouse_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
+        :param managing_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.
+        :param eligible_authorization: eligible_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lighthouse_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -882,7 +882,7 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LighthouseDefinitionAuthorization]]:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#authorization LighthouseDefinition#authorization}
         '''
         result = self._values.get("authorization")
         assert result is not None, "Required property 'authorization' is missing"
@@ -890,28 +890,28 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def managing_tenant_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#managing_tenant_id LighthouseDefinition#managing_tenant_id}.'''
         result = self._values.get("managing_tenant_id")
         assert result is not None, "Required property 'managing_tenant_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#scope LighthouseDefinition#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#description LighthouseDefinition#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -921,14 +921,14 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LighthouseDefinitionEligibleAuthorization"]]]:
         '''eligible_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#eligible_authorization LighthouseDefinition#eligible_authorization}
         '''
         result = self._values.get("eligible_authorization")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LighthouseDefinitionEligibleAuthorization"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#id LighthouseDefinition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -938,7 +938,7 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lighthouse_definition_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#lighthouse_definition_id LighthouseDefinition#lighthouse_definition_id}.'''
         result = self._values.get("lighthouse_definition_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -946,7 +946,7 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plan(self) -> typing.Optional["LighthouseDefinitionPlan"]:
         '''plan block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#plan LighthouseDefinition#plan}
         '''
         result = self._values.get("plan")
         return typing.cast(typing.Optional["LighthouseDefinitionPlan"], result)
@@ -955,7 +955,7 @@ class LighthouseDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LighthouseDefinitionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#timeouts LighthouseDefinition#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LighthouseDefinitionTimeouts"], result)
@@ -992,10 +992,10 @@ class LighthouseDefinitionEligibleAuthorization:
         principal_display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
-        :param role_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.
-        :param just_in_time_access_policy: just_in_time_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#just_in_time_access_policy LighthouseDefinition#just_in_time_access_policy}
-        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
+        :param role_definition_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.
+        :param just_in_time_access_policy: just_in_time_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#just_in_time_access_policy LighthouseDefinition#just_in_time_access_policy}
+        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
         '''
         if isinstance(just_in_time_access_policy, dict):
             just_in_time_access_policy = LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy(**just_in_time_access_policy)
@@ -1016,14 +1016,14 @@ class LighthouseDefinitionEligibleAuthorization:
 
     @builtins.property
     def principal_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
         result = self._values.get("principal_id")
         assert result is not None, "Required property 'principal_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_definition_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#role_definition_id LighthouseDefinition#role_definition_id}.'''
         result = self._values.get("role_definition_id")
         assert result is not None, "Required property 'role_definition_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1034,14 +1034,14 @@ class LighthouseDefinitionEligibleAuthorization:
     ) -> typing.Optional["LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy"]:
         '''just_in_time_access_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#just_in_time_access_policy LighthouseDefinition#just_in_time_access_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#just_in_time_access_policy LighthouseDefinition#just_in_time_access_policy}
         '''
         result = self._values.get("just_in_time_access_policy")
         return typing.cast(typing.Optional["LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy"], result)
 
     @builtins.property
     def principal_display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
         result = self._values.get("principal_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1075,9 +1075,9 @@ class LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy:
         multi_factor_auth_provider: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param approver: approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
-        :param maximum_activation_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.
-        :param multi_factor_auth_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.
+        :param approver: approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
+        :param maximum_activation_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.
+        :param multi_factor_auth_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95d5824dba04702d36db95bc95190d27c8d197f8d63866d6564633e5e4987001)
@@ -1098,20 +1098,20 @@ class LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicyApprover"]]]:
         '''approver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
         '''
         result = self._values.get("approver")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicyApprover"]]], result)
 
     @builtins.property
     def maximum_activation_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.'''
         result = self._values.get("maximum_activation_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def multi_factor_auth_provider(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.'''
         result = self._values.get("multi_factor_auth_provider")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1143,8 +1143,8 @@ class LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicyApprover:
         principal_display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
-        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.
+        :param principal_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b4f2e6b4299d5beae745afde767d82f69daf5404b52ca34cf5aabafe9a30077)
@@ -1158,14 +1158,14 @@ class LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicyApprover:
 
     @builtins.property
     def principal_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_id LighthouseDefinition#principal_id}.'''
         result = self._values.get("principal_id")
         assert result is not None, "Required property 'principal_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def principal_display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#principal_display_name LighthouseDefinition#principal_display_name}.'''
         result = self._values.get("principal_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1595,9 +1595,9 @@ class LighthouseDefinitionEligibleAuthorizationOutputReference(
         multi_factor_auth_provider: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param approver: approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
-        :param maximum_activation_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.
-        :param multi_factor_auth_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.
+        :param approver: approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#approver LighthouseDefinition#approver}
+        :param maximum_activation_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#maximum_activation_duration LighthouseDefinition#maximum_activation_duration}.
+        :param multi_factor_auth_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#multi_factor_auth_provider LighthouseDefinition#multi_factor_auth_provider}.
         '''
         value = LighthouseDefinitionEligibleAuthorizationJustInTimeAccessPolicy(
             approver=approver,
@@ -1718,10 +1718,10 @@ class LighthouseDefinitionPlan:
         version: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6db2dc42c00ab4aa6b5653971ef3631906cb56325e8a6e2e09b02326a347e3d2)
@@ -1738,28 +1738,28 @@ class LighthouseDefinitionPlan:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#name LighthouseDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def product(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#product LighthouseDefinition#product}.'''
         result = self._values.get("product")
         assert result is not None, "Required property 'product' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#publisher LighthouseDefinition#publisher}.'''
         result = self._values.get("publisher")
         assert result is not None, "Required property 'publisher' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#version LighthouseDefinition#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -1897,10 +1897,10 @@ class LighthouseDefinitionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69773abaa35a6e7153427695bb264e565feaa8b680b62da57929086c523f5ca4)
@@ -1920,25 +1920,25 @@ class LighthouseDefinitionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#create LighthouseDefinition#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#delete LighthouseDefinition#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#read LighthouseDefinition#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/lighthouse_definition#update LighthouseDefinition#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

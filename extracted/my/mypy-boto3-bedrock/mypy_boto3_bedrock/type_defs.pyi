@@ -33,6 +33,7 @@ from .literals import (
     FineTuningJobStatusType,
     FoundationModelLifecycleStatusType,
     GuardrailContentFilterActionType,
+    GuardrailContentFiltersTierNameType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingActionType,
     GuardrailContextualGroundingFilterTypeType,
@@ -42,6 +43,7 @@ from .literals import (
     GuardrailSensitiveInformationActionType,
     GuardrailStatusType,
     GuardrailTopicActionType,
+    GuardrailTopicsTierNameType,
     GuardrailWordActionType,
     InferenceProfileTypeType,
     InferenceTypeType,
@@ -200,6 +202,8 @@ __all__ = (
     "GuardrailConfigurationTypeDef",
     "GuardrailContentFilterConfigTypeDef",
     "GuardrailContentFilterTypeDef",
+    "GuardrailContentFiltersTierConfigTypeDef",
+    "GuardrailContentFiltersTierTypeDef",
     "GuardrailContentPolicyConfigTypeDef",
     "GuardrailContentPolicyTypeDef",
     "GuardrailContextualGroundingFilterConfigTypeDef",
@@ -221,6 +225,8 @@ __all__ = (
     "GuardrailTopicPolicyConfigTypeDef",
     "GuardrailTopicPolicyTypeDef",
     "GuardrailTopicTypeDef",
+    "GuardrailTopicsTierConfigTypeDef",
+    "GuardrailTopicsTierTypeDef",
     "GuardrailWordConfigTypeDef",
     "GuardrailWordPolicyConfigTypeDef",
     "GuardrailWordPolicyTypeDef",
@@ -603,6 +609,13 @@ GuardrailContentFilterTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailContentFiltersTierConfigTypeDef(TypedDict):
+    tierName: GuardrailContentFiltersTierNameType
+
+class GuardrailContentFiltersTierTypeDef(TypedDict):
+    tierName: GuardrailContentFiltersTierNameType
+
 GuardrailContextualGroundingFilterConfigTypeDef = TypedDict(
     "GuardrailContextualGroundingFilterConfigTypeDef",
     {
@@ -697,6 +710,10 @@ GuardrailTopicConfigTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailTopicsTierConfigTypeDef(TypedDict):
+    tierName: GuardrailTopicsTierNameType
+
 GuardrailTopicTypeDef = TypedDict(
     "GuardrailTopicTypeDef",
     {
@@ -710,6 +727,9 @@ GuardrailTopicTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailTopicsTierTypeDef(TypedDict):
+    tierName: GuardrailTopicsTierNameType
 
 class GuardrailWordConfigTypeDef(TypedDict):
     text: str
@@ -1242,9 +1262,11 @@ class SageMakerEndpointOutputTypeDef(TypedDict):
 
 class GuardrailContentPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContentFilterConfigTypeDef]
+    tierConfig: NotRequired[GuardrailContentFiltersTierConfigTypeDef]
 
 class GuardrailContentPolicyTypeDef(TypedDict):
     filters: NotRequired[List[GuardrailContentFilterTypeDef]]
+    tier: NotRequired[GuardrailContentFiltersTierTypeDef]
 
 class GuardrailContextualGroundingPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContextualGroundingFilterConfigTypeDef]
@@ -1262,9 +1284,11 @@ class GuardrailSensitiveInformationPolicyTypeDef(TypedDict):
 
 class GuardrailTopicPolicyConfigTypeDef(TypedDict):
     topicsConfig: Sequence[GuardrailTopicConfigTypeDef]
+    tierConfig: NotRequired[GuardrailTopicsTierConfigTypeDef]
 
 class GuardrailTopicPolicyTypeDef(TypedDict):
     topics: List[GuardrailTopicTypeDef]
+    tier: NotRequired[GuardrailTopicsTierTypeDef]
 
 class GuardrailWordPolicyConfigTypeDef(TypedDict):
     wordsConfig: NotRequired[Sequence[GuardrailWordConfigTypeDef]]

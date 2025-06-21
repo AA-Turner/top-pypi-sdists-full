@@ -1,7 +1,7 @@
 r'''
 # `azurerm_ip_group_cidr`
 
-Refer to the Terraform Registry for docs: [`azurerm_ip_group_cidr`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr).
+Refer to the Terraform Registry for docs: [`azurerm_ip_group_cidr`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IpGroupCidr(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.ipGroupCidr.IpGroupCidr",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr azurerm_ip_group_cidr}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr azurerm_ip_group_cidr}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IpGroupCidr(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr azurerm_ip_group_cidr} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr azurerm_ip_group_cidr} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.
-        :param ip_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.
+        :param ip_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IpGroupCidr(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IpGroupCidr to import.
-        :param import_from_id: The id of the existing IpGroupCidr that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IpGroupCidr that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IpGroupCidr to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class IpGroupCidr(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.
         '''
         value = IpGroupCidrTimeouts(create=create, delete=delete, read=read)
 
@@ -266,10 +266,10 @@ class IpGroupCidrConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.
-        :param ip_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.
+        :param ip_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -377,21 +377,21 @@ class IpGroupCidrConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#cidr IpGroupCidr#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ip_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#ip_group_id IpGroupCidr#ip_group_id}.'''
         result = self._values.get("ip_group_id")
         assert result is not None, "Required property 'ip_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#id IpGroupCidr#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -403,7 +403,7 @@ class IpGroupCidrConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IpGroupCidrTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#timeouts IpGroupCidr#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IpGroupCidrTimeouts"], result)
@@ -434,9 +434,9 @@ class IpGroupCidrTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3568d4851ff2ac774904f493779247aea69c15162cd1fbe2a71e74e9a3f58440)
@@ -453,19 +453,19 @@ class IpGroupCidrTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#create IpGroupCidr#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#delete IpGroupCidr#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/ip_group_cidr#read IpGroupCidr#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

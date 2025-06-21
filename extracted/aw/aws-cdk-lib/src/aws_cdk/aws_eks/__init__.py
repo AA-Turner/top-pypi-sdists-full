@@ -79,13 +79,13 @@ This example defines an Amazon EKS cluster with the following configuration:
 * A Kubernetes pod with a container based on the [paulbouwer/hello-kubernetes](https://github.com/paulbouwer/hello-kubernetes) image.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 # provisioning a cluster
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 
 # apply a kubernetes manifest to the cluster
@@ -149,24 +149,24 @@ A more detailed breakdown of each is provided further down this README.
 Creating a new cluster is done using the `Cluster` or `FargateCluster` constructs. The only required properties are the kubernetes `version` and `kubectlLayer`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
 You can also use `FargateCluster` to provision a cluster that uses only fargate workers.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.FargateCluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -189,14 +189,14 @@ By default, this library will allocate a managed node group with 2 *m5.large* in
 At cluster instantiation time, you can customize the number of instances and their type:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     default_capacity=5,
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.SMALL),
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -205,13 +205,13 @@ To access the node group that was created on your behalf, you can use `cluster.d
 Additional customizations are available post instantiation. To apply them, set the default capacity to 0, and use the `cluster.addNodegroupCapacity` method:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     default_capacity=0,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -290,7 +290,7 @@ Node groups are available with IPv6 configured networks.  For custom roles assig
 > For more details visit [Configuring the Amazon VPC CNI plugin for Kubernetes to use IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/cni-iam-role.html#cni-iam-role-create-role)
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 ipv6_management = iam.PolicyDocument(
@@ -315,9 +315,9 @@ eks_cluster_node_group_role = iam.Role(self, "eksClusterNodeGroupRole",
 )
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     default_capacity=0,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -426,13 +426,13 @@ has been changed. As a workaround, you need to add a temporary policy to the clu
 successful replacement. Consider this example if you are renaming the cluster from `foo` to `bar`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "cluster-to-rename",
     cluster_name="foo",  # rename this to 'bar'
-    kubectl_layer=KubectlV32Layer(self, "kubectl"),
-    version=eks.KubernetesVersion.V1_32
+    kubectl_layer=KubectlV33Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_33
 )
 
 # allow the cluster admin role to delete the cluster 'foo'
@@ -485,12 +485,12 @@ To create an EKS cluster that **only** uses Fargate capacity, you can use `Farga
 The following code defines an Amazon EKS cluster with a default Fargate Profile that matches all pods from the "kube-system" and "default" namespaces. It is also configured to [run CoreDNS on Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate-getting-started.html#fargate-gs-coredns).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.FargateCluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -570,13 +570,13 @@ To disable bootstrapping altogether (i.e. to fully customize user-data), set `bo
 You can also configure the cluster to use an auto-scaling group as the default capacity:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     default_capacity_type=eks.DefaultCapacityType.EC2,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -683,13 +683,13 @@ AWS Identity and Access Management (IAM) and native Kubernetes [Role Based Acces
 You can configure the [cluster endpoint access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html) by using the `endpointAccess` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -709,33 +709,33 @@ From the docs:
 To deploy the controller on your EKS cluster, configure the `albController` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V2_8_2
     ),
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V2_8_2,
         additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
             enable_wafv2=False
         )
     ),
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -772,16 +772,16 @@ if cluster.alb_controller:
 You can specify the VPC of the cluster using the `vpc` and `vpcSubnets` properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     vpc=vpc,
     vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -825,12 +825,12 @@ The `ClusterHandler` is a set of Lambda functions (`onEventHandler`, `isComplete
 You can configure the environment of the Cluster Handler functions by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 # proxy_instance_security_group: ec2.SecurityGroup
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     cluster_handler_environment={
         "https_proxy": "http://proxy.myproxy.com"
     },
@@ -839,7 +839,7 @@ cluster = eks.Cluster(self, "hello-eks",
     # Cluster Handler Lambdas so that it can reach the proxy.
     #
     cluster_handler_security_group=proxy_instance_security_group,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -848,7 +848,7 @@ cluster = eks.Cluster(self, "hello-eks",
 You can optionally choose to configure your cluster to use IPv6 using the [`ipFamily`](https://docs.aws.amazon.com/eks/latest/APIReference/API_KubernetesNetworkConfigRequest.html#AmazonEKS-Type-KubernetesNetworkConfigRequest-ipFamily) definition for your cluster.  Note that this will require the underlying subnets to have an associated IPv6 CIDR.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 # vpc: ec2.Vpc
 
 
@@ -873,11 +873,11 @@ for subnet in subnets:
     subnetcount = subnetcount + 1
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     vpc=vpc,
     ip_family=eks.IpFamily.IP_V6,
     vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -908,15 +908,15 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     kubectl_environment={
         "http_proxy": "http://proxy.myproxy.com"
     },
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -933,12 +933,12 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -974,7 +974,7 @@ cluster1 = eks.Cluster(self, "MyCluster",
     kubectl_layer=layer,
     vpc=vpc,
     cluster_name="cluster-name",
-    version=eks.KubernetesVersion.V1_32
+    version=eks.KubernetesVersion.V1_33
 )
 
 # or
@@ -990,7 +990,7 @@ cluster2 = eks.Cluster.from_cluster_attributes(self, "MyCluster",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `kubectlMemory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 # or
 # vpc: ec2.Vpc
@@ -998,8 +998,8 @@ from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
 
 eks.Cluster(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 eks.Cluster.from_cluster_attributes(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
@@ -1034,14 +1034,14 @@ cluster.add_auto_scaling_group_capacity("self-ng-arm",
 When you create a cluster, you can specify a `mastersRole`. The `Cluster` construct will associate this role with the `system:masters` [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) group, giving it super-user access to the cluster.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 # role: iam.Role
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     masters_role=role,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -1087,28 +1087,28 @@ You can use the `secretsEncryptionKey` to configure which key the cluster will u
 > This setting can only be specified when the cluster is created and cannot be updated.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.Cluster(self, "MyCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
 You can also use a similar configuration for running a cluster built using the FargateCluster construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.FargateCluster(self, "MyFargateCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -1127,12 +1127,12 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
     remote_node_networks=[eks.RemoteNodeNetwork(
         cidrs=["10.0.0.0/16"]
     )
@@ -1185,7 +1185,7 @@ To access the Kubernetes resources from the console, make sure your viewing prin
 in the `aws-auth` ConfigMap. Some options to consider:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 # cluster: eks.Cluster
 # your_current_role: iam.Role
 # vpc: ec2.Vpc
@@ -1203,7 +1203,7 @@ your_current_role.add_to_policy(iam.PolicyStatement(
 
 ```python
 # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 # vpc: ec2.Vpc
 
 
@@ -1213,8 +1213,8 @@ masters_role = iam.Role(self, "MastersRole",
 
 cluster = eks.Cluster(self, "EksCluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
     masters_role=masters_role
 )
 
@@ -1253,14 +1253,14 @@ AWS IAM principals from both Amazon EKS access entry APIs and the aws-auth confi
 To specify the `authenticationMode`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "Cluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 ```
@@ -1305,7 +1305,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 # vpc: ec2.Vpc
 
 
@@ -1324,8 +1324,8 @@ eks_admin_view_role = iam.Role(self, "EKSAdminViewRole",
 cluster = eks.Cluster(self, "Cluster",
     vpc=vpc,
     masters_role=cluster_admin_role,
-    version=eks.KubernetesVersion.V1_32,
-    kubectl_layer=KubectlV32Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_33,
+    kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 
@@ -1656,13 +1656,13 @@ Pruning is enabled by default but can be disabled through the `prune` option
 when a cluster is defined:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 eks.Cluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     prune=False,
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -2061,15 +2061,15 @@ You can enable logging for each one separately using the `clusterLogging`
 property. For example:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
 
 
 cluster = eks.Cluster(self, "Cluster",
     # ...
-    version=eks.KubernetesVersion.V1_32,
+    version=eks.KubernetesVersion.V1_33,
     cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
     ],
-    kubectl_layer=KubectlV32Layer(self, "kubectl")
+    kubectl_layer=KubectlV33Layer(self, "kubectl")
 )
 ```
 
@@ -3065,18 +3065,18 @@ class AlbControllerHelmChartOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+            from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_32,
+                version=eks.KubernetesVersion.V1_33,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V2_8_2,
                     additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
                         enable_wafv2=False
                     )
                 ),
-                kubectl_layer=KubectlV32Layer(self, "kubectl")
+                kubectl_layer=KubectlV33Layer(self, "kubectl")
             )
         '''
         if __debug__:
@@ -3149,15 +3149,15 @@ class AlbControllerOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+            from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_32,
+                version=eks.KubernetesVersion.V1_33,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V2_8_2
                 ),
-                kubectl_layer=KubectlV32Layer(self, "kubectl")
+                kubectl_layer=KubectlV33Layer(self, "kubectl")
             )
         '''
         if isinstance(additional_helm_chart_values, dict):
@@ -3385,15 +3385,15 @@ class AlbControllerVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         
         eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_32,
+            version=eks.KubernetesVersion.V1_33,
             alb_controller=eks.AlbControllerOptions(
                 version=eks.AlbControllerVersion.V2_8_2
             ),
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -3669,14 +3669,14 @@ class AuthenticationMode(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         # vpc: ec2.Vpc
         
         
         eks.Cluster(self, "Cluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_32,
-            kubectl_layer=KubectlV32Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_33,
+            kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
             authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
         )
     '''
@@ -5587,7 +5587,7 @@ class CfnAddon(
         :param cluster_name: The name of your cluster.
         :param addon_version: The version of the add-on.
         :param configuration_values: The configuration values that you provided.
-        :param pod_identity_associations: An array of Pod Identity Assocations owned by the Addon. Each EKS Pod Identity association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
+        :param pod_identity_associations: An array of EKS Pod Identity associations owned by the add-on. Each association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed.
         :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on. Conflicts are handled based on the value you choose: - *None* – If the self-managed version of the add-on is installed on your cluster, Amazon EKS doesn't change the value. Creation of the add-on might fail. - *Overwrite* – If the self-managed version of the add-on is installed on your cluster and the Amazon EKS default value is different than the existing value, Amazon EKS changes the value to the Amazon EKS default value. - *Preserve* – This is similar to the NONE option. If the self-managed version of the add-on is installed on your cluster Amazon EKS doesn't change the add-on resource properties. Creation of the add-on might fail if conflicts are detected. This option works differently during the update operation. For more information, see ```UpdateAddon`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateAddon.html>`_ . If you don't currently have the self-managed version of the add-on installed on your cluster, the Amazon EKS add-on is installed. Amazon EKS sets all values to default values, regardless of the option that you specify.
         :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the add-on's service account. The role must be assigned the IAM permissions required by the add-on. If you don't specify an existing IAM role, then the add-on uses the permissions assigned to the node IAM role. For more information, see `Amazon EKS node IAM role <https://docs.aws.amazon.com/eks/latest/userguide/create-node-role.html>`_ in the *Amazon EKS User Guide* . .. epigraph:: To specify an existing IAM role, you must have an IAM OpenID Connect (OIDC) provider created for your cluster. For more information, see `Enabling IAM roles for service accounts on your cluster <https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html>`_ in the *Amazon EKS User Guide* .
@@ -5718,7 +5718,7 @@ class CfnAddon(
     def pod_identity_associations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAddon.PodIdentityAssociationProperty"]]]]:
-        '''An array of Pod Identity Assocations owned by the Addon.'''
+        '''An array of EKS Pod Identity associations owned by the add-on.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAddon.PodIdentityAssociationProperty"]]]], jsii.get(self, "podIdentityAssociations"))
 
     @pod_identity_associations.setter
@@ -5802,7 +5802,7 @@ class CfnAddon(
         ) -> None:
             '''Amazon EKS Pod Identity associations provide the ability to manage credentials for your applications, similar to the way that Amazon EC2 instance profiles provide credentials to Amazon EC2 instances.
 
-            :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
+            :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
             :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-podidentityassociation.html
@@ -5832,7 +5832,7 @@ class CfnAddon(
         def role_arn(self) -> builtins.str:
             '''The Amazon Resource Name (ARN) of the IAM role to associate with the service account.
 
-            The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
+            The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-addon-podidentityassociation.html#cfn-eks-addon-podidentityassociation-rolearn
             '''
@@ -5897,7 +5897,7 @@ class CfnAddonProps:
         :param cluster_name: The name of your cluster.
         :param addon_version: The version of the add-on.
         :param configuration_values: The configuration values that you provided.
-        :param pod_identity_associations: An array of Pod Identity Assocations owned by the Addon. Each EKS Pod Identity association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
+        :param pod_identity_associations: An array of EKS Pod Identity associations owned by the add-on. Each association maps a role to a service account in a namespace in the cluster. For more information, see `Attach an IAM Role to an Amazon EKS add-on using EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed.
         :param resolve_conflicts: How to resolve field value conflicts for an Amazon EKS add-on. Conflicts are handled based on the value you choose: - *None* – If the self-managed version of the add-on is installed on your cluster, Amazon EKS doesn't change the value. Creation of the add-on might fail. - *Overwrite* – If the self-managed version of the add-on is installed on your cluster and the Amazon EKS default value is different than the existing value, Amazon EKS changes the value to the Amazon EKS default value. - *Preserve* – This is similar to the NONE option. If the self-managed version of the add-on is installed on your cluster Amazon EKS doesn't change the add-on resource properties. Creation of the add-on might fail if conflicts are detected. This option works differently during the update operation. For more information, see ```UpdateAddon`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateAddon.html>`_ . If you don't currently have the self-managed version of the add-on installed on your cluster, the Amazon EKS add-on is installed. Amazon EKS sets all values to default values, regardless of the option that you specify.
         :param service_account_role_arn: The Amazon Resource Name (ARN) of an existing IAM role to bind to the add-on's service account. The role must be assigned the IAM permissions required by the add-on. If you don't specify an existing IAM role, then the add-on uses the permissions assigned to the node IAM role. For more information, see `Amazon EKS node IAM role <https://docs.aws.amazon.com/eks/latest/userguide/create-node-role.html>`_ in the *Amazon EKS User Guide* . .. epigraph:: To specify an existing IAM role, you must have an IAM OpenID Connect (OIDC) provider created for your cluster. For more information, see `Enabling IAM roles for service accounts on your cluster <https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html>`_ in the *Amazon EKS User Guide* .
@@ -6004,11 +6004,11 @@ class CfnAddonProps:
     def pod_identity_associations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAddon.PodIdentityAssociationProperty]]]]:
-        '''An array of Pod Identity Assocations owned by the Addon.
+        '''An array of EKS Pod Identity associations owned by the add-on.
 
-        Each EKS Pod Identity association maps a role to a service account in a namespace in the cluster.
+        Each association maps a role to a service account in a namespace in the cluster.
 
-        For more information, see `Attach an IAM Role to an Amazon EKS add-on using Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
+        For more information, see `Attach an IAM Role to an Amazon EKS add-on using EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`_ in the *Amazon EKS User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-addon.html#cfn-eks-addon-podidentityassociations
         '''
@@ -6228,7 +6228,7 @@ class CfnCluster(
         :param resources_vpc_config: The VPC configuration that's used by the cluster control plane. Amazon EKS VPC resources have specific requirements to work properly with Kubernetes. For more information, see `Cluster VPC Considerations <https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html>`_ and `Cluster Security Group Considerations <https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html>`_ in the *Amazon EKS User Guide* . You must specify at least two subnets. You can specify up to five security groups, but we recommend that you use a dedicated security group for your cluster control plane.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. For more information, see `Amazon EKS Service IAM Role <https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html>`_ in the **Amazon EKS User Guide** .
         :param access_config: The access configuration for the cluster.
-        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking addons include vpc-cni, coredns, and kube-proxy. Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
+        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
@@ -7596,8 +7596,8 @@ class CfnCluster(
 
             You can add, change, or remove this configuration after the cluster is created.
 
-            :param remote_node_networks: The list of network CIDRs that can contain hybrid nodes. These CIDR blocks define the expected IP address range of the hybrid nodes that join the cluster. These blocks are typically determined by your network administrator. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range. - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect . - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` . - Each host must allow inbound connection from the EKS cluster control plane on TCP port 10250 for logs, exec and port-forward operations. - Each host must allow TCP and UDP network connectivity to and from other hosts that are running ``CoreDNS`` on UDP port ``53`` for service and pod DNS names.
-            :param remote_pod_networks: The list of network CIDRs that can contain pods that run Kubernetes webhooks on hybrid nodes. These CIDR blocks are determined by configuring your Container Network Interface (CNI) plugin. We recommend the Calico CNI or Cilium CNI. Note that the Amazon VPC CNI plugin for Kubernetes isn't available for on-premises and edge locations. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
+            :param remote_node_networks: The list of network CIDRs that can contain hybrid nodes. These CIDR blocks define the expected IP address range of the hybrid nodes that join the cluster. These blocks are typically determined by your network administrator. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range. - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect . - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` . - Each host must allow inbound connection from the EKS cluster control plane on TCP port 10250 for logs, exec and port-forward operations. - Each host must allow TCP and UDP network connectivity to and from other hosts that are running ``CoreDNS`` on UDP port ``53`` for service and pod DNS names.
+            :param remote_pod_networks: The list of network CIDRs that can contain pods that run Kubernetes webhooks on hybrid nodes. These CIDR blocks are determined by configuring your Container Network Interface (CNI) plugin. We recommend the Calico CNI or Cilium CNI. Note that the Amazon VPC CNI plugin for Kubernetes isn't available for on-premises and edge locations. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotenetworkconfig.html
             :exampleMetadata: fixture=_generated
@@ -7641,7 +7641,7 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
             - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect .
             - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` .
@@ -7666,7 +7666,7 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotenetworkconfig.html#cfn-eks-cluster-remotenetworkconfig-remotepodnetworks
@@ -7700,14 +7700,14 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
             - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect .
             - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` .
             - Each host must allow inbound connection from the EKS cluster control plane on TCP port 10250 for logs, exec and port-forward operations.
             - Each host must allow TCP and UDP network connectivity to and from other hosts that are running ``CoreDNS`` on UDP port ``53`` for service and pod DNS names.
 
-            :param cidrs: A network CIDR that can contain hybrid nodes. These CIDR blocks define the expected IP address range of the hybrid nodes that join the cluster. These blocks are typically determined by your network administrator. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range. - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect . - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` . - Each host must allow inbound connection from the EKS cluster control plane on TCP port 10250 for logs, exec and port-forward operations. - Each host must allow TCP and UDP network connectivity to and from other hosts that are running ``CoreDNS`` on UDP port ``53`` for service and pod DNS names.
+            :param cidrs: A network CIDR that can contain hybrid nodes. These CIDR blocks define the expected IP address range of the hybrid nodes that join the cluster. These blocks are typically determined by your network administrator. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range. - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect . - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` . - Each host must allow inbound connection from the EKS cluster control plane on TCP port 10250 for logs, exec and port-forward operations. - Each host must allow TCP and UDP network connectivity to and from other hosts that are running ``CoreDNS`` on UDP port ``53`` for service and pod DNS names.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotenodenetwork.html
             :exampleMetadata: fixture=_generated
@@ -7739,7 +7739,7 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
             - Each block must have a route to the VPC that uses the VPC CIDR blocks, not public IPs or Elastic IPs. There are many options including AWS Transit Gateway , AWS Site-to-Site VPN , or AWS Direct Connect .
             - Each host must allow outbound connection to the EKS cluster control plane on TCP ports ``443`` and ``10250`` .
@@ -7778,10 +7778,10 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
 
-            :param cidrs: A network CIDR that can contain pods that run Kubernetes webhooks on hybrid nodes. These CIDR blocks are determined by configuring your Container Network Interface (CNI) plugin. We recommend the Calico CNI or Cilium CNI. Note that the Amazon VPC CNI plugin for Kubernetes isn't available for on-premises and edge locations. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
+            :param cidrs: A network CIDR that can contain pods that run Kubernetes webhooks on hybrid nodes. These CIDR blocks are determined by configuring your Container Network Interface (CNI) plugin. We recommend the Calico CNI or Cilium CNI. Note that the Amazon VPC CNI plugin for Kubernetes isn't available for on-premises and edge locations. Enter one or more IPv4 CIDR blocks in decimal dotted-quad notation (for example, ``10.2.0.0/16`` ). It must satisfy the following requirements: - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported. - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotepodnetwork.html
             :exampleMetadata: fixture=_generated
@@ -7813,7 +7813,7 @@ class CfnCluster(
 
             It must satisfy the following requirements:
 
-            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /24, maximum allowed size is /8. Publicly-routable addresses aren't supported.
+            - Each block must be within an ``IPv4`` RFC-1918 network range. Minimum allowed size is /32, maximum allowed size is /8. Publicly-routable addresses aren't supported.
             - Each block cannot overlap with the range of the VPC CIDR blocks for your EKS resources, or the block of the Kubernetes service IP range.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotepodnetwork.html#cfn-eks-cluster-remotepodnetwork-cidrs
@@ -8213,7 +8213,7 @@ class CfnClusterProps:
         :param resources_vpc_config: The VPC configuration that's used by the cluster control plane. Amazon EKS VPC resources have specific requirements to work properly with Kubernetes. For more information, see `Cluster VPC Considerations <https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html>`_ and `Cluster Security Group Considerations <https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html>`_ in the *Amazon EKS User Guide* . You must specify at least two subnets. You can specify up to five security groups, but we recommend that you use a dedicated security group for your cluster control plane.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. For more information, see `Amazon EKS Service IAM Role <https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html>`_ in the **Amazon EKS User Guide** .
         :param access_config: The access configuration for the cluster.
-        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking addons include vpc-cni, coredns, and kube-proxy. Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
+        :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
@@ -8417,7 +8417,7 @@ class CfnClusterProps:
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
         '''If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed.
 
-        The default networking addons include vpc-cni, coredns, and kube-proxy.
+        The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` .
 
         Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
 
@@ -11241,12 +11241,12 @@ class CfnPodIdentityAssociation(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_name: The name of the cluster that the association is in.
-        :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the pods that use the service account must be in this namespace.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
+        :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the Pods that use the service account must be in this namespace.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
-        :param disable_session_tags: The Disable Session Tags of the pod identity association.
+        :param disable_session_tags: The state of the automatic sessions tags. The value of *true* disables these tags. EKS Pod Identity adds a pre-defined set of session tags when it assumes the role. You can use these tags to author a single role that can work across resources by allowing access to AWS resources based on matching tags. By default, EKS Pod Identity attaches six tags, including tags for cluster name, namespace, and service account name. For the list of tags added by EKS Pod Identity, see `List of session tags added by EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html#pod-id-abac-tags>`_ in the *Amazon EKS User Guide* .
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
-        :param target_role_arn: The Target Role Arn of the pod identity association.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a331d8652)
@@ -11315,7 +11315,11 @@ class CfnPodIdentityAssociation(
     @builtins.property
     @jsii.member(jsii_name="attrExternalId")
     def attr_external_id(self) -> builtins.str:
-        '''The External Id of the pod identity association.
+        '''The unique identifier for this EKS Pod Identity association for a target IAM role.
+
+        You put this value in the trust policy of the target role, in a ``Condition`` to match the ``sts.ExternalId`` . This ensures that the target role can only be assumed by this association. This prevents the *confused deputy problem* . For more information about the confused deputy problem, see `The confused deputy problem <https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html>`_ in the *IAM User Guide* .
+
+        If you want to use the same target role with multiple associations or other roles, use independent statements in the trust policy to allow ``sts:AssumeRole`` access from each role.
 
         :cloudformationAttribute: ExternalId
         '''
@@ -11389,7 +11393,10 @@ class CfnPodIdentityAssociation(
     def disable_session_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The Disable Session Tags of the pod identity association.'''
+        '''The state of the automatic sessions tags.
+
+        The value of *true* disables these tags.
+        '''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "disableSessionTags"))
 
     @disable_session_tags.setter
@@ -11418,7 +11425,7 @@ class CfnPodIdentityAssociation(
     @builtins.property
     @jsii.member(jsii_name="targetRoleArn")
     def target_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Target Role Arn of the pod identity association.'''
+        '''The Amazon Resource Name (ARN) of the target IAM role to associate with the service account.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetRoleArn"))
 
     @target_role_arn.setter
@@ -11457,12 +11464,12 @@ class CfnPodIdentityAssociationProps:
         '''Properties for defining a ``CfnPodIdentityAssociation``.
 
         :param cluster_name: The name of the cluster that the association is in.
-        :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the pods that use the service account must be in this namespace.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
+        :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the Pods that use the service account must be in this namespace.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
-        :param disable_session_tags: The Disable Session Tags of the pod identity association.
+        :param disable_session_tags: The state of the automatic sessions tags. The value of *true* disables these tags. EKS Pod Identity adds a pre-defined set of session tags when it assumes the role. You can use these tags to author a single role that can work across resources by allowing access to AWS resources based on matching tags. By default, EKS Pod Identity attaches six tags, including tags for cluster name, namespace, and service account name. For the list of tags added by EKS Pod Identity, see `List of session tags added by EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html#pod-id-abac-tags>`_ in the *Amazon EKS User Guide* .
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
-        :param target_role_arn: The Target Role Arn of the pod identity association.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html
         :exampleMetadata: fixture=_generated
@@ -11524,7 +11531,7 @@ class CfnPodIdentityAssociationProps:
     def namespace(self) -> builtins.str:
         '''The name of the Kubernetes namespace inside the cluster to create the association in.
 
-        The service account and the pods that use the service account must be in this namespace.
+        The service account and the Pods that use the service account must be in this namespace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-namespace
         '''
@@ -11536,7 +11543,7 @@ class CfnPodIdentityAssociationProps:
     def role_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the IAM role to associate with the service account.
 
-        The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
+        The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-rolearn
         '''
@@ -11558,7 +11565,9 @@ class CfnPodIdentityAssociationProps:
     def disable_session_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The Disable Session Tags of the pod identity association.
+        '''The state of the automatic sessions tags. The value of *true* disables these tags.
+
+        EKS Pod Identity adds a pre-defined set of session tags when it assumes the role. You can use these tags to author a single role that can work across resources by allowing access to AWS resources based on matching tags. By default, EKS Pod Identity attaches six tags, including tags for cluster name, namespace, and service account name. For the list of tags added by EKS Pod Identity, see `List of session tags added by EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html#pod-id-abac-tags>`_ in the *Amazon EKS User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-disablesessiontags
         '''
@@ -11592,7 +11601,9 @@ class CfnPodIdentityAssociationProps:
 
     @builtins.property
     def target_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Target Role Arn of the pod identity association.
+        '''The Amazon Resource Name (ARN) of the target IAM role to associate with the service account.
+
+        This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-targetrolearn
         '''
@@ -12041,15 +12052,15 @@ class ClusterLoggingTypes(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         
         cluster = eks.Cluster(self, "Cluster",
             # ...
-            version=eks.KubernetesVersion.V1_32,
+            version=eks.KubernetesVersion.V1_33,
             cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
             ],
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -12289,13 +12300,13 @@ class DefaultCapacityType(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_32,
+            version=eks.KubernetesVersion.V1_33,
             default_capacity_type=eks.DefaultCapacityType.EC2,
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -12462,13 +12473,13 @@ class EndpointAccess(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_32,
+            version=eks.KubernetesVersion.V1_33,
             endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -14642,7 +14653,7 @@ class IpFamily(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         # vpc: ec2.Vpc
         
         
@@ -14667,11 +14678,11 @@ class IpFamily(enum.Enum):
             subnetcount = subnetcount + 1
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_32,
+            version=eks.KubernetesVersion.V1_33,
             vpc=vpc,
             ip_family=eks.IpFamily.IP_V6,
             vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -15798,7 +15809,7 @@ class KubernetesVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         # or
         # vpc: ec2.Vpc
@@ -15806,8 +15817,8 @@ class KubernetesVersion(
         
         eks.Cluster(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
-            version=eks.KubernetesVersion.V1_32,
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_33,
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
         eks.Cluster.from_cluster_attributes(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
@@ -16036,6 +16047,17 @@ class KubernetesVersion(
         ``@aws-cdk/lambda-layer-kubectl-v32``.
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_32"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_33")
+    def V1_33(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.33.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV33Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v33``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_33"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -18661,7 +18683,7 @@ class Cluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         # or
         # vpc: ec2.Vpc
@@ -18669,8 +18691,8 @@ class Cluster(
         
         eks.Cluster(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
-            version=eks.KubernetesVersion.V1_32,
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_33,
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
         eks.Cluster.from_cluster_attributes(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
@@ -20455,7 +20477,7 @@ class ClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+            from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
             
             # or
             # vpc: ec2.Vpc
@@ -20463,8 +20485,8 @@ class ClusterProps(ClusterOptions):
             
             eks.Cluster(self, "MyCluster",
                 kubectl_memory=Size.gibibytes(4),
-                version=eks.KubernetesVersion.V1_32,
-                kubectl_layer=KubectlV32Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_33,
+                kubectl_layer=KubectlV33Layer(self, "kubectl")
             )
             eks.Cluster.from_cluster_attributes(self, "MyCluster",
                 kubectl_memory=Size.gibibytes(4),
@@ -21023,12 +21045,12 @@ class FargateCluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
         
         
         cluster = eks.FargateCluster(self, "MyCluster",
-            version=eks.KubernetesVersion.V1_32,
-            kubectl_layer=KubectlV32Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_33,
+            kubectl_layer=KubectlV33Layer(self, "kubectl")
         )
     '''
 
@@ -21262,12 +21284,12 @@ class FargateClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v32 import KubectlV32Layer
+            from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
             
             
             cluster = eks.FargateCluster(self, "MyCluster",
-                version=eks.KubernetesVersion.V1_32,
-                kubectl_layer=KubectlV32Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_33,
+                kubectl_layer=KubectlV33Layer(self, "kubectl")
             )
         '''
         if isinstance(alb_controller, dict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BabelDOC
-Version: 0.3.72
+Version: 0.4.3
 Summary: Yet Another Document Translator
 Project-URL: Homepage, https://github.com/funstory-ai/BabelDOC
 Project-URL: Issues, https://github.com/funstory-ai/BabelDOC/issues
@@ -35,6 +35,7 @@ Requires-Dist: python-levenshtein>=0.27.1
 Requires-Dist: pyzstd>=0.17.0
 Requires-Dist: rapidocr-onnxruntime>=1.4.4
 Requires-Dist: rich>=13.9.4
+Requires-Dist: rtree>=1.4.0
 Requires-Dist: scikit-image>=0.25.2
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: tiktoken>=0.9.0
@@ -371,7 +372,7 @@ You can refer to the example in [main.py](https://github.com/funstory-ai/yadt/bl
 
 Please note:
 
-1. Make sure call `babeldoc.high_level.init()` before using the API
+1. Make sure call `babeldoc.format.pdf.high_level.init()` before using the API
 
 2. The current `TranslationConfig` does not fully validate input parameters, so you need to ensure the validity of input parameters
 
@@ -448,6 +449,14 @@ And meet the following requirements:
 
 - layout error less than 1%
 - content loss less than 1%
+
+## Version Number Explanation
+
+This project uses a combination of [Semantic Versioning](https://semver.org/) and [Pride Versioning](https://pridever.org/). The version number format is: "0.MAJOR.MINOR".
+
+- MAJOR: Incremented by 1 when API incompatible changes are made or when proud improvements are implemented.
+
+- MINOR: Incremented by 1 when any API compatible changes are made.
 
 ## Known Issues
 

@@ -23,6 +23,7 @@ from chalk.features import Feature
 from chalk.features._encoding.converter import FeatureConverter
 from chalk.integrations.named import create_integration_variable, load_integration_variable
 from chalk.sql._internal.query_execution_parameters import QueryExecutionParameters
+from chalk.sql._internal.query_registry import QUERY_REGISTRY, CancellableQuery
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind, validate_dtypes_for_efficient_execution
 from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.utils.df_utils import is_list_like, pa_array_to_pl_series
@@ -154,6 +155,16 @@ _SNOWFLAKE_DATABASE_NAME = "SNOWFLAKE_DATABASE"
 _SNOWFLAKE_SCHEMA_NAME = "SNOWFLAKE_SCHEMA"
 _SNOWFLAKE_ROLE_NAME = "SNOWFLAKE_ROLE"
 _SNOWFLAKE_PRIVATE_KEY_B64_NAME = "SNOWFLAKE_PRIVATE_KEY_B64"
+
+
+class SnowflakeCancellableQuery(CancellableQuery):
+    def __init__(self):
+        super().__init__()
+
+    def cancel(self) -> None:
+        chalk_logger.info("Cancelling Snowflake query")
+        # TODO: Implement cancellation
+        pass
 
 
 class SnowflakeSourceImpl(BaseSQLSource):
@@ -430,10 +441,14 @@ class SnowflakeSourceImpl(BaseSQLSource):
                             snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
                         )
 
+                    # add the query to the QueryRegistry so we can clean up on shutdown
                     chalk_logger.info(f"Compiled query: {repr(sql)}")
-
+                    cancellable_query = SnowflakeCancellableQuery()
+                    QUERY_REGISTRY.register_query(cancellable_query)
                     res = cursor.execute(sql, named_params)
                     chalk_logger.info("Executed Snowflake query. Fetching results.")
+                    QUERY_REGISTRY.unregister_query(cancellable_query)
+
                     assert res is not None
 
                     empty_batch_with_schema = None
@@ -466,13 +481,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
                         chalk_logger.info("Fetching arrow tables from Snowflake.")
                         for batch in cursor.get_result_batches() or []:
                             result_handles.put_nowait(ResultBatchResultHandle(batch))
-
                         empty_batch_with_schema = (
                             cursor.fetch_arrow_all(True)
                             if cursor.rowcount == 0 and _has_new_fetch_arrow_all()
                             else None
                         )
-
         yield from self._yield_from_result_handles(
             result_handles, query_execution_parameters, columns_to_features, empty_batch_with_schema
         )

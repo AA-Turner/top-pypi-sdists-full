@@ -1,7 +1,7 @@
 r'''
 # `azurerm_service_fabric_cluster`
 
-Refer to the Terraform Registry for docs: [`azurerm_service_fabric_cluster`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster).
+Refer to the Terraform Registry for docs: [`azurerm_service_fabric_cluster`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceFabricCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.serviceFabricCluster.ServiceFabricCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster azurerm_service_fabric_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster azurerm_service_fabric_cluster}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class ServiceFabricCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster azurerm_service_fabric_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster azurerm_service_fabric_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.
-        :param management_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
-        :param node_type: node_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
-        :param reliability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.
-        :param upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.
-        :param vm_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.
-        :param add_on_features: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.
-        :param azure_active_directory: azure_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
-        :param certificate_common_names: certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
-        :param client_certificate_common_name: client_certificate_common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
-        :param client_certificate_thumbprint: client_certificate_thumbprint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
-        :param cluster_code_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.
-        :param diagnostics_config: diagnostics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
-        :param fabric_settings: fabric_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param reverse_proxy_certificate: reverse_proxy_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
-        :param reverse_proxy_certificate_common_names: reverse_proxy_certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
-        :param service_fabric_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
-        :param vmss_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.
+        :param management_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
+        :param node_type: node_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
+        :param reliability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.
+        :param upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.
+        :param vm_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.
+        :param add_on_features: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.
+        :param azure_active_directory: azure_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
+        :param certificate_common_names: certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
+        :param client_certificate_common_name: client_certificate_common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
+        :param client_certificate_thumbprint: client_certificate_thumbprint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
+        :param cluster_code_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.
+        :param diagnostics_config: diagnostics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
+        :param fabric_settings: fabric_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param reverse_proxy_certificate: reverse_proxy_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
+        :param reverse_proxy_certificate_common_names: reverse_proxy_certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
+        :param service_fabric_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
+        :param vmss_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class ServiceFabricCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceFabricCluster to import.
-        :param import_from_id: The id of the existing ServiceFabricCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceFabricCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceFabricCluster to import is found.
         '''
         if __debug__:
@@ -195,9 +195,9 @@ class ServiceFabricCluster(
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param client_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.
-        :param cluster_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.
+        :param client_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.
+        :param cluster_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.
         '''
         value = ServiceFabricClusterAzureActiveDirectory(
             client_application_id=client_application_id,
@@ -216,9 +216,9 @@ class ServiceFabricCluster(
         thumbprint_secondary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
-        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
         '''
         value = ServiceFabricClusterCertificate(
             thumbprint=thumbprint,
@@ -236,8 +236,8 @@ class ServiceFabricCluster(
         x509_store_name: builtins.str,
     ) -> None:
         '''
-        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
         '''
         value = ServiceFabricClusterCertificateCommonNames(
             common_names=common_names, x509_store_name=x509_store_name
@@ -282,11 +282,11 @@ class ServiceFabricCluster(
         table_endpoint: builtins.str,
     ) -> None:
         '''
-        :param blob_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.
-        :param protected_account_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.
-        :param queue_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.
-        :param table_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.
+        :param blob_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.
+        :param protected_account_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.
+        :param queue_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.
+        :param table_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.
         '''
         value = ServiceFabricClusterDiagnosticsConfig(
             blob_endpoint=blob_endpoint,
@@ -333,9 +333,9 @@ class ServiceFabricCluster(
         thumbprint_secondary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
-        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
         '''
         value = ServiceFabricClusterReverseProxyCertificate(
             thumbprint=thumbprint,
@@ -353,8 +353,8 @@ class ServiceFabricCluster(
         x509_store_name: builtins.str,
     ) -> None:
         '''
-        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
         '''
         value = ServiceFabricClusterReverseProxyCertificateCommonNames(
             common_names=common_names, x509_store_name=x509_store_name
@@ -372,10 +372,10 @@ class ServiceFabricCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.
         '''
         value = ServiceFabricClusterTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -398,15 +398,15 @@ class ServiceFabricCluster(
         upgrade_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delta_health_policy: delta_health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
-        :param force_restart_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.
-        :param health_check_retry_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.
-        :param health_check_stable_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.
-        :param health_check_wait_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.
-        :param health_policy: health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
-        :param upgrade_domain_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.
-        :param upgrade_replica_set_check_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.
-        :param upgrade_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.
+        :param delta_health_policy: delta_health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
+        :param force_restart_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.
+        :param health_check_retry_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.
+        :param health_check_stable_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.
+        :param health_check_wait_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.
+        :param health_policy: health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
+        :param upgrade_domain_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.
+        :param upgrade_replica_set_check_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.
+        :param upgrade_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.
         '''
         value = ServiceFabricClusterUpgradePolicy(
             delta_health_policy=delta_health_policy,
@@ -904,9 +904,9 @@ class ServiceFabricClusterAzureActiveDirectory:
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param client_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.
-        :param cluster_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.
+        :param client_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.
+        :param cluster_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0e6fc8b821874f37a38872261fb6fc73fa0d80a0a146c2f1320a4383491a8ec)
@@ -921,21 +921,21 @@ class ServiceFabricClusterAzureActiveDirectory:
 
     @builtins.property
     def client_application_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_application_id ServiceFabricCluster#client_application_id}.'''
         result = self._values.get("client_application_id")
         assert result is not None, "Required property 'client_application_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cluster_application_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_application_id ServiceFabricCluster#cluster_application_id}.'''
         result = self._values.get("cluster_application_id")
         assert result is not None, "Required property 'cluster_application_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tenant_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tenant_id ServiceFabricCluster#tenant_id}.'''
         result = self._values.get("tenant_id")
         assert result is not None, "Required property 'tenant_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1059,9 +1059,9 @@ class ServiceFabricClusterCertificate:
         thumbprint_secondary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
-        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2de7a34f0cf56d68c4c11f5086ff6755b3420e3896103c188d75d5e0c2cb2e35)
@@ -1077,21 +1077,21 @@ class ServiceFabricClusterCertificate:
 
     @builtins.property
     def thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
         result = self._values.get("thumbprint")
         assert result is not None, "Required property 'thumbprint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def x509_store_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
         result = self._values.get("x509_store_name")
         assert result is not None, "Required property 'x509_store_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def thumbprint_secondary(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.'''
         result = self._values.get("thumbprint_secondary")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1120,8 +1120,8 @@ class ServiceFabricClusterCertificateCommonNames:
         x509_store_name: builtins.str,
     ) -> None:
         '''
-        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbfc4e2dd2319de1931f8df3e3422524c35d82573f13010b8066b9f8fafb230d)
@@ -1138,7 +1138,7 @@ class ServiceFabricClusterCertificateCommonNames:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFabricClusterCertificateCommonNamesCommonNames"]]:
         '''common_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
         '''
         result = self._values.get("common_names")
         assert result is not None, "Required property 'common_names' is missing"
@@ -1146,7 +1146,7 @@ class ServiceFabricClusterCertificateCommonNames:
 
     @builtins.property
     def x509_store_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
         result = self._values.get("x509_store_name")
         assert result is not None, "Required property 'x509_store_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1179,8 +1179,8 @@ class ServiceFabricClusterCertificateCommonNamesCommonNames:
         certificate_issuer_thumbprint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.
-        :param certificate_issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.
+        :param certificate_common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.
+        :param certificate_issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cb63f613634bd5533867ccb791c09b27c8d0bbb07f7502f003e246a2ab55ca7)
@@ -1194,14 +1194,14 @@ class ServiceFabricClusterCertificateCommonNamesCommonNames:
 
     @builtins.property
     def certificate_common_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.'''
         result = self._values.get("certificate_common_name")
         assert result is not None, "Required property 'certificate_common_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def certificate_issuer_thumbprint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.'''
         result = self._values.get("certificate_issuer_thumbprint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1581,9 +1581,9 @@ class ServiceFabricClusterClientCertificateCommonName:
         issuer_thumbprint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_name ServiceFabricCluster#common_name}.
-        :param is_admin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.
-        :param issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#issuer_thumbprint ServiceFabricCluster#issuer_thumbprint}.
+        :param common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_name ServiceFabricCluster#common_name}.
+        :param is_admin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.
+        :param issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#issuer_thumbprint ServiceFabricCluster#issuer_thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77b6ef950df47cbe51d9da1686dbfe8d6e29e27c4a0bef72d4d1ac077c782f5e)
@@ -1599,21 +1599,21 @@ class ServiceFabricClusterClientCertificateCommonName:
 
     @builtins.property
     def common_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_name ServiceFabricCluster#common_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_name ServiceFabricCluster#common_name}.'''
         result = self._values.get("common_name")
         assert result is not None, "Required property 'common_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def is_admin(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.'''
         result = self._values.get("is_admin")
         assert result is not None, "Required property 'is_admin' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def issuer_thumbprint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#issuer_thumbprint ServiceFabricCluster#issuer_thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#issuer_thumbprint ServiceFabricCluster#issuer_thumbprint}.'''
         result = self._values.get("issuer_thumbprint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1839,8 +1839,8 @@ class ServiceFabricClusterClientCertificateThumbprint:
         thumbprint: builtins.str,
     ) -> None:
         '''
-        :param is_admin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
+        :param is_admin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28feff4373043f5a3c33e88b21b57bf3a6eae2cc80dc0fe5e883afb0fa550969)
@@ -1853,14 +1853,14 @@ class ServiceFabricClusterClientCertificateThumbprint:
 
     @builtins.property
     def is_admin(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_admin ServiceFabricCluster#is_admin}.'''
         result = self._values.get("is_admin")
         assert result is not None, "Required property 'is_admin' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
         result = self._values.get("thumbprint")
         assert result is not None, "Required property 'thumbprint' is missing"
         return typing.cast(builtins.str, result)
@@ -2136,31 +2136,31 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.
-        :param management_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
-        :param node_type: node_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
-        :param reliability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.
-        :param upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.
-        :param vm_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.
-        :param add_on_features: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.
-        :param azure_active_directory: azure_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
-        :param certificate_common_names: certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
-        :param client_certificate_common_name: client_certificate_common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
-        :param client_certificate_thumbprint: client_certificate_thumbprint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
-        :param cluster_code_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.
-        :param diagnostics_config: diagnostics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
-        :param fabric_settings: fabric_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param reverse_proxy_certificate: reverse_proxy_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
-        :param reverse_proxy_certificate_common_names: reverse_proxy_certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
-        :param service_fabric_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
-        :param vmss_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.
+        :param management_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
+        :param node_type: node_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
+        :param reliability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.
+        :param upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.
+        :param vm_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.
+        :param add_on_features: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.
+        :param azure_active_directory: azure_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
+        :param certificate_common_names: certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
+        :param client_certificate_common_name: client_certificate_common_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
+        :param client_certificate_thumbprint: client_certificate_thumbprint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
+        :param cluster_code_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.
+        :param diagnostics_config: diagnostics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
+        :param fabric_settings: fabric_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param reverse_proxy_certificate: reverse_proxy_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
+        :param reverse_proxy_certificate_common_names: reverse_proxy_certificate_common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
+        :param service_fabric_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
+        :param vmss_zonal_upgrade_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2339,21 +2339,21 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#location ServiceFabricCluster#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def management_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#management_endpoint ServiceFabricCluster#management_endpoint}.'''
         result = self._values.get("management_endpoint")
         assert result is not None, "Required property 'management_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2364,7 +2364,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFabricClusterNodeType"]]:
         '''node_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#node_type ServiceFabricCluster#node_type}
         '''
         result = self._values.get("node_type")
         assert result is not None, "Required property 'node_type' is missing"
@@ -2372,35 +2372,35 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def reliability_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reliability_level ServiceFabricCluster#reliability_level}.'''
         result = self._values.get("reliability_level")
         assert result is not None, "Required property 'reliability_level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#resource_group_name ServiceFabricCluster#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def upgrade_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_mode ServiceFabricCluster#upgrade_mode}.'''
         result = self._values.get("upgrade_mode")
         assert result is not None, "Required property 'upgrade_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vm_image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vm_image ServiceFabricCluster#vm_image}.'''
         result = self._values.get("vm_image")
         assert result is not None, "Required property 'vm_image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def add_on_features(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#add_on_features ServiceFabricCluster#add_on_features}.'''
         result = self._values.get("add_on_features")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2410,7 +2410,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ServiceFabricClusterAzureActiveDirectory]:
         '''azure_active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#azure_active_directory ServiceFabricCluster#azure_active_directory}
         '''
         result = self._values.get("azure_active_directory")
         return typing.cast(typing.Optional[ServiceFabricClusterAzureActiveDirectory], result)
@@ -2419,7 +2419,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def certificate(self) -> typing.Optional[ServiceFabricClusterCertificate]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate ServiceFabricCluster#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[ServiceFabricClusterCertificate], result)
@@ -2430,7 +2430,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ServiceFabricClusterCertificateCommonNames]:
         '''certificate_common_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_names ServiceFabricCluster#certificate_common_names}
         '''
         result = self._values.get("certificate_common_names")
         return typing.cast(typing.Optional[ServiceFabricClusterCertificateCommonNames], result)
@@ -2441,7 +2441,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ServiceFabricClusterClientCertificateCommonName]]]:
         '''client_certificate_common_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_common_name ServiceFabricCluster#client_certificate_common_name}
         '''
         result = self._values.get("client_certificate_common_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ServiceFabricClusterClientCertificateCommonName]]], result)
@@ -2452,14 +2452,14 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ServiceFabricClusterClientCertificateThumbprint]]]:
         '''client_certificate_thumbprint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_certificate_thumbprint ServiceFabricCluster#client_certificate_thumbprint}
         '''
         result = self._values.get("client_certificate_thumbprint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ServiceFabricClusterClientCertificateThumbprint]]], result)
 
     @builtins.property
     def cluster_code_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#cluster_code_version ServiceFabricCluster#cluster_code_version}.'''
         result = self._values.get("cluster_code_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2469,7 +2469,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceFabricClusterDiagnosticsConfig"]:
         '''diagnostics_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#diagnostics_config ServiceFabricCluster#diagnostics_config}
         '''
         result = self._values.get("diagnostics_config")
         return typing.cast(typing.Optional["ServiceFabricClusterDiagnosticsConfig"], result)
@@ -2480,14 +2480,14 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFabricClusterFabricSettings"]]]:
         '''fabric_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#fabric_settings ServiceFabricCluster#fabric_settings}
         '''
         result = self._values.get("fabric_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFabricClusterFabricSettings"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#id ServiceFabricCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2501,7 +2501,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceFabricClusterReverseProxyCertificate"]:
         '''reverse_proxy_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate ServiceFabricCluster#reverse_proxy_certificate}
         '''
         result = self._values.get("reverse_proxy_certificate")
         return typing.cast(typing.Optional["ServiceFabricClusterReverseProxyCertificate"], result)
@@ -2512,20 +2512,20 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceFabricClusterReverseProxyCertificateCommonNames"]:
         '''reverse_proxy_certificate_common_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_certificate_common_names ServiceFabricCluster#reverse_proxy_certificate_common_names}
         '''
         result = self._values.get("reverse_proxy_certificate_common_names")
         return typing.cast(typing.Optional["ServiceFabricClusterReverseProxyCertificateCommonNames"], result)
 
     @builtins.property
     def service_fabric_zonal_upgrade_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#service_fabric_zonal_upgrade_mode ServiceFabricCluster#service_fabric_zonal_upgrade_mode}.'''
         result = self._values.get("service_fabric_zonal_upgrade_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#tags ServiceFabricCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2533,7 +2533,7 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ServiceFabricClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#timeouts ServiceFabricCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ServiceFabricClusterTimeouts"], result)
@@ -2542,14 +2542,14 @@ class ServiceFabricClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def upgrade_policy(self) -> typing.Optional["ServiceFabricClusterUpgradePolicy"]:
         '''upgrade_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_policy ServiceFabricCluster#upgrade_policy}
         '''
         result = self._values.get("upgrade_policy")
         return typing.cast(typing.Optional["ServiceFabricClusterUpgradePolicy"], result)
 
     @builtins.property
     def vmss_zonal_upgrade_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#vmss_zonal_upgrade_mode ServiceFabricCluster#vmss_zonal_upgrade_mode}.'''
         result = self._values.get("vmss_zonal_upgrade_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2587,11 +2587,11 @@ class ServiceFabricClusterDiagnosticsConfig:
         table_endpoint: builtins.str,
     ) -> None:
         '''
-        :param blob_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.
-        :param protected_account_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.
-        :param queue_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.
-        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.
-        :param table_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.
+        :param blob_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.
+        :param protected_account_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.
+        :param queue_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.
+        :param storage_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.
+        :param table_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ac01a4f93923d121137459d7e6f1043aec7b793bafe3aa8a3b150e5f707423e)
@@ -2610,35 +2610,35 @@ class ServiceFabricClusterDiagnosticsConfig:
 
     @builtins.property
     def blob_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#blob_endpoint ServiceFabricCluster#blob_endpoint}.'''
         result = self._values.get("blob_endpoint")
         assert result is not None, "Required property 'blob_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protected_account_key_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#protected_account_key_name ServiceFabricCluster#protected_account_key_name}.'''
         result = self._values.get("protected_account_key_name")
         assert result is not None, "Required property 'protected_account_key_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def queue_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#queue_endpoint ServiceFabricCluster#queue_endpoint}.'''
         result = self._values.get("queue_endpoint")
         assert result is not None, "Required property 'queue_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#storage_account_name ServiceFabricCluster#storage_account_name}.'''
         result = self._values.get("storage_account_name")
         assert result is not None, "Required property 'storage_account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#table_endpoint ServiceFabricCluster#table_endpoint}.'''
         result = self._values.get("table_endpoint")
         assert result is not None, "Required property 'table_endpoint' is missing"
         return typing.cast(builtins.str, result)
@@ -2789,8 +2789,8 @@ class ServiceFabricClusterFabricSettings:
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#parameters ServiceFabricCluster#parameters}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#parameters ServiceFabricCluster#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32a4e0c4d2a26bab1fb9749ab177b1fc9c9cd3bc06c678db3a8be82857ce9588)
@@ -2804,14 +2804,14 @@ class ServiceFabricClusterFabricSettings:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#parameters ServiceFabricCluster#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#parameters ServiceFabricCluster#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3042,19 +3042,19 @@ class ServiceFabricClusterNodeType:
         reverse_proxy_endpoint_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param client_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_endpoint_port ServiceFabricCluster#client_endpoint_port}.
-        :param http_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#http_endpoint_port ServiceFabricCluster#http_endpoint_port}.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#instance_count ServiceFabricCluster#instance_count}.
-        :param is_primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_primary ServiceFabricCluster#is_primary}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
-        :param application_ports: application_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#application_ports ServiceFabricCluster#application_ports}
-        :param capacities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#capacities ServiceFabricCluster#capacities}.
-        :param durability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#durability_level ServiceFabricCluster#durability_level}.
-        :param ephemeral_ports: ephemeral_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#ephemeral_ports ServiceFabricCluster#ephemeral_ports}
-        :param is_stateless: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_stateless ServiceFabricCluster#is_stateless}.
-        :param multiple_availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#multiple_availability_zones ServiceFabricCluster#multiple_availability_zones}.
-        :param placement_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#placement_properties ServiceFabricCluster#placement_properties}.
-        :param reverse_proxy_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_endpoint_port ServiceFabricCluster#reverse_proxy_endpoint_port}.
+        :param client_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_endpoint_port ServiceFabricCluster#client_endpoint_port}.
+        :param http_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#http_endpoint_port ServiceFabricCluster#http_endpoint_port}.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#instance_count ServiceFabricCluster#instance_count}.
+        :param is_primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_primary ServiceFabricCluster#is_primary}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.
+        :param application_ports: application_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#application_ports ServiceFabricCluster#application_ports}
+        :param capacities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#capacities ServiceFabricCluster#capacities}.
+        :param durability_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#durability_level ServiceFabricCluster#durability_level}.
+        :param ephemeral_ports: ephemeral_ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#ephemeral_ports ServiceFabricCluster#ephemeral_ports}
+        :param is_stateless: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_stateless ServiceFabricCluster#is_stateless}.
+        :param multiple_availability_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#multiple_availability_zones ServiceFabricCluster#multiple_availability_zones}.
+        :param placement_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#placement_properties ServiceFabricCluster#placement_properties}.
+        :param reverse_proxy_endpoint_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_endpoint_port ServiceFabricCluster#reverse_proxy_endpoint_port}.
         '''
         if isinstance(application_ports, dict):
             application_ports = ServiceFabricClusterNodeTypeApplicationPorts(**application_ports)
@@ -3101,35 +3101,35 @@ class ServiceFabricClusterNodeType:
 
     @builtins.property
     def client_endpoint_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#client_endpoint_port ServiceFabricCluster#client_endpoint_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#client_endpoint_port ServiceFabricCluster#client_endpoint_port}.'''
         result = self._values.get("client_endpoint_port")
         assert result is not None, "Required property 'client_endpoint_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def http_endpoint_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#http_endpoint_port ServiceFabricCluster#http_endpoint_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#http_endpoint_port ServiceFabricCluster#http_endpoint_port}.'''
         result = self._values.get("http_endpoint_port")
         assert result is not None, "Required property 'http_endpoint_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def instance_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#instance_count ServiceFabricCluster#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#instance_count ServiceFabricCluster#instance_count}.'''
         result = self._values.get("instance_count")
         assert result is not None, "Required property 'instance_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def is_primary(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_primary ServiceFabricCluster#is_primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_primary ServiceFabricCluster#is_primary}.'''
         result = self._values.get("is_primary")
         assert result is not None, "Required property 'is_primary' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#name ServiceFabricCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3140,20 +3140,20 @@ class ServiceFabricClusterNodeType:
     ) -> typing.Optional["ServiceFabricClusterNodeTypeApplicationPorts"]:
         '''application_ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#application_ports ServiceFabricCluster#application_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#application_ports ServiceFabricCluster#application_ports}
         '''
         result = self._values.get("application_ports")
         return typing.cast(typing.Optional["ServiceFabricClusterNodeTypeApplicationPorts"], result)
 
     @builtins.property
     def capacities(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#capacities ServiceFabricCluster#capacities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#capacities ServiceFabricCluster#capacities}.'''
         result = self._values.get("capacities")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def durability_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#durability_level ServiceFabricCluster#durability_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#durability_level ServiceFabricCluster#durability_level}.'''
         result = self._values.get("durability_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3163,7 +3163,7 @@ class ServiceFabricClusterNodeType:
     ) -> typing.Optional["ServiceFabricClusterNodeTypeEphemeralPorts"]:
         '''ephemeral_ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#ephemeral_ports ServiceFabricCluster#ephemeral_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#ephemeral_ports ServiceFabricCluster#ephemeral_ports}
         '''
         result = self._values.get("ephemeral_ports")
         return typing.cast(typing.Optional["ServiceFabricClusterNodeTypeEphemeralPorts"], result)
@@ -3172,7 +3172,7 @@ class ServiceFabricClusterNodeType:
     def is_stateless(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#is_stateless ServiceFabricCluster#is_stateless}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#is_stateless ServiceFabricCluster#is_stateless}.'''
         result = self._values.get("is_stateless")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3180,7 +3180,7 @@ class ServiceFabricClusterNodeType:
     def multiple_availability_zones(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#multiple_availability_zones ServiceFabricCluster#multiple_availability_zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#multiple_availability_zones ServiceFabricCluster#multiple_availability_zones}.'''
         result = self._values.get("multiple_availability_zones")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3188,13 +3188,13 @@ class ServiceFabricClusterNodeType:
     def placement_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#placement_properties ServiceFabricCluster#placement_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#placement_properties ServiceFabricCluster#placement_properties}.'''
         result = self._values.get("placement_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def reverse_proxy_endpoint_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#reverse_proxy_endpoint_port ServiceFabricCluster#reverse_proxy_endpoint_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#reverse_proxy_endpoint_port ServiceFabricCluster#reverse_proxy_endpoint_port}.'''
         result = self._values.get("reverse_proxy_endpoint_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3218,8 +3218,8 @@ class ServiceFabricClusterNodeType:
 class ServiceFabricClusterNodeTypeApplicationPorts:
     def __init__(self, *, end_port: jsii.Number, start_port: jsii.Number) -> None:
         '''
-        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
-        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
+        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
+        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76536b620d87e133397e36cbe5d5a3f38b8ed65e5afe18c5d545ff25aa95599d)
@@ -3232,14 +3232,14 @@ class ServiceFabricClusterNodeTypeApplicationPorts:
 
     @builtins.property
     def end_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.'''
         result = self._values.get("end_port")
         assert result is not None, "Required property 'end_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.'''
         result = self._values.get("start_port")
         assert result is not None, "Required property 'start_port' is missing"
         return typing.cast(jsii.Number, result)
@@ -3336,8 +3336,8 @@ class ServiceFabricClusterNodeTypeApplicationPortsOutputReference(
 class ServiceFabricClusterNodeTypeEphemeralPorts:
     def __init__(self, *, end_port: jsii.Number, start_port: jsii.Number) -> None:
         '''
-        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
-        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
+        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
+        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33322a04e6f4ed1edfe207e2c4d36601447edc9456118e95ea67fc11b2e3332b)
@@ -3350,14 +3350,14 @@ class ServiceFabricClusterNodeTypeEphemeralPorts:
 
     @builtins.property
     def end_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.'''
         result = self._values.get("end_port")
         assert result is not None, "Required property 'end_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.'''
         result = self._values.get("start_port")
         assert result is not None, "Required property 'start_port' is missing"
         return typing.cast(jsii.Number, result)
@@ -3570,8 +3570,8 @@ class ServiceFabricClusterNodeTypeOutputReference(
         start_port: jsii.Number,
     ) -> None:
         '''
-        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
-        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
+        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
+        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
         '''
         value = ServiceFabricClusterNodeTypeApplicationPorts(
             end_port=end_port, start_port=start_port
@@ -3587,8 +3587,8 @@ class ServiceFabricClusterNodeTypeOutputReference(
         start_port: jsii.Number,
     ) -> None:
         '''
-        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
-        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
+        :param end_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#end_port ServiceFabricCluster#end_port}.
+        :param start_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#start_port ServiceFabricCluster#start_port}.
         '''
         value = ServiceFabricClusterNodeTypeEphemeralPorts(
             end_port=end_port, start_port=start_port
@@ -3903,9 +3903,9 @@ class ServiceFabricClusterReverseProxyCertificate:
         thumbprint_secondary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
-        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param thumbprint_secondary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41dfaa0f2723eb3af6408601b0bf830ef5fbe7e442caf6c73bbf5b19f4ef13a0)
@@ -3921,21 +3921,21 @@ class ServiceFabricClusterReverseProxyCertificate:
 
     @builtins.property
     def thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint ServiceFabricCluster#thumbprint}.'''
         result = self._values.get("thumbprint")
         assert result is not None, "Required property 'thumbprint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def x509_store_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
         result = self._values.get("x509_store_name")
         assert result is not None, "Required property 'x509_store_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def thumbprint_secondary(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#thumbprint_secondary ServiceFabricCluster#thumbprint_secondary}.'''
         result = self._values.get("thumbprint_secondary")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3964,8 +3964,8 @@ class ServiceFabricClusterReverseProxyCertificateCommonNames:
         x509_store_name: builtins.str,
     ) -> None:
         '''
-        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
-        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
+        :param common_names: common_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        :param x509_store_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15e07c5bd1b27324ee36f32817f73660af094f2f1bf6297bec2f050091b30887)
@@ -3982,7 +3982,7 @@ class ServiceFabricClusterReverseProxyCertificateCommonNames:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceFabricClusterReverseProxyCertificateCommonNamesCommonNames"]]:
         '''common_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#common_names ServiceFabricCluster#common_names}
         '''
         result = self._values.get("common_names")
         assert result is not None, "Required property 'common_names' is missing"
@@ -3990,7 +3990,7 @@ class ServiceFabricClusterReverseProxyCertificateCommonNames:
 
     @builtins.property
     def x509_store_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#x509_store_name ServiceFabricCluster#x509_store_name}.'''
         result = self._values.get("x509_store_name")
         assert result is not None, "Required property 'x509_store_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4023,8 +4023,8 @@ class ServiceFabricClusterReverseProxyCertificateCommonNamesCommonNames:
         certificate_issuer_thumbprint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.
-        :param certificate_issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.
+        :param certificate_common_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.
+        :param certificate_issuer_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dc1d28b3191883a1b828e357634502cdda4945888cadfe4731babc75b871b8f)
@@ -4038,14 +4038,14 @@ class ServiceFabricClusterReverseProxyCertificateCommonNamesCommonNames:
 
     @builtins.property
     def certificate_common_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_common_name ServiceFabricCluster#certificate_common_name}.'''
         result = self._values.get("certificate_common_name")
         assert result is not None, "Required property 'certificate_common_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def certificate_issuer_thumbprint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#certificate_issuer_thumbprint ServiceFabricCluster#certificate_issuer_thumbprint}.'''
         result = self._values.get("certificate_issuer_thumbprint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4431,10 +4431,10 @@ class ServiceFabricClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39a184c6e1650b7e3d137760151a6b3ca5e4bae96d2f29085d8c1c3acfcf73e6)
@@ -4454,25 +4454,25 @@ class ServiceFabricClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#create ServiceFabricCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delete ServiceFabricCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#read ServiceFabricCluster#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#update ServiceFabricCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4640,15 +4640,15 @@ class ServiceFabricClusterUpgradePolicy:
         upgrade_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delta_health_policy: delta_health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
-        :param force_restart_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.
-        :param health_check_retry_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.
-        :param health_check_stable_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.
-        :param health_check_wait_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.
-        :param health_policy: health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
-        :param upgrade_domain_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.
-        :param upgrade_replica_set_check_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.
-        :param upgrade_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.
+        :param delta_health_policy: delta_health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
+        :param force_restart_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.
+        :param health_check_retry_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.
+        :param health_check_stable_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.
+        :param health_check_wait_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.
+        :param health_policy: health_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
+        :param upgrade_domain_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.
+        :param upgrade_replica_set_check_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.
+        :param upgrade_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.
         '''
         if isinstance(delta_health_policy, dict):
             delta_health_policy = ServiceFabricClusterUpgradePolicyDeltaHealthPolicy(**delta_health_policy)
@@ -4691,7 +4691,7 @@ class ServiceFabricClusterUpgradePolicy:
     ) -> typing.Optional["ServiceFabricClusterUpgradePolicyDeltaHealthPolicy"]:
         '''delta_health_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#delta_health_policy ServiceFabricCluster#delta_health_policy}
         '''
         result = self._values.get("delta_health_policy")
         return typing.cast(typing.Optional["ServiceFabricClusterUpgradePolicyDeltaHealthPolicy"], result)
@@ -4700,25 +4700,25 @@ class ServiceFabricClusterUpgradePolicy:
     def force_restart_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#force_restart_enabled ServiceFabricCluster#force_restart_enabled}.'''
         result = self._values.get("force_restart_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def health_check_retry_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_retry_timeout ServiceFabricCluster#health_check_retry_timeout}.'''
         result = self._values.get("health_check_retry_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def health_check_stable_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_stable_duration ServiceFabricCluster#health_check_stable_duration}.'''
         result = self._values.get("health_check_stable_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def health_check_wait_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_check_wait_duration ServiceFabricCluster#health_check_wait_duration}.'''
         result = self._values.get("health_check_wait_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4728,26 +4728,26 @@ class ServiceFabricClusterUpgradePolicy:
     ) -> typing.Optional["ServiceFabricClusterUpgradePolicyHealthPolicy"]:
         '''health_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#health_policy ServiceFabricCluster#health_policy}
         '''
         result = self._values.get("health_policy")
         return typing.cast(typing.Optional["ServiceFabricClusterUpgradePolicyHealthPolicy"], result)
 
     @builtins.property
     def upgrade_domain_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_domain_timeout ServiceFabricCluster#upgrade_domain_timeout}.'''
         result = self._values.get("upgrade_domain_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def upgrade_replica_set_check_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_replica_set_check_timeout ServiceFabricCluster#upgrade_replica_set_check_timeout}.'''
         result = self._values.get("upgrade_replica_set_check_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def upgrade_timeout(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#upgrade_timeout ServiceFabricCluster#upgrade_timeout}.'''
         result = self._values.get("upgrade_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4781,9 +4781,9 @@ class ServiceFabricClusterUpgradePolicyDeltaHealthPolicy:
         max_upgrade_domain_delta_unhealthy_nodes_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_delta_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.
-        :param max_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.
-        :param max_upgrade_domain_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.
+        :param max_delta_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.
+        :param max_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.
+        :param max_upgrade_domain_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c27408665e7510a4adbab784275ea1a7ec58760d62e0fab1475197b2e55a56ec)
@@ -4800,13 +4800,13 @@ class ServiceFabricClusterUpgradePolicyDeltaHealthPolicy:
 
     @builtins.property
     def max_delta_unhealthy_applications_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.'''
         result = self._values.get("max_delta_unhealthy_applications_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_delta_unhealthy_nodes_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.'''
         result = self._values.get("max_delta_unhealthy_nodes_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4814,7 +4814,7 @@ class ServiceFabricClusterUpgradePolicyDeltaHealthPolicy:
     def max_upgrade_domain_delta_unhealthy_nodes_percent(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.'''
         result = self._values.get("max_upgrade_domain_delta_unhealthy_nodes_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4954,8 +4954,8 @@ class ServiceFabricClusterUpgradePolicyHealthPolicy:
         max_unhealthy_nodes_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.
-        :param max_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.
+        :param max_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.
+        :param max_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c29d2f7bce8ff391566a059d9e0bae72c7b74c8e4620126be6bf268f9954774d)
@@ -4969,13 +4969,13 @@ class ServiceFabricClusterUpgradePolicyHealthPolicy:
 
     @builtins.property
     def max_unhealthy_applications_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.'''
         result = self._values.get("max_unhealthy_applications_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_unhealthy_nodes_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.'''
         result = self._values.get("max_unhealthy_nodes_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5100,9 +5100,9 @@ class ServiceFabricClusterUpgradePolicyOutputReference(
         max_upgrade_domain_delta_unhealthy_nodes_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_delta_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.
-        :param max_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.
-        :param max_upgrade_domain_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.
+        :param max_delta_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_applications_percent ServiceFabricCluster#max_delta_unhealthy_applications_percent}.
+        :param max_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_delta_unhealthy_nodes_percent ServiceFabricCluster#max_delta_unhealthy_nodes_percent}.
+        :param max_upgrade_domain_delta_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_upgrade_domain_delta_unhealthy_nodes_percent ServiceFabricCluster#max_upgrade_domain_delta_unhealthy_nodes_percent}.
         '''
         value = ServiceFabricClusterUpgradePolicyDeltaHealthPolicy(
             max_delta_unhealthy_applications_percent=max_delta_unhealthy_applications_percent,
@@ -5120,8 +5120,8 @@ class ServiceFabricClusterUpgradePolicyOutputReference(
         max_unhealthy_nodes_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.
-        :param max_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.
+        :param max_unhealthy_applications_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_applications_percent ServiceFabricCluster#max_unhealthy_applications_percent}.
+        :param max_unhealthy_nodes_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/service_fabric_cluster#max_unhealthy_nodes_percent ServiceFabricCluster#max_unhealthy_nodes_percent}.
         '''
         value = ServiceFabricClusterUpgradePolicyHealthPolicy(
             max_unhealthy_applications_percent=max_unhealthy_applications_percent,

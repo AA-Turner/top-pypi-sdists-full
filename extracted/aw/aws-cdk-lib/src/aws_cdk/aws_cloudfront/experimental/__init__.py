@@ -79,6 +79,7 @@ from ...aws_lambda import (
     IEventSourceDlq as _IEventSourceDlq_5e2c6ad9,
     IFunction as _IFunction_6adb0ab8,
     ILayerVersion as _ILayerVersion_5ac127c8,
+    ISchemaRegistry as _ISchemaRegistry_7e66a87f,
     IVersion as _IVersion_faf7234e,
     InvokeMode as _InvokeMode_e7b50559,
     LambdaInsightsVersion as _LambdaInsightsVersion_9dfbfef9,
@@ -396,6 +397,7 @@ class EdgeFunction(
         provisioned_poller_config: typing.Optional[typing.Union[_ProvisionedPollerConfig_1025e063, typing.Dict[builtins.str, typing.Any]]] = None,
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
         source_access_configurations: typing.Optional[typing.Sequence[typing.Union[_SourceAccessConfiguration_1926ff89, typing.Dict[builtins.str, typing.Any]]]] = None,
         starting_position: typing.Optional[_StartingPosition_c0a4852c] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
@@ -423,6 +425,7 @@ class EdgeFunction(
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -451,6 +454,7 @@ class EdgeFunction(
             provisioned_poller_config=provisioned_poller_config,
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
+            schema_registry_config=schema_registry_config,
             source_access_configurations=source_access_configurations,
             starting_position=starting_position,
             starting_position_timestamp=starting_position_timestamp,
@@ -2098,6 +2102,7 @@ def _typecheckingstub__e3a2f6769309cd3c52da869813738e2d4a94d233e574ada7ebba1654d
     provisioned_poller_config: typing.Optional[typing.Union[_ProvisionedPollerConfig_1025e063, typing.Dict[builtins.str, typing.Any]]] = None,
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    schema_registry_config: typing.Optional[_ISchemaRegistry_7e66a87f] = None,
     source_access_configurations: typing.Optional[typing.Sequence[typing.Union[_SourceAccessConfiguration_1926ff89, typing.Dict[builtins.str, typing.Any]]]] = None,
     starting_position: typing.Optional[_StartingPosition_c0a4852c] = None,
     starting_position_timestamp: typing.Optional[jsii.Number] = None,

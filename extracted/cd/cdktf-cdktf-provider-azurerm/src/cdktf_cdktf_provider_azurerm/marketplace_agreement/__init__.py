@@ -1,7 +1,7 @@
 r'''
 # `azurerm_marketplace_agreement`
 
-Refer to the Terraform Registry for docs: [`azurerm_marketplace_agreement`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement).
+Refer to the Terraform Registry for docs: [`azurerm_marketplace_agreement`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MarketplaceAgreement(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.marketplaceAgreement.MarketplaceAgreement",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement azurerm_marketplace_agreement}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement azurerm_marketplace_agreement}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class MarketplaceAgreement(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement azurerm_marketplace_agreement} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement azurerm_marketplace_agreement} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
+        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class MarketplaceAgreement(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MarketplaceAgreement to import.
-        :param import_from_id: The id of the existing MarketplaceAgreement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MarketplaceAgreement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MarketplaceAgreement to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class MarketplaceAgreement(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.
         '''
         value = MarketplaceAgreementTimeouts(create=create, delete=delete, read=read)
 
@@ -298,11 +298,11 @@ class MarketplaceAgreementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.
-        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
+        :param offer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.
+        :param plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -412,28 +412,28 @@ class MarketplaceAgreementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def offer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#offer MarketplaceAgreement#offer}.'''
         result = self._values.get("offer")
         assert result is not None, "Required property 'offer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def plan(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#plan MarketplaceAgreement#plan}.'''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#publisher MarketplaceAgreement#publisher}.'''
         result = self._values.get("publisher")
         assert result is not None, "Required property 'publisher' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#id MarketplaceAgreement#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -445,7 +445,7 @@ class MarketplaceAgreementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MarketplaceAgreementTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#timeouts MarketplaceAgreement#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MarketplaceAgreementTimeouts"], result)
@@ -476,9 +476,9 @@ class MarketplaceAgreementTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef092308a6b2ee28eafe3cbff8697d99ecca16a362322ab82402c030cb821cca)
@@ -495,19 +495,19 @@ class MarketplaceAgreementTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#create MarketplaceAgreement#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#delete MarketplaceAgreement#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/marketplace_agreement#read MarketplaceAgreement#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

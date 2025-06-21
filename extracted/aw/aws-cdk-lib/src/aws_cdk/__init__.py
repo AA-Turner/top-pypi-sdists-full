@@ -6885,7 +6885,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
         export_name: typing.Optional[builtins.str] = None,
         key: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Creates an CfnOutput value for this stack.
+        '''Creates a CfnOutput value for this stack.
 
         :param scope: The parent construct.
         :param id: -
@@ -21137,16 +21137,20 @@ class SecretValue(
 
     Example::
 
-        # my_hosted_zone: route53.IPublicHostedZone
-        
-        
-        ses.EmailIdentity(self, "Identity",
-            identity=ses.Identity.public_hosted_zone(my_hosted_zone),
-            dkim_identity=ses.DkimIdentity.byo_dkim(
-                private_key=SecretValue.secrets_manager("dkim-private-key"),
-                public_key="...base64-encoded-public-key...",
-                selector="selector"
-            )
+        # Read the secret from Secrets Manager
+        pipeline = codepipeline.Pipeline(self, "MyPipeline")
+        source_output = codepipeline.Artifact()
+        source_action = codepipeline_actions.GitHubSourceAction(
+            action_name="GitHub_Source",
+            owner="awslabs",
+            repo="aws-cdk",
+            oauth_token=SecretValue.secrets_manager("my-github-token"),
+            output=source_output,
+            branch="develop"
+        )
+        pipeline.add_stage(
+            stage_name="Source",
+            actions=[source_action]
         )
     '''
 
@@ -23358,19 +23362,15 @@ class Stage(
 
         # pipeline: pipelines.CodePipeline
         
-        preprod = MyApplicationStage(self, "PreProd")
-        prod = MyApplicationStage(self, "Prod")
-        
-        pipeline.add_stage(preprod,
-            post=[
-                pipelines.ShellStep("Validate Endpoint",
-                    commands=["curl -Ssf https://my.webservice.com/"]
-                )
-            ]
-        )
-        pipeline.add_stage(prod,
-            pre=[pipelines.ManualApprovalStep("PromoteToProd")]
-        )
+        europe_wave = pipeline.add_wave("Europe")
+        europe_wave.add_stage(
+            MyApplicationStage(self, "Ireland",
+                env=cdk.Environment(region="eu-west-1")
+            ))
+        europe_wave.add_stage(
+            MyApplicationStage(self, "Germany",
+                env=cdk.Environment(region="eu-central-1")
+            ))
     '''
 
     def __init__(

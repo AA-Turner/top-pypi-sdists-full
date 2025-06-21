@@ -25,8 +25,8 @@ typedef void(aws_event_loop_on_completion_fn)(
     size_t num_bytes_transferred);
 
 /**
- * The aws_win32_OVERLAPPED struct is layout-compatible with OVERLAPPED as defined in <Windows.h>. It is used
- * here to avoid pulling in a dependency on <Windows.h> which would also bring along a lot of bad macros, such
+ * The aws_win32_OVERLAPPED struct is layout-compatible with OVERLAPPED as defined in <windows.h>. It is used
+ * here to avoid pulling in a dependency on <windows.h> which would also bring along a lot of bad macros, such
  * as redefinitions of GetMessage and GetObject. Note that the OVERLAPPED struct layout in the Windows SDK can
  * never be altered without breaking binary compatibility for every existing third-party executable, so there
  * is no need to worry about keeping this definition in sync.
@@ -75,6 +75,7 @@ struct aws_event_loop {
     uint64_t latest_tick_start;
     size_t current_tick_latency_sum;
     struct aws_atomic_var next_flush_time;
+    struct aws_event_loop_group *base_elg;
     void *impl_data;
 };
 
@@ -320,14 +321,6 @@ int aws_event_loop_unsubscribe_from_io_events(struct aws_event_loop *event_loop,
  */
 AWS_IO_API
 void aws_event_loop_free_io_event_resources(struct aws_event_loop *event_loop, struct aws_io_handle *handle);
-
-/**
- * Retrieves the aws_event_loop_group that is the parent of the aws_event_loop. This is only supported when using a
- * dispatch queue event loop as they are async and their sockets need to retain a refcount on the elg to keep it alive
- * and insure it has not been asyncronously destroyed before anything that needs it.
- */
-AWS_IO_API
-void *get_base_event_loop_group(struct aws_event_loop *event_loop);
 
 AWS_IO_API
 struct aws_event_loop_group *aws_event_loop_group_new_internal(

@@ -1,17 +1,14 @@
-import asyncio
 import concurrent.futures
+import json
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Tuple
+from typing import Any, List
 
-import aiohttp
 from dotenv import load_dotenv
 from rich.console import Console
+import requests
 
-from swarms.agents.reasoning_duo import ReasoningDuo
 from swarms.structs.agent import Agent
 from swarms.structs.conversation import Conversation
-from swarms.utils.any_to_str import any_to_str
 from swarms.utils.formatter import formatter
 from swarms.utils.history_output_formatter import (
     history_output_formatter,
@@ -31,37 +28,73 @@ MAX_WORKERS = (
 ###############################################################################
 
 
-def format_exa_results(json_data: Dict[str, Any]) -> str:
-    """Formats Exa.ai search results into structured text"""
+def exa_search(query: str, **kwargs: Any) -> str:
+    """Performs web search using Exa.ai API and returns formatted results."""
+    api_url = "https://api.exa.ai/search"
+    api_key = os.getenv("EXA_API_KEY")
+
+    if not api_key:
+        return "### Error\nEXA_API_KEY environment variable not set\n"
+
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    safe_kwargs = {
+        str(k): v
+        for k, v in kwargs.items()
+        if k is not None and v is not None and str(k) != "None"
+    }
+
+    payload = {
+        "query": query,
+        "useAutoprompt": True,
+        "numResults": safe_kwargs.get("num_results", 10),
+        "contents": {
+            "text": True,
+            "highlights": {"numSentences": 10},
+        },
+    }
+
+    for key, value in safe_kwargs.items():
+        if key not in payload and key not in [
+            "query",
+            "useAutoprompt",
+            "numResults",
+            "contents",
+        ]:
+            payload[key] = value
+
+    try:
+        response = requests.post(
+            api_url, json=payload, headers=headers
+        )
+        if response.status_code != 200:
+            return f"### Error\nHTTP {response.status_code}: {response.text}\n"
+        json_data = response.json()
+    except Exception as e:
+        return f"### Error\n{str(e)}\n"
+
     if "error" in json_data:
         return f"### Error\n{json_data['error']}\n"
 
-    # Pre-allocate formatted_text list with initial capacity
     formatted_text = []
-
-    # Extract search metadata
     search_params = json_data.get("effectiveFilters", {})
     query = search_params.get("query", "General web search")
     formatted_text.append(
         f"### Exa Search Results for: '{query}'\n\n---\n"
     )
 
-    # Process results
     results = json_data.get("results", [])
-
     if not results:
         formatted_text.append("No results found.\n")
         return "".join(formatted_text)
 
-    def process_result(
-        result: Dict[str, Any], index: int
-    ) -> List[str]:
-        """Process a single result in a thread-safe manner"""
+    for i, result in enumerate(results, 1):
         title = result.get("title", "No title")
         url = result.get("url", result.get("id", "No URL"))
         published_date = result.get("publishedDate", "")
-
-        # Handle highlights efficiently
         highlights = result.get("highlights", [])
         highlight_text = (
             "\n".join(
@@ -76,98 +109,16 @@ def format_exa_results(json_data: Dict[str, Any]) -> str:
             else "No summary available"
         )
 
-        return [
-            f"{index}. **{title}**\n",
-            f"   - URL: {url}\n",
-            f"   - Published: {published_date.split('T')[0] if published_date else 'Date unknown'}\n",
-            f"   - Key Points:\n      {highlight_text}\n\n",
-        ]
-
-    # Process results concurrently
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_to_result = {
-            executor.submit(process_result, result, i + 1): i
-            for i, result in enumerate(results)
-        }
-
-        # Collect results in order
-        processed_results = [None] * len(results)
-        for future in as_completed(future_to_result):
-            idx = future_to_result[future]
-            try:
-                processed_results[idx] = future.result()
-            except Exception as e:
-                console.print(
-                    f"[bold red]Error processing result {idx + 1}: {str(e)}[/bold red]"
-                )
-                processed_results[idx] = [
-                    f"Error processing result {idx + 1}: {str(e)}\n"
-                ]
-
-    # Extend formatted text with processed results in correct order
-    for result_text in processed_results:
-        formatted_text.extend(result_text)
+        formatted_text.extend(
+            [
+                f"{i}. **{title}**\n",
+                f"   - URL: {url}\n",
+                f"   - Published: {published_date.split('T')[0] if published_date else 'Date unknown'}\n",
+                f"   - Key Points:\n      {highlight_text}\n\n",
+            ]
+        )
 
     return "".join(formatted_text)
-
-
-async def _async_exa_search(
-    query: str, **kwargs: Any
-) -> Dict[str, Any]:
-    """Asynchronous helper function for Exa.ai API requests"""
-    api_url = "https://api.exa.ai/search"
-    headers = {
-        "x-api-key": os.getenv("EXA_API_KEY"),
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "query": query,
-        "useAutoprompt": True,
-        "numResults": kwargs.get("num_results", 10),
-        "contents": {
-            "text": True,
-            "highlights": {"numSentences": 2},
-        },
-        **kwargs,
-    }
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                api_url, json=payload, headers=headers
-            ) as response:
-                if response.status != 200:
-                    return {
-                        "error": f"HTTP {response.status}: {await response.text()}"
-                    }
-                return await response.json()
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def exa_search(query: str, **kwargs: Any) -> str:
-    """Performs web search using Exa.ai API with concurrent processing"""
-    try:
-        # Run async search in the event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            response_json = loop.run_until_complete(
-                _async_exa_search(query, **kwargs)
-            )
-        finally:
-            loop.close()
-
-        # Format results concurrently
-        formatted_text = format_exa_results(response_json)
-
-        return formatted_text
-
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
-        console.print(f"[bold red]{error_msg}[/bold red]")
-        return error_msg
 
 
 # Define the research tools schema
@@ -283,6 +234,7 @@ class DeepResearchSwarm:
         * 2,  # Let the system decide optimal thread count
         token_count: bool = False,
         research_model_name: str = "gpt-4o-mini",
+        claude_summarization_model_name: str = "claude-3-5-sonnet-20240620",
     ):
         self.name = name
         self.description = description
@@ -291,6 +243,9 @@ class DeepResearchSwarm:
         self.output_type = output_type
         self.max_workers = max_workers
         self.research_model_name = research_model_name
+        self.claude_summarization_model_name = (
+            claude_summarization_model_name
+        )
 
         self.reliability_check()
         self.conversation = Conversation(token_count=token_count)
@@ -308,12 +263,17 @@ class DeepResearchSwarm:
             system_prompt=RESEARCH_AGENT_PROMPT,
             max_loops=1,  # Allow multiple iterations for thorough research
             tools_list_dictionary=tools,
-            model_name="gpt-4o-mini",
+            model_name=self.research_model_name,
+            output_type="final",
         )
 
-        self.reasoning_duo = ReasoningDuo(
+        self.summarization_agent = Agent(
+            agent_name="Summarization-Agent",
+            agent_description="Specialized agent for summarizing research results",
             system_prompt=SUMMARIZATION_AGENT_PROMPT,
-            output_type="string",
+            max_loops=1,
+            model_name=self.claude_summarization_model_name,
+            output_type="final",
         )
 
     def __del__(self):
@@ -345,49 +305,49 @@ class DeepResearchSwarm:
         # Get the agent's response
         agent_output = self.research_agent.run(query)
 
-        self.conversation.add(
-            role=self.research_agent.agent_name, content=agent_output
+        # Transform the string into a list of dictionaries
+        agent_output = json.loads(agent_output)
+        print(agent_output)
+        print(type(agent_output))
+
+        formatter.print_panel(
+            f"Agent output type: {type(agent_output)} \n {agent_output}",
+            "blue",
         )
 
-        # Convert the string output to dictionary
-        output_dict = str_to_dict(agent_output)
+        # Convert the output to a dictionary if it's a list
+        if isinstance(agent_output, list):
+            agent_output = json.dumps(agent_output)
 
-        # Print the conversation history
-        if self.nice_print:
-            to_do_list = any_to_str(output_dict)
-            formatter.print_panel(to_do_list, "blue")
+        if isinstance(agent_output, str):
+            # Convert the string output to dictionary
+            output_dict = (
+                str_to_dict(agent_output)
+                if isinstance(agent_output, str)
+                else agent_output
+            )
 
         # Extract the detailed queries from the output
-        if (
-            isinstance(output_dict, dict)
-            and "detailed_queries" in output_dict
-        ):
-            queries = output_dict["detailed_queries"]
-            formatter.print_panel(
-                f"Generated {len(queries)} queries", "blue"
-            )
-            return queries
+        # Search for the key "detailed_queries" in the output list[dictionary]
+        if isinstance(output_dict, list):
+            for item in output_dict:
+                if "detailed_queries" in item:
+                    queries = item["detailed_queries"]
+                    break
+        else:
+            queries = output_dict.get("detailed_queries", [])
 
-        return []
+        print(queries)
 
-    def _process_query(self, query: str) -> Tuple[str, str]:
-        """
-        Process a single query with search and reasoning.
-        This function is designed to be run in a separate thread.
+        # Log the number of queries generated
+        formatter.print_panel(
+            f"Generated {len(queries)} queries", "blue"
+        )
 
-        Args:
-            query (str): The query to process
+        print(queries)
+        print(type(queries))
 
-        Returns:
-            Tuple[str, str]: A tuple containing (search_results, reasoning_output)
-        """
-        # Run the search
-        results = exa_search(query)
-
-        # Run the reasoning on the search results
-        reasoning_output = self.reasoning_duo.run(results)
-
-        return (results, reasoning_output)
+        return queries
 
     def step(self, query: str):
         """
@@ -399,54 +359,91 @@ class DeepResearchSwarm:
         Returns:
             Formatted conversation history
         """
-        # Get all the queries to process
-        queries = self.get_queries(query)
+        try:
+            # Get all the queries to process
+            queries = self.get_queries(query)
 
-        # Submit all queries for concurrent processing
-        # Using a list instead of generator for clearer debugging
-        futures = []
-        for q in queries:
-            future = self.executor.submit(self._process_query, q)
-            futures.append((q, future))
+            print(queries)
 
-        # Process results as they complete (no waiting for slower queries)
-        for q, future in futures:
+            # Submit all queries for concurrent processing
+            futures = []
+            for q in queries:
+                future = self.executor.submit(exa_search, q)
+                futures.append((q, future))
+
+            # Process results as they complete
+            for q, future in futures:
+                try:
+                    # Get search results only
+                    results = future.result()
+
+                    # Add search results to conversation
+                    self.conversation.add(
+                        role="User",
+                        content=f"Search results for {q}: \n {results}",
+                    )
+
+                except Exception as e:
+                    # Handle any errors in the thread
+                    error_msg = (
+                        f"Error processing query '{q}': {str(e)}"
+                    )
+                    console.print(f"[bold red]{error_msg}[/bold red]")
+                    self.conversation.add(
+                        role="System",
+                        content=error_msg,
+                    )
+
+            # Generate final comprehensive analysis after all searches are complete
             try:
-                # Get results (blocks until this specific future is done)
-                results, reasoning_output = future.result()
-
-                # Add search results to conversation
-                self.conversation.add(
-                    role="User",
-                    content=f"Search results for {q}: \n {results}",
+                final_summary = self.summarization_agent.run(
+                    f"Please generate a comprehensive 4,000-word report analyzing the following content: {self.conversation.get_str()}"
                 )
 
-                # Add reasoning output to conversation
                 self.conversation.add(
-                    role=self.reasoning_duo.agent_name,
-                    content=reasoning_output,
+                    role=self.summarization_agent.agent_name,
+                    content=final_summary,
                 )
             except Exception as e:
-                # Handle any errors in the thread
+                error_msg = (
+                    f"Error generating final summary: {str(e)}"
+                )
+                console.print(f"[bold red]{error_msg}[/bold red]")
                 self.conversation.add(
                     role="System",
-                    content=f"Error processing query '{q}': {str(e)}",
+                    content=error_msg,
                 )
 
-        # Once all query processing is complete, generate the final summary
-        # This step runs after all queries to ensure it summarizes all results
-        final_summary = self.reasoning_duo.run(
-            f"Generate an extensive report of the following content: {self.conversation.get_str()}"
-        )
+            # Return formatted output
+            result = history_output_formatter(
+                self.conversation, type=self.output_type
+            )
 
-        self.conversation.add(
-            role=self.reasoning_duo.agent_name,
-            content=final_summary,
-        )
+            # If output type is JSON, ensure it's properly formatted
+            if self.output_type.lower() == "json":
+                try:
+                    import json
 
-        return history_output_formatter(
-            self.conversation, type=self.output_type
-        )
+                    if isinstance(result, str):
+                        # Try to parse and reformat for pretty printing
+                        parsed = json.loads(result)
+                        return json.dumps(
+                            parsed, indent=2, ensure_ascii=False
+                        )
+                except (json.JSONDecodeError, TypeError):
+                    # If parsing fails, return as-is
+                    pass
+
+            return result
+
+        except Exception as e:
+            error_msg = f"Critical error in step execution: {str(e)}"
+            console.print(f"[bold red]{error_msg}[/bold red]")
+            return (
+                {"error": error_msg}
+                if self.output_type.lower() == "json"
+                else error_msg
+            )
 
     def run(self, task: str):
         return self.step(task)
@@ -467,13 +464,20 @@ class DeepResearchSwarm:
             futures.append((task, future))
 
 
-# # Example usage
+# Example usage
 # if __name__ == "__main__":
-#     swarm = DeepResearchSwarm(
-#         output_type="json",
-#     )
-#     print(
-#         swarm.step(
-#             "What is the active tarrif situation with mexico? Only create 2 queries"
+#     try:
+#         swarm = DeepResearchSwarm(
+#             output_type="json",
 #         )
-#     )
+#         result = swarm.step(
+#             "What is the active tariff situation with mexico? Only create 2 queries"
+#         )
+
+#         # Parse and display results in rich format with markdown export
+#         swarm.parse_and_display_results(result, export_markdown=True)
+
+#     except Exception as e:
+#         print(f"Error running deep research swarm: {str(e)}")
+#         import traceback
+#         traceback.print_exc()

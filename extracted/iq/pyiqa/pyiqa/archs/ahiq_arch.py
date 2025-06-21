@@ -31,12 +31,14 @@ from pyiqa.archs.arch_util import (
 )
 from pyiqa.utils.registry import ARCH_REGISTRY
 
-default_model_urls = {
-    "pipal": get_url_from_name("AHIQ_vit_p8_epoch33-da3ea303.pth")
-}
+default_model_urls = {'pipal': get_url_from_name('AHIQ_vit_p8_epoch33-da3ea303.pth')}
 
 
 class SaveOutput:
+    """
+    SaveOutput class to save intermediate outputs of layers during forward pass.
+    """
+
     def __init__(self):
         self.outputs = {}
 
@@ -51,6 +53,16 @@ class SaveOutput:
 
 
 class DeformFusion(nn.Module):
+    """
+    Deformable Fusion Network.
+
+    Args:
+        patch_size (int, optional): Size of the patches. Default is 8.
+        in_channels (int, optional): Number of input channels. Default is 768 * 5.
+        cnn_channels (int, optional): Number of CNN channels. Default is 256 * 3.
+        out_channels (int, optional): Number of output channels. Default is 256 * 3.
+    """
+
     def __init__(
         self,
         patch_size=8,
@@ -59,12 +71,8 @@ class DeformFusion(nn.Module):
         out_channels=256 * 3,
     ):
         super().__init__()
-        # in_channels, out_channels, kernel_size, stride, padding
         self.d_hidn = 512
-        if patch_size == 8:
-            stride = 1
-        else:
-            stride = 2
+        stride = 1 if patch_size == 8 else 2
         self.conv_offset = nn.Conv2d(in_channels, 2 * 3 * 3, 3, 1, 1)
         self.deform = DeformConv2d(cnn_channels, out_channels, 3, 1, 1)
         self.conv1 = nn.Sequential(
@@ -86,15 +94,23 @@ class DeformFusion(nn.Module):
         )
 
     def forward(self, cnn_feat, vit_feat):
-        vit_feat = F.interpolate(vit_feat, size=cnn_feat.shape[-2:], mode="nearest")
+        vit_feat = F.interpolate(vit_feat, size=cnn_feat.shape[-2:], mode='nearest')
         offset = self.conv_offset(vit_feat)
         deform_feat = self.deform(cnn_feat, offset)
         deform_feat = self.conv1(deform_feat)
-
         return deform_feat
 
 
 class Pixel_Prediction(nn.Module):
+    """
+    Pixel Prediction Network.
+
+    Args:
+        inchannels (int, optional): Number of input channels. Default is 768 * 5 + 256 * 3.
+        outchannels (int, optional): Number of output channels. Default is 256.
+        d_hidn (int, optional): Hidden dimension. Default is 1024.
+    """
+
     def __init__(self, inchannels=768 * 5 + 256 * 3, outchannels=256, d_hidn=1024):
         super().__init__()
         self.d_hidn = d_hidn
@@ -108,7 +124,6 @@ class Pixel_Prediction(nn.Module):
                 in_channels=self.d_hidn, out_channels=512, kernel_size=3, padding=1
             ),
         )
-
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -142,7 +157,7 @@ class AHIQ(nn.Module):
     """
     AHIQ model implementation.
 
-    This class implements the Attention-based Hybrid Image Quality (AHIQ) assessment network, which combines 
+    This class implements the Attention-based Hybrid Image Quality (AHIQ) assessment network, which combines
     ResNet50 and Vision Transformer (ViT) backbones with deformable convolution layers for enhanced image quality assessment.
 
     Args:
@@ -164,6 +179,7 @@ class AHIQ(nn.Module):
         - crops (int): Number of crops to use for testing.
         - crop_size (int): Size of the crops.
     """
+
     def __init__(
         self,
         num_crop=20,
@@ -175,8 +191,8 @@ class AHIQ(nn.Module):
     ):
         super().__init__()
 
-        self.resnet50 = timm.create_model("resnet50", pretrained=True)
-        self.vit = timm.create_model("vit_base_patch8_224", pretrained=True)
+        self.resnet50 = timm.create_model('resnet50', pretrained=True)
+        self.vit = timm.create_model('vit_base_patch8_224', pretrained=True)
         self.fix_network(self.resnet50)
         self.fix_network(self.vit)
 
@@ -191,13 +207,13 @@ class AHIQ(nn.Module):
 
         if pretrained_model_path is not None:
             load_pretrained_network(
-                self, pretrained_model_path, True, weight_keys="params"
+                self, pretrained_model_path, True, weight_keys='params'
             )
         elif pretrained:
-            weight_path = load_file_from_url(default_model_urls["pipal"])
+            weight_path = load_file_from_url(default_model_urls['pipal'])
             checkpoint = torch.load(weight_path, map_location='cpu', weights_only=False)
-            self.regressor.load_state_dict(checkpoint["regressor_model_state_dict"])
-            self.deform_net.load_state_dict(checkpoint["deform_net_model_state_dict"])
+            self.regressor.load_state_dict(checkpoint['regressor_model_state_dict'])
+            self.deform_net.load_state_dict(checkpoint['deform_net_model_state_dict'])
 
         self.eps = 1e-12
         self.crops = num_crop

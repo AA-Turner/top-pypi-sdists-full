@@ -2180,7 +2180,7 @@ struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_15_genexpr {
 };
 
 
-/* "amplpy/ampl.pyx":899
+/* "amplpy/ampl.pyx":905
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):
  *                         self.ampl.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
@@ -2195,7 +2195,7 @@ struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_16_genexpr {
 };
 
 
-/* "amplpy/ampl.pyx":909
+/* "amplpy/ampl.pyx":915
  *             if isinstance(value, dict):
  *                 if name.endswith("_options"):
  *                     self.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
@@ -2210,7 +2210,7 @@ struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_17_genexpr {
 };
 
 
-/* "amplpy/ampl.pyx":1186
+/* "amplpy/ampl.pyx":1192
  *             self.eval(
  *                 "".join(
  *                     "let {} := {};".format(name, value) for name, value in model.items()             # <<<<<<<<<<<<<<
@@ -3503,6 +3503,14 @@ static void __Pyx_WriteUnraisable(const char *name, int clineno,
                                   int lineno, const char *filename,
                                   int full_traceback, int nogil);
 
+/* PyFloatBinop.proto */
+#if !CYTHON_COMPILING_IN_PYPY
+static int __Pyx_PyFloat_BoolNeObjC(PyObject *op1, PyObject *op2, double floatval, int inplace, int zerodivision_check);
+#else
+#define __Pyx_PyFloat_BoolNeObjC(op1, op2, floatval, inplace, zerodivision_check)\
+    __Pyx_PyObject_IsTrueAndDecref(PyObject_RichCompare(op1, op2, Py_NE))
+    #endif
+
 /* Py3UpdateBases.proto */
 static PyObject* __Pyx_PEP560_update_bases(PyObject *bases);
 
@@ -4183,7 +4191,6 @@ static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_xref[] = "xref";
 static const char __pyx_k_A_E_1[] = "\210A\330\020\024\220E\230\030\240\021\240%\240{\260!\2601";
 static const char __pyx_k_A_F_j[] = "\200A\360\030\000\t\025\220F\230/\250\021\250$\250j\270\n\300'\310\021\310!";
-static const char __pyx_k_A_Q_a[] = "\210A\330\020\024\320\024%\240Q\330\020\024\320\024&\240a";
 static const char __pyx_k_A_q_1[] = "\200A\360\010\000\t\031\230\007\230q\240\013\2501";
 static const char __pyx_k_A_vZq[] = "\200A\360\010\000\t\020\210v\220Z\230q\240\001";
 static const char __pyx_k_A_z_2[] = "\200A\360\n\000\t\032\230\021\330\014\r\360\006\000\r\016\360\006\000\r\016\360\014\000\r\016\360\006\000\t\020\210z\230\021\230!";
@@ -4387,6 +4394,7 @@ static const char __pyx_k_warning[] = "warning";
 static const char __pyx_k_workdir[] = "workdir";
 static const char __pyx_k_A_1D_G1A[] = "\200A\360\016\000\016,\2501\250D\260\t\270\033\300G\3101\310A";
 static const char __pyx_k_A_F_Qd_a[] = "\200A\360\n\000\t\025\220F\320\032-\250Q\250d\260&\270\n\300$\300a";
+static const char __pyx_k_A_HA_Q_a[] = "\210A\330\020\024\220H\230A\330\020\024\320\024%\240Q\330\020\024\320\024&\240a";
 static const char __pyx_k_A_Qk_q_a[] = "\200A\360\010\000\t\036\230Q\230k\250\026\250q\330\010\016\210a";
 static const char __pyx_k_A_s_4q_2[] = "\200A\330\010\017\210s\220!\2204\220q";
 static const char __pyx_k_A_s_6_vQ[] = "\200A\340\010\017\210s\220!\2206\230\026\230v\240Q";
@@ -4688,6 +4696,7 @@ static const char __pyx_k_StopIteration[] = "StopIteration";
 static const char __pyx_k_StreamHandler[] = "StreamHandler";
 static const char __pyx_k_Variable_dual[] = "Variable.dual";
 static const char __pyx_k_Variable_init[] = "Variable.init";
+static const char __pyx_k_ampl_instance[] = "ampl_instance";
 static const char __pyx_k_amplpy_gurobi[] = "amplpy_gurobi";
 static const char __pyx_k_amplpy_xpress[] = "amplpy_xpress";
 static const char __pyx_k_class_getitem[] = "__class_getitem__";
@@ -4716,7 +4725,6 @@ static const char __pyx_k_A_F_6at81A_s_1[] = "\200A\360\020\000\t\025\220F\320\0
 static const char __pyx_k_A_F_AT_3ay_q_6[] = "\200A\360\032\000\t\025\220F\230*\240A\240T\250\032\2603\260a\260y\300\007\300q\310\001\330\010\014\320\014#\2406\250\021";
 static const char __pyx_k_A_QgQ_5_1_5_1A[] = "\210A\330\020\023\220:\230Q\230g\240Q\330\024\030\230\005\230]\250!\2505\260\n\270!\2701\340\024\030\230\005\230]\250!\2505\260\013\2701\270A";
 static const char __pyx_k_A_fAQ_A_t_3a_a[] = "\210A\330\020\021\330\024\030\230\016\240f\250A\250Q\330\020\027\220}\240A\330\024\027\220t\320\033+\2503\250a\330\030\034\320\034.\250a";
-static const char __pyx_k_A_haq_A_t_3a_a[] = "\210A\330\020\021\330\024\030\230\016\240h\250a\250q\330\020\027\220}\240A\330\024\027\220t\320\033+\2503\250a\330\030\034\320\034.\250a";
 static const char __pyx_k_AssertionError[] = "AssertionError";
 static const char __pyx_k_AttributeError[] = "AttributeError";
 static const char __pyx_k_Column_to_list[] = "Column.to_list";
@@ -4782,7 +4790,6 @@ static const char __pyx_k_AMPL_export_data[] = "AMPL.export_data";
 static const char __pyx_k_AMPL_write_table[] = "AMPL.write_table";
 static const char __pyx_k_A_4y_q_k_a_1AT_1[] = "\200A\360\014\000\t\014\2104\210y\230\007\230q\330\014\030\230\006\230k\250\021\250$\250a\330\021\033\2301\230A\230T\240\021\330\014\020\220\013\2301";
 static const char __pyx_k_A_F_1D_j_HAQ_s_1[] = "\200A\360\014\000\t\025\220F\320\032+\2501\250D\260\006\260j\300\004\300H\310A\310Q\330\010\017\210s\220!\2201";
-static const char __pyx_k_A_a_9_F_q_JiwdRS[] = "\200A\360\016\000\t#\240!\330\014\r\360\010\000\r\016\360\016\000\r\016\360\016\000\r\016\360\014\000\t\r\320\014\036\230a\330\010\014\320\014&\320&9\270\021\270!\340\010\024\220F\320\032/\250q\260\004\260J\270i\300w\310d\320RS";
 static const char __pyx_k_A_at9AQ_Cq_7_1_q[] = "\200A\340\r&\240a\240t\2509\260A\260Q\330\010\024\220C\220q\230\013\2407\250!\2501\330\010\017\210q";
 static const char __pyx_k_A_q_F_D_1_1_aq_q[] = "\200A\360\014\000\t\032\230\036\240q\250\004\250F\260*\270D\300\010\310\001\310\021\330\010\013\2101\330\014\030\230\001\230\021\330\010\025\220]\240!\2401\330\r\036\230a\230q\240\001\330\010\017\210q";
 static const char __pyx_k_Column_to_string[] = "Column.to_string";
@@ -4835,6 +4842,7 @@ static const char __pyx_k_get_error_handler[] = "get_error_handler";
 static const char __pyx_k_get_indexing_sets[] = "get_indexing_sets";
 static const char __pyx_k_scalar_expression[] = "scalar_expression";
 static const char __pyx_k_set_error_handler[] = "set_error_handler";
+static const char __pyx_k_throw_on_warnings[] = "_throw_on_warnings";
 static const char __pyx_k_AMPL__load_session[] = "AMPL._load_session";
 static const char __pyx_k_AMPL_get_objective[] = "AMPL.get_objective";
 static const char __pyx_k_AMPL_get_parameter[] = "AMPL.get_parameter";
@@ -4885,6 +4893,7 @@ static const char __pyx_k_A6_4z_E_a_F_AT_WAQ_6[] = "\200A\3606\000\t\014\2104\21
 static const char __pyx_k_AMPL___reduce_cython[] = "AMPL.__reduce_cython__";
 static const char __pyx_k_AMPL__stop_recording[] = "AMPL._stop_recording";
 static const char __pyx_k_AMPL_get_constraints[] = "AMPL.get_constraints";
+static const char __pyx_k_A_31F_a_a_F_q_JiwdRS[] = "\200A\360\016\000\t#\240!\330\014\r\360\n\000\r\016\360\016\000\r\016\360\024\000\r\016\360\014\000\t!\320 3\2601\260F\270!\340\010\014\320\014\036\230a\330\010\014\320\014&\240a\340\010\024\220F\320\032/\250q\260\004\260J\270i\300w\310d\320RS";
 static const char __pyx_k_A_F_9_fJdRZZ_ggllmmn[] = "\200A\360\036\000\t\025\220F\320\0329\270\021\270$\270f\300J\310d\320RZ\320Z^\320^g\320gl\320lm\320mn";
 static const char __pyx_k_A_F_Qd_RVV_bbkkllm_q[] = "\200A\360\n\000\t\025\220F\320\032=\270Q\270d\300&\310\n\320RV\320V^\320^b\320bk\320kl\320lm\330\010\030\230\007\230q\240\001";
 static const char __pyx_k_DataFrame_from_numpy[] = "DataFrame.from_numpy";
@@ -4920,6 +4929,7 @@ static const char __pyx_k_Set___setstate_cython[] = "Set.__setstate_cython__";
 static const char __pyx_k_amplpy_constraint_pxi[] = "amplpy/constraint.pxi";
 static const char __pyx_k_amplpy_exceptions_pxi[] = "amplpy/exceptions.pxi";
 static const char __pyx_k_display_error_message[] = "display_error_message";
+static const char __pyx_k_error_handler_wrapper[] = "error_handler_wrapper";
 static const char __pyx_k_get_current_objective[] = "get_current_objective";
 static const char __pyx_k_hk_A_1_kkmmn_7_q0_a_1[] = "\200\001\360\006\000\005\010\200\220h\230k\250\033\260A\330\010\r\210^\2301\330\010\016\320\016!\320!k\320km\320mn\330\004\023\220=\240\010\250\001\250\021\330\004\007\200|\2207\230!\330\010/\250q\3200@\300\016\310a\330\004\013\2101";
 static const char __pyx_k_import_ampls_solution[] = "import_ampls_solution";
@@ -4934,6 +4944,7 @@ static const char __pyx_k_AMPL_set_error_handler[] = "AMPL.set_error_handler";
 static const char __pyx_k_A_1_1_1_t9AU_a_1_4q_aq[] = "\320\004 \240\014\250A\360(\000\t\014\2101\330\014\023\2201\340\014\023\2201\330\010\027\220t\2309\240A\240U\250(\260!\260;\270a\330\010\013\2101\330\014\023\2204\220q\230\001\330\010\017\320\017&\240a\240q";
 static const char __pyx_k_A_F_2_4vZt8SWW_aab_s_1[] = "\200A\360\n\000\t\025\220F\320\0322\260!\2604\260v\270Z\300t\3108\320SW\320W`\320`a\320ab\330\010\017\210s\220!\2201";
 static const char __pyx_k_A_F_4waq_AT_81A_1_ha_a[] = "\200A\360\030\000\t\035\230F\240!\2404\240w\250a\250q\330\010\031\320\031,\250A\250T\260\032\2708\3001\300A\330\010\013\2101\330\014\020\220\001\220\021\330\014\030\230\001\230\021\330\010\013\210;\220h\230a\330\014\020\220\001\220\021\330\014\031\230\026\230{\250!\330\010\022\220'\230\021\230&\240\010\250\006\250a";
+static const char __pyx_k_A_haq_A_t_3a_4uKq0Fc_2[] = "\210A\330\020\021\330\024\030\230\016\240h\250a\250q\330\020\027\220}\240A\330\024\027\220t\320\033+\2503\250a\330\030\033\2304\230u\240K\250q\3200F\300c\310\021\360\006\000\035!\320 2\260!";
 static const char __pyx_k_A_q_J6GwazYZZ_1_1_aq_q[] = "\200A\360\"\000\t\032\230\036\240q\250\004\250J\3206G\300w\310a\310z\320YZ\320Z[\330\010\013\2101\330\014\030\230\001\230\021\340\010\025\220]\240!\2401\330\r\036\230a\230q\240\001\340\010\017\210q";
 static const char __pyx_k_Column___reduce_cython[] = "Column.__reduce_cython__";
 static const char __pyx_k_DataFrame__get_headers[] = "DataFrame._get_headers";
@@ -5389,7 +5400,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_44read_table(struct __pyx_obj_6amp
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_46write_table(struct __pyx_obj_6amplpy_4ampl_AMPL *__pyx_v_self, PyObject *__pyx_v_table_name); /* proto */
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_48display(struct __pyx_obj_6amplpy_4ampl_AMPL *__pyx_v_self, PyObject *__pyx_v_ampl_expressions); /* proto */
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_50set_output_handler(struct __pyx_obj_6amplpy_4ampl_AMPL *__pyx_v_self, PyObject *__pyx_v_output_handler); /* proto */
-static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_error_handler); /* proto */
+static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_ampl_instance, PyObject *__pyx_v_error_handler); /* proto */
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_2error(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_exception); /* proto */
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_4warning(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_exception); /* proto */
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_6check(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
@@ -5615,7 +5626,8 @@ typedef struct {
   PyObject *__pyx_k_;
   PyObject *__pyx_tuple[30];
   PyObject *__pyx_codeobj_tab[262];
-  PyObject *__pyx_string_tab[942];
+  PyObject *__pyx_string_tab[945];
+  PyObject *__pyx_float_1_0;
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
   PyObject *__pyx_int_222419149;
@@ -6131,573 +6143,576 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_add_row __pyx_string_tab[372]
 #define __pyx_n_u_ampl __pyx_string_tab[373]
 #define __pyx_n_u_ampl_expressions __pyx_string_tab[374]
-#define __pyx_n_u_ampl_libpath __pyx_string_tab[375]
-#define __pyx_n_u_amplpy __pyx_string_tab[376]
-#define __pyx_n_u_amplpy_ampl __pyx_string_tab[377]
-#define __pyx_kp_u_amplpy_ampl_pyx __pyx_string_tab[378]
-#define __pyx_kp_u_amplpy_constraint_pxi __pyx_string_tab[379]
-#define __pyx_n_u_amplpy_copt __pyx_string_tab[380]
-#define __pyx_kp_u_amplpy_copt_package_not_found __pyx_string_tab[381]
-#define __pyx_n_u_amplpy_cplex __pyx_string_tab[382]
-#define __pyx_kp_u_amplpy_cplex_package_not_found __pyx_string_tab[383]
-#define __pyx_kp_u_amplpy_dataframe_pxi __pyx_string_tab[384]
-#define __pyx_kp_u_amplpy_entity_pxi __pyx_string_tab[385]
-#define __pyx_kp_u_amplpy_environment_pxi __pyx_string_tab[386]
-#define __pyx_kp_u_amplpy_errorhandler_pxi __pyx_string_tab[387]
-#define __pyx_kp_u_amplpy_exceptions_pxi __pyx_string_tab[388]
-#define __pyx_n_u_amplpy_gurobi __pyx_string_tab[389]
-#define __pyx_kp_u_amplpy_gurobi_package_not_found __pyx_string_tab[390]
-#define __pyx_n_u_amplpy_highs __pyx_string_tab[391]
-#define __pyx_kp_u_amplpy_highs_package_not_found __pyx_string_tab[392]
-#define __pyx_kp_u_amplpy_iterators_pxi __pyx_string_tab[393]
-#define __pyx_kp_u_amplpy_objective_pxi __pyx_string_tab[394]
-#define __pyx_kp_u_amplpy_outputhandler_pxi __pyx_string_tab[395]
-#define __pyx_kp_u_amplpy_parameter_pxi __pyx_string_tab[396]
-#define __pyx_n_u_amplpy_scip __pyx_string_tab[397]
-#define __pyx_kp_u_amplpy_scip_package_not_found __pyx_string_tab[398]
-#define __pyx_kp_u_amplpy_set_pxi __pyx_string_tab[399]
-#define __pyx_kp_u_amplpy_variable_pxi __pyx_string_tab[400]
-#define __pyx_n_u_amplpy_xpress __pyx_string_tab[401]
-#define __pyx_kp_u_amplpy_xpress_package_not_found __pyx_string_tab[402]
-#define __pyx_n_u_args __pyx_string_tab[403]
-#define __pyx_n_u_arity __pyx_string_tab[404]
-#define __pyx_n_u_array __pyx_string_tab[405]
-#define __pyx_n_u_ast __pyx_string_tab[406]
-#define __pyx_n_u_astatus __pyx_string_tab[407]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[408]
-#define __pyx_n_u_auxfiles __pyx_string_tab[409]
-#define __pyx_n_u_bin_dir __pyx_string_tab[410]
-#define __pyx_n_u_bin_dir_c __pyx_string_tab[411]
-#define __pyx_n_u_bin_name __pyx_string_tab[412]
-#define __pyx_n_u_bin_name_c __pyx_string_tab[413]
-#define __pyx_n_u_binary_directory __pyx_string_tab[414]
-#define __pyx_n_u_binary_name __pyx_string_tab[415]
-#define __pyx_n_u_body __pyx_string_tab[416]
-#define __pyx_n_u_bool __pyx_string_tab[417]
-#define __pyx_n_u_builtins __pyx_string_tab[418]
-#define __pyx_n_u_c __pyx_string_tab[419]
-#define __pyx_n_u_c_double_array __pyx_string_tab[420]
-#define __pyx_n_u_c_string_array __pyx_string_tab[421]
-#define __pyx_kp_u_cannot_be_found __pyx_string_tab[422]
-#define __pyx_kp_u_cannot_convert_to_dictionary_wit __pyx_string_tab[423]
-#define __pyx_n_u_cast_row __pyx_string_tab[424]
-#define __pyx_n_u_cast_value __pyx_string_tab[425]
-#define __pyx_n_u_cd __pyx_string_tab[426]
-#define __pyx_n_u_chain __pyx_string_tab[427]
-#define __pyx_n_u_check __pyx_string_tab[428]
-#define __pyx_n_u_cindex __pyx_string_tab[429]
-#define __pyx_n_u_class_getitem __pyx_string_tab[430]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[431]
-#define __pyx_n_u_close __pyx_string_tab[432]
-#define __pyx_n_u_cls __pyx_string_tab[433]
-#define __pyx_n_u_cname __pyx_string_tab[434]
-#define __pyx_n_u_col __pyx_string_tab[435]
-#define __pyx_n_u_collections_abc __pyx_string_tab[436]
-#define __pyx_n_u_column __pyx_string_tab[437]
-#define __pyx_n_u_column_names __pyx_string_tab[438]
-#define __pyx_n_u_columns __pyx_string_tab[439]
-#define __pyx_n_u_con __pyx_string_tab[440]
-#define __pyx_n_u_con_2 __pyx_string_tab[441]
-#define __pyx_n_u_con_locals_Constraints __pyx_string_tab[442]
-#define __pyx_n_u_con_locals_Constraints___getite __pyx_string_tab[443]
-#define __pyx_n_u_con_locals_Constraints___init __pyx_string_tab[444]
-#define __pyx_n_u_con_locals_Constraints___iter __pyx_string_tab[445]
-#define __pyx_n_u_con_locals_Constraints___setite __pyx_string_tab[446]
-#define __pyx_n_u_contains __pyx_string_tab[447]
-#define __pyx_n_u_contains_c __pyx_string_tab[448]
-#define __pyx_n_u_conv_to_list __pyx_string_tab[449]
-#define __pyx_n_u_copt __pyx_string_tab[450]
-#define __pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr __pyx_string_tab[451]
-#define __pyx_n_u_cplex __pyx_string_tab[452]
-#define __pyx_n_u_d __pyx_string_tab[453]
-#define __pyx_n_u_data __pyx_string_tab[454]
-#define __pyx_n_u_data_c __pyx_string_tab[455]
-#define __pyx_n_u_data_frame __pyx_string_tab[456]
-#define __pyx_n_u_decode __pyx_string_tab[457]
-#define __pyx_n_u_defeqn __pyx_string_tab[458]
-#define __pyx_n_u_defvar __pyx_string_tab[459]
-#define __pyx_n_u_df __pyx_string_tab[460]
-#define __pyx_n_u_df_c __pyx_string_tab[461]
-#define __pyx_n_u_df_ref __pyx_string_tab[462]
-#define __pyx_n_u_dic __pyx_string_tab[463]
-#define __pyx_n_u_dict __pyx_string_tab[464]
-#define __pyx_n_u_dict_2 __pyx_string_tab[465]
-#define __pyx_n_u_dimen __pyx_string_tab[466]
-#define __pyx_n_u_dinit __pyx_string_tab[467]
-#define __pyx_n_u_dinit0 __pyx_string_tab[468]
-#define __pyx_kp_u_disable __pyx_string_tab[469]
-#define __pyx_n_u_display __pyx_string_tab[470]
-#define __pyx_n_u_display_error_message __pyx_string_tab[471]
-#define __pyx_n_u_doc __pyx_string_tab[472]
-#define __pyx_n_u_driver __pyx_string_tab[473]
-#define __pyx_n_u_drop __pyx_string_tab[474]
-#define __pyx_n_u_dual __pyx_string_tab[475]
-#define __pyx_n_u_e __pyx_string_tab[476]
-#define __pyx_kp_u_enable __pyx_string_tab[477]
-#define __pyx_n_u_encode __pyx_string_tab[478]
-#define __pyx_n_u_end __pyx_string_tab[479]
-#define __pyx_n_u_endswith __pyx_string_tab[480]
-#define __pyx_n_u_entity __pyx_string_tab[481]
-#define __pyx_n_u_entitytype __pyx_string_tab[482]
-#define __pyx_n_u_enumerate __pyx_string_tab[483]
-#define __pyx_n_u_environ __pyx_string_tab[484]
-#define __pyx_n_u_environment __pyx_string_tab[485]
-#define __pyx_n_u_error __pyx_string_tab[486]
-#define __pyx_n_u_error_handler __pyx_string_tab[487]
-#define __pyx_n_u_errorinfo __pyx_string_tab[488]
-#define __pyx_n_u_errors __pyx_string_tab[489]
-#define __pyx_n_u_eval __pyx_string_tab[490]
-#define __pyx_n_u_exception __pyx_string_tab[491]
-#define __pyx_n_u_exists __pyx_string_tab[492]
-#define __pyx_n_u_exitcode __pyx_string_tab[493]
-#define __pyx_n_u_exp __pyx_string_tab[494]
-#define __pyx_n_u_exportData __pyx_string_tab[495]
-#define __pyx_n_u_exportModel __pyx_string_tab[496]
-#define __pyx_n_u_export_copt_model __pyx_string_tab[497]
-#define __pyx_n_u_export_cplex_model __pyx_string_tab[498]
-#define __pyx_n_u_export_data __pyx_string_tab[499]
-#define __pyx_n_u_export_gurobi_model __pyx_string_tab[500]
-#define __pyx_n_u_export_highs_model __pyx_string_tab[501]
-#define __pyx_n_u_export_model __pyx_string_tab[502]
-#define __pyx_n_u_export_scip_model __pyx_string_tab[503]
-#define __pyx_n_u_export_xpress_model __pyx_string_tab[504]
-#define __pyx_n_u_exprs __pyx_string_tab[505]
-#define __pyx_n_u_file __pyx_string_tab[506]
-#define __pyx_n_u_filename __pyx_string_tab[507]
-#define __pyx_n_u_find __pyx_string_tab[508]
-#define __pyx_n_u_fix __pyx_string_tab[509]
-#define __pyx_n_u_flat __pyx_string_tab[510]
-#define __pyx_n_u_flush __pyx_string_tab[511]
-#define __pyx_n_u_format __pyx_string_tab[512]
-#define __pyx_n_u_formatter __pyx_string_tab[513]
-#define __pyx_n_u_fromDict __pyx_string_tab[514]
-#define __pyx_n_u_fromNumpy __pyx_string_tab[515]
-#define __pyx_n_u_fromPandas __pyx_string_tab[516]
-#define __pyx_n_u_from_arrays __pyx_string_tab[517]
-#define __pyx_n_u_from_data_frame_ref __pyx_string_tab[518]
-#define __pyx_n_u_from_dict __pyx_string_tab[519]
-#define __pyx_n_u_from_dict_locals_genexpr __pyx_string_tab[520]
-#define __pyx_n_u_from_dict_locals_to_tuple __pyx_string_tab[521]
-#define __pyx_n_u_from_numpy __pyx_string_tab[522]
-#define __pyx_n_u_from_pandas __pyx_string_tab[523]
-#define __pyx_n_u_from_tuples __pyx_string_tab[524]
-#define __pyx_n_u_func __pyx_string_tab[525]
-#define __pyx_kp_u_gc __pyx_string_tab[526]
-#define __pyx_n_u_genexpr __pyx_string_tab[527]
-#define __pyx_n_u_get __pyx_string_tab[528]
-#define __pyx_n_u_getBinDir __pyx_string_tab[529]
-#define __pyx_n_u_getBinName __pyx_string_tab[530]
-#define __pyx_n_u_getColumn __pyx_string_tab[531]
-#define __pyx_n_u_getConstraint __pyx_string_tab[532]
-#define __pyx_n_u_getConstraints __pyx_string_tab[533]
-#define __pyx_n_u_getCurrentObjective __pyx_string_tab[534]
-#define __pyx_n_u_getData __pyx_string_tab[535]
-#define __pyx_n_u_getEntity __pyx_string_tab[536]
-#define __pyx_n_u_getErrorHandler __pyx_string_tab[537]
-#define __pyx_n_u_getHeaders __pyx_string_tab[538]
-#define __pyx_n_u_getIndexingSets __pyx_string_tab[539]
-#define __pyx_n_u_getLineNumber __pyx_string_tab[540]
-#define __pyx_n_u_getLogger __pyx_string_tab[541]
-#define __pyx_n_u_getMessage __pyx_string_tab[542]
-#define __pyx_n_u_getNumCols __pyx_string_tab[543]
-#define __pyx_n_u_getNumIndices __pyx_string_tab[544]
-#define __pyx_n_u_getNumRows __pyx_string_tab[545]
-#define __pyx_n_u_getObjective __pyx_string_tab[546]
-#define __pyx_n_u_getObjectives __pyx_string_tab[547]
-#define __pyx_n_u_getOffset __pyx_string_tab[548]
-#define __pyx_n_u_getOption __pyx_string_tab[549]
-#define __pyx_n_u_getOutput __pyx_string_tab[550]
-#define __pyx_n_u_getOutputHandler __pyx_string_tab[551]
-#define __pyx_n_u_getParameter __pyx_string_tab[552]
-#define __pyx_n_u_getParameters __pyx_string_tab[553]
-#define __pyx_n_u_getRecordedEntities __pyx_string_tab[554]
-#define __pyx_n_u_getRow __pyx_string_tab[555]
-#define __pyx_n_u_getRowByIndex __pyx_string_tab[556]
-#define __pyx_n_u_getSet __pyx_string_tab[557]
-#define __pyx_n_u_getSets __pyx_string_tab[558]
-#define __pyx_n_u_getSourceName __pyx_string_tab[559]
-#define __pyx_n_u_getValue __pyx_string_tab[560]
-#define __pyx_n_u_getValues __pyx_string_tab[561]
-#define __pyx_n_u_getVariable __pyx_string_tab[562]
-#define __pyx_n_u_getVariables __pyx_string_tab[563]
-#define __pyx_n_u_get_bin_dir __pyx_string_tab[564]
-#define __pyx_n_u_get_bin_name __pyx_string_tab[565]
-#define __pyx_n_u_get_column __pyx_string_tab[566]
-#define __pyx_n_u_get_constraint __pyx_string_tab[567]
-#define __pyx_n_u_get_constraints __pyx_string_tab[568]
-#define __pyx_n_u_get_current_objective __pyx_string_tab[569]
-#define __pyx_n_u_get_data __pyx_string_tab[570]
-#define __pyx_n_u_get_entity __pyx_string_tab[571]
-#define __pyx_n_u_get_error_handler __pyx_string_tab[572]
-#define __pyx_n_u_get_headers __pyx_string_tab[573]
-#define __pyx_n_u_get_headers_locals_genexpr __pyx_string_tab[574]
-#define __pyx_n_u_get_iis __pyx_string_tab[575]
-#define __pyx_n_u_get_indexing_sets __pyx_string_tab[576]
-#define __pyx_n_u_get_line_number __pyx_string_tab[577]
-#define __pyx_n_u_get_message __pyx_string_tab[578]
-#define __pyx_n_u_get_num_cols __pyx_string_tab[579]
-#define __pyx_n_u_get_num_indices __pyx_string_tab[580]
-#define __pyx_n_u_get_num_rows __pyx_string_tab[581]
-#define __pyx_n_u_get_objective __pyx_string_tab[582]
-#define __pyx_n_u_get_objectives __pyx_string_tab[583]
-#define __pyx_n_u_get_offset __pyx_string_tab[584]
-#define __pyx_n_u_get_option __pyx_string_tab[585]
-#define __pyx_n_u_get_output __pyx_string_tab[586]
-#define __pyx_n_u_get_output_handler __pyx_string_tab[587]
-#define __pyx_n_u_get_parameter __pyx_string_tab[588]
-#define __pyx_n_u_get_parameters __pyx_string_tab[589]
-#define __pyx_n_u_get_row __pyx_string_tab[590]
-#define __pyx_n_u_get_row_by_index __pyx_string_tab[591]
-#define __pyx_n_u_get_set __pyx_string_tab[592]
-#define __pyx_n_u_get_sets __pyx_string_tab[593]
-#define __pyx_n_u_get_solution __pyx_string_tab[594]
-#define __pyx_n_u_get_source_name __pyx_string_tab[595]
-#define __pyx_n_u_get_value __pyx_string_tab[596]
-#define __pyx_n_u_get_values __pyx_string_tab[597]
-#define __pyx_n_u_get_variable __pyx_string_tab[598]
-#define __pyx_n_u_get_variables __pyx_string_tab[599]
-#define __pyx_n_u_getitem __pyx_string_tab[600]
-#define __pyx_n_u_getstate __pyx_string_tab[601]
-#define __pyx_n_u_gurobi __pyx_string_tab[602]
-#define __pyx_n_u_handler __pyx_string_tab[603]
-#define __pyx_n_u_hasDefault __pyx_string_tab[604]
-#define __pyx_n_u_hasHandlers __pyx_string_tab[605]
-#define __pyx_n_u_has_default __pyx_string_tab[606]
-#define __pyx_n_u_header __pyx_string_tab[607]
-#define __pyx_n_u_headers __pyx_string_tab[608]
-#define __pyx_n_u_headers_py __pyx_string_tab[609]
-#define __pyx_n_u_highs __pyx_string_tab[610]
-#define __pyx_n_u_i __pyx_string_tab[611]
-#define __pyx_kp_u_i_in_1__ncons__con_i_iis_non__c __pyx_string_tab[612]
-#define __pyx_kp_u_i_in_1__nvars__var_i_iis_non__v __pyx_string_tab[613]
-#define __pyx_kp_u_i_in_1__nvars__var_i_val_0__var __pyx_string_tab[614]
-#define __pyx_kp_u_i_in_1__nvars__varname_i__var_i __pyx_string_tab[615]
-#define __pyx_n_u_iis_con __pyx_string_tab[616]
-#define __pyx_n_u_iis_var __pyx_string_tab[617]
-#define __pyx_n_u_impl __pyx_string_tab[618]
-#define __pyx_n_u_import_ampls_solution __pyx_string_tab[619]
-#define __pyx_n_u_import_ampls_solution_locals_gen __pyx_string_tab[620]
-#define __pyx_n_u_import_entities __pyx_string_tab[621]
-#define __pyx_n_u_index __pyx_string_tab[622]
-#define __pyx_n_u_index_c __pyx_string_tab[623]
-#define __pyx_n_u_index_names __pyx_string_tab[624]
-#define __pyx_n_u_indexarity __pyx_string_tab[625]
-#define __pyx_n_u_indices_c __pyx_string_tab[626]
-#define __pyx_n_u_init __pyx_string_tab[627]
-#define __pyx_n_u_init0 __pyx_string_tab[628]
-#define __pyx_n_u_init_2 __pyx_string_tab[629]
-#define __pyx_n_u_initializing __pyx_string_tab[630]
-#define __pyx_n_u_instances __pyx_string_tab[631]
-#define __pyx_n_u_isLogical __pyx_string_tab[632]
-#define __pyx_n_u_isRunning __pyx_string_tab[633]
-#define __pyx_n_u_isScalar __pyx_string_tab[634]
-#define __pyx_n_u_isSymbolic __pyx_string_tab[635]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[636]
-#define __pyx_n_u_is_logical __pyx_string_tab[637]
-#define __pyx_kp_u_is_not_supported_please_choose __pyx_string_tab[638]
-#define __pyx_n_u_is_running __pyx_string_tab[639]
-#define __pyx_n_u_is_scalar __pyx_string_tab[640]
-#define __pyx_n_u_is_symbolic __pyx_string_tab[641]
-#define __pyx_kp_u_isenabled __pyx_string_tab[642]
-#define __pyx_n_u_isrunning __pyx_string_tab[643]
-#define __pyx_n_u_items __pyx_string_tab[644]
-#define __pyx_n_u_iter __pyx_string_tab[645]
-#define __pyx_n_u_iter___locals_genexpr __pyx_string_tab[646]
-#define __pyx_n_u_itertools __pyx_string_tab[647]
-#define __pyx_n_u_j __pyx_string_tab[648]
-#define __pyx_n_u_k __pyx_string_tab[649]
-#define __pyx_n_u_keep_files __pyx_string_tab[650]
-#define __pyx_n_u_key __pyx_string_tab[651]
-#define __pyx_n_u_keys __pyx_string_tab[652]
-#define __pyx_n_u_kind __pyx_string_tab[653]
-#define __pyx_n_u_kwargs __pyx_string_tab[654]
-#define __pyx_n_u_last_exception __pyx_string_tab[655]
-#define __pyx_n_u_lb __pyx_string_tab[656]
-#define __pyx_n_u_lb0 __pyx_string_tab[657]
-#define __pyx_n_u_lb1 __pyx_string_tab[658]
-#define __pyx_n_u_lb2 __pyx_string_tab[659]
-#define __pyx_n_u_lbs __pyx_string_tab[660]
-#define __pyx_n_u_ldual __pyx_string_tab[661]
-#define __pyx_kp_u_let __pyx_string_tab[662]
-#define __pyx_kp_u_levelname_s_message_s __pyx_string_tab[663]
-#define __pyx_kp_u_line __pyx_string_tab[664]
-#define __pyx_kp_u_line_2 __pyx_string_tab[665]
-#define __pyx_n_u_line_number __pyx_string_tab[666]
-#define __pyx_n_u_literal_eval __pyx_string_tab[667]
-#define __pyx_n_u_loadSession __pyx_string_tab[668]
-#define __pyx_n_u_load_session __pyx_string_tab[669]
-#define __pyx_n_u_logger __pyx_string_tab[670]
-#define __pyx_n_u_logging __pyx_string_tab[671]
-#define __pyx_n_u_lrc __pyx_string_tab[672]
-#define __pyx_n_u_lslack __pyx_string_tab[673]
-#define __pyx_n_u_lst __pyx_string_tab[674]
-#define __pyx_n_u_lst_columns __pyx_string_tab[675]
-#define __pyx_n_u_lst_index __pyx_string_tab[676]
-#define __pyx_n_u_lst_solution __pyx_string_tab[677]
-#define __pyx_n_u_main __pyx_string_tab[678]
-#define __pyx_n_u_map __pyx_string_tab[679]
-#define __pyx_n_u_members __pyx_string_tab[680]
-#define __pyx_n_u_message __pyx_string_tab[681]
-#define __pyx_n_u_metaclass __pyx_string_tab[682]
-#define __pyx_n_u_minimization __pyx_string_tab[683]
-#define __pyx_n_u_minimize __pyx_string_tab[684]
-#define __pyx_n_u_model __pyx_string_tab[685]
-#define __pyx_n_u_model_c __pyx_string_tab[686]
-#define __pyx_n_u_module __pyx_string_tab[687]
-#define __pyx_n_u_mro_entries __pyx_string_tab[688]
-#define __pyx_n_u_msg __pyx_string_tab[689]
-#define __pyx_n_u_multi_index __pyx_string_tab[690]
-#define __pyx_n_u_n __pyx_string_tab[691]
-#define __pyx_n_u_name __pyx_string_tab[692]
-#define __pyx_n_u_name_2 __pyx_string_tab[693]
-#define __pyx_n_u_name_c __pyx_string_tab[694]
-#define __pyx_n_u_name_c_2 __pyx_string_tab[695]
-#define __pyx_n_u_names __pyx_string_tab[696]
-#define __pyx_n_u_ncols __pyx_string_tab[697]
-#define __pyx_n_u_ncolumns __pyx_string_tab[698]
-#define __pyx_n_u_ndarray __pyx_string_tab[699]
-#define __pyx_n_u_nested __pyx_string_tab[700]
-#define __pyx_n_u_nested_dict_of_suffixes __pyx_string_tab[701]
-#define __pyx_n_u_new __pyx_string_tab[702]
-#define __pyx_n_u_next __pyx_string_tab[703]
-#define __pyx_n_u_nindices __pyx_string_tab[704]
-#define __pyx_n_u_nlevels __pyx_string_tab[705]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[706]
-#define __pyx_n_u_np __pyx_string_tab[707]
-#define __pyx_n_u_nt __pyx_string_tab[708]
-#define __pyx_n_u_num __pyx_string_tab[709]
-#define __pyx_n_u_numInstances __pyx_string_tab[710]
-#define __pyx_n_u_num_instances __pyx_string_tab[711]
-#define __pyx_n_u_number __pyx_string_tab[712]
-#define __pyx_n_u_numbers __pyx_string_tab[713]
-#define __pyx_n_u_numpy __pyx_string_tab[714]
-#define __pyx_n_u_obj __pyx_string_tab[715]
-#define __pyx_n_u_obj_2 __pyx_string_tab[716]
-#define __pyx_n_u_obj_locals_Objectives __pyx_string_tab[717]
-#define __pyx_n_u_obj_locals_Objectives___getitem __pyx_string_tab[718]
-#define __pyx_n_u_obj_locals_Objectives___init __pyx_string_tab[719]
-#define __pyx_n_u_obj_locals_Objectives___iter __pyx_string_tab[720]
-#define __pyx_n_u_object __pyx_string_tab[721]
-#define __pyx_n_u_objname __pyx_string_tab[722]
-#define __pyx_n_u_objname_c __pyx_string_tab[723]
-#define __pyx_n_u_offset __pyx_string_tab[724]
-#define __pyx_kp_u_offset_2 __pyx_string_tab[725]
-#define __pyx_n_u_open __pyx_string_tab[726]
-#define __pyx_n_u_option __pyx_string_tab[727]
-#define __pyx_n_u_option_2 __pyx_string_tab[728]
-#define __pyx_n_u_option_locals_Options __pyx_string_tab[729]
-#define __pyx_n_u_option_locals_Options___getitem __pyx_string_tab[730]
-#define __pyx_n_u_option_locals_Options___init __pyx_string_tab[731]
-#define __pyx_n_u_option_locals_Options___setitem __pyx_string_tab[732]
-#define __pyx_n_u_option_locals_Options___setitem_2 __pyx_string_tab[733]
-#define __pyx_n_u_options __pyx_string_tab[734]
-#define __pyx_n_u_options_2 __pyx_string_tab[735]
-#define __pyx_n_u_options_c __pyx_string_tab[736]
-#define __pyx_n_u_options_dict __pyx_string_tab[737]
-#define __pyx_n_u_os __pyx_string_tab[738]
-#define __pyx_n_u_output __pyx_string_tab[739]
-#define __pyx_n_u_output_c __pyx_string_tab[740]
-#define __pyx_n_u_output_handler __pyx_string_tab[741]
-#define __pyx_n_u_p __pyx_string_tab[742]
-#define __pyx_n_u_pandas __pyx_string_tab[743]
-#define __pyx_n_u_param __pyx_string_tab[744]
-#define __pyx_n_u_param_2 __pyx_string_tab[745]
-#define __pyx_n_u_param_locals_Parameters __pyx_string_tab[746]
-#define __pyx_n_u_param_locals_Parameters___getit __pyx_string_tab[747]
-#define __pyx_n_u_param_locals_Parameters___init __pyx_string_tab[748]
-#define __pyx_n_u_param_locals_Parameters___iter __pyx_string_tab[749]
-#define __pyx_n_u_param_locals_Parameters___setit __pyx_string_tab[750]
-#define __pyx_n_u_path __pyx_string_tab[751]
-#define __pyx_n_u_pd __pyx_string_tab[752]
-#define __pyx_n_u_pickle __pyx_string_tab[753]
-#define __pyx_n_u_pop __pyx_string_tab[754]
-#define __pyx_n_u_prepare __pyx_string_tab[755]
-#define __pyx_n_u_print __pyx_string_tab[756]
-#define __pyx_n_u_problem __pyx_string_tab[757]
-#define __pyx_n_u_propagate __pyx_string_tab[758]
-#define __pyx_n_u_property __pyx_string_tab[759]
-#define __pyx_n_u_py_list __pyx_string_tab[760]
-#define __pyx_n_u_py_variant __pyx_string_tab[761]
-#define __pyx_n_u_pylist __pyx_string_tab[762]
-#define __pyx_n_u_pyx_PickleError __pyx_string_tab[763]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[764]
-#define __pyx_n_u_pyx_result __pyx_string_tab[765]
-#define __pyx_n_u_pyx_state __pyx_string_tab[766]
-#define __pyx_n_u_pyx_type __pyx_string_tab[767]
-#define __pyx_n_u_pyx_unpickle_AMPLException __pyx_string_tab[768]
-#define __pyx_n_u_pyx_unpickle_ErrorHandler __pyx_string_tab[769]
-#define __pyx_n_u_pyx_unpickle_OutputHandler __pyx_string_tab[770]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[771]
-#define __pyx_n_u_qualname __pyx_string_tab[772]
-#define __pyx_n_u_range __pyx_string_tab[773]
-#define __pyx_n_u_rc __pyx_string_tab[774]
-#define __pyx_n_u_read __pyx_string_tab[775]
-#define __pyx_n_u_readData __pyx_string_tab[776]
-#define __pyx_n_u_readTable __pyx_string_tab[777]
-#define __pyx_n_u_read_data __pyx_string_tab[778]
-#define __pyx_n_u_read_table __pyx_string_tab[779]
-#define __pyx_n_u_reduce __pyx_string_tab[780]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[781]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[782]
-#define __pyx_n_u_replace __pyx_string_tab[783]
-#define __pyx_n_u_reset __pyx_string_tab[784]
-#define __pyx_n_u_restore __pyx_string_tab[785]
-#define __pyx_n_u_result __pyx_string_tab[786]
-#define __pyx_n_u_return_output __pyx_string_tab[787]
-#define __pyx_n_u_rmtree __pyx_string_tab[788]
-#define __pyx_n_u_row __pyx_string_tab[789]
-#define __pyx_n_u_rowindex __pyx_string_tab[790]
-#define __pyx_n_u_scalar_expression __pyx_string_tab[791]
-#define __pyx_n_u_scip __pyx_string_tab[792]
-#define __pyx_n_u_self __pyx_string_tab[793]
-#define __pyx_kp_u_self__c_ampl_cannot_be_converted __pyx_string_tab[794]
-#define __pyx_kp_u_self__c_ampl_self__index_self_be __pyx_string_tab[795]
-#define __pyx_kp_u_self__df_cannot_be_converted_to __pyx_string_tab[796]
-#define __pyx_kp_u_self__index_cannot_be_converted __pyx_string_tab[797]
-#define __pyx_kp_u_self_begin_cannot_be_converted_t __pyx_string_tab[798]
-#define __pyx_kp_u_self_begin_self_end_self_env_c_s __pyx_string_tab[799]
-#define __pyx_n_u_send __pyx_string_tab[800]
-#define __pyx_n_u_set __pyx_string_tab[801]
-#define __pyx_n_u_setBinDir __pyx_string_tab[802]
-#define __pyx_n_u_setBinName __pyx_string_tab[803]
-#define __pyx_n_u_setColumn __pyx_string_tab[804]
-#define __pyx_n_u_setData __pyx_string_tab[805]
-#define __pyx_n_u_setDual __pyx_string_tab[806]
-#define __pyx_n_u_setErrorHandler __pyx_string_tab[807]
-#define __pyx_n_u_setFormatter __pyx_string_tab[808]
-#define __pyx_n_u_setLevel __pyx_string_tab[809]
-#define __pyx_n_u_setOption __pyx_string_tab[810]
-#define __pyx_n_u_setOutputHandler __pyx_string_tab[811]
-#define __pyx_n_u_setValue __pyx_string_tab[812]
-#define __pyx_n_u_setValues __pyx_string_tab[813]
-#define __pyx_n_u_setValues_2 __pyx_string_tab[814]
-#define __pyx_n_u_set_2 __pyx_string_tab[815]
-#define __pyx_n_u_set_bin_dir __pyx_string_tab[816]
-#define __pyx_n_u_set_bin_name __pyx_string_tab[817]
-#define __pyx_n_u_set_column __pyx_string_tab[818]
-#define __pyx_n_u_set_data __pyx_string_tab[819]
-#define __pyx_n_u_set_dual __pyx_string_tab[820]
-#define __pyx_n_u_set_error_handler __pyx_string_tab[821]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa __pyx_string_tab[822]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_2 __pyx_string_tab[823]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_3 __pyx_string_tab[824]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_4 __pyx_string_tab[825]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_5 __pyx_string_tab[826]
-#define __pyx_n_u_set_locals_Sets __pyx_string_tab[827]
-#define __pyx_n_u_set_locals_Sets___getitem __pyx_string_tab[828]
-#define __pyx_n_u_set_locals_Sets___init __pyx_string_tab[829]
-#define __pyx_n_u_set_locals_Sets___iter __pyx_string_tab[830]
-#define __pyx_n_u_set_locals_Sets___setitem __pyx_string_tab[831]
-#define __pyx_n_u_set_name __pyx_string_tab[832]
-#define __pyx_n_u_set_name_2 __pyx_string_tab[833]
-#define __pyx_n_u_set_option __pyx_string_tab[834]
-#define __pyx_n_u_set_option_2 __pyx_string_tab[835]
-#define __pyx_n_u_set_option_locals_genexpr __pyx_string_tab[836]
-#define __pyx_n_u_set_output_handler __pyx_string_tab[837]
-#define __pyx_n_u_set_value __pyx_string_tab[838]
-#define __pyx_n_u_set_values __pyx_string_tab[839]
-#define __pyx_n_u_set_values_2 __pyx_string_tab[840]
-#define __pyx_n_u_set_values_locals_cast_row __pyx_string_tab[841]
-#define __pyx_n_u_set_values_locals_cast_value __pyx_string_tab[842]
-#define __pyx_n_u_set_values_locals_conv_to_list __pyx_string_tab[843]
-#define __pyx_n_u_set_values_locals_genexpr __pyx_string_tab[844]
-#define __pyx_n_u_setitem __pyx_string_tab[845]
-#define __pyx_n_u_sets __pyx_string_tab[846]
-#define __pyx_n_u_setstate __pyx_string_tab[847]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[848]
-#define __pyx_n_u_shape __pyx_string_tab[849]
-#define __pyx_n_u_shutil __pyx_string_tab[850]
-#define __pyx_n_u_size __pyx_string_tab[851]
-#define __pyx_n_u_skip_index __pyx_string_tab[852]
-#define __pyx_n_u_slack __pyx_string_tab[853]
-#define __pyx_n_u_snapshot __pyx_string_tab[854]
-#define __pyx_kp_u_sol __pyx_string_tab[855]
-#define __pyx_n_u_solfile __pyx_string_tab[856]
-#define __pyx_kp_u_solution __pyx_string_tab[857]
-#define __pyx_kp_u_solve __pyx_string_tab[858]
-#define __pyx_n_u_solve_2 __pyx_string_tab[859]
-#define __pyx_n_u_solve_result __pyx_string_tab[860]
-#define __pyx_n_u_solve_result_num __pyx_string_tab[861]
-#define __pyx_n_u_solver __pyx_string_tab[862]
-#define __pyx_n_u_solver_list __pyx_string_tab[863]
-#define __pyx_n_u_source_name __pyx_string_tab[864]
-#define __pyx_n_u_spec __pyx_string_tab[865]
-#define __pyx_n_u_split __pyx_string_tab[866]
-#define __pyx_n_u_sstatus __pyx_string_tab[867]
-#define __pyx_n_u_stack __pyx_string_tab[868]
-#define __pyx_n_u_startRecording __pyx_string_tab[869]
-#define __pyx_n_u_start_recording __pyx_string_tab[870]
-#define __pyx_n_u_state __pyx_string_tab[871]
-#define __pyx_n_u_statements __pyx_string_tab[872]
-#define __pyx_n_u_statements_c __pyx_string_tab[873]
-#define __pyx_n_u_status __pyx_string_tab[874]
-#define __pyx_n_u_stderr __pyx_string_tab[875]
-#define __pyx_n_u_stmt __pyx_string_tab[876]
-#define __pyx_n_u_stopRecording __pyx_string_tab[877]
-#define __pyx_n_u_stop_recording __pyx_string_tab[878]
-#define __pyx_kp_u_stringsource __pyx_string_tab[879]
-#define __pyx_n_u_suffixes __pyx_string_tab[880]
-#define __pyx_n_u_suffixes_c __pyx_string_tab[881]
-#define __pyx_n_u_super __pyx_string_tab[882]
-#define __pyx_n_u_sys __pyx_string_tab[883]
-#define __pyx_n_u_t __pyx_string_tab[884]
-#define __pyx_n_u_t_c __pyx_string_tab[885]
-#define __pyx_n_u_table_name __pyx_string_tab[886]
-#define __pyx_n_u_test __pyx_string_tab[887]
-#define __pyx_n_u_throw __pyx_string_tab[888]
-#define __pyx_n_u_tmpdir __pyx_string_tab[889]
-#define __pyx_n_u_toDict __pyx_string_tab[890]
-#define __pyx_n_u_toList __pyx_string_tab[891]
-#define __pyx_n_u_toPandas __pyx_string_tab[892]
-#define __pyx_n_u_toString __pyx_string_tab[893]
-#define __pyx_n_u_to_ampls __pyx_string_tab[894]
-#define __pyx_n_u_to_dict __pyx_string_tab[895]
-#define __pyx_n_u_to_list __pyx_string_tab[896]
-#define __pyx_n_u_to_pandas __pyx_string_tab[897]
-#define __pyx_n_u_to_string __pyx_string_tab[898]
-#define __pyx_n_u_to_string_c __pyx_string_tab[899]
-#define __pyx_n_u_to_tuple __pyx_string_tab[900]
-#define __pyx_n_u_tolist __pyx_string_tab[901]
-#define __pyx_n_u_tools __pyx_string_tab[902]
-#define __pyx_n_u_tuple __pyx_string_tab[903]
-#define __pyx_n_u_tuple_c __pyx_string_tab[904]
-#define __pyx_n_u_ub __pyx_string_tab[905]
-#define __pyx_n_u_ub0 __pyx_string_tab[906]
-#define __pyx_n_u_ub1 __pyx_string_tab[907]
-#define __pyx_n_u_ub2 __pyx_string_tab[908]
-#define __pyx_n_u_ubs __pyx_string_tab[909]
-#define __pyx_n_u_udual __pyx_string_tab[910]
-#define __pyx_n_u_unfix __pyx_string_tab[911]
-#define __pyx_kp_u_unsupported_type __pyx_string_tab[912]
-#define __pyx_n_u_update __pyx_string_tab[913]
-#define __pyx_n_u_urc __pyx_string_tab[914]
-#define __pyx_n_u_use_setstate __pyx_string_tab[915]
-#define __pyx_n_u_uslack __pyx_string_tab[916]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[917]
-#define __pyx_n_u_v __pyx_string_tab[918]
-#define __pyx_n_u_val __pyx_string_tab[919]
-#define __pyx_n_u_value __pyx_string_tab[920]
-#define __pyx_n_u_value_c __pyx_string_tab[921]
-#define __pyx_n_u_values __pyx_string_tab[922]
-#define __pyx_n_u_var __pyx_string_tab[923]
-#define __pyx_n_u_var_2 __pyx_string_tab[924]
-#define __pyx_n_u_var_locals_Variables __pyx_string_tab[925]
-#define __pyx_n_u_var_locals_Variables___getitem __pyx_string_tab[926]
-#define __pyx_n_u_var_locals_Variables___init __pyx_string_tab[927]
-#define __pyx_n_u_var_locals_Variables___iter __pyx_string_tab[928]
-#define __pyx_n_u_var_locals_Variables___setitem __pyx_string_tab[929]
-#define __pyx_n_u_verbose __pyx_string_tab[930]
-#define __pyx_n_u_warning __pyx_string_tab[931]
-#define __pyx_n_u_workdir __pyx_string_tab[932]
-#define __pyx_n_u_workdir_c __pyx_string_tab[933]
-#define __pyx_n_u_write __pyx_string_tab[934]
-#define __pyx_n_u_writeTable __pyx_string_tab[935]
-#define __pyx_n_u_write_sol __pyx_string_tab[936]
-#define __pyx_n_u_write_table __pyx_string_tab[937]
-#define __pyx_n_u_xpress __pyx_string_tab[938]
-#define __pyx_n_u_xref __pyx_string_tab[939]
-#define __pyx_n_u_zeros __pyx_string_tab[940]
-#define __pyx_n_u_zip __pyx_string_tab[941]
+#define __pyx_n_u_ampl_instance __pyx_string_tab[375]
+#define __pyx_n_u_ampl_libpath __pyx_string_tab[376]
+#define __pyx_n_u_amplpy __pyx_string_tab[377]
+#define __pyx_n_u_amplpy_ampl __pyx_string_tab[378]
+#define __pyx_kp_u_amplpy_ampl_pyx __pyx_string_tab[379]
+#define __pyx_kp_u_amplpy_constraint_pxi __pyx_string_tab[380]
+#define __pyx_n_u_amplpy_copt __pyx_string_tab[381]
+#define __pyx_kp_u_amplpy_copt_package_not_found __pyx_string_tab[382]
+#define __pyx_n_u_amplpy_cplex __pyx_string_tab[383]
+#define __pyx_kp_u_amplpy_cplex_package_not_found __pyx_string_tab[384]
+#define __pyx_kp_u_amplpy_dataframe_pxi __pyx_string_tab[385]
+#define __pyx_kp_u_amplpy_entity_pxi __pyx_string_tab[386]
+#define __pyx_kp_u_amplpy_environment_pxi __pyx_string_tab[387]
+#define __pyx_kp_u_amplpy_errorhandler_pxi __pyx_string_tab[388]
+#define __pyx_kp_u_amplpy_exceptions_pxi __pyx_string_tab[389]
+#define __pyx_n_u_amplpy_gurobi __pyx_string_tab[390]
+#define __pyx_kp_u_amplpy_gurobi_package_not_found __pyx_string_tab[391]
+#define __pyx_n_u_amplpy_highs __pyx_string_tab[392]
+#define __pyx_kp_u_amplpy_highs_package_not_found __pyx_string_tab[393]
+#define __pyx_kp_u_amplpy_iterators_pxi __pyx_string_tab[394]
+#define __pyx_kp_u_amplpy_objective_pxi __pyx_string_tab[395]
+#define __pyx_kp_u_amplpy_outputhandler_pxi __pyx_string_tab[396]
+#define __pyx_kp_u_amplpy_parameter_pxi __pyx_string_tab[397]
+#define __pyx_n_u_amplpy_scip __pyx_string_tab[398]
+#define __pyx_kp_u_amplpy_scip_package_not_found __pyx_string_tab[399]
+#define __pyx_kp_u_amplpy_set_pxi __pyx_string_tab[400]
+#define __pyx_kp_u_amplpy_variable_pxi __pyx_string_tab[401]
+#define __pyx_n_u_amplpy_xpress __pyx_string_tab[402]
+#define __pyx_kp_u_amplpy_xpress_package_not_found __pyx_string_tab[403]
+#define __pyx_n_u_args __pyx_string_tab[404]
+#define __pyx_n_u_arity __pyx_string_tab[405]
+#define __pyx_n_u_array __pyx_string_tab[406]
+#define __pyx_n_u_ast __pyx_string_tab[407]
+#define __pyx_n_u_astatus __pyx_string_tab[408]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[409]
+#define __pyx_n_u_auxfiles __pyx_string_tab[410]
+#define __pyx_n_u_bin_dir __pyx_string_tab[411]
+#define __pyx_n_u_bin_dir_c __pyx_string_tab[412]
+#define __pyx_n_u_bin_name __pyx_string_tab[413]
+#define __pyx_n_u_bin_name_c __pyx_string_tab[414]
+#define __pyx_n_u_binary_directory __pyx_string_tab[415]
+#define __pyx_n_u_binary_name __pyx_string_tab[416]
+#define __pyx_n_u_body __pyx_string_tab[417]
+#define __pyx_n_u_bool __pyx_string_tab[418]
+#define __pyx_n_u_builtins __pyx_string_tab[419]
+#define __pyx_n_u_c __pyx_string_tab[420]
+#define __pyx_n_u_c_double_array __pyx_string_tab[421]
+#define __pyx_n_u_c_string_array __pyx_string_tab[422]
+#define __pyx_kp_u_cannot_be_found __pyx_string_tab[423]
+#define __pyx_kp_u_cannot_convert_to_dictionary_wit __pyx_string_tab[424]
+#define __pyx_n_u_cast_row __pyx_string_tab[425]
+#define __pyx_n_u_cast_value __pyx_string_tab[426]
+#define __pyx_n_u_cd __pyx_string_tab[427]
+#define __pyx_n_u_chain __pyx_string_tab[428]
+#define __pyx_n_u_check __pyx_string_tab[429]
+#define __pyx_n_u_cindex __pyx_string_tab[430]
+#define __pyx_n_u_class_getitem __pyx_string_tab[431]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[432]
+#define __pyx_n_u_close __pyx_string_tab[433]
+#define __pyx_n_u_cls __pyx_string_tab[434]
+#define __pyx_n_u_cname __pyx_string_tab[435]
+#define __pyx_n_u_col __pyx_string_tab[436]
+#define __pyx_n_u_collections_abc __pyx_string_tab[437]
+#define __pyx_n_u_column __pyx_string_tab[438]
+#define __pyx_n_u_column_names __pyx_string_tab[439]
+#define __pyx_n_u_columns __pyx_string_tab[440]
+#define __pyx_n_u_con __pyx_string_tab[441]
+#define __pyx_n_u_con_2 __pyx_string_tab[442]
+#define __pyx_n_u_con_locals_Constraints __pyx_string_tab[443]
+#define __pyx_n_u_con_locals_Constraints___getite __pyx_string_tab[444]
+#define __pyx_n_u_con_locals_Constraints___init __pyx_string_tab[445]
+#define __pyx_n_u_con_locals_Constraints___iter __pyx_string_tab[446]
+#define __pyx_n_u_con_locals_Constraints___setite __pyx_string_tab[447]
+#define __pyx_n_u_contains __pyx_string_tab[448]
+#define __pyx_n_u_contains_c __pyx_string_tab[449]
+#define __pyx_n_u_conv_to_list __pyx_string_tab[450]
+#define __pyx_n_u_copt __pyx_string_tab[451]
+#define __pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr __pyx_string_tab[452]
+#define __pyx_n_u_cplex __pyx_string_tab[453]
+#define __pyx_n_u_d __pyx_string_tab[454]
+#define __pyx_n_u_data __pyx_string_tab[455]
+#define __pyx_n_u_data_c __pyx_string_tab[456]
+#define __pyx_n_u_data_frame __pyx_string_tab[457]
+#define __pyx_n_u_decode __pyx_string_tab[458]
+#define __pyx_n_u_defeqn __pyx_string_tab[459]
+#define __pyx_n_u_defvar __pyx_string_tab[460]
+#define __pyx_n_u_df __pyx_string_tab[461]
+#define __pyx_n_u_df_c __pyx_string_tab[462]
+#define __pyx_n_u_df_ref __pyx_string_tab[463]
+#define __pyx_n_u_dic __pyx_string_tab[464]
+#define __pyx_n_u_dict __pyx_string_tab[465]
+#define __pyx_n_u_dict_2 __pyx_string_tab[466]
+#define __pyx_n_u_dimen __pyx_string_tab[467]
+#define __pyx_n_u_dinit __pyx_string_tab[468]
+#define __pyx_n_u_dinit0 __pyx_string_tab[469]
+#define __pyx_kp_u_disable __pyx_string_tab[470]
+#define __pyx_n_u_display __pyx_string_tab[471]
+#define __pyx_n_u_display_error_message __pyx_string_tab[472]
+#define __pyx_n_u_doc __pyx_string_tab[473]
+#define __pyx_n_u_driver __pyx_string_tab[474]
+#define __pyx_n_u_drop __pyx_string_tab[475]
+#define __pyx_n_u_dual __pyx_string_tab[476]
+#define __pyx_n_u_e __pyx_string_tab[477]
+#define __pyx_kp_u_enable __pyx_string_tab[478]
+#define __pyx_n_u_encode __pyx_string_tab[479]
+#define __pyx_n_u_end __pyx_string_tab[480]
+#define __pyx_n_u_endswith __pyx_string_tab[481]
+#define __pyx_n_u_entity __pyx_string_tab[482]
+#define __pyx_n_u_entitytype __pyx_string_tab[483]
+#define __pyx_n_u_enumerate __pyx_string_tab[484]
+#define __pyx_n_u_environ __pyx_string_tab[485]
+#define __pyx_n_u_environment __pyx_string_tab[486]
+#define __pyx_n_u_error __pyx_string_tab[487]
+#define __pyx_n_u_error_handler __pyx_string_tab[488]
+#define __pyx_n_u_error_handler_wrapper __pyx_string_tab[489]
+#define __pyx_n_u_errorinfo __pyx_string_tab[490]
+#define __pyx_n_u_errors __pyx_string_tab[491]
+#define __pyx_n_u_eval __pyx_string_tab[492]
+#define __pyx_n_u_exception __pyx_string_tab[493]
+#define __pyx_n_u_exists __pyx_string_tab[494]
+#define __pyx_n_u_exitcode __pyx_string_tab[495]
+#define __pyx_n_u_exp __pyx_string_tab[496]
+#define __pyx_n_u_exportData __pyx_string_tab[497]
+#define __pyx_n_u_exportModel __pyx_string_tab[498]
+#define __pyx_n_u_export_copt_model __pyx_string_tab[499]
+#define __pyx_n_u_export_cplex_model __pyx_string_tab[500]
+#define __pyx_n_u_export_data __pyx_string_tab[501]
+#define __pyx_n_u_export_gurobi_model __pyx_string_tab[502]
+#define __pyx_n_u_export_highs_model __pyx_string_tab[503]
+#define __pyx_n_u_export_model __pyx_string_tab[504]
+#define __pyx_n_u_export_scip_model __pyx_string_tab[505]
+#define __pyx_n_u_export_xpress_model __pyx_string_tab[506]
+#define __pyx_n_u_exprs __pyx_string_tab[507]
+#define __pyx_n_u_file __pyx_string_tab[508]
+#define __pyx_n_u_filename __pyx_string_tab[509]
+#define __pyx_n_u_find __pyx_string_tab[510]
+#define __pyx_n_u_fix __pyx_string_tab[511]
+#define __pyx_n_u_flat __pyx_string_tab[512]
+#define __pyx_n_u_flush __pyx_string_tab[513]
+#define __pyx_n_u_format __pyx_string_tab[514]
+#define __pyx_n_u_formatter __pyx_string_tab[515]
+#define __pyx_n_u_fromDict __pyx_string_tab[516]
+#define __pyx_n_u_fromNumpy __pyx_string_tab[517]
+#define __pyx_n_u_fromPandas __pyx_string_tab[518]
+#define __pyx_n_u_from_arrays __pyx_string_tab[519]
+#define __pyx_n_u_from_data_frame_ref __pyx_string_tab[520]
+#define __pyx_n_u_from_dict __pyx_string_tab[521]
+#define __pyx_n_u_from_dict_locals_genexpr __pyx_string_tab[522]
+#define __pyx_n_u_from_dict_locals_to_tuple __pyx_string_tab[523]
+#define __pyx_n_u_from_numpy __pyx_string_tab[524]
+#define __pyx_n_u_from_pandas __pyx_string_tab[525]
+#define __pyx_n_u_from_tuples __pyx_string_tab[526]
+#define __pyx_n_u_func __pyx_string_tab[527]
+#define __pyx_kp_u_gc __pyx_string_tab[528]
+#define __pyx_n_u_genexpr __pyx_string_tab[529]
+#define __pyx_n_u_get __pyx_string_tab[530]
+#define __pyx_n_u_getBinDir __pyx_string_tab[531]
+#define __pyx_n_u_getBinName __pyx_string_tab[532]
+#define __pyx_n_u_getColumn __pyx_string_tab[533]
+#define __pyx_n_u_getConstraint __pyx_string_tab[534]
+#define __pyx_n_u_getConstraints __pyx_string_tab[535]
+#define __pyx_n_u_getCurrentObjective __pyx_string_tab[536]
+#define __pyx_n_u_getData __pyx_string_tab[537]
+#define __pyx_n_u_getEntity __pyx_string_tab[538]
+#define __pyx_n_u_getErrorHandler __pyx_string_tab[539]
+#define __pyx_n_u_getHeaders __pyx_string_tab[540]
+#define __pyx_n_u_getIndexingSets __pyx_string_tab[541]
+#define __pyx_n_u_getLineNumber __pyx_string_tab[542]
+#define __pyx_n_u_getLogger __pyx_string_tab[543]
+#define __pyx_n_u_getMessage __pyx_string_tab[544]
+#define __pyx_n_u_getNumCols __pyx_string_tab[545]
+#define __pyx_n_u_getNumIndices __pyx_string_tab[546]
+#define __pyx_n_u_getNumRows __pyx_string_tab[547]
+#define __pyx_n_u_getObjective __pyx_string_tab[548]
+#define __pyx_n_u_getObjectives __pyx_string_tab[549]
+#define __pyx_n_u_getOffset __pyx_string_tab[550]
+#define __pyx_n_u_getOption __pyx_string_tab[551]
+#define __pyx_n_u_getOutput __pyx_string_tab[552]
+#define __pyx_n_u_getOutputHandler __pyx_string_tab[553]
+#define __pyx_n_u_getParameter __pyx_string_tab[554]
+#define __pyx_n_u_getParameters __pyx_string_tab[555]
+#define __pyx_n_u_getRecordedEntities __pyx_string_tab[556]
+#define __pyx_n_u_getRow __pyx_string_tab[557]
+#define __pyx_n_u_getRowByIndex __pyx_string_tab[558]
+#define __pyx_n_u_getSet __pyx_string_tab[559]
+#define __pyx_n_u_getSets __pyx_string_tab[560]
+#define __pyx_n_u_getSourceName __pyx_string_tab[561]
+#define __pyx_n_u_getValue __pyx_string_tab[562]
+#define __pyx_n_u_getValues __pyx_string_tab[563]
+#define __pyx_n_u_getVariable __pyx_string_tab[564]
+#define __pyx_n_u_getVariables __pyx_string_tab[565]
+#define __pyx_n_u_get_bin_dir __pyx_string_tab[566]
+#define __pyx_n_u_get_bin_name __pyx_string_tab[567]
+#define __pyx_n_u_get_column __pyx_string_tab[568]
+#define __pyx_n_u_get_constraint __pyx_string_tab[569]
+#define __pyx_n_u_get_constraints __pyx_string_tab[570]
+#define __pyx_n_u_get_current_objective __pyx_string_tab[571]
+#define __pyx_n_u_get_data __pyx_string_tab[572]
+#define __pyx_n_u_get_entity __pyx_string_tab[573]
+#define __pyx_n_u_get_error_handler __pyx_string_tab[574]
+#define __pyx_n_u_get_headers __pyx_string_tab[575]
+#define __pyx_n_u_get_headers_locals_genexpr __pyx_string_tab[576]
+#define __pyx_n_u_get_iis __pyx_string_tab[577]
+#define __pyx_n_u_get_indexing_sets __pyx_string_tab[578]
+#define __pyx_n_u_get_line_number __pyx_string_tab[579]
+#define __pyx_n_u_get_message __pyx_string_tab[580]
+#define __pyx_n_u_get_num_cols __pyx_string_tab[581]
+#define __pyx_n_u_get_num_indices __pyx_string_tab[582]
+#define __pyx_n_u_get_num_rows __pyx_string_tab[583]
+#define __pyx_n_u_get_objective __pyx_string_tab[584]
+#define __pyx_n_u_get_objectives __pyx_string_tab[585]
+#define __pyx_n_u_get_offset __pyx_string_tab[586]
+#define __pyx_n_u_get_option __pyx_string_tab[587]
+#define __pyx_n_u_get_output __pyx_string_tab[588]
+#define __pyx_n_u_get_output_handler __pyx_string_tab[589]
+#define __pyx_n_u_get_parameter __pyx_string_tab[590]
+#define __pyx_n_u_get_parameters __pyx_string_tab[591]
+#define __pyx_n_u_get_row __pyx_string_tab[592]
+#define __pyx_n_u_get_row_by_index __pyx_string_tab[593]
+#define __pyx_n_u_get_set __pyx_string_tab[594]
+#define __pyx_n_u_get_sets __pyx_string_tab[595]
+#define __pyx_n_u_get_solution __pyx_string_tab[596]
+#define __pyx_n_u_get_source_name __pyx_string_tab[597]
+#define __pyx_n_u_get_value __pyx_string_tab[598]
+#define __pyx_n_u_get_values __pyx_string_tab[599]
+#define __pyx_n_u_get_variable __pyx_string_tab[600]
+#define __pyx_n_u_get_variables __pyx_string_tab[601]
+#define __pyx_n_u_getitem __pyx_string_tab[602]
+#define __pyx_n_u_getstate __pyx_string_tab[603]
+#define __pyx_n_u_gurobi __pyx_string_tab[604]
+#define __pyx_n_u_handler __pyx_string_tab[605]
+#define __pyx_n_u_hasDefault __pyx_string_tab[606]
+#define __pyx_n_u_hasHandlers __pyx_string_tab[607]
+#define __pyx_n_u_has_default __pyx_string_tab[608]
+#define __pyx_n_u_header __pyx_string_tab[609]
+#define __pyx_n_u_headers __pyx_string_tab[610]
+#define __pyx_n_u_headers_py __pyx_string_tab[611]
+#define __pyx_n_u_highs __pyx_string_tab[612]
+#define __pyx_n_u_i __pyx_string_tab[613]
+#define __pyx_kp_u_i_in_1__ncons__con_i_iis_non__c __pyx_string_tab[614]
+#define __pyx_kp_u_i_in_1__nvars__var_i_iis_non__v __pyx_string_tab[615]
+#define __pyx_kp_u_i_in_1__nvars__var_i_val_0__var __pyx_string_tab[616]
+#define __pyx_kp_u_i_in_1__nvars__varname_i__var_i __pyx_string_tab[617]
+#define __pyx_n_u_iis_con __pyx_string_tab[618]
+#define __pyx_n_u_iis_var __pyx_string_tab[619]
+#define __pyx_n_u_impl __pyx_string_tab[620]
+#define __pyx_n_u_import_ampls_solution __pyx_string_tab[621]
+#define __pyx_n_u_import_ampls_solution_locals_gen __pyx_string_tab[622]
+#define __pyx_n_u_import_entities __pyx_string_tab[623]
+#define __pyx_n_u_index __pyx_string_tab[624]
+#define __pyx_n_u_index_c __pyx_string_tab[625]
+#define __pyx_n_u_index_names __pyx_string_tab[626]
+#define __pyx_n_u_indexarity __pyx_string_tab[627]
+#define __pyx_n_u_indices_c __pyx_string_tab[628]
+#define __pyx_n_u_init __pyx_string_tab[629]
+#define __pyx_n_u_init0 __pyx_string_tab[630]
+#define __pyx_n_u_init_2 __pyx_string_tab[631]
+#define __pyx_n_u_initializing __pyx_string_tab[632]
+#define __pyx_n_u_instances __pyx_string_tab[633]
+#define __pyx_n_u_isLogical __pyx_string_tab[634]
+#define __pyx_n_u_isRunning __pyx_string_tab[635]
+#define __pyx_n_u_isScalar __pyx_string_tab[636]
+#define __pyx_n_u_isSymbolic __pyx_string_tab[637]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[638]
+#define __pyx_n_u_is_logical __pyx_string_tab[639]
+#define __pyx_kp_u_is_not_supported_please_choose __pyx_string_tab[640]
+#define __pyx_n_u_is_running __pyx_string_tab[641]
+#define __pyx_n_u_is_scalar __pyx_string_tab[642]
+#define __pyx_n_u_is_symbolic __pyx_string_tab[643]
+#define __pyx_kp_u_isenabled __pyx_string_tab[644]
+#define __pyx_n_u_isrunning __pyx_string_tab[645]
+#define __pyx_n_u_items __pyx_string_tab[646]
+#define __pyx_n_u_iter __pyx_string_tab[647]
+#define __pyx_n_u_iter___locals_genexpr __pyx_string_tab[648]
+#define __pyx_n_u_itertools __pyx_string_tab[649]
+#define __pyx_n_u_j __pyx_string_tab[650]
+#define __pyx_n_u_k __pyx_string_tab[651]
+#define __pyx_n_u_keep_files __pyx_string_tab[652]
+#define __pyx_n_u_key __pyx_string_tab[653]
+#define __pyx_n_u_keys __pyx_string_tab[654]
+#define __pyx_n_u_kind __pyx_string_tab[655]
+#define __pyx_n_u_kwargs __pyx_string_tab[656]
+#define __pyx_n_u_last_exception __pyx_string_tab[657]
+#define __pyx_n_u_lb __pyx_string_tab[658]
+#define __pyx_n_u_lb0 __pyx_string_tab[659]
+#define __pyx_n_u_lb1 __pyx_string_tab[660]
+#define __pyx_n_u_lb2 __pyx_string_tab[661]
+#define __pyx_n_u_lbs __pyx_string_tab[662]
+#define __pyx_n_u_ldual __pyx_string_tab[663]
+#define __pyx_kp_u_let __pyx_string_tab[664]
+#define __pyx_kp_u_levelname_s_message_s __pyx_string_tab[665]
+#define __pyx_kp_u_line __pyx_string_tab[666]
+#define __pyx_kp_u_line_2 __pyx_string_tab[667]
+#define __pyx_n_u_line_number __pyx_string_tab[668]
+#define __pyx_n_u_literal_eval __pyx_string_tab[669]
+#define __pyx_n_u_loadSession __pyx_string_tab[670]
+#define __pyx_n_u_load_session __pyx_string_tab[671]
+#define __pyx_n_u_logger __pyx_string_tab[672]
+#define __pyx_n_u_logging __pyx_string_tab[673]
+#define __pyx_n_u_lrc __pyx_string_tab[674]
+#define __pyx_n_u_lslack __pyx_string_tab[675]
+#define __pyx_n_u_lst __pyx_string_tab[676]
+#define __pyx_n_u_lst_columns __pyx_string_tab[677]
+#define __pyx_n_u_lst_index __pyx_string_tab[678]
+#define __pyx_n_u_lst_solution __pyx_string_tab[679]
+#define __pyx_n_u_main __pyx_string_tab[680]
+#define __pyx_n_u_map __pyx_string_tab[681]
+#define __pyx_n_u_members __pyx_string_tab[682]
+#define __pyx_n_u_message __pyx_string_tab[683]
+#define __pyx_n_u_metaclass __pyx_string_tab[684]
+#define __pyx_n_u_minimization __pyx_string_tab[685]
+#define __pyx_n_u_minimize __pyx_string_tab[686]
+#define __pyx_n_u_model __pyx_string_tab[687]
+#define __pyx_n_u_model_c __pyx_string_tab[688]
+#define __pyx_n_u_module __pyx_string_tab[689]
+#define __pyx_n_u_mro_entries __pyx_string_tab[690]
+#define __pyx_n_u_msg __pyx_string_tab[691]
+#define __pyx_n_u_multi_index __pyx_string_tab[692]
+#define __pyx_n_u_n __pyx_string_tab[693]
+#define __pyx_n_u_name __pyx_string_tab[694]
+#define __pyx_n_u_name_2 __pyx_string_tab[695]
+#define __pyx_n_u_name_c __pyx_string_tab[696]
+#define __pyx_n_u_name_c_2 __pyx_string_tab[697]
+#define __pyx_n_u_names __pyx_string_tab[698]
+#define __pyx_n_u_ncols __pyx_string_tab[699]
+#define __pyx_n_u_ncolumns __pyx_string_tab[700]
+#define __pyx_n_u_ndarray __pyx_string_tab[701]
+#define __pyx_n_u_nested __pyx_string_tab[702]
+#define __pyx_n_u_nested_dict_of_suffixes __pyx_string_tab[703]
+#define __pyx_n_u_new __pyx_string_tab[704]
+#define __pyx_n_u_next __pyx_string_tab[705]
+#define __pyx_n_u_nindices __pyx_string_tab[706]
+#define __pyx_n_u_nlevels __pyx_string_tab[707]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[708]
+#define __pyx_n_u_np __pyx_string_tab[709]
+#define __pyx_n_u_nt __pyx_string_tab[710]
+#define __pyx_n_u_num __pyx_string_tab[711]
+#define __pyx_n_u_numInstances __pyx_string_tab[712]
+#define __pyx_n_u_num_instances __pyx_string_tab[713]
+#define __pyx_n_u_number __pyx_string_tab[714]
+#define __pyx_n_u_numbers __pyx_string_tab[715]
+#define __pyx_n_u_numpy __pyx_string_tab[716]
+#define __pyx_n_u_obj __pyx_string_tab[717]
+#define __pyx_n_u_obj_2 __pyx_string_tab[718]
+#define __pyx_n_u_obj_locals_Objectives __pyx_string_tab[719]
+#define __pyx_n_u_obj_locals_Objectives___getitem __pyx_string_tab[720]
+#define __pyx_n_u_obj_locals_Objectives___init __pyx_string_tab[721]
+#define __pyx_n_u_obj_locals_Objectives___iter __pyx_string_tab[722]
+#define __pyx_n_u_object __pyx_string_tab[723]
+#define __pyx_n_u_objname __pyx_string_tab[724]
+#define __pyx_n_u_objname_c __pyx_string_tab[725]
+#define __pyx_n_u_offset __pyx_string_tab[726]
+#define __pyx_kp_u_offset_2 __pyx_string_tab[727]
+#define __pyx_n_u_open __pyx_string_tab[728]
+#define __pyx_n_u_option __pyx_string_tab[729]
+#define __pyx_n_u_option_2 __pyx_string_tab[730]
+#define __pyx_n_u_option_locals_Options __pyx_string_tab[731]
+#define __pyx_n_u_option_locals_Options___getitem __pyx_string_tab[732]
+#define __pyx_n_u_option_locals_Options___init __pyx_string_tab[733]
+#define __pyx_n_u_option_locals_Options___setitem __pyx_string_tab[734]
+#define __pyx_n_u_option_locals_Options___setitem_2 __pyx_string_tab[735]
+#define __pyx_n_u_options __pyx_string_tab[736]
+#define __pyx_n_u_options_2 __pyx_string_tab[737]
+#define __pyx_n_u_options_c __pyx_string_tab[738]
+#define __pyx_n_u_options_dict __pyx_string_tab[739]
+#define __pyx_n_u_os __pyx_string_tab[740]
+#define __pyx_n_u_output __pyx_string_tab[741]
+#define __pyx_n_u_output_c __pyx_string_tab[742]
+#define __pyx_n_u_output_handler __pyx_string_tab[743]
+#define __pyx_n_u_p __pyx_string_tab[744]
+#define __pyx_n_u_pandas __pyx_string_tab[745]
+#define __pyx_n_u_param __pyx_string_tab[746]
+#define __pyx_n_u_param_2 __pyx_string_tab[747]
+#define __pyx_n_u_param_locals_Parameters __pyx_string_tab[748]
+#define __pyx_n_u_param_locals_Parameters___getit __pyx_string_tab[749]
+#define __pyx_n_u_param_locals_Parameters___init __pyx_string_tab[750]
+#define __pyx_n_u_param_locals_Parameters___iter __pyx_string_tab[751]
+#define __pyx_n_u_param_locals_Parameters___setit __pyx_string_tab[752]
+#define __pyx_n_u_path __pyx_string_tab[753]
+#define __pyx_n_u_pd __pyx_string_tab[754]
+#define __pyx_n_u_pickle __pyx_string_tab[755]
+#define __pyx_n_u_pop __pyx_string_tab[756]
+#define __pyx_n_u_prepare __pyx_string_tab[757]
+#define __pyx_n_u_print __pyx_string_tab[758]
+#define __pyx_n_u_problem __pyx_string_tab[759]
+#define __pyx_n_u_propagate __pyx_string_tab[760]
+#define __pyx_n_u_property __pyx_string_tab[761]
+#define __pyx_n_u_py_list __pyx_string_tab[762]
+#define __pyx_n_u_py_variant __pyx_string_tab[763]
+#define __pyx_n_u_pylist __pyx_string_tab[764]
+#define __pyx_n_u_pyx_PickleError __pyx_string_tab[765]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[766]
+#define __pyx_n_u_pyx_result __pyx_string_tab[767]
+#define __pyx_n_u_pyx_state __pyx_string_tab[768]
+#define __pyx_n_u_pyx_type __pyx_string_tab[769]
+#define __pyx_n_u_pyx_unpickle_AMPLException __pyx_string_tab[770]
+#define __pyx_n_u_pyx_unpickle_ErrorHandler __pyx_string_tab[771]
+#define __pyx_n_u_pyx_unpickle_OutputHandler __pyx_string_tab[772]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[773]
+#define __pyx_n_u_qualname __pyx_string_tab[774]
+#define __pyx_n_u_range __pyx_string_tab[775]
+#define __pyx_n_u_rc __pyx_string_tab[776]
+#define __pyx_n_u_read __pyx_string_tab[777]
+#define __pyx_n_u_readData __pyx_string_tab[778]
+#define __pyx_n_u_readTable __pyx_string_tab[779]
+#define __pyx_n_u_read_data __pyx_string_tab[780]
+#define __pyx_n_u_read_table __pyx_string_tab[781]
+#define __pyx_n_u_reduce __pyx_string_tab[782]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[783]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[784]
+#define __pyx_n_u_replace __pyx_string_tab[785]
+#define __pyx_n_u_reset __pyx_string_tab[786]
+#define __pyx_n_u_restore __pyx_string_tab[787]
+#define __pyx_n_u_result __pyx_string_tab[788]
+#define __pyx_n_u_return_output __pyx_string_tab[789]
+#define __pyx_n_u_rmtree __pyx_string_tab[790]
+#define __pyx_n_u_row __pyx_string_tab[791]
+#define __pyx_n_u_rowindex __pyx_string_tab[792]
+#define __pyx_n_u_scalar_expression __pyx_string_tab[793]
+#define __pyx_n_u_scip __pyx_string_tab[794]
+#define __pyx_n_u_self __pyx_string_tab[795]
+#define __pyx_kp_u_self__c_ampl_cannot_be_converted __pyx_string_tab[796]
+#define __pyx_kp_u_self__c_ampl_self__index_self_be __pyx_string_tab[797]
+#define __pyx_kp_u_self__df_cannot_be_converted_to __pyx_string_tab[798]
+#define __pyx_kp_u_self__index_cannot_be_converted __pyx_string_tab[799]
+#define __pyx_kp_u_self_begin_cannot_be_converted_t __pyx_string_tab[800]
+#define __pyx_kp_u_self_begin_self_end_self_env_c_s __pyx_string_tab[801]
+#define __pyx_n_u_send __pyx_string_tab[802]
+#define __pyx_n_u_set __pyx_string_tab[803]
+#define __pyx_n_u_setBinDir __pyx_string_tab[804]
+#define __pyx_n_u_setBinName __pyx_string_tab[805]
+#define __pyx_n_u_setColumn __pyx_string_tab[806]
+#define __pyx_n_u_setData __pyx_string_tab[807]
+#define __pyx_n_u_setDual __pyx_string_tab[808]
+#define __pyx_n_u_setErrorHandler __pyx_string_tab[809]
+#define __pyx_n_u_setFormatter __pyx_string_tab[810]
+#define __pyx_n_u_setLevel __pyx_string_tab[811]
+#define __pyx_n_u_setOption __pyx_string_tab[812]
+#define __pyx_n_u_setOutputHandler __pyx_string_tab[813]
+#define __pyx_n_u_setValue __pyx_string_tab[814]
+#define __pyx_n_u_setValues __pyx_string_tab[815]
+#define __pyx_n_u_setValues_2 __pyx_string_tab[816]
+#define __pyx_n_u_set_2 __pyx_string_tab[817]
+#define __pyx_n_u_set_bin_dir __pyx_string_tab[818]
+#define __pyx_n_u_set_bin_name __pyx_string_tab[819]
+#define __pyx_n_u_set_column __pyx_string_tab[820]
+#define __pyx_n_u_set_data __pyx_string_tab[821]
+#define __pyx_n_u_set_dual __pyx_string_tab[822]
+#define __pyx_n_u_set_error_handler __pyx_string_tab[823]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa __pyx_string_tab[824]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_2 __pyx_string_tab[825]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_3 __pyx_string_tab[826]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_4 __pyx_string_tab[827]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_5 __pyx_string_tab[828]
+#define __pyx_n_u_set_locals_Sets __pyx_string_tab[829]
+#define __pyx_n_u_set_locals_Sets___getitem __pyx_string_tab[830]
+#define __pyx_n_u_set_locals_Sets___init __pyx_string_tab[831]
+#define __pyx_n_u_set_locals_Sets___iter __pyx_string_tab[832]
+#define __pyx_n_u_set_locals_Sets___setitem __pyx_string_tab[833]
+#define __pyx_n_u_set_name __pyx_string_tab[834]
+#define __pyx_n_u_set_name_2 __pyx_string_tab[835]
+#define __pyx_n_u_set_option __pyx_string_tab[836]
+#define __pyx_n_u_set_option_2 __pyx_string_tab[837]
+#define __pyx_n_u_set_option_locals_genexpr __pyx_string_tab[838]
+#define __pyx_n_u_set_output_handler __pyx_string_tab[839]
+#define __pyx_n_u_set_value __pyx_string_tab[840]
+#define __pyx_n_u_set_values __pyx_string_tab[841]
+#define __pyx_n_u_set_values_2 __pyx_string_tab[842]
+#define __pyx_n_u_set_values_locals_cast_row __pyx_string_tab[843]
+#define __pyx_n_u_set_values_locals_cast_value __pyx_string_tab[844]
+#define __pyx_n_u_set_values_locals_conv_to_list __pyx_string_tab[845]
+#define __pyx_n_u_set_values_locals_genexpr __pyx_string_tab[846]
+#define __pyx_n_u_setitem __pyx_string_tab[847]
+#define __pyx_n_u_sets __pyx_string_tab[848]
+#define __pyx_n_u_setstate __pyx_string_tab[849]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[850]
+#define __pyx_n_u_shape __pyx_string_tab[851]
+#define __pyx_n_u_shutil __pyx_string_tab[852]
+#define __pyx_n_u_size __pyx_string_tab[853]
+#define __pyx_n_u_skip_index __pyx_string_tab[854]
+#define __pyx_n_u_slack __pyx_string_tab[855]
+#define __pyx_n_u_snapshot __pyx_string_tab[856]
+#define __pyx_kp_u_sol __pyx_string_tab[857]
+#define __pyx_n_u_solfile __pyx_string_tab[858]
+#define __pyx_kp_u_solution __pyx_string_tab[859]
+#define __pyx_kp_u_solve __pyx_string_tab[860]
+#define __pyx_n_u_solve_2 __pyx_string_tab[861]
+#define __pyx_n_u_solve_result __pyx_string_tab[862]
+#define __pyx_n_u_solve_result_num __pyx_string_tab[863]
+#define __pyx_n_u_solver __pyx_string_tab[864]
+#define __pyx_n_u_solver_list __pyx_string_tab[865]
+#define __pyx_n_u_source_name __pyx_string_tab[866]
+#define __pyx_n_u_spec __pyx_string_tab[867]
+#define __pyx_n_u_split __pyx_string_tab[868]
+#define __pyx_n_u_sstatus __pyx_string_tab[869]
+#define __pyx_n_u_stack __pyx_string_tab[870]
+#define __pyx_n_u_startRecording __pyx_string_tab[871]
+#define __pyx_n_u_start_recording __pyx_string_tab[872]
+#define __pyx_n_u_state __pyx_string_tab[873]
+#define __pyx_n_u_statements __pyx_string_tab[874]
+#define __pyx_n_u_statements_c __pyx_string_tab[875]
+#define __pyx_n_u_status __pyx_string_tab[876]
+#define __pyx_n_u_stderr __pyx_string_tab[877]
+#define __pyx_n_u_stmt __pyx_string_tab[878]
+#define __pyx_n_u_stopRecording __pyx_string_tab[879]
+#define __pyx_n_u_stop_recording __pyx_string_tab[880]
+#define __pyx_kp_u_stringsource __pyx_string_tab[881]
+#define __pyx_n_u_suffixes __pyx_string_tab[882]
+#define __pyx_n_u_suffixes_c __pyx_string_tab[883]
+#define __pyx_n_u_super __pyx_string_tab[884]
+#define __pyx_n_u_sys __pyx_string_tab[885]
+#define __pyx_n_u_t __pyx_string_tab[886]
+#define __pyx_n_u_t_c __pyx_string_tab[887]
+#define __pyx_n_u_table_name __pyx_string_tab[888]
+#define __pyx_n_u_test __pyx_string_tab[889]
+#define __pyx_n_u_throw __pyx_string_tab[890]
+#define __pyx_n_u_throw_on_warnings __pyx_string_tab[891]
+#define __pyx_n_u_tmpdir __pyx_string_tab[892]
+#define __pyx_n_u_toDict __pyx_string_tab[893]
+#define __pyx_n_u_toList __pyx_string_tab[894]
+#define __pyx_n_u_toPandas __pyx_string_tab[895]
+#define __pyx_n_u_toString __pyx_string_tab[896]
+#define __pyx_n_u_to_ampls __pyx_string_tab[897]
+#define __pyx_n_u_to_dict __pyx_string_tab[898]
+#define __pyx_n_u_to_list __pyx_string_tab[899]
+#define __pyx_n_u_to_pandas __pyx_string_tab[900]
+#define __pyx_n_u_to_string __pyx_string_tab[901]
+#define __pyx_n_u_to_string_c __pyx_string_tab[902]
+#define __pyx_n_u_to_tuple __pyx_string_tab[903]
+#define __pyx_n_u_tolist __pyx_string_tab[904]
+#define __pyx_n_u_tools __pyx_string_tab[905]
+#define __pyx_n_u_tuple __pyx_string_tab[906]
+#define __pyx_n_u_tuple_c __pyx_string_tab[907]
+#define __pyx_n_u_ub __pyx_string_tab[908]
+#define __pyx_n_u_ub0 __pyx_string_tab[909]
+#define __pyx_n_u_ub1 __pyx_string_tab[910]
+#define __pyx_n_u_ub2 __pyx_string_tab[911]
+#define __pyx_n_u_ubs __pyx_string_tab[912]
+#define __pyx_n_u_udual __pyx_string_tab[913]
+#define __pyx_n_u_unfix __pyx_string_tab[914]
+#define __pyx_kp_u_unsupported_type __pyx_string_tab[915]
+#define __pyx_n_u_update __pyx_string_tab[916]
+#define __pyx_n_u_urc __pyx_string_tab[917]
+#define __pyx_n_u_use_setstate __pyx_string_tab[918]
+#define __pyx_n_u_uslack __pyx_string_tab[919]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[920]
+#define __pyx_n_u_v __pyx_string_tab[921]
+#define __pyx_n_u_val __pyx_string_tab[922]
+#define __pyx_n_u_value __pyx_string_tab[923]
+#define __pyx_n_u_value_c __pyx_string_tab[924]
+#define __pyx_n_u_values __pyx_string_tab[925]
+#define __pyx_n_u_var __pyx_string_tab[926]
+#define __pyx_n_u_var_2 __pyx_string_tab[927]
+#define __pyx_n_u_var_locals_Variables __pyx_string_tab[928]
+#define __pyx_n_u_var_locals_Variables___getitem __pyx_string_tab[929]
+#define __pyx_n_u_var_locals_Variables___init __pyx_string_tab[930]
+#define __pyx_n_u_var_locals_Variables___iter __pyx_string_tab[931]
+#define __pyx_n_u_var_locals_Variables___setitem __pyx_string_tab[932]
+#define __pyx_n_u_verbose __pyx_string_tab[933]
+#define __pyx_n_u_warning __pyx_string_tab[934]
+#define __pyx_n_u_workdir __pyx_string_tab[935]
+#define __pyx_n_u_workdir_c __pyx_string_tab[936]
+#define __pyx_n_u_write __pyx_string_tab[937]
+#define __pyx_n_u_writeTable __pyx_string_tab[938]
+#define __pyx_n_u_write_sol __pyx_string_tab[939]
+#define __pyx_n_u_write_table __pyx_string_tab[940]
+#define __pyx_n_u_xpress __pyx_string_tab[941]
+#define __pyx_n_u_xref __pyx_string_tab[942]
+#define __pyx_n_u_zeros __pyx_string_tab[943]
+#define __pyx_n_u_zip __pyx_string_tab[944]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -6802,7 +6817,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_k_);
   for (int i=0; i<30; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<262; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<942; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<945; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  Py_CLEAR(clear_module_state->__pyx_float_1_0);
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
   Py_CLEAR(clear_module_state->__pyx_int_222419149);
@@ -6913,7 +6929,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_k_);
   for (int i=0; i<30; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<262; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<942; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<945; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_1_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_1);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_222419149);
@@ -32347,8 +32364,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_8get_message(struct __py
  *         return self.message
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
- *         if self.source_name == "-":
- *             if self.offset != -1:
+ *         if self.offset != -1:
+ *             return self.message
 */
 
 /* Python wrapper */
@@ -32381,155 +32398,157 @@ static PyObject *__pyx_pf_6amplpy_4ampl_13AMPLException_10__str__(struct __pyx_o
   /* "amplpy/exceptions.pxi":41
  * 
  *     def __str__(self):
- *         if self.source_name == "-":             # <<<<<<<<<<<<<<
- *             if self.offset != -1:
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         if self.offset != -1:             # <<<<<<<<<<<<<<
+ *             return self.message
+ *         elif self.source_name == "-":
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_source_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 41, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__7, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 41, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 41, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
     /* "amplpy/exceptions.pxi":42
  *     def __str__(self):
- *         if self.source_name == "-":
- *             if self.offset != -1:             # <<<<<<<<<<<<<<
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
- *             return self.message
-*/
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 42, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 42, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (__pyx_t_2) {
-
-      /* "amplpy/exceptions.pxi":43
- *         if self.source_name == "-":
- *             if self.offset != -1:
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message             # <<<<<<<<<<<<<<
- *             return self.message
- *         return self.source_name + "\nline " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
-*/
-      __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_line_number); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_line, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_3 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_offset_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__5); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 43, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_r = __pyx_t_3;
-      __pyx_t_3 = 0;
-      goto __pyx_L0;
-
-      /* "amplpy/exceptions.pxi":42
- *     def __str__(self):
- *         if self.source_name == "-":
- *             if self.offset != -1:             # <<<<<<<<<<<<<<
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
- *             return self.message
-*/
-    }
-
-    /* "amplpy/exceptions.pxi":44
- *             if self.offset != -1:
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         if self.offset != -1:
  *             return self.message             # <<<<<<<<<<<<<<
- *         return self.source_name + "\nline " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
- * 
+ *         elif self.source_name == "-":
+ *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 44, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_r = __pyx_t_3;
-    __pyx_t_3 = 0;
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 42, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
     goto __pyx_L0;
 
     /* "amplpy/exceptions.pxi":41
  * 
  *     def __str__(self):
- *         if self.source_name == "-":             # <<<<<<<<<<<<<<
- *             if self.offset != -1:
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         if self.offset != -1:             # <<<<<<<<<<<<<<
+ *             return self.message
+ *         elif self.source_name == "-":
 */
   }
 
-  /* "amplpy/exceptions.pxi":45
- *                 return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+  /* "amplpy/exceptions.pxi":43
+ *         if self.offset != -1:
  *             return self.message
- *         return self.source_name + "\nline " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message             # <<<<<<<<<<<<<<
+ *         elif self.source_name == "-":             # <<<<<<<<<<<<<<
+ *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         else:
+*/
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_source_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 43, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__7, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(2, 43, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_2) {
+
+    /* "amplpy/exceptions.pxi":44
+ *             return self.message
+ *         elif self.source_name == "-":
+ *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message             # <<<<<<<<<<<<<<
+ *         else:
+ *             return self.source_name + "\nline " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_line_number); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_line, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_offset_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_4 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__5); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "amplpy/exceptions.pxi":43
+ *         if self.offset != -1:
+ *             return self.message
+ *         elif self.source_name == "-":             # <<<<<<<<<<<<<<
+ *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         else:
+*/
+  }
+
+  /* "amplpy/exceptions.pxi":46
+ *             return "line " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message
+ *         else:
+ *             return self.source_name + "\nline " + str(self.line_number) + " offset " + str(self.offset) + "\n" + self.message             # <<<<<<<<<<<<<<
  * 
  *     # Aliases
 */
-  __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_source_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_line_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_line_number); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyNumber_Add(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_offset_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u__5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_r = __pyx_t_4;
-  __pyx_t_4 = 0;
-  goto __pyx_L0;
+  /*else*/ {
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_source_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_line_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_line_number); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = PyNumber_Add(__pyx_t_1, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_offset_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = PyNumber_Add(__pyx_t_4, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = PyNumber_Add(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u__5); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_message); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(2, 46, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_r = __pyx_t_4;
+    __pyx_t_4 = 0;
+    goto __pyx_L0;
+  }
 
   /* "amplpy/exceptions.pxi":40
  *         return self.message
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
- *         if self.source_name == "-":
- *             if self.offset != -1:
+ *         if self.offset != -1:
+ *             return self.message
 */
 
   /* function exit code */
@@ -56349,9 +56368,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 /* "amplpy/ampl.pyx":683
  *         """
  *         class ErrorHandlerWrapper(ErrorHandler):
- *             def __init__(self, error_handler):             # <<<<<<<<<<<<<<
+ *             def __init__(self, ampl_instance, error_handler):             # <<<<<<<<<<<<<<
+ *                 self.ampl = ampl_instance
  *                 self.error_handler = error_handler
- *                 self.last_exception = None
 */
 
 /* Python wrapper */
@@ -56371,12 +56390,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
   PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_ampl_instance = 0;
   PyObject *__pyx_v_error_handler = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[2] = {0,0};
+  PyObject* values[3] = {0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -56392,11 +56412,15 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_error_handler,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl_instance,&__pyx_mstate_global->__pyx_n_u_error_handler,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
     if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 683, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 683, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
         if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 683, __pyx_L3_error)
@@ -56410,23 +56434,26 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 683, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 683, __pyx_L3_error) }
+      for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, i); __PYX_ERR(0, 683, __pyx_L3_error) }
       }
-    } else if (unlikely(__pyx_nargs != 2)) {
+    } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 683, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 683, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 683, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
-    __pyx_v_error_handler = values[1];
+    __pyx_v_ampl_instance = values[1];
+    __pyx_v_error_handler = values[2];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 683, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 683, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -56437,7 +56464,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(__pyx_self, __pyx_v_self, __pyx_v_error_handler);
+  __pyx_r = __pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(__pyx_self, __pyx_v_self, __pyx_v_ampl_instance, __pyx_v_error_handler);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -56447,7 +56474,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_error_handler) {
+static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_ampl_instance, PyObject *__pyx_v_error_handler) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -56457,28 +56484,37 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
 
   /* "amplpy/ampl.pyx":684
  *         class ErrorHandlerWrapper(ErrorHandler):
- *             def __init__(self, error_handler):
+ *             def __init__(self, ampl_instance, error_handler):
+ *                 self.ampl = ampl_instance             # <<<<<<<<<<<<<<
+ *                 self.error_handler = error_handler
+ *                 self.last_exception = None
+*/
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl_instance) < 0) __PYX_ERR(0, 684, __pyx_L1_error)
+
+  /* "amplpy/ampl.pyx":685
+ *             def __init__(self, ampl_instance, error_handler):
+ *                 self.ampl = ampl_instance
  *                 self.error_handler = error_handler             # <<<<<<<<<<<<<<
  *                 self.last_exception = None
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler, __pyx_v_error_handler) < 0) __PYX_ERR(0, 684, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler, __pyx_v_error_handler) < 0) __PYX_ERR(0, 685, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":685
- *             def __init__(self, error_handler):
+  /* "amplpy/ampl.pyx":686
+ *                 self.ampl = ampl_instance
  *                 self.error_handler = error_handler
  *                 self.last_exception = None             # <<<<<<<<<<<<<<
  * 
  *             def error(self, exception):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, Py_None) < 0) __PYX_ERR(0, 685, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, Py_None) < 0) __PYX_ERR(0, 686, __pyx_L1_error)
 
   /* "amplpy/ampl.pyx":683
  *         """
  *         class ErrorHandlerWrapper(ErrorHandler):
- *             def __init__(self, error_handler):             # <<<<<<<<<<<<<<
+ *             def __init__(self, ampl_instance, error_handler):             # <<<<<<<<<<<<<<
+ *                 self.ampl = ampl_instance
  *                 self.error_handler = error_handler
- *                 self.last_exception = None
 */
 
   /* function exit code */
@@ -56493,7 +56529,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":687
+/* "amplpy/ampl.pyx":688
  *                 self.last_exception = None
  * 
  *             def error(self, exception):             # <<<<<<<<<<<<<<
@@ -56541,39 +56577,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_exception,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 687, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 688, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 687, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 688, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 687, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 688, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "error", 0) < 0) __PYX_ERR(0, 687, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "error", 0) < 0) __PYX_ERR(0, 688, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("error", 1, 2, 2, i); __PYX_ERR(0, 687, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("error", 1, 2, 2, i); __PYX_ERR(0, 688, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 687, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 688, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 687, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 688, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_exception = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("error", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 687, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("error", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 688, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -56607,22 +56643,21 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   size_t __pyx_t_7;
   int __pyx_t_8;
   PyObject *__pyx_t_9 = NULL;
-  PyObject *__pyx_t_10 = NULL;
+  int __pyx_t_10;
   int __pyx_t_11;
-  int __pyx_t_12;
-  char const *__pyx_t_13;
+  char const *__pyx_t_12;
+  PyObject *__pyx_t_13 = NULL;
   PyObject *__pyx_t_14 = NULL;
   PyObject *__pyx_t_15 = NULL;
   PyObject *__pyx_t_16 = NULL;
   PyObject *__pyx_t_17 = NULL;
   PyObject *__pyx_t_18 = NULL;
-  PyObject *__pyx_t_19 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("error", 0);
 
-  /* "amplpy/ampl.pyx":688
+  /* "amplpy/ampl.pyx":689
  * 
  *             def error(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -56638,14 +56673,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "amplpy/ampl.pyx":689
+      /* "amplpy/ampl.pyx":690
  *             def error(self, exception):
  *                 try:
  *                     self.error_handler.error(exception)             # <<<<<<<<<<<<<<
  *                 except Exception as exp:
- *                     if self.last_exception == None:
+ *                     if self.last_exception is None:
 */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 689, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 690, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_5 = __pyx_t_6;
       __Pyx_INCREF(__pyx_t_5);
@@ -56655,12 +56690,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_error, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 689, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 690, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "amplpy/ampl.pyx":688
+      /* "amplpy/ampl.pyx":689
  * 
  *             def error(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -56677,17 +56712,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "amplpy/ampl.pyx":690
+    /* "amplpy/ampl.pyx":691
  *                 try:
  *                     self.error_handler.error(exception)
  *                 except Exception as exp:             # <<<<<<<<<<<<<<
- *                     if self.last_exception == None:
+ *                     if self.last_exception is None:
  *                         self.last_exception = exp
 */
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("amplpy.ampl.AMPL.set_error_handler.ErrorHandlerWrapper.error", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 690, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 691, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
@@ -56695,45 +56730,43 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
       __pyx_v_exp = __pyx_t_6;
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":691
+        /* "amplpy/ampl.pyx":692
  *                     self.error_handler.error(exception)
  *                 except Exception as exp:
- *                     if self.last_exception == None:             # <<<<<<<<<<<<<<
+ *                     if self.last_exception is None:             # <<<<<<<<<<<<<<
  *                         self.last_exception = exp
  * 
 */
-        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 691, __pyx_L14_error)
+        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 692, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = PyObject_RichCompare(__pyx_t_9, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 691, __pyx_L14_error)
+        __pyx_t_10 = (__pyx_t_9 == Py_None);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 691, __pyx_L14_error)
-        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (__pyx_t_11) {
+        if (__pyx_t_10) {
 
-          /* "amplpy/ampl.pyx":692
+          /* "amplpy/ampl.pyx":693
  *                 except Exception as exp:
- *                     if self.last_exception == None:
+ *                     if self.last_exception is None:
  *                         self.last_exception = exp             # <<<<<<<<<<<<<<
  * 
  *             def warning(self, exception):
 */
-          if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, __pyx_v_exp) < 0) __PYX_ERR(0, 692, __pyx_L14_error)
+          if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, __pyx_v_exp) < 0) __PYX_ERR(0, 693, __pyx_L14_error)
 
-          /* "amplpy/ampl.pyx":691
+          /* "amplpy/ampl.pyx":692
  *                     self.error_handler.error(exception)
  *                 except Exception as exp:
- *                     if self.last_exception == None:             # <<<<<<<<<<<<<<
+ *                     if self.last_exception is None:             # <<<<<<<<<<<<<<
  *                         self.last_exception = exp
  * 
 */
         }
       }
 
-      /* "amplpy/ampl.pyx":690
+      /* "amplpy/ampl.pyx":691
  *                 try:
  *                     self.error_handler.error(exception)
  *                 except Exception as exp:             # <<<<<<<<<<<<<<
- *                     if self.last_exception == None:
+ *                     if self.last_exception is None:
  *                         self.last_exception = exp
 */
       /*finally:*/ {
@@ -56745,31 +56778,30 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
         /*exception exit:*/{
           __Pyx_PyThreadState_declare
           __Pyx_PyThreadState_assign
-          __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0;
-          __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+          __pyx_t_13 = 0; __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0;
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-           __Pyx_ExceptionSwap(&__pyx_t_17, &__pyx_t_18, &__pyx_t_19);
-          if ( unlikely(__Pyx_GetException(&__pyx_t_14, &__pyx_t_15, &__pyx_t_16) < 0)) __Pyx_ErrFetch(&__pyx_t_14, &__pyx_t_15, &__pyx_t_16);
+           __Pyx_ExceptionSwap(&__pyx_t_16, &__pyx_t_17, &__pyx_t_18);
+          if ( unlikely(__Pyx_GetException(&__pyx_t_13, &__pyx_t_14, &__pyx_t_15) < 0)) __Pyx_ErrFetch(&__pyx_t_13, &__pyx_t_14, &__pyx_t_15);
+          __Pyx_XGOTREF(__pyx_t_13);
           __Pyx_XGOTREF(__pyx_t_14);
           __Pyx_XGOTREF(__pyx_t_15);
           __Pyx_XGOTREF(__pyx_t_16);
           __Pyx_XGOTREF(__pyx_t_17);
           __Pyx_XGOTREF(__pyx_t_18);
-          __Pyx_XGOTREF(__pyx_t_19);
-          __pyx_t_8 = __pyx_lineno; __pyx_t_12 = __pyx_clineno; __pyx_t_13 = __pyx_filename;
+          __pyx_t_8 = __pyx_lineno; __pyx_t_11 = __pyx_clineno; __pyx_t_12 = __pyx_filename;
           {
             __Pyx_DECREF(__pyx_v_exp); __pyx_v_exp = 0;
           }
+          __Pyx_XGIVEREF(__pyx_t_16);
           __Pyx_XGIVEREF(__pyx_t_17);
           __Pyx_XGIVEREF(__pyx_t_18);
-          __Pyx_XGIVEREF(__pyx_t_19);
-          __Pyx_ExceptionReset(__pyx_t_17, __pyx_t_18, __pyx_t_19);
+          __Pyx_ExceptionReset(__pyx_t_16, __pyx_t_17, __pyx_t_18);
+          __Pyx_XGIVEREF(__pyx_t_13);
           __Pyx_XGIVEREF(__pyx_t_14);
           __Pyx_XGIVEREF(__pyx_t_15);
-          __Pyx_XGIVEREF(__pyx_t_16);
-          __Pyx_ErrRestore(__pyx_t_14, __pyx_t_15, __pyx_t_16);
-          __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0;
-          __pyx_lineno = __pyx_t_8; __pyx_clineno = __pyx_t_12; __pyx_filename = __pyx_t_13;
+          __Pyx_ErrRestore(__pyx_t_13, __pyx_t_14, __pyx_t_15);
+          __pyx_t_13 = 0; __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0;
+          __pyx_lineno = __pyx_t_8; __pyx_clineno = __pyx_t_11; __pyx_filename = __pyx_t_12;
           goto __pyx_L5_except_error;
         }
         __pyx_L15:;
@@ -56781,7 +56813,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     }
     goto __pyx_L5_except_error;
 
-    /* "amplpy/ampl.pyx":688
+    /* "amplpy/ampl.pyx":689
  * 
  *             def error(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -56802,7 +56834,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __pyx_L8_try_end:;
   }
 
-  /* "amplpy/ampl.pyx":687
+  /* "amplpy/ampl.pyx":688
  *                 self.last_exception = None
  * 
  *             def error(self, exception):             # <<<<<<<<<<<<<<
@@ -56818,7 +56850,6 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_XDECREF(__pyx_t_10);
   __Pyx_AddTraceback("amplpy.ampl.AMPL.set_error_handler.ErrorHandlerWrapper.error", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -56828,7 +56859,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":694
+/* "amplpy/ampl.pyx":695
  *                         self.last_exception = exp
  * 
  *             def warning(self, exception):             # <<<<<<<<<<<<<<
@@ -56876,39 +56907,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_exception,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 694, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 695, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 694, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 695, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 694, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 695, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "warning", 0) < 0) __PYX_ERR(0, 694, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "warning", 0) < 0) __PYX_ERR(0, 695, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("warning", 1, 2, 2, i); __PYX_ERR(0, 694, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("warning", 1, 2, 2, i); __PYX_ERR(0, 695, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 694, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 695, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 694, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 695, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_exception = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("warning", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 694, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("warning", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 695, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -56942,22 +56973,23 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   size_t __pyx_t_7;
   int __pyx_t_8;
   PyObject *__pyx_t_9 = NULL;
-  PyObject *__pyx_t_10 = NULL;
-  int __pyx_t_11;
-  int __pyx_t_12;
-  char const *__pyx_t_13;
-  PyObject *__pyx_t_14 = NULL;
+  int __pyx_t_10;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *__pyx_t_12 = NULL;
+  int __pyx_t_13;
+  char const *__pyx_t_14;
   PyObject *__pyx_t_15 = NULL;
   PyObject *__pyx_t_16 = NULL;
   PyObject *__pyx_t_17 = NULL;
   PyObject *__pyx_t_18 = NULL;
   PyObject *__pyx_t_19 = NULL;
+  PyObject *__pyx_t_20 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("warning", 0);
 
-  /* "amplpy/ampl.pyx":695
+  /* "amplpy/ampl.pyx":696
  * 
  *             def warning(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -56973,14 +57005,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "amplpy/ampl.pyx":696
+      /* "amplpy/ampl.pyx":697
  *             def warning(self, exception):
  *                 try:
  *                     self.error_handler.warning(exception)             # <<<<<<<<<<<<<<
  *                 except Exception as exp:
- *                     if self.last_exception == None:
+ *                     if self.last_exception is None:
 */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 696, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_error_handler); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 697, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_5 = __pyx_t_6;
       __Pyx_INCREF(__pyx_t_5);
@@ -56990,12 +57022,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_warning, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 696, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 697, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "amplpy/ampl.pyx":695
+      /* "amplpy/ampl.pyx":696
  * 
  *             def warning(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -57012,17 +57044,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "amplpy/ampl.pyx":697
+    /* "amplpy/ampl.pyx":698
  *                 try:
  *                     self.error_handler.warning(exception)
  *                 except Exception as exp:             # <<<<<<<<<<<<<<
- *                     if self.last_exception == None:
- *                         self.last_exception = exp
+ *                     if self.last_exception is None:
+ *                         if self.ampl.get_option("_throw_on_warnings") != 1.0:
 */
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("amplpy.ampl.AMPL.set_error_handler.ErrorHandlerWrapper.warning", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 697, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 698, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
@@ -57030,46 +57062,73 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
       __pyx_v_exp = __pyx_t_6;
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":698
+        /* "amplpy/ampl.pyx":699
  *                     self.error_handler.warning(exception)
  *                 except Exception as exp:
- *                     if self.last_exception == None:             # <<<<<<<<<<<<<<
- *                         self.last_exception = exp
- * 
+ *                     if self.last_exception is None:             # <<<<<<<<<<<<<<
+ *                         if self.ampl.get_option("_throw_on_warnings") != 1.0:
+ *                             pass
 */
-        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 698, __pyx_L14_error)
+        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 699, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = PyObject_RichCompare(__pyx_t_9, Py_None, Py_EQ); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 698, __pyx_L14_error)
+        __pyx_t_10 = (__pyx_t_9 == Py_None);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 698, __pyx_L14_error)
-        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (__pyx_t_11) {
+        if (__pyx_t_10) {
 
-          /* "amplpy/ampl.pyx":699
+          /* "amplpy/ampl.pyx":700
  *                 except Exception as exp:
- *                     if self.last_exception == None:
- *                         self.last_exception = exp             # <<<<<<<<<<<<<<
+ *                     if self.last_exception is None:
+ *                         if self.ampl.get_option("_throw_on_warnings") != 1.0:             # <<<<<<<<<<<<<<
+ *                             pass
+ *                         else:
+*/
+          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 700, __pyx_L14_error)
+          __Pyx_GOTREF(__pyx_t_12);
+          __pyx_t_11 = __pyx_t_12;
+          __Pyx_INCREF(__pyx_t_11);
+          __pyx_t_7 = 0;
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_throw_on_warnings};
+            __pyx_t_9 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_option, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+            __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 700, __pyx_L14_error)
+            __Pyx_GOTREF(__pyx_t_9);
+          }
+          __pyx_t_10 = (__Pyx_PyFloat_BoolNeObjC(__pyx_t_9, __pyx_mstate_global->__pyx_float_1_0, 1.0, 0, 0)); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 700, __pyx_L14_error)
+          __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+          if (__pyx_t_10) {
+            goto __pyx_L17;
+          }
+
+          /* "amplpy/ampl.pyx":703
+ *                             pass
+ *                         else:
+ *                             self.last_exception = exp             # <<<<<<<<<<<<<<
  * 
  *             def check(self):
 */
-          if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, __pyx_v_exp) < 0) __PYX_ERR(0, 699, __pyx_L14_error)
+          /*else*/ {
+            if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, __pyx_v_exp) < 0) __PYX_ERR(0, 703, __pyx_L14_error)
+          }
+          __pyx_L17:;
 
-          /* "amplpy/ampl.pyx":698
+          /* "amplpy/ampl.pyx":699
  *                     self.error_handler.warning(exception)
  *                 except Exception as exp:
- *                     if self.last_exception == None:             # <<<<<<<<<<<<<<
- *                         self.last_exception = exp
- * 
+ *                     if self.last_exception is None:             # <<<<<<<<<<<<<<
+ *                         if self.ampl.get_option("_throw_on_warnings") != 1.0:
+ *                             pass
 */
         }
       }
 
-      /* "amplpy/ampl.pyx":697
+      /* "amplpy/ampl.pyx":698
  *                 try:
  *                     self.error_handler.warning(exception)
  *                 except Exception as exp:             # <<<<<<<<<<<<<<
- *                     if self.last_exception == None:
- *                         self.last_exception = exp
+ *                     if self.last_exception is None:
+ *                         if self.ampl.get_option("_throw_on_warnings") != 1.0:
 */
       /*finally:*/ {
         /*normal exit:*/{
@@ -57080,31 +57139,32 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
         /*exception exit:*/{
           __Pyx_PyThreadState_declare
           __Pyx_PyThreadState_assign
-          __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0;
-          __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+          __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0; __pyx_t_20 = 0;
+          __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+          __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-           __Pyx_ExceptionSwap(&__pyx_t_17, &__pyx_t_18, &__pyx_t_19);
-          if ( unlikely(__Pyx_GetException(&__pyx_t_14, &__pyx_t_15, &__pyx_t_16) < 0)) __Pyx_ErrFetch(&__pyx_t_14, &__pyx_t_15, &__pyx_t_16);
-          __Pyx_XGOTREF(__pyx_t_14);
+           __Pyx_ExceptionSwap(&__pyx_t_18, &__pyx_t_19, &__pyx_t_20);
+          if ( unlikely(__Pyx_GetException(&__pyx_t_15, &__pyx_t_16, &__pyx_t_17) < 0)) __Pyx_ErrFetch(&__pyx_t_15, &__pyx_t_16, &__pyx_t_17);
           __Pyx_XGOTREF(__pyx_t_15);
           __Pyx_XGOTREF(__pyx_t_16);
           __Pyx_XGOTREF(__pyx_t_17);
           __Pyx_XGOTREF(__pyx_t_18);
           __Pyx_XGOTREF(__pyx_t_19);
-          __pyx_t_8 = __pyx_lineno; __pyx_t_12 = __pyx_clineno; __pyx_t_13 = __pyx_filename;
+          __Pyx_XGOTREF(__pyx_t_20);
+          __pyx_t_8 = __pyx_lineno; __pyx_t_13 = __pyx_clineno; __pyx_t_14 = __pyx_filename;
           {
             __Pyx_DECREF(__pyx_v_exp); __pyx_v_exp = 0;
           }
-          __Pyx_XGIVEREF(__pyx_t_17);
           __Pyx_XGIVEREF(__pyx_t_18);
           __Pyx_XGIVEREF(__pyx_t_19);
-          __Pyx_ExceptionReset(__pyx_t_17, __pyx_t_18, __pyx_t_19);
-          __Pyx_XGIVEREF(__pyx_t_14);
+          __Pyx_XGIVEREF(__pyx_t_20);
+          __Pyx_ExceptionReset(__pyx_t_18, __pyx_t_19, __pyx_t_20);
           __Pyx_XGIVEREF(__pyx_t_15);
           __Pyx_XGIVEREF(__pyx_t_16);
-          __Pyx_ErrRestore(__pyx_t_14, __pyx_t_15, __pyx_t_16);
-          __pyx_t_14 = 0; __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0;
-          __pyx_lineno = __pyx_t_8; __pyx_clineno = __pyx_t_12; __pyx_filename = __pyx_t_13;
+          __Pyx_XGIVEREF(__pyx_t_17);
+          __Pyx_ErrRestore(__pyx_t_15, __pyx_t_16, __pyx_t_17);
+          __pyx_t_15 = 0; __pyx_t_16 = 0; __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0; __pyx_t_20 = 0;
+          __pyx_lineno = __pyx_t_8; __pyx_clineno = __pyx_t_13; __pyx_filename = __pyx_t_14;
           goto __pyx_L5_except_error;
         }
         __pyx_L15:;
@@ -57116,7 +57176,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     }
     goto __pyx_L5_except_error;
 
-    /* "amplpy/ampl.pyx":695
+    /* "amplpy/ampl.pyx":696
  * 
  *             def warning(self, exception):
  *                 try:             # <<<<<<<<<<<<<<
@@ -57137,7 +57197,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
     __pyx_L8_try_end:;
   }
 
-  /* "amplpy/ampl.pyx":694
+  /* "amplpy/ampl.pyx":695
  *                         self.last_exception = exp
  * 
  *             def warning(self, exception):             # <<<<<<<<<<<<<<
@@ -57153,7 +57213,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_XDECREF(__pyx_t_12);
   __Pyx_AddTraceback("amplpy.ampl.AMPL.set_error_handler.ErrorHandlerWrapper.warning", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -57163,8 +57224,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":701
- *                         self.last_exception = exp
+/* "amplpy/ampl.pyx":705
+ *                             self.last_exception = exp
  * 
  *             def check(self):             # <<<<<<<<<<<<<<
  *                 if isinstance(self.last_exception, Exception):
@@ -57210,32 +57271,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 701, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 705, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 701, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 705, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "check", 0) < 0) __PYX_ERR(0, 701, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "check", 0) < 0) __PYX_ERR(0, 705, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("check", 1, 1, 1, i); __PYX_ERR(0, 701, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("check", 1, 1, 1, i); __PYX_ERR(0, 705, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 701, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 705, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("check", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 701, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("check", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 705, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -57267,51 +57328,51 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("check", 0);
 
-  /* "amplpy/ampl.pyx":702
+  /* "amplpy/ampl.pyx":706
  * 
  *             def check(self):
  *                 if isinstance(self.last_exception, Exception):             # <<<<<<<<<<<<<<
  *                     exp = self.last_exception
  *                     self.last_exception = None
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = __Pyx_PyException_Check(__pyx_t_1); 
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (unlikely(__pyx_t_2)) {
 
-    /* "amplpy/ampl.pyx":703
+    /* "amplpy/ampl.pyx":707
  *             def check(self):
  *                 if isinstance(self.last_exception, Exception):
  *                     exp = self.last_exception             # <<<<<<<<<<<<<<
  *                     self.last_exception = None
  *                     raise exp
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 703, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 707, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_exp = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":704
+    /* "amplpy/ampl.pyx":708
  *                 if isinstance(self.last_exception, Exception):
  *                     exp = self.last_exception
  *                     self.last_exception = None             # <<<<<<<<<<<<<<
  *                     raise exp
  * 
 */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, Py_None) < 0) __PYX_ERR(0, 704, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_exception, Py_None) < 0) __PYX_ERR(0, 708, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":705
+    /* "amplpy/ampl.pyx":709
  *                     exp = self.last_exception
  *                     self.last_exception = None
  *                     raise exp             # <<<<<<<<<<<<<<
  * 
- *         self._error_handler = error_handler
+ *         error_handler_wrapper = ErrorHandlerWrapper(self, error_handler)
 */
     __Pyx_Raise(__pyx_v_exp, 0, 0, 0);
-    __PYX_ERR(0, 705, __pyx_L1_error)
+    __PYX_ERR(0, 709, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":702
+    /* "amplpy/ampl.pyx":706
  * 
  *             def check(self):
  *                 if isinstance(self.last_exception, Exception):             # <<<<<<<<<<<<<<
@@ -57320,8 +57381,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
 */
   }
 
-  /* "amplpy/ampl.pyx":701
- *                         self.last_exception = exp
+  /* "amplpy/ampl.pyx":705
+ *                             self.last_exception = exp
  * 
  *             def check(self):             # <<<<<<<<<<<<<<
  *                 if isinstance(self.last_exception, Exception):
@@ -57352,6 +57413,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandler
 
 static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_obj_6amplpy_4ampl_AMPL *__pyx_v_self, PyObject *__pyx_v_error_handler) {
   PyObject *__pyx_v_ErrorHandlerWrapper = NULL;
+  PyObject *__pyx_v_error_handler_wrapper = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -57367,8 +57429,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_o
  *             error_handler: The object handling AMPL errors and warnings.
  *         """
  *         class ErrorHandlerWrapper(ErrorHandler):             # <<<<<<<<<<<<<<
- *             def __init__(self, error_handler):
- *                 self.error_handler = error_handler
+ *             def __init__(self, ampl_instance, error_handler):
+ *                 self.ampl = ampl_instance
 */
   __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 682, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -57389,57 +57451,57 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_o
   /* "amplpy/ampl.pyx":683
  *         """
  *         class ErrorHandlerWrapper(ErrorHandler):
- *             def __init__(self, error_handler):             # <<<<<<<<<<<<<<
+ *             def __init__(self, ampl_instance, error_handler):             # <<<<<<<<<<<<<<
+ *                 self.ampl = ampl_instance
  *                 self.error_handler = error_handler
- *                 self.last_exception = None
 */
   __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_1__init__, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_2, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 683, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_1) < 0) __PYX_ERR(0, 683, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":687
+  /* "amplpy/ampl.pyx":688
  *                 self.last_exception = None
  * 
  *             def error(self, exception):             # <<<<<<<<<<<<<<
  *                 try:
  *                     self.error_handler.error(exception)
 */
-  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_3error, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_3, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 687, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_3error, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_3, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 688, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_error, __pyx_t_1) < 0) __PYX_ERR(0, 687, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_error, __pyx_t_1) < 0) __PYX_ERR(0, 688, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":694
+  /* "amplpy/ampl.pyx":695
  *                         self.last_exception = exp
  * 
  *             def warning(self, exception):             # <<<<<<<<<<<<<<
  *                 try:
  *                     self.error_handler.warning(exception)
 */
-  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_5warning, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_4, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 694, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_5warning, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_4, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 695, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warning, __pyx_t_1) < 0) __PYX_ERR(0, 694, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warning, __pyx_t_1) < 0) __PYX_ERR(0, 695, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":701
- *                         self.last_exception = exp
+  /* "amplpy/ampl.pyx":705
+ *                             self.last_exception = exp
  * 
  *             def check(self):             # <<<<<<<<<<<<<<
  *                 if isinstance(self.last_exception, Exception):
  *                     exp = self.last_exception
 */
-  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_7check, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_5, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 701, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_17set_error_handler_19ErrorHandlerWrapper_7check, 0, __pyx_mstate_global->__pyx_n_u_set_error_handler_locals_ErrorHa_5, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_check, __pyx_t_1) < 0) __PYX_ERR(0, 701, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_check, __pyx_t_1) < 0) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "amplpy/ampl.pyx":682
  *             error_handler: The object handling AMPL errors and warnings.
  *         """
  *         class ErrorHandlerWrapper(ErrorHandler):             # <<<<<<<<<<<<<<
- *             def __init__(self, error_handler):
- *                 self.error_handler = error_handler
+ *             def __init__(self, ampl_instance, error_handler):
+ *                 self.ampl = ampl_instance
 */
   __pyx_t_1 = __Pyx_Py3ClassCreate(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ErrorHandlerWrapper, __pyx_t_2, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 682, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -57449,11 +57511,32 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_o
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":707
+  /* "amplpy/ampl.pyx":711
  *                     raise exp
  * 
+ *         error_handler_wrapper = ErrorHandlerWrapper(self, error_handler)             # <<<<<<<<<<<<<<
+ * 
+ *         self._error_handler = error_handler
+*/
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 711, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_INCREF((PyObject *)__pyx_v_self);
+  __Pyx_GIVEREF((PyObject *)__pyx_v_self);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, ((PyObject *)__pyx_v_self)) != (0)) __PYX_ERR(0, 711, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_v_error_handler);
+  __Pyx_GIVEREF(__pyx_v_error_handler);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_error_handler) != (0)) __PYX_ERR(0, 711, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_v_ErrorHandlerWrapper, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 711, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v_error_handler_wrapper = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "amplpy/ampl.pyx":713
+ *         error_handler_wrapper = ErrorHandlerWrapper(self, error_handler)
+ * 
  *         self._error_handler = error_handler             # <<<<<<<<<<<<<<
- *         self._error_handler_wrapper = ErrorHandlerWrapper(error_handler)
+ *         self._error_handler_wrapper = error_handler_wrapper
  * 
 */
   __Pyx_INCREF(__pyx_v_error_handler);
@@ -57462,29 +57545,27 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_o
   __Pyx_DECREF(__pyx_v_self->_error_handler);
   __pyx_v_self->_error_handler = __pyx_v_error_handler;
 
-  /* "amplpy/ampl.pyx":708
+  /* "amplpy/ampl.pyx":714
  * 
  *         self._error_handler = error_handler
- *         self._error_handler_wrapper = ErrorHandlerWrapper(error_handler)             # <<<<<<<<<<<<<<
+ *         self._error_handler_wrapper = error_handler_wrapper             # <<<<<<<<<<<<<<
  * 
  *         PY_AMPL_CALL(campl.AMPL_SetErrorHandler(self._c_ampl, PyError, <void*>self._error_handler_wrapper))
 */
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_v_ErrorHandlerWrapper, __pyx_v_error_handler); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 708, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GIVEREF(__pyx_t_2);
+  __Pyx_INCREF(__pyx_v_error_handler_wrapper);
+  __Pyx_GIVEREF(__pyx_v_error_handler_wrapper);
   __Pyx_GOTREF(__pyx_v_self->_error_handler_wrapper);
   __Pyx_DECREF(__pyx_v_self->_error_handler_wrapper);
-  __pyx_v_self->_error_handler_wrapper = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_v_self->_error_handler_wrapper = __pyx_v_error_handler_wrapper;
 
-  /* "amplpy/ampl.pyx":710
- *         self._error_handler_wrapper = ErrorHandlerWrapper(error_handler)
+  /* "amplpy/ampl.pyx":716
+ *         self._error_handler_wrapper = error_handler_wrapper
  * 
  *         PY_AMPL_CALL(campl.AMPL_SetErrorHandler(self._c_ampl, PyError, <void*>self._error_handler_wrapper))             # <<<<<<<<<<<<<<
  * 
  *     def get_output_handler(self):
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetErrorHandler(__pyx_v_self->_c_ampl, __pyx_f_6amplpy_4ampl_PyError, ((void *)__pyx_v_self->_error_handler_wrapper))); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 710, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetErrorHandler(__pyx_v_self->_c_ampl, __pyx_f_6amplpy_4ampl_PyError, ((void *)__pyx_v_self->_error_handler_wrapper))); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 716, __pyx_L1_error)
 
   /* "amplpy/ampl.pyx":675
  *         PY_AMPL_CALL(campl.AMPL_SetOutputHandler(self._c_ampl, PyOutput, <void*>output_handler))
@@ -57506,12 +57587,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_52set_error_handler(struct __pyx_o
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_ErrorHandlerWrapper);
+  __Pyx_XDECREF(__pyx_v_error_handler_wrapper);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":712
+/* "amplpy/ampl.pyx":718
  *         PY_AMPL_CALL(campl.AMPL_SetErrorHandler(self._c_ampl, PyError, <void*>self._error_handler_wrapper))
  * 
  *     def get_output_handler(self):             # <<<<<<<<<<<<<<
@@ -57571,16 +57653,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_54get_output_handler(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_output_handler", 0);
 
-  /* "amplpy/ampl.pyx":720
+  /* "amplpy/ampl.pyx":726
  *         """
  *         cdef void* output_handler
  *         PY_AMPL_CALL(campl.AMPL_GetOutputHandler(self._c_ampl, &output_handler))             # <<<<<<<<<<<<<<
  *         return <OutputHandler>output_handler
  * 
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_GetOutputHandler(__pyx_v_self->_c_ampl, (&__pyx_v_output_handler))); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 720, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_GetOutputHandler(__pyx_v_self->_c_ampl, (&__pyx_v_output_handler))); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 726, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":721
+  /* "amplpy/ampl.pyx":727
  *         cdef void* output_handler
  *         PY_AMPL_CALL(campl.AMPL_GetOutputHandler(self._c_ampl, &output_handler))
  *         return <OutputHandler>output_handler             # <<<<<<<<<<<<<<
@@ -57592,7 +57674,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_54get_output_handler(struct __pyx_
   __pyx_r = ((PyObject *)__pyx_v_output_handler);
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":712
+  /* "amplpy/ampl.pyx":718
  *         PY_AMPL_CALL(campl.AMPL_SetErrorHandler(self._c_ampl, PyError, <void*>self._error_handler_wrapper))
  * 
  *     def get_output_handler(self):             # <<<<<<<<<<<<<<
@@ -57610,7 +57692,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_54get_output_handler(struct __pyx_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":723
+/* "amplpy/ampl.pyx":729
  *         return <OutputHandler>output_handler
  * 
  *     def get_error_handler(self):             # <<<<<<<<<<<<<<
@@ -57666,7 +57748,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_56get_error_handler(struct __pyx_o
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("get_error_handler", 0);
 
-  /* "amplpy/ampl.pyx":730
+  /* "amplpy/ampl.pyx":736
  *             The current error handler.
  *         """
  *         return <ErrorHandler>self._error_handler             # <<<<<<<<<<<<<<
@@ -57678,7 +57760,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_56get_error_handler(struct __pyx_o
   __pyx_r = __pyx_v_self->_error_handler;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":723
+  /* "amplpy/ampl.pyx":729
  *         return <OutputHandler>output_handler
  * 
  *     def get_error_handler(self):             # <<<<<<<<<<<<<<
@@ -57693,7 +57775,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_56get_error_handler(struct __pyx_o
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":732
+/* "amplpy/ampl.pyx":738
  *         return <ErrorHandler>self._error_handler
  * 
  *     def get_variables(self):             # <<<<<<<<<<<<<<
@@ -57753,7 +57835,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_58get_variables(struct __pyx_obj_6
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_variables", 0);
 
-  /* "amplpy/ampl.pyx":736
+  /* "amplpy/ampl.pyx":742
  *         Get all the variables declared.
  *         """
  *         return EntityMap.create(self, campl.AMPL_VARIABLE)             # <<<<<<<<<<<<<<
@@ -57761,13 +57843,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_58get_variables(struct __pyx_obj_6
  *     def get_constraints(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_VARIABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 736, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_VARIABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 742, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":732
+  /* "amplpy/ampl.pyx":738
  *         return <ErrorHandler>self._error_handler
  * 
  *     def get_variables(self):             # <<<<<<<<<<<<<<
@@ -57786,7 +57868,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_58get_variables(struct __pyx_obj_6
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":738
+/* "amplpy/ampl.pyx":744
  *         return EntityMap.create(self, campl.AMPL_VARIABLE)
  * 
  *     def get_constraints(self):             # <<<<<<<<<<<<<<
@@ -57846,7 +57928,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_60get_constraints(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_constraints", 0);
 
-  /* "amplpy/ampl.pyx":742
+  /* "amplpy/ampl.pyx":748
  *         Get all the constraints declared.
  *         """
  *         return EntityMap.create(self, campl.AMPL_CONSTRAINT)             # <<<<<<<<<<<<<<
@@ -57854,13 +57936,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_60get_constraints(struct __pyx_obj
  *     def get_objectives(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_CONSTRAINT); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 742, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_CONSTRAINT); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 748, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":738
+  /* "amplpy/ampl.pyx":744
  *         return EntityMap.create(self, campl.AMPL_VARIABLE)
  * 
  *     def get_constraints(self):             # <<<<<<<<<<<<<<
@@ -57879,7 +57961,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_60get_constraints(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":744
+/* "amplpy/ampl.pyx":750
  *         return EntityMap.create(self, campl.AMPL_CONSTRAINT)
  * 
  *     def get_objectives(self):             # <<<<<<<<<<<<<<
@@ -57939,7 +58021,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_62get_objectives(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_objectives", 0);
 
-  /* "amplpy/ampl.pyx":748
+  /* "amplpy/ampl.pyx":754
  *         Get all the objectives declared.
  *         """
  *         return EntityMap.create(self, campl.AMPL_OBJECTIVE)             # <<<<<<<<<<<<<<
@@ -57947,13 +58029,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_62get_objectives(struct __pyx_obj_
  *     def get_sets(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_OBJECTIVE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 748, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_OBJECTIVE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 754, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":744
+  /* "amplpy/ampl.pyx":750
  *         return EntityMap.create(self, campl.AMPL_CONSTRAINT)
  * 
  *     def get_objectives(self):             # <<<<<<<<<<<<<<
@@ -57972,7 +58054,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_62get_objectives(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":750
+/* "amplpy/ampl.pyx":756
  *         return EntityMap.create(self, campl.AMPL_OBJECTIVE)
  * 
  *     def get_sets(self):             # <<<<<<<<<<<<<<
@@ -58032,7 +58114,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_64get_sets(struct __pyx_obj_6amplp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_sets", 0);
 
-  /* "amplpy/ampl.pyx":754
+  /* "amplpy/ampl.pyx":760
  *         Get all the sets declared.
  *         """
  *         return EntityMap.create(self, campl.AMPL_SET)             # <<<<<<<<<<<<<<
@@ -58040,13 +58122,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_64get_sets(struct __pyx_obj_6amplp
  *     def get_parameters(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_SET); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 754, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_SET); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 760, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":750
+  /* "amplpy/ampl.pyx":756
  *         return EntityMap.create(self, campl.AMPL_OBJECTIVE)
  * 
  *     def get_sets(self):             # <<<<<<<<<<<<<<
@@ -58065,7 +58147,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_64get_sets(struct __pyx_obj_6amplp
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":756
+/* "amplpy/ampl.pyx":762
  *         return EntityMap.create(self, campl.AMPL_SET)
  * 
  *     def get_parameters(self):             # <<<<<<<<<<<<<<
@@ -58125,7 +58207,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_66get_parameters(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_parameters", 0);
 
-  /* "amplpy/ampl.pyx":760
+  /* "amplpy/ampl.pyx":766
  *         Get all the parameters declared.
  *         """
  *         return EntityMap.create(self, campl.AMPL_PARAMETER)             # <<<<<<<<<<<<<<
@@ -58133,13 +58215,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_66get_parameters(struct __pyx_obj_
  *     def get_current_objective(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_PARAMETER); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 760, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_6amplpy_4ampl_9EntityMap_create(__pyx_v_self, AMPL_PARAMETER); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 766, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":756
+  /* "amplpy/ampl.pyx":762
  *         return EntityMap.create(self, campl.AMPL_SET)
  * 
  *     def get_parameters(self):             # <<<<<<<<<<<<<<
@@ -58158,7 +58240,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_66get_parameters(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":762
+/* "amplpy/ampl.pyx":768
  *         return EntityMap.create(self, campl.AMPL_PARAMETER)
  * 
  *     def get_current_objective(self):             # <<<<<<<<<<<<<<
@@ -58225,7 +58307,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_current_objective", 0);
 
-  /* "amplpy/ampl.pyx":768
+  /* "amplpy/ampl.pyx":774
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef char* objname_c
  *         errorinfo = campl.AMPL_GetCurrentObjective(self._c_ampl, &objname_c)             # <<<<<<<<<<<<<<
@@ -58234,7 +58316,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
 */
   __pyx_v_errorinfo = AMPL_GetCurrentObjective(__pyx_v_self->_c_ampl, (&__pyx_v_objname_c));
 
-  /* "amplpy/ampl.pyx":769
+  /* "amplpy/ampl.pyx":775
  *         cdef char* objname_c
  *         errorinfo = campl.AMPL_GetCurrentObjective(self._c_ampl, &objname_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -58244,16 +58326,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
   __pyx_t_1 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":770
+    /* "amplpy/ampl.pyx":776
  *         errorinfo = campl.AMPL_GetCurrentObjective(self._c_ampl, &objname_c)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         objname = str(objname_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&objname_c)
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 770, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 776, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":769
+    /* "amplpy/ampl.pyx":775
  *         cdef char* objname_c
  *         errorinfo = campl.AMPL_GetCurrentObjective(self._c_ampl, &objname_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -58262,20 +58344,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
 */
   }
 
-  /* "amplpy/ampl.pyx":771
+  /* "amplpy/ampl.pyx":777
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         objname = str(objname_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         campl.AMPL_StringFree(&objname_c)
  *         if objname == "":
 */
-  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_v_objname_c); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 771, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_decode_c_string(__pyx_v_objname_c, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 771, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_v_objname_c); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 777, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_decode_c_string(__pyx_v_objname_c, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 777, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_objname = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "amplpy/ampl.pyx":772
+  /* "amplpy/ampl.pyx":778
  *             PY_AMPL_CALL(errorinfo)
  *         objname = str(objname_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&objname_c)             # <<<<<<<<<<<<<<
@@ -58284,17 +58366,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
 */
   (void)(AMPL_StringFree((&__pyx_v_objname_c)));
 
-  /* "amplpy/ampl.pyx":773
+  /* "amplpy/ampl.pyx":779
  *         objname = str(objname_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&objname_c)
  *         if objname == "":             # <<<<<<<<<<<<<<
  *             return None
  *         else:
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_objname, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 773, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_objname, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 779, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":774
+    /* "amplpy/ampl.pyx":780
  *         campl.AMPL_StringFree(&objname_c)
  *         if objname == "":
  *             return None             # <<<<<<<<<<<<<<
@@ -58305,7 +58387,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":773
+    /* "amplpy/ampl.pyx":779
  *         objname = str(objname_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&objname_c)
  *         if objname == "":             # <<<<<<<<<<<<<<
@@ -58314,7 +58396,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
 */
   }
 
-  /* "amplpy/ampl.pyx":776
+  /* "amplpy/ampl.pyx":782
  *             return None
  *         else:
  *             return self.get_objective(objname)             # <<<<<<<<<<<<<<
@@ -58330,7 +58412,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_objname};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_objective, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 776, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
@@ -58338,7 +58420,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
     goto __pyx_L0;
   }
 
-  /* "amplpy/ampl.pyx":762
+  /* "amplpy/ampl.pyx":768
  *         return EntityMap.create(self, campl.AMPL_PARAMETER)
  * 
  *     def get_current_objective(self):             # <<<<<<<<<<<<<<
@@ -58359,7 +58441,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_68get_current_objective(struct __p
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":778
+/* "amplpy/ampl.pyx":784
  *             return self.get_objective(objname)
  * 
  *     def _var(self):             # <<<<<<<<<<<<<<
@@ -58410,7 +58492,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":784
+/* "amplpy/ampl.pyx":790
  * 
  *         class Variables(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -58458,39 +58540,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 784, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 790, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 784, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 790, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 784, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 790, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 784, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 790, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 784, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 790, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 784, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 790, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 784, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 790, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 784, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 790, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -58519,16 +58601,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables___init__(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":785
+  /* "amplpy/ampl.pyx":791
  *         class Variables(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 785, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 791, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":784
+  /* "amplpy/ampl.pyx":790
  * 
  *         class Variables(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -58548,7 +58630,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables___init__(CYTHON_U
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":787
+/* "amplpy/ampl.pyx":793
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -58596,39 +58678,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 787, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 793, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 787, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 793, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 787, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 793, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 787, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 793, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 787, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 793, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 787, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 793, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 787, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 793, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 787, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 793, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -58661,7 +58743,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_2__getitem__(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":788
+  /* "amplpy/ampl.pyx":794
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_variable(name)             # <<<<<<<<<<<<<<
@@ -58669,7 +58751,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_2__getitem__(CYTH
  *             def __setitem__(self, name, value):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 788, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 794, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -58679,14 +58761,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_2__getitem__(CYTH
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_variable, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 788, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 794, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":787
+  /* "amplpy/ampl.pyx":793
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -58707,7 +58789,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_2__getitem__(CYTH
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":790
+/* "amplpy/ampl.pyx":796
  *                 return self.ampl.get_variable(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -58756,38 +58838,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 790, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 796, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 790, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 796, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 790, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 796, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 790, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 796, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 790, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 796, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 790, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 796, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 790, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 796, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 790, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 796, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 790, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 796, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
@@ -58795,7 +58877,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 790, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 796, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -58831,27 +58913,27 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 0);
 
-  /* "amplpy/ampl.pyx":791
+  /* "amplpy/ampl.pyx":797
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):             # <<<<<<<<<<<<<<
  *                     self.ampl.get_variable(name).set_value(value)
  *                 else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 791, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 791, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 797, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "amplpy/ampl.pyx":792
+    /* "amplpy/ampl.pyx":798
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):
  *                     self.ampl.get_variable(name).set_value(value)             # <<<<<<<<<<<<<<
  *                 else:
  *                     self.ampl.get_variable(name).set_values(value)
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 792, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 798, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = __pyx_t_6;
     __Pyx_INCREF(__pyx_t_5);
@@ -58861,7 +58943,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_variable, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 792, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 798, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_t_3 = __pyx_t_4;
@@ -58872,12 +58954,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_value, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 792, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 798, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":791
+    /* "amplpy/ampl.pyx":797
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):             # <<<<<<<<<<<<<<
@@ -58887,7 +58969,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":794
+  /* "amplpy/ampl.pyx":800
  *                     self.ampl.get_variable(name).set_value(value)
  *                 else:
  *                     self.ampl.get_variable(name).set_values(value)             # <<<<<<<<<<<<<<
@@ -58895,7 +58977,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
  *             def __iter__(self):
 */
   /*else*/ {
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 794, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 800, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = __pyx_t_5;
     __Pyx_INCREF(__pyx_t_6);
@@ -58905,7 +58987,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_variable, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 794, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 800, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_t_4 = __pyx_t_3;
@@ -58916,14 +58998,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_values, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 794, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":790
+  /* "amplpy/ampl.pyx":796
  *                 return self.ampl.get_variable(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -58948,7 +59030,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_4__setitem__(CYTH
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":796
+/* "amplpy/ampl.pyx":802
  *                     self.ampl.get_variable(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -58995,32 +59077,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 796, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 802, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 796, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 802, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 796, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 802, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 796, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 802, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 796, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 802, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 796, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 802, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -59053,7 +59135,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_6__iter__(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "amplpy/ampl.pyx":797
+  /* "amplpy/ampl.pyx":803
  * 
  *             def __iter__(self):
  *                 return self.ampl.get_variables()             # <<<<<<<<<<<<<<
@@ -59061,7 +59143,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_6__iter__(CYTHON_
  *         return Variables(self)
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 797, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 803, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -59071,14 +59153,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_6__iter__(CYTHON_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_variables, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 803, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":796
+  /* "amplpy/ampl.pyx":802
  *                     self.ampl.get_variable(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -59099,7 +59181,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_var_9Variables_6__iter__(CYTHON_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":778
+/* "amplpy/ampl.pyx":784
  *             return self.get_objective(objname)
  * 
  *     def _var(self):             # <<<<<<<<<<<<<<
@@ -59120,79 +59202,79 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_70_var(struct __pyx_obj_6amplpy_4a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_var", 0);
 
-  /* "amplpy/ampl.pyx":783
+  /* "amplpy/ampl.pyx":789
  *         """
  * 
  *         class Variables(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[4]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[4]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Variables, __pyx_mstate_global->__pyx_n_u_var_locals_Variables, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Variables, __pyx_mstate_global->__pyx_n_u_var_locals_Variables, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[4]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[4]) < 0))) __PYX_ERR(0, 783, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[4]) < 0))) __PYX_ERR(0, 789, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":784
+  /* "amplpy/ampl.pyx":790
  * 
  *         class Variables(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_1__init__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 784, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_1__init__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 790, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 784, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 790, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":787
+  /* "amplpy/ampl.pyx":793
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_variable(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 787, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 793, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 787, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 793, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":790
+  /* "amplpy/ampl.pyx":796
  *                 return self.ampl.get_variable(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
  *                 if isinstance(value, Real):
  *                     self.ampl.get_variable(name).set_value(value)
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___setitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 790, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___setitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 796, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 790, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 796, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":796
+  /* "amplpy/ampl.pyx":802
  *                     self.ampl.get_variable(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_variables()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 796, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_var_9Variables_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_var_locals_Variables___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 802, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 796, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 802, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":783
+  /* "amplpy/ampl.pyx":789
  *         """
  * 
  *         class Variables(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Variables, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Variables, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Variables = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -59200,7 +59282,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_70_var(struct __pyx_obj_6amplpy_4a
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":799
+  /* "amplpy/ampl.pyx":805
  *                 return self.ampl.get_variables()
  * 
  *         return Variables(self)             # <<<<<<<<<<<<<<
@@ -59208,13 +59290,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_70_var(struct __pyx_obj_6amplpy_4a
  *     def _con(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Variables, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 799, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Variables, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 805, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":778
+  /* "amplpy/ampl.pyx":784
  *             return self.get_objective(objname)
  * 
  *     def _var(self):             # <<<<<<<<<<<<<<
@@ -59237,7 +59319,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_70_var(struct __pyx_obj_6amplpy_4a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":801
+/* "amplpy/ampl.pyx":807
  *         return Variables(self)
  * 
  *     def _con(self):             # <<<<<<<<<<<<<<
@@ -59288,7 +59370,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":807
+/* "amplpy/ampl.pyx":813
  * 
  *         class Constraints(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -59336,39 +59418,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 807, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 813, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 807, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 813, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 807, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 813, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 807, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 813, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 807, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 813, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 807, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 813, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 807, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 813, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 807, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 813, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -59397,16 +59479,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints___init__(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":808
+  /* "amplpy/ampl.pyx":814
  *         class Constraints(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 808, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 814, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":807
+  /* "amplpy/ampl.pyx":813
  * 
  *         class Constraints(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -59426,7 +59508,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints___init__(CYTHO
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":810
+/* "amplpy/ampl.pyx":816
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -59474,39 +59556,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 810, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 816, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 810, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 816, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 810, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 816, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 810, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 816, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 810, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 816, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 810, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 816, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 810, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 816, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 810, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 816, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -59539,7 +59621,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_2__getitem__(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":811
+  /* "amplpy/ampl.pyx":817
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_constraint(name)             # <<<<<<<<<<<<<<
@@ -59547,7 +59629,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_2__getitem__(C
  *             def __setitem__(self, name, value):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 811, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 817, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -59557,14 +59639,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_2__getitem__(C
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_constraint, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 811, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 817, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":810
+  /* "amplpy/ampl.pyx":816
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -59585,7 +59667,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_2__getitem__(C
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":813
+/* "amplpy/ampl.pyx":819
  *                 return self.ampl.get_constraint(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -59634,38 +59716,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 813, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 819, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 813, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 819, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 813, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 819, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 813, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 819, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 813, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 819, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 813, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 819, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 813, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 819, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 813, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 819, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 813, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 819, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
@@ -59673,7 +59755,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 813, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 819, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -59709,27 +59791,27 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 0);
 
-  /* "amplpy/ampl.pyx":814
+  /* "amplpy/ampl.pyx":820
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):             # <<<<<<<<<<<<<<
  *                     self.ampl.get_constraint(name).set_dual(value)
  *                 else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 814, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 814, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 820, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "amplpy/ampl.pyx":815
+    /* "amplpy/ampl.pyx":821
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):
  *                     self.ampl.get_constraint(name).set_dual(value)             # <<<<<<<<<<<<<<
  *                 else:
  *                     self.ampl.get_constraint(name).set_values(value)
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 815, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 821, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = __pyx_t_6;
     __Pyx_INCREF(__pyx_t_5);
@@ -59739,7 +59821,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_constraint, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 815, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 821, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_t_3 = __pyx_t_4;
@@ -59750,12 +59832,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_dual, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 815, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 821, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":814
+    /* "amplpy/ampl.pyx":820
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, Real):             # <<<<<<<<<<<<<<
@@ -59765,7 +59847,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":817
+  /* "amplpy/ampl.pyx":823
  *                     self.ampl.get_constraint(name).set_dual(value)
  *                 else:
  *                     self.ampl.get_constraint(name).set_values(value)             # <<<<<<<<<<<<<<
@@ -59773,7 +59855,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
  *             def __iter__(self):
 */
   /*else*/ {
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 817, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 823, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = __pyx_t_5;
     __Pyx_INCREF(__pyx_t_6);
@@ -59783,7 +59865,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_constraint, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 817, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 823, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_t_4 = __pyx_t_3;
@@ -59794,14 +59876,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_values, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 817, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 823, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":813
+  /* "amplpy/ampl.pyx":819
  *                 return self.ampl.get_constraint(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -59826,7 +59908,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_4__setitem__(C
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":819
+/* "amplpy/ampl.pyx":825
  *                     self.ampl.get_constraint(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -59873,32 +59955,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 819, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 825, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 819, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 825, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 819, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 825, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 819, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 825, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 819, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 825, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 819, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 825, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -59931,7 +60013,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_6__iter__(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "amplpy/ampl.pyx":820
+  /* "amplpy/ampl.pyx":826
  * 
  *             def __iter__(self):
  *                 return self.ampl.get_constraints()             # <<<<<<<<<<<<<<
@@ -59939,7 +60021,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_6__iter__(CYTH
  *         return Constraints(self)
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 820, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 826, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -59949,14 +60031,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_6__iter__(CYTH
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_constraints, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 826, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":819
+  /* "amplpy/ampl.pyx":825
  *                     self.ampl.get_constraint(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -59977,7 +60059,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_con_11Constraints_6__iter__(CYTH
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":801
+/* "amplpy/ampl.pyx":807
  *         return Variables(self)
  * 
  *     def _con(self):             # <<<<<<<<<<<<<<
@@ -59998,79 +60080,79 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_72_con(struct __pyx_obj_6amplpy_4a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_con", 0);
 
-  /* "amplpy/ampl.pyx":806
+  /* "amplpy/ampl.pyx":812
  *         """
  * 
  *         class Constraints(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[6]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[6]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Constraints, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Constraints, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[6]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[6]) < 0))) __PYX_ERR(0, 806, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[6]) < 0))) __PYX_ERR(0, 812, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":807
+  /* "amplpy/ampl.pyx":813
  * 
  *         class Constraints(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_1__init__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 807, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_1__init__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 813, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 807, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 813, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":810
+  /* "amplpy/ampl.pyx":816
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_constraint(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___getite, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 810, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___getite, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 816, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 810, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 816, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":813
+  /* "amplpy/ampl.pyx":819
  *                 return self.ampl.get_constraint(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
  *                 if isinstance(value, Real):
  *                     self.ampl.get_constraint(name).set_dual(value)
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___setite, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 813, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___setite, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 813, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":819
+  /* "amplpy/ampl.pyx":825
  *                     self.ampl.get_constraint(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_constraints()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 819, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_con_11Constraints_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_con_locals_Constraints___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 825, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 819, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 825, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":806
+  /* "amplpy/ampl.pyx":812
  *         """
  * 
  *         class Constraints(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Constraints, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Constraints, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Constraints = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -60078,7 +60160,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_72_con(struct __pyx_obj_6amplpy_4a
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":822
+  /* "amplpy/ampl.pyx":828
  *                 return self.ampl.get_constraints()
  * 
  *         return Constraints(self)             # <<<<<<<<<<<<<<
@@ -60086,13 +60168,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_72_con(struct __pyx_obj_6amplpy_4a
  *     def _obj(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Constraints, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 822, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Constraints, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 828, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":801
+  /* "amplpy/ampl.pyx":807
  *         return Variables(self)
  * 
  *     def _con(self):             # <<<<<<<<<<<<<<
@@ -60115,7 +60197,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_72_con(struct __pyx_obj_6amplpy_4a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":824
+/* "amplpy/ampl.pyx":830
  *         return Constraints(self)
  * 
  *     def _obj(self):             # <<<<<<<<<<<<<<
@@ -60166,7 +60248,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":830
+/* "amplpy/ampl.pyx":836
  * 
  *         class Objectives(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -60214,39 +60296,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 830, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 836, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 830, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 836, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 830, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 836, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 830, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 836, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 830, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 836, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 830, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 836, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 830, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 836, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 830, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 836, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -60275,16 +60357,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives___init__(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":831
+  /* "amplpy/ampl.pyx":837
  *         class Objectives(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 831, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 837, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":830
+  /* "amplpy/ampl.pyx":836
  * 
  *         class Objectives(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -60304,7 +60386,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives___init__(CYTHON
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":833
+/* "amplpy/ampl.pyx":839
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -60352,39 +60434,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 833, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 839, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 833, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 839, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 833, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 839, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 833, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 839, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 833, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 839, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 833, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 839, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 833, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 839, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 833, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 839, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -60417,7 +60499,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_2__getitem__(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":834
+  /* "amplpy/ampl.pyx":840
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_objective(name)             # <<<<<<<<<<<<<<
@@ -60425,7 +60507,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_2__getitem__(CY
  *             def __iter__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 834, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 840, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -60435,14 +60517,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_2__getitem__(CY
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_objective, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 834, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 840, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":833
+  /* "amplpy/ampl.pyx":839
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -60463,7 +60545,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_2__getitem__(CY
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":836
+/* "amplpy/ampl.pyx":842
  *                 return self.ampl.get_objective(name)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -60510,32 +60592,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 836, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 842, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 836, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 842, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 836, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 842, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 836, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 842, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 836, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 842, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 836, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 842, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -60568,7 +60650,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_4__iter__(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "amplpy/ampl.pyx":837
+  /* "amplpy/ampl.pyx":843
  * 
  *             def __iter__(self):
  *                 return self.ampl.get_objectives()             # <<<<<<<<<<<<<<
@@ -60576,7 +60658,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_4__iter__(CYTHO
  *         return Objectives(self)
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 837, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 843, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -60586,14 +60668,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_4__iter__(CYTHO
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_objectives, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 837, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 843, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":836
+  /* "amplpy/ampl.pyx":842
  *                 return self.ampl.get_objective(name)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -60614,7 +60696,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_obj_10Objectives_4__iter__(CYTHO
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":824
+/* "amplpy/ampl.pyx":830
  *         return Constraints(self)
  * 
  *     def _obj(self):             # <<<<<<<<<<<<<<
@@ -60635,67 +60717,67 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_74_obj(struct __pyx_obj_6amplpy_4a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_obj", 0);
 
-  /* "amplpy/ampl.pyx":829
+  /* "amplpy/ampl.pyx":835
  *         """
  * 
  *         class Objectives(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[8]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[8]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Objectives, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Objectives, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[8]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[8]) < 0))) __PYX_ERR(0, 829, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[8]) < 0))) __PYX_ERR(0, 835, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":830
+  /* "amplpy/ampl.pyx":836
  * 
  *         class Objectives(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_1__init__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 830, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_1__init__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 836, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 830, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 836, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":833
+  /* "amplpy/ampl.pyx":839
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_objective(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 833, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 839, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 833, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 839, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":836
+  /* "amplpy/ampl.pyx":842
  *                 return self.ampl.get_objective(name)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_objectives()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_5__iter__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 836, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_obj_10Objectives_5__iter__, 0, __pyx_mstate_global->__pyx_n_u_obj_locals_Objectives___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 842, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 836, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 842, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":829
+  /* "amplpy/ampl.pyx":835
  *         """
  * 
  *         class Objectives(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Objectives, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Objectives, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Objectives = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -60703,7 +60785,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_74_obj(struct __pyx_obj_6amplpy_4a
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":839
+  /* "amplpy/ampl.pyx":845
  *                 return self.ampl.get_objectives()
  * 
  *         return Objectives(self)             # <<<<<<<<<<<<<<
@@ -60711,13 +60793,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_74_obj(struct __pyx_obj_6amplpy_4a
  *     def _set(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Objectives, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 839, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Objectives, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 845, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":824
+  /* "amplpy/ampl.pyx":830
  *         return Constraints(self)
  * 
  *     def _obj(self):             # <<<<<<<<<<<<<<
@@ -60740,7 +60822,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_74_obj(struct __pyx_obj_6amplpy_4a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":841
+/* "amplpy/ampl.pyx":847
  *         return Objectives(self)
  * 
  *     def _set(self):             # <<<<<<<<<<<<<<
@@ -60791,7 +60873,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":847
+/* "amplpy/ampl.pyx":853
  * 
  *         class Sets(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -60839,39 +60921,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 847, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 853, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 847, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 853, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 847, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 853, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 847, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 853, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 847, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 853, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 847, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 853, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 847, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 853, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 847, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 853, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -60900,16 +60982,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets___init__(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":848
+  /* "amplpy/ampl.pyx":854
  *         class Sets(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 848, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 854, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":847
+  /* "amplpy/ampl.pyx":853
  * 
  *         class Sets(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -60929,7 +61011,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets___init__(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":850
+/* "amplpy/ampl.pyx":856
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -60977,39 +61059,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 850, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 856, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 850, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 856, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 850, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 856, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 850, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 856, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 850, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 856, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 850, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 856, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 850, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 856, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 850, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 856, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -61042,7 +61124,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_2__getitem__(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":851
+  /* "amplpy/ampl.pyx":857
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_set(name)             # <<<<<<<<<<<<<<
@@ -61050,7 +61132,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_2__getitem__(CYTHON_UN
  *             def __setitem__(self, name, values):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 851, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 857, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -61060,14 +61142,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_2__getitem__(CYTHON_UN
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_set, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 851, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":850
+  /* "amplpy/ampl.pyx":856
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -61088,7 +61170,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_2__getitem__(CYTHON_UN
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":853
+/* "amplpy/ampl.pyx":859
  *                 return self.ampl.get_set(name)
  * 
  *             def __setitem__(self, name, values):             # <<<<<<<<<<<<<<
@@ -61137,38 +61219,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_values,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 853, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 859, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 853, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 859, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 853, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 859, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 853, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 859, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 853, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 859, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 853, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 859, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 853, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 859, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 853, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 859, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 853, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 859, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
@@ -61176,7 +61258,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 853, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 859, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -61211,14 +61293,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_4__setitem__(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 0);
 
-  /* "amplpy/ampl.pyx":854
+  /* "amplpy/ampl.pyx":860
  * 
  *             def __setitem__(self, name, values):
  *                 self.ampl.get_set(name).set_values(values)             # <<<<<<<<<<<<<<
  * 
  *             def __iter__(self):
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 854, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 860, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_4);
@@ -61228,7 +61310,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_4__setitem__(CYTHON_UN
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_set, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 854, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 860, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -61239,12 +61321,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_4__setitem__(CYTHON_UN
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_values, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 854, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 860, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":853
+  /* "amplpy/ampl.pyx":859
  *                 return self.ampl.get_set(name)
  * 
  *             def __setitem__(self, name, values):             # <<<<<<<<<<<<<<
@@ -61269,7 +61351,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_4__setitem__(CYTHON_UN
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":856
+/* "amplpy/ampl.pyx":862
  *                 self.ampl.get_set(name).set_values(values)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -61316,32 +61398,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 856, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 862, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 856, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 862, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 856, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 862, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 856, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 862, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 856, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 862, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 856, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 862, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -61374,7 +61456,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_6__iter__(CYTHON_UNUSE
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "amplpy/ampl.pyx":857
+  /* "amplpy/ampl.pyx":863
  * 
  *             def __iter__(self):
  *                 return self.ampl.get_sets()             # <<<<<<<<<<<<<<
@@ -61382,7 +61464,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_6__iter__(CYTHON_UNUSE
  *         return Sets(self)
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 857, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 863, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -61392,14 +61474,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_6__iter__(CYTHON_UNUSE
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_sets, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 863, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":856
+  /* "amplpy/ampl.pyx":862
  *                 self.ampl.get_set(name).set_values(values)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -61420,7 +61502,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_4_set_4Sets_6__iter__(CYTHON_UNUSE
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":841
+/* "amplpy/ampl.pyx":847
  *         return Objectives(self)
  * 
  *     def _set(self):             # <<<<<<<<<<<<<<
@@ -61441,79 +61523,79 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_76_set(struct __pyx_obj_6amplpy_4a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_set", 0);
 
-  /* "amplpy/ampl.pyx":846
+  /* "amplpy/ampl.pyx":852
  *         """
  * 
  *         class Sets(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[10]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[10]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Sets, __pyx_mstate_global->__pyx_n_u_set_locals_Sets, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Sets, __pyx_mstate_global->__pyx_n_u_set_locals_Sets, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[10]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[10]) < 0))) __PYX_ERR(0, 846, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[10]) < 0))) __PYX_ERR(0, 852, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":847
+  /* "amplpy/ampl.pyx":853
  * 
  *         class Sets(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_1__init__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 847, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_1__init__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 853, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 847, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 853, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":850
+  /* "amplpy/ampl.pyx":856
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_set(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 850, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 856, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 850, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 856, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":853
+  /* "amplpy/ampl.pyx":859
  *                 return self.ampl.get_set(name)
  * 
  *             def __setitem__(self, name, values):             # <<<<<<<<<<<<<<
  *                 self.ampl.get_set(name).set_values(values)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___setitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 853, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___setitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 859, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 853, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 859, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":856
+  /* "amplpy/ampl.pyx":862
  *                 self.ampl.get_set(name).set_values(values)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_sets()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 856, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_4_set_4Sets_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_set_locals_Sets___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 862, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 856, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 862, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":846
+  /* "amplpy/ampl.pyx":852
  *         """
  * 
  *         class Sets(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Sets, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Sets, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Sets = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -61521,7 +61603,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_76_set(struct __pyx_obj_6amplpy_4a
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":859
+  /* "amplpy/ampl.pyx":865
  *                 return self.ampl.get_sets()
  * 
  *         return Sets(self)             # <<<<<<<<<<<<<<
@@ -61529,13 +61611,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_76_set(struct __pyx_obj_6amplpy_4a
  *     def _param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Sets, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 859, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Sets, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 865, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":841
+  /* "amplpy/ampl.pyx":847
  *         return Objectives(self)
  * 
  *     def _set(self):             # <<<<<<<<<<<<<<
@@ -61558,7 +61640,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_76_set(struct __pyx_obj_6amplpy_4a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":861
+/* "amplpy/ampl.pyx":867
  *         return Sets(self)
  * 
  *     def _param(self):             # <<<<<<<<<<<<<<
@@ -61609,7 +61691,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":867
+/* "amplpy/ampl.pyx":873
  * 
  *         class Parameters(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -61657,39 +61739,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 867, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 873, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 867, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 873, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 867, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 873, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 867, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 873, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 867, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 873, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 867, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 873, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 867, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 873, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 867, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 873, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -61718,16 +61800,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters___init__(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":868
+  /* "amplpy/ampl.pyx":874
  *         class Parameters(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 868, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 874, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":867
+  /* "amplpy/ampl.pyx":873
  * 
  *         class Parameters(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -61747,7 +61829,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters___init__(CYTH
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":870
+/* "amplpy/ampl.pyx":876
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -61795,39 +61877,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 870, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 876, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 870, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 876, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 870, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 876, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 870, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 876, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 870, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 876, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 870, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 876, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 870, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 876, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 870, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 876, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -61860,7 +61942,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_2__getitem__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":871
+  /* "amplpy/ampl.pyx":877
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_parameter(name)             # <<<<<<<<<<<<<<
@@ -61868,7 +61950,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_2__getitem__(
  *             def __setitem__(self, name, value):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 871, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 877, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -61878,14 +61960,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_2__getitem__(
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_parameter, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 871, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 877, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":870
+  /* "amplpy/ampl.pyx":876
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -61906,7 +61988,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_2__getitem__(
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":873
+/* "amplpy/ampl.pyx":879
  *                 return self.ampl.get_parameter(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -61955,38 +62037,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 873, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 879, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 873, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 879, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 873, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 879, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 873, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 879, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 873, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 879, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 873, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 879, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 873, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 879, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 873, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 879, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 873, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 879, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
@@ -61994,7 +62076,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 873, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 879, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -62031,14 +62113,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 0);
 
-  /* "amplpy/ampl.pyx":874
+  /* "amplpy/ampl.pyx":880
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, (Real, str)):             # <<<<<<<<<<<<<<
  *                     self.ampl.get_parameter(name).set(value)
  *                 else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 874, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Real); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 880, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); 
   if (!__pyx_t_3) {
@@ -62052,14 +62134,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "amplpy/ampl.pyx":875
+    /* "amplpy/ampl.pyx":881
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, (Real, str)):
  *                     self.ampl.get_parameter(name).set(value)             # <<<<<<<<<<<<<<
  *                 else:
  *                     self.ampl.get_parameter(name).set_values(value)
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 875, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 881, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_6 = __pyx_t_7;
     __Pyx_INCREF(__pyx_t_6);
@@ -62069,7 +62151,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
       __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_parameter, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 875, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 881, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __pyx_t_4 = __pyx_t_5;
@@ -62080,12 +62162,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 875, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 881, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":874
+    /* "amplpy/ampl.pyx":880
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, (Real, str)):             # <<<<<<<<<<<<<<
@@ -62095,7 +62177,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":877
+  /* "amplpy/ampl.pyx":883
  *                     self.ampl.get_parameter(name).set(value)
  *                 else:
  *                     self.ampl.get_parameter(name).set_values(value)             # <<<<<<<<<<<<<<
@@ -62103,7 +62185,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
  *             def __iter__(self):
 */
   /*else*/ {
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 877, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 883, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = __pyx_t_6;
     __Pyx_INCREF(__pyx_t_7);
@@ -62113,7 +62195,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_parameter, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 877, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 883, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_t_5 = __pyx_t_4;
@@ -62124,14 +62206,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_values, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 877, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 883, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":873
+  /* "amplpy/ampl.pyx":879
  *                 return self.ampl.get_parameter(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -62156,7 +62238,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_4__setitem__(
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":879
+/* "amplpy/ampl.pyx":885
  *                     self.ampl.get_parameter(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -62203,32 +62285,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 879, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 885, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 879, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 885, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 879, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__iter__", 0) < 0) __PYX_ERR(0, 885, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 879, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, i); __PYX_ERR(0, 885, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 879, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 885, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 879, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__iter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 885, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -62261,7 +62343,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_6__iter__(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "amplpy/ampl.pyx":880
+  /* "amplpy/ampl.pyx":886
  * 
  *             def __iter__(self):
  *                 return self.ampl.get_parameters()             # <<<<<<<<<<<<<<
@@ -62269,7 +62351,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_6__iter__(CYT
  *         return Parameters(self)
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 880, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 886, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -62279,14 +62361,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_6__iter__(CYT
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_parameters, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 880, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 886, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":879
+  /* "amplpy/ampl.pyx":885
  *                     self.ampl.get_parameter(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
@@ -62307,7 +62389,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_6_param_10Parameters_6__iter__(CYT
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":861
+/* "amplpy/ampl.pyx":867
  *         return Sets(self)
  * 
  *     def _param(self):             # <<<<<<<<<<<<<<
@@ -62328,79 +62410,79 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_78_param(struct __pyx_obj_6amplpy_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_param", 0);
 
-  /* "amplpy/ampl.pyx":866
+  /* "amplpy/ampl.pyx":872
  *         """
  * 
  *         class Parameters(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[12]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[12]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Parameters, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Parameters, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[12]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[12]) < 0))) __PYX_ERR(0, 866, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[12]) < 0))) __PYX_ERR(0, 872, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":867
+  /* "amplpy/ampl.pyx":873
  * 
  *         class Parameters(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_1__init__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[35])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 867, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_1__init__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[35])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 873, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 867, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 873, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":870
+  /* "amplpy/ampl.pyx":876
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_parameter(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___getit, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 870, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___getit, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 876, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 870, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 876, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":873
+  /* "amplpy/ampl.pyx":879
  *                 return self.ampl.get_parameter(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
  *                 if isinstance(value, (Real, str)):
  *                     self.ampl.get_parameter(name).set(value)
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___setit, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[37])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 873, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___setit, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[37])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 879, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 873, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 879, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":879
+  /* "amplpy/ampl.pyx":885
  *                     self.ampl.get_parameter(name).set_values(value)
  * 
  *             def __iter__(self):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_parameters()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 879, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_6_param_10Parameters_7__iter__, 0, __pyx_mstate_global->__pyx_n_u_param_locals_Parameters___iter, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 885, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 879, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_iter, __pyx_t_4) < 0) __PYX_ERR(0, 885, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":866
+  /* "amplpy/ampl.pyx":872
  *         """
  * 
  *         class Parameters(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Parameters, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Parameters, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Parameters = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -62408,7 +62490,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_78_param(struct __pyx_obj_6amplpy_
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":882
+  /* "amplpy/ampl.pyx":888
  *                 return self.ampl.get_parameters()
  * 
  *         return Parameters(self)             # <<<<<<<<<<<<<<
@@ -62416,13 +62498,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_78_param(struct __pyx_obj_6amplpy_
  *     def _option(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Parameters, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 882, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Parameters, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":861
+  /* "amplpy/ampl.pyx":867
  *         return Sets(self)
  * 
  *     def _param(self):             # <<<<<<<<<<<<<<
@@ -62445,7 +62527,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_78_param(struct __pyx_obj_6amplpy_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":884
+/* "amplpy/ampl.pyx":890
  *         return Parameters(self)
  * 
  *     def _option(self):             # <<<<<<<<<<<<<<
@@ -62496,7 +62578,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":890
+/* "amplpy/ampl.pyx":896
  * 
  *         class Options(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -62544,39 +62626,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_ampl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 890, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 896, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 890, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 896, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 890, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 896, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 890, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 896, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 890, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 896, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 890, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 896, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 890, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 896, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_ampl = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 890, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 896, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -62605,16 +62687,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options___init__(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "amplpy/ampl.pyx":891
+  /* "amplpy/ampl.pyx":897
  *         class Options(object):
  *             def __init__(self, ampl):
  *                 self.ampl = ampl             # <<<<<<<<<<<<<<
  * 
  *             def __getitem__(self, name):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 891, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl, __pyx_v_ampl) < 0) __PYX_ERR(0, 897, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":890
+  /* "amplpy/ampl.pyx":896
  * 
  *         class Options(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
@@ -62634,7 +62716,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options___init__(CYTHON_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":893
+/* "amplpy/ampl.pyx":899
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -62682,39 +62764,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 893, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 899, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 893, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 899, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 893, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 899, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 893, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__getitem__", 0) < 0) __PYX_ERR(0, 899, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 893, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, i); __PYX_ERR(0, 899, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 893, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 899, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 893, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 899, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 893, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 899, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -62747,7 +62829,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_2__getitem__(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "amplpy/ampl.pyx":894
+  /* "amplpy/ampl.pyx":900
  * 
  *             def __getitem__(self, name):
  *                 return self.ampl.get_option(name)             # <<<<<<<<<<<<<<
@@ -62755,7 +62837,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_2__getitem__(CYT
  *             def __setitem__(self, name, value):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 894, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 900, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -62765,14 +62847,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_2__getitem__(CYT
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_option, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 894, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 900, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":893
+  /* "amplpy/ampl.pyx":899
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
@@ -62793,7 +62875,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_2__getitem__(CYT
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":896
+/* "amplpy/ampl.pyx":902
  *                 return self.ampl.get_option(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -62842,38 +62924,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 896, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 902, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 896, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 902, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 896, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 902, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 896, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 902, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 896, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__setitem__", 0) < 0) __PYX_ERR(0, 902, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 896, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, i); __PYX_ERR(0, 902, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 896, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 902, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 896, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 902, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 896, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 902, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_name = values[1];
@@ -62881,7 +62963,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 896, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 902, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -62903,7 +62985,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2generator12(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "amplpy/ampl.pyx":899
+/* "amplpy/ampl.pyx":905
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):
  *                         self.ampl.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
@@ -62923,7 +63005,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___ge
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_16_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 899, __pyx_L1_error)
+    __PYX_ERR(0, 905, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -62931,7 +63013,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___ge
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2generator12, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_option_locals_Options___setitem, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2generator12, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[39]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_option_locals_Options___setitem, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -62974,16 +63056,16 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2g
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 899, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 899, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 905, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 905, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 899, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 905, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 899, __pyx_L1_error)
+    __PYX_ERR(0, 905, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 899, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 905, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -62991,7 +63073,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2g
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 899, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -63002,17 +63084,17 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2g
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_builtins); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_builtins); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_10 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_v, __pyx_t_9); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_t_10 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_v, __pyx_t_9); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_10) {
-      __pyx_t_9 = __Pyx_PyNumber_Int(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 899, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyNumber_Int(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 905, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_5 = __pyx_t_9;
       __pyx_t_9 = 0;
@@ -63020,18 +63102,18 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2g
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_v);
       __pyx_t_5 = __pyx_cur_scope->__pyx_v_v;
     }
-    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_11[0] = __pyx_t_6;
     __pyx_t_11[1] = __pyx_mstate_global->__pyx_kp_u__16;
     __pyx_t_11[2] = __pyx_t_9;
     __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_11, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 899, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 899, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -63061,7 +63143,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___2g
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":896
+/* "amplpy/ampl.pyx":902
  *                 return self.ampl.get_option(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -63085,7 +63167,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 0);
 
-  /* "amplpy/ampl.pyx":897
+  /* "amplpy/ampl.pyx":903
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -63095,7 +63177,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
   __pyx_t_1 = PyDict_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":898
+    /* "amplpy/ampl.pyx":904
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):             # <<<<<<<<<<<<<<
@@ -63109,30 +63191,30 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_n_u_options};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_endswith, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 898, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 904, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 898, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 904, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_1) {
 
-      /* "amplpy/ampl.pyx":899
+      /* "amplpy/ampl.pyx":905
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):
  *                         self.ampl.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
  *                 else:
  *                     self.ampl.set_option(name, value)
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 899, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 905, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_3 = __pyx_t_5;
       __Pyx_INCREF(__pyx_t_3);
-      __pyx_t_6 = __pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 899, __pyx_L1_error)
+      __pyx_t_6 = __pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_11__setitem___genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 905, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_Generator_GetInlinedResult(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 899, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_Generator_GetInlinedResult(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 905, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__14, __pyx_t_7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 899, __pyx_L1_error)
+      __pyx_t_6 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__14, __pyx_t_7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 905, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_4 = 0;
@@ -63142,12 +63224,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 899, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 905, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "amplpy/ampl.pyx":898
+      /* "amplpy/ampl.pyx":904
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):             # <<<<<<<<<<<<<<
@@ -63156,7 +63238,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
 */
     }
 
-    /* "amplpy/ampl.pyx":897
+    /* "amplpy/ampl.pyx":903
  * 
  *             def __setitem__(self, name, value):
  *                 if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -63166,7 +63248,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":901
+  /* "amplpy/ampl.pyx":907
  *                         self.ampl.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))
  *                 else:
  *                     self.ampl.set_option(name, value)             # <<<<<<<<<<<<<<
@@ -63174,7 +63256,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
  *         return Options(self)
 */
   /*else*/ {
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 901, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ampl); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 907, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = __pyx_t_6;
     __Pyx_INCREF(__pyx_t_5);
@@ -63184,14 +63266,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_option, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 901, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 907, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":896
+  /* "amplpy/ampl.pyx":902
  *                 return self.ampl.get_option(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
@@ -63217,7 +63299,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_7_option_7Options_4__setitem__(CYT
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":884
+/* "amplpy/ampl.pyx":890
  *         return Parameters(self)
  * 
  *     def _option(self):             # <<<<<<<<<<<<<<
@@ -63238,67 +63320,67 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_80_option(struct __pyx_obj_6amplpy
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_option", 0);
 
-  /* "amplpy/ampl.pyx":889
+  /* "amplpy/ampl.pyx":895
  *         """
  * 
  *         class Options(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[14]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[14]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CalculateMetaclass(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Options, __pyx_mstate_global->__pyx_n_u_option_locals_Options, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3MetaclassPrepare(__pyx_t_2, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_Options, __pyx_mstate_global->__pyx_n_u_option_locals_Options, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (__pyx_t_1 != __pyx_mstate_global->__pyx_tuple[14]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[14]) < 0))) __PYX_ERR(0, 889, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_3, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[14]) < 0))) __PYX_ERR(0, 895, __pyx_L1_error)
   }
 
-  /* "amplpy/ampl.pyx":890
+  /* "amplpy/ampl.pyx":896
  * 
  *         class Options(object):
  *             def __init__(self, ampl):             # <<<<<<<<<<<<<<
  *                 self.ampl = ampl
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_1__init__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[40])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 890, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_1__init__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___init, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[40])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 896, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < 0) __PYX_ERR(0, 896, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":893
+  /* "amplpy/ampl.pyx":899
  *                 self.ampl = ampl
  * 
  *             def __getitem__(self, name):             # <<<<<<<<<<<<<<
  *                 return self.ampl.get_option(name)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[41])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 893, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_3__getitem__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___getitem, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[41])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 899, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 893, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_getitem, __pyx_t_4) < 0) __PYX_ERR(0, 899, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":896
+  /* "amplpy/ampl.pyx":902
  *                 return self.ampl.get_option(name)
  * 
  *             def __setitem__(self, name, value):             # <<<<<<<<<<<<<<
  *                 if isinstance(value, dict):
  *                     if name.endswith("_options"):
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___setitem_2, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[42])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 896, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_7_option_7Options_5__setitem__, 0, __pyx_mstate_global->__pyx_n_u_option_locals_Options___setitem_2, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[42])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 902, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 896, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_setitem, __pyx_t_4) < 0) __PYX_ERR(0, 902, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "amplpy/ampl.pyx":889
+  /* "amplpy/ampl.pyx":895
  *         """
  * 
  *         class Options(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Options, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Options, __pyx_t_1, __pyx_t_3, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_Options = __pyx_t_4;
   __pyx_t_4 = 0;
@@ -63306,7 +63388,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_80_option(struct __pyx_obj_6amplpy
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":903
+  /* "amplpy/ampl.pyx":909
  *                     self.ampl.set_option(name, value)
  * 
  *         return Options(self)             # <<<<<<<<<<<<<<
@@ -63314,13 +63396,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_80_option(struct __pyx_obj_6amplpy
  *     def _set_option(self, options_dict):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Options, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 903, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_v_Options, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 909, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":884
+  /* "amplpy/ampl.pyx":890
  *         return Parameters(self)
  * 
  *     def _option(self):             # <<<<<<<<<<<<<<
@@ -63343,7 +63425,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_80_option(struct __pyx_obj_6amplpy
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":905
+/* "amplpy/ampl.pyx":911
  *         return Options(self)
  * 
  *     def _set_option(self, options_dict):             # <<<<<<<<<<<<<<
@@ -63391,32 +63473,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_options_dict,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 905, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 911, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 905, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 911, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_set_option", 0) < 0) __PYX_ERR(0, 905, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_set_option", 0) < 0) __PYX_ERR(0, 911, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_set_option", 1, 1, 1, i); __PYX_ERR(0, 905, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_set_option", 1, 1, 1, i); __PYX_ERR(0, 911, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 905, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 911, __pyx_L3_error)
     }
     __pyx_v_options_dict = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_set_option", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 905, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_set_option", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 911, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -63438,7 +63520,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "amplpy/ampl.pyx":909
+/* "amplpy/ampl.pyx":915
  *             if isinstance(value, dict):
  *                 if name.endswith("_options"):
  *                     self.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
@@ -63458,7 +63540,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_11_set_option_genexpr(CYTHON_UNUSE
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_17_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 909, __pyx_L1_error)
+    __PYX_ERR(0, 915, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -63466,7 +63548,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_11_set_option_genexpr(CYTHON_UNUSE
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_set_option_locals_genexpr, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 909, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_set_option_locals_genexpr, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -63509,16 +63591,16 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_C
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 909, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 909, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 915, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 915, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 909, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 915, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 909, __pyx_L1_error)
+    __PYX_ERR(0, 915, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 909, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 915, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -63526,7 +63608,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_C
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 909, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_k);
@@ -63537,17 +63619,17 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_C
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_v, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 909, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_builtins); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 909, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_builtins); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 909, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_10 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_v, __pyx_t_9); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 909, __pyx_L1_error)
+    __pyx_t_10 = PyObject_IsInstance(__pyx_cur_scope->__pyx_v_v, __pyx_t_9); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (__pyx_t_10) {
-      __pyx_t_9 = __Pyx_PyNumber_Int(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 909, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyNumber_Int(__pyx_cur_scope->__pyx_v_v); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 915, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_5 = __pyx_t_9;
       __pyx_t_9 = 0;
@@ -63555,18 +63637,18 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_C
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_v);
       __pyx_t_5 = __pyx_cur_scope->__pyx_v_v;
     }
-    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 909, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_11[0] = __pyx_t_6;
     __pyx_t_11[1] = __pyx_mstate_global->__pyx_kp_u__16;
     __pyx_t_11[2] = __pyx_t_9;
     __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_11, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 909, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 909, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 915, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -63596,7 +63678,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_11_set_option_2generator13(__pyx_C
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":905
+/* "amplpy/ampl.pyx":911
  *         return Options(self)
  * 
  *     def _set_option(self, options_dict):             # <<<<<<<<<<<<<<
@@ -63626,7 +63708,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_set_option", 0);
 
-  /* "amplpy/ampl.pyx":906
+  /* "amplpy/ampl.pyx":912
  * 
  *     def _set_option(self, options_dict):
  *         for name, value in options_dict.items():             # <<<<<<<<<<<<<<
@@ -63636,9 +63718,9 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
   __pyx_t_2 = 0;
   if (unlikely(__pyx_v_options_dict == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 906, __pyx_L1_error)
+    __PYX_ERR(0, 912, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_options_dict, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 906, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_options_dict, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 912, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -63646,7 +63728,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 906, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 912, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_name, __pyx_t_5);
@@ -63654,7 +63736,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "amplpy/ampl.pyx":907
+    /* "amplpy/ampl.pyx":913
  *     def _set_option(self, options_dict):
  *         for name, value in options_dict.items():
  *             if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -63664,7 +63746,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
     __pyx_t_8 = PyDict_Check(__pyx_v_value); 
     if (__pyx_t_8) {
 
-      /* "amplpy/ampl.pyx":908
+      /* "amplpy/ampl.pyx":914
  *         for name, value in options_dict.items():
  *             if isinstance(value, dict):
  *                 if name.endswith("_options"):             # <<<<<<<<<<<<<<
@@ -63678,14 +63760,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_options};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_endswith, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 908, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 914, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 908, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 914, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (__pyx_t_8) {
 
-        /* "amplpy/ampl.pyx":909
+        /* "amplpy/ampl.pyx":915
  *             if isinstance(value, dict):
  *                 if name.endswith("_options"):
  *                     self.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))             # <<<<<<<<<<<<<<
@@ -63694,12 +63776,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
 */
         __pyx_t_5 = ((PyObject *)__pyx_v_self);
         __Pyx_INCREF(__pyx_t_5);
-        __pyx_t_10 = __pyx_pf_6amplpy_4ampl_4AMPL_11_set_option_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 909, __pyx_L1_error)
+        __pyx_t_10 = __pyx_pf_6amplpy_4ampl_4AMPL_11_set_option_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 915, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_11 = __Pyx_Generator_GetInlinedResult(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 909, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_Generator_GetInlinedResult(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 915, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__14, __pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 909, __pyx_L1_error)
+        __pyx_t_10 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__14, __pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 915, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __pyx_t_9 = 0;
@@ -63708,12 +63790,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
           __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_option, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 909, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 915, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":908
+        /* "amplpy/ampl.pyx":914
  *         for name, value in options_dict.items():
  *             if isinstance(value, dict):
  *                 if name.endswith("_options"):             # <<<<<<<<<<<<<<
@@ -63722,7 +63804,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
 */
       }
 
-      /* "amplpy/ampl.pyx":907
+      /* "amplpy/ampl.pyx":913
  *     def _set_option(self, options_dict):
  *         for name, value in options_dict.items():
  *             if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -63732,7 +63814,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
       goto __pyx_L5;
     }
 
-    /* "amplpy/ampl.pyx":911
+    /* "amplpy/ampl.pyx":917
  *                     self.set_option(name, " ".join(f"{k}={int(v) if isinstance(v, builtins.bool) else v}" for k, v in value.items()))
  *             else:
  *                 self.set_option(name, value)             # <<<<<<<<<<<<<<
@@ -63747,7 +63829,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
         PyObject *__pyx_callargs[3] = {__pyx_t_10, __pyx_v_name, __pyx_v_value};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_set_option, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 911, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 917, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -63756,7 +63838,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":905
+  /* "amplpy/ampl.pyx":911
  *         return Options(self)
  * 
  *     def _set_option(self, options_dict):             # <<<<<<<<<<<<<<
@@ -63784,7 +63866,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_82_set_option(struct __pyx_obj_6am
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":920
+/* "amplpy/ampl.pyx":926
  *     option = property(_option, _set_option)
  * 
  *     def export_model(self, filename=""):             # <<<<<<<<<<<<<<
@@ -63832,24 +63914,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 920, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 926, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 926, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "export_model", 0) < 0) __PYX_ERR(0, 920, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "export_model", 0) < 0) __PYX_ERR(0, 926, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_kp_u__3));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 920, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 926, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -63860,7 +63942,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("export_model", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 920, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("export_model", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 926, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -63898,7 +63980,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("export_model", 0);
 
-  /* "amplpy/ampl.pyx":930
+  /* "amplpy/ampl.pyx":936
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 1, 0, 0, &output_c)             # <<<<<<<<<<<<<<
@@ -63912,14 +63994,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 930, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 936, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 930, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 936, __pyx_L1_error)
   __pyx_v_errorinfo = AMPL_Snapshot(__pyx_v_self->_c_ampl, __pyx_t_4, 1, 0, 0, (&__pyx_v_output_c));
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":931
+  /* "amplpy/ampl.pyx":937
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 1, 0, 0, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -63929,16 +64011,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
   __pyx_t_5 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_5) {
 
-    /* "amplpy/ampl.pyx":932
+    /* "amplpy/ampl.pyx":938
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 1, 0, 0, &output_c)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 932, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 938, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":931
+    /* "amplpy/ampl.pyx":937
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 1, 0, 0, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -63947,20 +64029,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
 */
   }
 
-  /* "amplpy/ampl.pyx":933
+  /* "amplpy/ampl.pyx":939
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         campl.AMPL_StringFree(&output_c)
  * 
 */
-  __pyx_t_6 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 933, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_6, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 933, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 939, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_6, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 939, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_output = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":934
+  /* "amplpy/ampl.pyx":940
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)             # <<<<<<<<<<<<<<
@@ -63969,7 +64051,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
 */
   (void)(AMPL_StringFree((&__pyx_v_output_c)));
 
-  /* "amplpy/ampl.pyx":936
+  /* "amplpy/ampl.pyx":942
  *         campl.AMPL_StringFree(&output_c)
  * 
  *         return output             # <<<<<<<<<<<<<<
@@ -63981,7 +64063,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
   __pyx_r = __pyx_v_output;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":920
+  /* "amplpy/ampl.pyx":926
  *     option = property(_option, _set_option)
  * 
  *     def export_model(self, filename=""):             # <<<<<<<<<<<<<<
@@ -64002,7 +64084,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_84export_model(struct __pyx_obj_6a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":938
+/* "amplpy/ampl.pyx":944
  *         return output
  * 
  *     def export_data(self, filename=""):             # <<<<<<<<<<<<<<
@@ -64050,24 +64132,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 938, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 944, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 938, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 944, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "export_data", 0) < 0) __PYX_ERR(0, 938, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "export_data", 0) < 0) __PYX_ERR(0, 944, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_kp_u__3));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 938, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 944, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -64078,7 +64160,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("export_data", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 938, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("export_data", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 944, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -64116,7 +64198,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("export_data", 0);
 
-  /* "amplpy/ampl.pyx":948
+  /* "amplpy/ampl.pyx":954
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 0, 1, 0, &output_c)             # <<<<<<<<<<<<<<
@@ -64130,14 +64212,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 948, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 954, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 948, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 954, __pyx_L1_error)
   __pyx_v_errorinfo = AMPL_Snapshot(__pyx_v_self->_c_ampl, __pyx_t_4, 0, 1, 0, (&__pyx_v_output_c));
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":949
+  /* "amplpy/ampl.pyx":955
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 0, 1, 0, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -64147,16 +64229,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
   __pyx_t_5 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_5) {
 
-    /* "amplpy/ampl.pyx":950
+    /* "amplpy/ampl.pyx":956
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 0, 1, 0, &output_c)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 950, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 956, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":949
+    /* "amplpy/ampl.pyx":955
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), 0, 1, 0, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -64165,20 +64247,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
 */
   }
 
-  /* "amplpy/ampl.pyx":951
+  /* "amplpy/ampl.pyx":957
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         campl.AMPL_StringFree(&output_c)
  * 
 */
-  __pyx_t_6 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 951, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_6, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 951, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 957, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_6, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 957, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_output = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":952
+  /* "amplpy/ampl.pyx":958
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)             # <<<<<<<<<<<<<<
@@ -64187,7 +64269,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
 */
   (void)(AMPL_StringFree((&__pyx_v_output_c)));
 
-  /* "amplpy/ampl.pyx":954
+  /* "amplpy/ampl.pyx":960
  *         campl.AMPL_StringFree(&output_c)
  * 
  *         return output             # <<<<<<<<<<<<<<
@@ -64199,7 +64281,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
   __pyx_r = __pyx_v_output;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":938
+  /* "amplpy/ampl.pyx":944
  *         return output
  * 
  *     def export_data(self, filename=""):             # <<<<<<<<<<<<<<
@@ -64220,7 +64302,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_86export_data(struct __pyx_obj_6am
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":956
+/* "amplpy/ampl.pyx":962
  *         return output
  * 
  *     def snapshot(self, filename="", model=True, data=True, options=True):             # <<<<<<<<<<<<<<
@@ -64271,30 +64353,30 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,&__pyx_mstate_global->__pyx_n_u_model,&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_options_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 956, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 962, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "snapshot", 0) < 0) __PYX_ERR(0, 956, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "snapshot", 0) < 0) __PYX_ERR(0, 962, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_kp_u__3));
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_True));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_True));
@@ -64303,19 +64385,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 956, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 962, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -64332,7 +64414,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("snapshot", 0, 0, 4, __pyx_nargs); __PYX_ERR(0, 956, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("snapshot", 0, 0, 4, __pyx_nargs); __PYX_ERR(0, 962, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -64374,37 +64456,37 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("snapshot", 0);
 
-  /* "amplpy/ampl.pyx":971
+  /* "amplpy/ampl.pyx":977
  *         """
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef int model_c = model             # <<<<<<<<<<<<<<
  *         cdef int data_c = data
  *         cdef int options_c = options
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_model); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 971, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_model); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 977, __pyx_L1_error)
   __pyx_v_model_c = __pyx_t_1;
 
-  /* "amplpy/ampl.pyx":972
+  /* "amplpy/ampl.pyx":978
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef int model_c = model
  *         cdef int data_c = data             # <<<<<<<<<<<<<<
  *         cdef int options_c = options
  *         cdef char* output_c
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_data); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 972, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_data); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 978, __pyx_L1_error)
   __pyx_v_data_c = __pyx_t_1;
 
-  /* "amplpy/ampl.pyx":973
+  /* "amplpy/ampl.pyx":979
  *         cdef int model_c = model
  *         cdef int data_c = data
  *         cdef int options_c = options             # <<<<<<<<<<<<<<
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), model_c, data_c, options_c, &output_c)
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_options); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 973, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_options); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 979, __pyx_L1_error)
   __pyx_v_options_c = __pyx_t_1;
 
-  /* "amplpy/ampl.pyx":975
+  /* "amplpy/ampl.pyx":981
  *         cdef int options_c = options
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), model_c, data_c, options_c, &output_c)             # <<<<<<<<<<<<<<
@@ -64418,14 +64500,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 975, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 981, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_5 = __Pyx_PyObject_AsString(__pyx_t_2); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 975, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_AsString(__pyx_t_2); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 981, __pyx_L1_error)
   __pyx_v_errorinfo = AMPL_Snapshot(__pyx_v_self->_c_ampl, __pyx_t_5, __pyx_v_model_c, __pyx_v_data_c, __pyx_v_options_c, (&__pyx_v_output_c));
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":976
+  /* "amplpy/ampl.pyx":982
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), model_c, data_c, options_c, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -64435,16 +64517,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
   __pyx_t_6 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_6) {
 
-    /* "amplpy/ampl.pyx":977
+    /* "amplpy/ampl.pyx":983
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), model_c, data_c, options_c, &output_c)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 977, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 983, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":976
+    /* "amplpy/ampl.pyx":982
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_Snapshot(self._c_ampl, filename.encode('utf-8'), model_c, data_c, options_c, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -64453,20 +64535,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
 */
   }
 
-  /* "amplpy/ampl.pyx":978
+  /* "amplpy/ampl.pyx":984
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         campl.AMPL_StringFree(&output_c)
  * 
 */
-  __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 978, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 978, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 984, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 984, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_output = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":979
+  /* "amplpy/ampl.pyx":985
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)             # <<<<<<<<<<<<<<
@@ -64475,7 +64557,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
 */
   (void)(AMPL_StringFree((&__pyx_v_output_c)));
 
-  /* "amplpy/ampl.pyx":981
+  /* "amplpy/ampl.pyx":987
  *         campl.AMPL_StringFree(&output_c)
  * 
  *         return output             # <<<<<<<<<<<<<<
@@ -64487,7 +64569,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
   __pyx_r = __pyx_v_output;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":956
+  /* "amplpy/ampl.pyx":962
  *         return output
  * 
  *     def snapshot(self, filename="", model=True, data=True, options=True):             # <<<<<<<<<<<<<<
@@ -64508,7 +64590,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_88snapshot(struct __pyx_obj_6amplp
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":983
+/* "amplpy/ampl.pyx":989
  *         return output
  * 
  *     def write(self, filename, auxfiles=""):             # <<<<<<<<<<<<<<
@@ -64557,35 +64639,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,&__pyx_mstate_global->__pyx_n_u_auxfiles,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 983, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 989, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 983, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 989, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 983, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 989, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "write", 0) < 0) __PYX_ERR(0, 983, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "write", 0) < 0) __PYX_ERR(0, 989, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_kp_u__3));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("write", 0, 1, 2, i); __PYX_ERR(0, 983, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("write", 0, 1, 2, i); __PYX_ERR(0, 989, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 983, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 989, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 983, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 989, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -64596,7 +64678,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("write", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 983, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("write", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 989, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -64631,7 +64713,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_90write(struct __pyx_obj_6amplpy_4
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("write", 0);
 
-  /* "amplpy/ampl.pyx":992
+  /* "amplpy/ampl.pyx":998
  *             auxfiles: auxfiles to export.
  *         """
  *         PY_AMPL_CALL(campl.AMPL_Write(self._c_ampl, filename.encode('utf-8'), auxfiles.encode('utf-8')))             # <<<<<<<<<<<<<<
@@ -64645,10 +64727,10 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_90write(struct __pyx_obj_6amplpy_4
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 992, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 998, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 992, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 998, __pyx_L1_error)
   __pyx_t_5 = __pyx_v_auxfiles;
   __Pyx_INCREF(__pyx_t_5);
   __pyx_t_3 = 0;
@@ -64656,15 +64738,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_90write(struct __pyx_obj_6amplpy_4
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 992, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 998, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_t_2); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 992, __pyx_L1_error)
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_Write(__pyx_v_self->_c_ampl, __pyx_t_4, __pyx_t_6)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 992, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_t_2); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 998, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_Write(__pyx_v_self->_c_ampl, __pyx_t_4, __pyx_t_6)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 998, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":983
+  /* "amplpy/ampl.pyx":989
  *         return output
  * 
  *     def write(self, filename, auxfiles=""):             # <<<<<<<<<<<<<<
@@ -64687,7 +64769,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_90write(struct __pyx_obj_6amplpy_4
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":994
+/* "amplpy/ampl.pyx":1000
  *         PY_AMPL_CALL(campl.AMPL_Write(self._c_ampl, filename.encode('utf-8'), auxfiles.encode('utf-8')))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -64721,7 +64803,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_12solve_result___get__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "amplpy/ampl.pyx":1017
+  /* "amplpy/ampl.pyx":1023
  *         +---------+-----------+---------------------------------------------+
  *         """
  *         return self.get_value("solve_result")             # <<<<<<<<<<<<<<
@@ -64736,14 +64818,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_12solve_result___get__(struct __py
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_solve_result};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_value, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1017, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1023, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":994
+  /* "amplpy/ampl.pyx":1000
  *         PY_AMPL_CALL(campl.AMPL_Write(self._c_ampl, filename.encode('utf-8'), auxfiles.encode('utf-8')))
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -64763,7 +64845,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_12solve_result___get__(struct __py
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1019
+/* "amplpy/ampl.pyx":1025
  *         return self.get_value("solve_result")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -64797,7 +64879,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_16solve_result_num___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "amplpy/ampl.pyx":1042
+  /* "amplpy/ampl.pyx":1048
  *         +---------+-----------+---------------------------------------------+
  *         """
  *         return self.get_value("solve_result_num")             # <<<<<<<<<<<<<<
@@ -64812,14 +64894,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_16solve_result_num___get__(struct 
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_solve_result_num};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_value, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1042, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1048, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":1019
+  /* "amplpy/ampl.pyx":1025
  *         return self.get_value("solve_result")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -64839,7 +64921,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_16solve_result_num___get__(struct 
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1044
+/* "amplpy/ampl.pyx":1050
  *         return self.get_value("solve_result_num")
  * 
  *     def get_iis(self, flat=True):             # <<<<<<<<<<<<<<
@@ -64887,24 +64969,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_flat,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1044, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1050, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1044, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1050, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_iis", 0) < 0) __PYX_ERR(0, 1044, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_iis", 0) < 0) __PYX_ERR(0, 1050, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_True));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1044, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1050, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -64915,7 +64997,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_iis", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1044, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_iis", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1050, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -64952,7 +65034,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_iis", 0);
 
-  /* "amplpy/ampl.pyx":1074
+  /* "amplpy/ampl.pyx":1080
  *                 print(var_iis, con_iis)
  *         """
  *         iis_var = self.get_data(             # <<<<<<<<<<<<<<
@@ -64966,13 +65048,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_i_in_1__nvars__var_i_iis_non__v};
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_data, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1074, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1080, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "amplpy/ampl.pyx":1076
+  /* "amplpy/ampl.pyx":1082
  *         iis_var = self.get_data(
  *             "{i in 1.._nvars: _var[i].iis != 'non'} (_varname[i], _var[i].iis)"
  *         ).to_list(skip_index=True)             # <<<<<<<<<<<<<<
@@ -64982,20 +65064,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1076, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1082, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1076, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_4, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1082, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_to_list, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1076, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1082, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_iis_var = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":1077
+  /* "amplpy/ampl.pyx":1083
  *             "{i in 1.._nvars: _var[i].iis != 'non'} (_varname[i], _var[i].iis)"
  *         ).to_list(skip_index=True)
  *         iis_con = self.get_data(             # <<<<<<<<<<<<<<
@@ -65009,13 +65091,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_i_in_1__ncons__con_i_iis_non__c};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_data, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1077, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1083, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_3 = __pyx_t_4;
   __Pyx_INCREF(__pyx_t_3);
 
-  /* "amplpy/ampl.pyx":1079
+  /* "amplpy/ampl.pyx":1085
  *         iis_con = self.get_data(
  *             "{i in 1.._ncons: _con[i].iis != 'non'} (_conname[i], _con[i].iis)"
  *         ).to_list(skip_index=True)             # <<<<<<<<<<<<<<
@@ -65025,20 +65107,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1079, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1085, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_2, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1079, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_2, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1085, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_to_list, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1079, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1085, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_iis_con = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":1080
+  /* "amplpy/ampl.pyx":1086
  *             "{i in 1.._ncons: _con[i].iis != 'non'} (_conname[i], _con[i].iis)"
  *         ).to_list(skip_index=True)
  *         if flat is False:             # <<<<<<<<<<<<<<
@@ -65048,7 +65130,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   __pyx_t_6 = (__pyx_v_flat == Py_False);
   if (__pyx_t_6) {
 
-    /* "amplpy/ampl.pyx":1081
+    /* "amplpy/ampl.pyx":1087
  *         ).to_list(skip_index=True)
  *         if flat is False:
  *             iis_var = nested_dict_of_suffixes(iis_var)             # <<<<<<<<<<<<<<
@@ -65056,7 +65138,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
  *         else:
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1081, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1087, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -65075,13 +65157,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1081, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1087, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_iis_var, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":1082
+    /* "amplpy/ampl.pyx":1088
  *         if flat is False:
  *             iis_var = nested_dict_of_suffixes(iis_var)
  *             iis_con = nested_dict_of_suffixes(iis_con)             # <<<<<<<<<<<<<<
@@ -65089,7 +65171,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
  *             iis_var = dict(iis_var)
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1082, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1088, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -65108,13 +65190,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1082, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1088, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_iis_con, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":1080
+    /* "amplpy/ampl.pyx":1086
  *             "{i in 1.._ncons: _con[i].iis != 'non'} (_conname[i], _con[i].iis)"
  *         ).to_list(skip_index=True)
  *         if flat is False:             # <<<<<<<<<<<<<<
@@ -65124,7 +65206,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":1084
+  /* "amplpy/ampl.pyx":1090
  *             iis_con = nested_dict_of_suffixes(iis_con)
  *         else:
  *             iis_var = dict(iis_var)             # <<<<<<<<<<<<<<
@@ -65141,13 +65223,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1084, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1090, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_iis_var, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "amplpy/ampl.pyx":1085
+    /* "amplpy/ampl.pyx":1091
  *         else:
  *             iis_var = dict(iis_var)
  *             iis_con = dict(iis_con)             # <<<<<<<<<<<<<<
@@ -65163,7 +65245,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1085, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1091, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_iis_con, __pyx_t_1);
@@ -65171,7 +65253,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":1086
+  /* "amplpy/ampl.pyx":1092
  *             iis_var = dict(iis_var)
  *             iis_con = dict(iis_con)
  *         return iis_var, iis_con             # <<<<<<<<<<<<<<
@@ -65179,19 +65261,19 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
  *     def get_solution(self, flat=True, zeros=False):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1086, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1092, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_iis_var);
   __Pyx_GIVEREF(__pyx_v_iis_var);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_iis_var) != (0)) __PYX_ERR(0, 1086, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_iis_var) != (0)) __PYX_ERR(0, 1092, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_iis_con);
   __Pyx_GIVEREF(__pyx_v_iis_con);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_iis_con) != (0)) __PYX_ERR(0, 1086, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_iis_con) != (0)) __PYX_ERR(0, 1092, __pyx_L1_error);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":1044
+  /* "amplpy/ampl.pyx":1050
  *         return self.get_value("solve_result_num")
  * 
  *     def get_iis(self, flat=True):             # <<<<<<<<<<<<<<
@@ -65215,7 +65297,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_92get_iis(struct __pyx_obj_6amplpy
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1088
+/* "amplpy/ampl.pyx":1094
  *         return iis_var, iis_con
  * 
  *     def get_solution(self, flat=True, zeros=False):             # <<<<<<<<<<<<<<
@@ -65264,33 +65346,33 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_flat,&__pyx_mstate_global->__pyx_n_u_zeros,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1088, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1094, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1088, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1088, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_solution", 0) < 0) __PYX_ERR(0, 1088, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_solution", 0) < 0) __PYX_ERR(0, 1094, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_True));
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_False));
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1088, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1088, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -65303,7 +65385,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_solution", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 1088, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_solution", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 1094, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -65340,17 +65422,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_solution", 0);
 
-  /* "amplpy/ampl.pyx":1108
+  /* "amplpy/ampl.pyx":1114
  *                 print(ampl.get_solution())
  *         """
  *         if zeros:             # <<<<<<<<<<<<<<
  *             stmt = "{i in 1.._nvars} (_varname[i], _var[i].val)"
  *         else:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_zeros); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1108, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_zeros); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1114, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1109
+    /* "amplpy/ampl.pyx":1115
  *         """
  *         if zeros:
  *             stmt = "{i in 1.._nvars} (_varname[i], _var[i].val)"             # <<<<<<<<<<<<<<
@@ -65360,7 +65442,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_i_in_1__nvars__varname_i__var_i);
     __pyx_v_stmt = __pyx_mstate_global->__pyx_kp_u_i_in_1__nvars__varname_i__var_i;
 
-    /* "amplpy/ampl.pyx":1108
+    /* "amplpy/ampl.pyx":1114
  *                 print(ampl.get_solution())
  *         """
  *         if zeros:             # <<<<<<<<<<<<<<
@@ -65370,7 +65452,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
     goto __pyx_L3;
   }
 
-  /* "amplpy/ampl.pyx":1111
+  /* "amplpy/ampl.pyx":1117
  *             stmt = "{i in 1.._nvars} (_varname[i], _var[i].val)"
  *         else:
  *             stmt = "{i in 1.._nvars: _var[i].val != 0} (_varname[i], _var[i].val)"             # <<<<<<<<<<<<<<
@@ -65383,7 +65465,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
   }
   __pyx_L3:;
 
-  /* "amplpy/ampl.pyx":1112
+  /* "amplpy/ampl.pyx":1118
  *         else:
  *             stmt = "{i in 1.._nvars: _var[i].val != 0} (_varname[i], _var[i].val)"
  *         lst_solution = self.get_data(stmt).to_list(skip_index=True)             # <<<<<<<<<<<<<<
@@ -65397,7 +65479,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_stmt};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_data, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1112, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_3 = __pyx_t_4;
@@ -65405,30 +65487,30 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
   __pyx_t_6 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1112, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_5, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1112, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skip_index, Py_True, __pyx_t_5, __pyx_callargs+1, 0) < 0) __PYX_ERR(0, 1118, __pyx_L1_error)
     __pyx_t_2 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_to_list, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1112, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_lst_solution = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":1113
+  /* "amplpy/ampl.pyx":1119
  *             stmt = "{i in 1.._nvars: _var[i].val != 0} (_varname[i], _var[i].val)"
  *         lst_solution = self.get_data(stmt).to_list(skip_index=True)
  *         if flat:             # <<<<<<<<<<<<<<
  *             return dict(lst_solution)
  *         return nested_dict_of_suffixes(lst_solution)
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_flat); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1113, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_flat); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1119, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1114
+    /* "amplpy/ampl.pyx":1120
  *         lst_solution = self.get_data(stmt).to_list(skip_index=True)
  *         if flat:
  *             return dict(lst_solution)             # <<<<<<<<<<<<<<
@@ -65445,14 +65527,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1114, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1113
+    /* "amplpy/ampl.pyx":1119
  *             stmt = "{i in 1.._nvars: _var[i].val != 0} (_varname[i], _var[i].val)"
  *         lst_solution = self.get_data(stmt).to_list(skip_index=True)
  *         if flat:             # <<<<<<<<<<<<<<
@@ -65461,7 +65543,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
 */
   }
 
-  /* "amplpy/ampl.pyx":1115
+  /* "amplpy/ampl.pyx":1121
  *         if flat:
  *             return dict(lst_solution)
  *         return nested_dict_of_suffixes(lst_solution)             # <<<<<<<<<<<<<<
@@ -65470,7 +65552,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1115, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nested_dict_of_suffixes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -65489,14 +65571,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1115, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":1088
+  /* "amplpy/ampl.pyx":1094
  *         return iis_var, iis_con
  * 
  *     def get_solution(self, flat=True, zeros=False):             # <<<<<<<<<<<<<<
@@ -65520,7 +65602,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_94get_solution(struct __pyx_obj_6a
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1117
+/* "amplpy/ampl.pyx":1123
  *         return nested_dict_of_suffixes(lst_solution)
  * 
  *     def _start_recording(self, filename):             # <<<<<<<<<<<<<<
@@ -65568,32 +65650,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1117, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1123, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1117, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1123, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_start_recording", 0) < 0) __PYX_ERR(0, 1117, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_start_recording", 0) < 0) __PYX_ERR(0, 1123, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_start_recording", 1, 1, 1, i); __PYX_ERR(0, 1117, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_start_recording", 1, 1, 1, i); __PYX_ERR(0, 1123, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1117, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1123, __pyx_L3_error)
     }
     __pyx_v_filename = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_start_recording", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1117, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_start_recording", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1123, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -65627,19 +65709,19 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_96_start_recording(struct __pyx_ob
   __Pyx_RefNannySetupContext("_start_recording", 0);
   __Pyx_INCREF(__pyx_v_filename);
 
-  /* "amplpy/ampl.pyx":1121
+  /* "amplpy/ampl.pyx":1127
  *         Start recording the session to a file for debug purposes.
  *         """
  *         filename = str(filename)             # <<<<<<<<<<<<<<
  *         PY_AMPL_CALL(campl.AMPL_SetOption(self._c_ampl, "_log_file_name", filename.encode('utf-8')))
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log_input_only", 1))
 */
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_filename); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1121, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_filename); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_filename, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":1122
+  /* "amplpy/ampl.pyx":1128
  *         """
  *         filename = str(filename)
  *         PY_AMPL_CALL(campl.AMPL_SetOption(self._c_ampl, "_log_file_name", filename.encode('utf-8')))             # <<<<<<<<<<<<<<
@@ -65653,32 +65735,32 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_96_start_recording(struct __pyx_ob
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1122, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 1122, __pyx_L1_error)
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetOption(__pyx_v_self->_c_ampl, ((char const *)"_log_file_name"), __pyx_t_4)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1122, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_t_1); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 1128, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetOption(__pyx_v_self->_c_ampl, ((char const *)"_log_file_name"), __pyx_t_4)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1128, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":1123
+  /* "amplpy/ampl.pyx":1129
  *         filename = str(filename)
  *         PY_AMPL_CALL(campl.AMPL_SetOption(self._c_ampl, "_log_file_name", filename.encode('utf-8')))
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log_input_only", 1))             # <<<<<<<<<<<<<<
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 1))
  * 
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log_input_only"), 1.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1123, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log_input_only"), 1.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1129, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":1124
+  /* "amplpy/ampl.pyx":1130
  *         PY_AMPL_CALL(campl.AMPL_SetOption(self._c_ampl, "_log_file_name", filename.encode('utf-8')))
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log_input_only", 1))
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 1))             # <<<<<<<<<<<<<<
  * 
  *     def _stop_recording(self):
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log"), 1.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1124, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log"), 1.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1130, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":1117
+  /* "amplpy/ampl.pyx":1123
  *         return nested_dict_of_suffixes(lst_solution)
  * 
  *     def _start_recording(self, filename):             # <<<<<<<<<<<<<<
@@ -65701,7 +65783,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_96_start_recording(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1126
+/* "amplpy/ampl.pyx":1132
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 1))
  * 
  *     def _stop_recording(self):             # <<<<<<<<<<<<<<
@@ -65760,16 +65842,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_98_stop_recording(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_stop_recording", 0);
 
-  /* "amplpy/ampl.pyx":1130
+  /* "amplpy/ampl.pyx":1136
  *         Stop recording the session.
  *         """
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 0))             # <<<<<<<<<<<<<<
  * 
  *     def _load_session(self, filename):
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log"), 0.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1130, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_SetDblOption(__pyx_v_self->_c_ampl, ((char const *)"_log"), 0.0)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1136, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":1126
+  /* "amplpy/ampl.pyx":1132
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 1))
  * 
  *     def _stop_recording(self):             # <<<<<<<<<<<<<<
@@ -65789,7 +65871,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_98_stop_recording(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1132
+/* "amplpy/ampl.pyx":1138
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 0))
  * 
  *     def _load_session(self, filename):             # <<<<<<<<<<<<<<
@@ -65837,32 +65919,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filename,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1132, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1138, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1132, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1138, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_load_session", 0) < 0) __PYX_ERR(0, 1132, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_load_session", 0) < 0) __PYX_ERR(0, 1138, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_load_session", 1, 1, 1, i); __PYX_ERR(0, 1132, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_load_session", 1, 1, 1, i); __PYX_ERR(0, 1138, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1132, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1138, __pyx_L3_error)
     }
     __pyx_v_filename = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_load_session", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1132, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_load_session", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1138, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -65913,19 +65995,19 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
   __Pyx_RefNannySetupContext("_load_session", 0);
   __Pyx_INCREF(__pyx_v_filename);
 
-  /* "amplpy/ampl.pyx":1136
+  /* "amplpy/ampl.pyx":1142
  *         Load a recorded session.
  *         """
  *         filename = str(filename)             # <<<<<<<<<<<<<<
  *         try:
  *             self.eval(open(filename).read())
 */
-  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_filename); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1136, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_filename); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_filename, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/ampl.pyx":1137
+  /* "amplpy/ampl.pyx":1143
  *         """
  *         filename = str(filename)
  *         try:             # <<<<<<<<<<<<<<
@@ -65941,7 +66023,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "amplpy/ampl.pyx":1138
+      /* "amplpy/ampl.pyx":1144
  *         filename = str(filename)
  *         try:
  *             self.eval(open(filename).read())             # <<<<<<<<<<<<<<
@@ -65959,7 +66041,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
         __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1138, __pyx_L3_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1144, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_8);
       }
       __pyx_t_7 = __pyx_t_8;
@@ -65970,7 +66052,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_read, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1138, __pyx_L3_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1144, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __pyx_t_11 = 0;
@@ -65979,12 +66061,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1138, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1144, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "amplpy/ampl.pyx":1137
+      /* "amplpy/ampl.pyx":1143
  *         """
  *         filename = str(filename)
  *         try:             # <<<<<<<<<<<<<<
@@ -66005,7 +66087,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "amplpy/ampl.pyx":1139
+    /* "amplpy/ampl.pyx":1145
  *         try:
  *             self.eval(open(filename).read())
  *         except RuntimeError as exp:             # <<<<<<<<<<<<<<
@@ -66015,7 +66097,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
     __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_RuntimeError);
     if (__pyx_t_12) {
       __Pyx_AddTraceback("amplpy.ampl.AMPL._load_session", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 1139, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 1145, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
@@ -66023,7 +66105,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
       __pyx_v_exp = __pyx_t_6;
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1140
+        /* "amplpy/ampl.pyx":1146
  *             self.eval(open(filename).read())
  *         except RuntimeError as exp:
  *             print(exp)             # <<<<<<<<<<<<<<
@@ -66039,13 +66121,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
           __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_11, (2-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1140, __pyx_L14_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1146, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_8);
         }
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       }
 
-      /* "amplpy/ampl.pyx":1139
+      /* "amplpy/ampl.pyx":1145
  *         try:
  *             self.eval(open(filename).read())
  *         except RuntimeError as exp:             # <<<<<<<<<<<<<<
@@ -66099,7 +66181,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
     }
     goto __pyx_L5_except_error;
 
-    /* "amplpy/ampl.pyx":1137
+    /* "amplpy/ampl.pyx":1143
  *         """
  *         filename = str(filename)
  *         try:             # <<<<<<<<<<<<<<
@@ -66120,7 +66202,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
     __pyx_L8_try_end:;
   }
 
-  /* "amplpy/ampl.pyx":1132
+  /* "amplpy/ampl.pyx":1138
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 0))
  * 
  *     def _load_session(self, filename):             # <<<<<<<<<<<<<<
@@ -66149,7 +66231,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_100_load_session(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1142
+/* "amplpy/ampl.pyx":1148
  *             print(exp)
  * 
  *     def to_ampls(self, driver, options=None):             # <<<<<<<<<<<<<<
@@ -66198,35 +66280,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_driver,&__pyx_mstate_global->__pyx_n_u_options_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1142, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1148, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1142, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1148, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1142, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1148, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_ampls", 0) < 0) __PYX_ERR(0, 1142, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_ampls", 0) < 0) __PYX_ERR(0, 1148, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_ampls", 0, 1, 2, i); __PYX_ERR(0, 1142, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_ampls", 0, 1, 2, i); __PYX_ERR(0, 1148, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1142, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1148, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1142, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1148, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -66237,7 +66319,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_ampls", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1142, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_ampls", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1148, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -66286,17 +66368,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_ampls", 0);
 
-  /* "amplpy/ampl.pyx":1143
+  /* "amplpy/ampl.pyx":1149
  * 
  *     def to_ampls(self, driver, options=None):
  *         if driver == "gurobi":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_gurobi import export_gurobi_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_gurobi, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1143, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_gurobi, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1149, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1144
+    /* "amplpy/ampl.pyx":1150
  *     def to_ampls(self, driver, options=None):
  *         if driver == "gurobi":
  *             try:             # <<<<<<<<<<<<<<
@@ -66312,29 +66394,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1145
+        /* "amplpy/ampl.pyx":1151
  *         if driver == "gurobi":
  *             try:
  *                 from amplpy_gurobi import export_gurobi_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_gurobi package not found")
 */
-        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1145, __pyx_L4_error)
+        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1151, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_gurobi_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_gurobi_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_gurobi_model) != (0)) __PYX_ERR(0, 1145, __pyx_L4_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_gurobi, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1145, __pyx_L4_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_gurobi_model) != (0)) __PYX_ERR(0, 1151, __pyx_L4_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_gurobi, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1151, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_gurobi_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1145, __pyx_L4_error)
+        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_gurobi_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1151, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_t_5);
         __pyx_v_export_gurobi_model = __pyx_t_5;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1144
+        /* "amplpy/ampl.pyx":1150
  *     def to_ampls(self, driver, options=None):
  *         if driver == "gurobi":
  *             try:             # <<<<<<<<<<<<<<
@@ -66350,7 +66432,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "amplpy/ampl.pyx":1146
+      /* "amplpy/ampl.pyx":1152
  *             try:
  *                 from amplpy_gurobi import export_gurobi_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -66360,12 +66442,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1146, __pyx_L6_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1152, __pyx_L6_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_5);
         __Pyx_XGOTREF(__pyx_t_8);
 
-        /* "amplpy/ampl.pyx":1147
+        /* "amplpy/ampl.pyx":1153
  *                 from amplpy_gurobi import export_gurobi_model
  *             except ImportError:
  *                 raise ImportError("amplpy_gurobi package not found")             # <<<<<<<<<<<<<<
@@ -66381,16 +66463,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1147, __pyx_L6_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1153, __pyx_L6_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1147, __pyx_L6_except_error)
+        __PYX_ERR(0, 1153, __pyx_L6_except_error)
       }
       goto __pyx_L6_except_error;
 
-      /* "amplpy/ampl.pyx":1144
+      /* "amplpy/ampl.pyx":1150
  *     def to_ampls(self, driver, options=None):
  *         if driver == "gurobi":
  *             try:             # <<<<<<<<<<<<<<
@@ -66406,7 +66488,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L9_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1148
+    /* "amplpy/ampl.pyx":1154
  *             except ImportError:
  *                 raise ImportError("amplpy_gurobi package not found")
  *             return export_gurobi_model(self, options)             # <<<<<<<<<<<<<<
@@ -66434,14 +66516,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     __pyx_r = __pyx_t_8;
     __pyx_t_8 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1143
+    /* "amplpy/ampl.pyx":1149
  * 
  *     def to_ampls(self, driver, options=None):
  *         if driver == "gurobi":             # <<<<<<<<<<<<<<
@@ -66450,17 +66532,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1149
+  /* "amplpy/ampl.pyx":1155
  *                 raise ImportError("amplpy_gurobi package not found")
  *             return export_gurobi_model(self, options)
  *         elif driver == "cplex":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_cplex import export_cplex_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_cplex, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1149, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_cplex, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1155, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1150
+    /* "amplpy/ampl.pyx":1156
  *             return export_gurobi_model(self, options)
  *         elif driver == "cplex":
  *             try:             # <<<<<<<<<<<<<<
@@ -66476,29 +66558,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_2);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1151
+        /* "amplpy/ampl.pyx":1157
  *         elif driver == "cplex":
  *             try:
  *                 from amplpy_cplex import export_cplex_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_cplex package not found")
 */
-        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1151, __pyx_L12_error)
+        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1157, __pyx_L12_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_cplex_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_cplex_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_cplex_model) != (0)) __PYX_ERR(0, 1151, __pyx_L12_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_cplex, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1151, __pyx_L12_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_cplex_model) != (0)) __PYX_ERR(0, 1157, __pyx_L12_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_cplex, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1157, __pyx_L12_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_cplex_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1151, __pyx_L12_error)
+        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_cplex_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1157, __pyx_L12_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_t_8);
         __pyx_v_export_cplex_model = __pyx_t_8;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1150
+        /* "amplpy/ampl.pyx":1156
  *             return export_gurobi_model(self, options)
  *         elif driver == "cplex":
  *             try:             # <<<<<<<<<<<<<<
@@ -66518,7 +66600,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "amplpy/ampl.pyx":1152
+      /* "amplpy/ampl.pyx":1158
  *             try:
  *                 from amplpy_cplex import export_cplex_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -66528,12 +66610,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1152, __pyx_L14_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1158, __pyx_L14_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_5);
 
-        /* "amplpy/ampl.pyx":1153
+        /* "amplpy/ampl.pyx":1159
  *                 from amplpy_cplex import export_cplex_model
  *             except ImportError:
  *                 raise ImportError("amplpy_cplex package not found")             # <<<<<<<<<<<<<<
@@ -66549,16 +66631,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1153, __pyx_L14_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1159, __pyx_L14_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1153, __pyx_L14_except_error)
+        __PYX_ERR(0, 1159, __pyx_L14_except_error)
       }
       goto __pyx_L14_except_error;
 
-      /* "amplpy/ampl.pyx":1150
+      /* "amplpy/ampl.pyx":1156
  *             return export_gurobi_model(self, options)
  *         elif driver == "cplex":
  *             try:             # <<<<<<<<<<<<<<
@@ -66574,7 +66656,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L17_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1154
+    /* "amplpy/ampl.pyx":1160
  *             except ImportError:
  *                 raise ImportError("amplpy_cplex package not found")
  *             return export_cplex_model(self, options)             # <<<<<<<<<<<<<<
@@ -66602,14 +66684,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1154, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1160, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1149
+    /* "amplpy/ampl.pyx":1155
  *                 raise ImportError("amplpy_gurobi package not found")
  *             return export_gurobi_model(self, options)
  *         elif driver == "cplex":             # <<<<<<<<<<<<<<
@@ -66618,17 +66700,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1155
+  /* "amplpy/ampl.pyx":1161
  *                 raise ImportError("amplpy_cplex package not found")
  *             return export_cplex_model(self, options)
  *         elif driver == "scip":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_scip import export_scip_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_scip, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1155, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_scip, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1161, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1156
+    /* "amplpy/ampl.pyx":1162
  *             return export_cplex_model(self, options)
  *         elif driver == "scip":
  *             try:             # <<<<<<<<<<<<<<
@@ -66644,29 +66726,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1157
+        /* "amplpy/ampl.pyx":1163
  *         elif driver == "scip":
  *             try:
  *                 from amplpy_scip import export_scip_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_scip package not found")
 */
-        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1157, __pyx_L20_error)
+        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1163, __pyx_L20_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_scip_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_scip_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_scip_model) != (0)) __PYX_ERR(0, 1157, __pyx_L20_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_scip, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1157, __pyx_L20_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_scip_model) != (0)) __PYX_ERR(0, 1163, __pyx_L20_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_scip, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1163, __pyx_L20_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_scip_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1157, __pyx_L20_error)
+        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_scip_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1163, __pyx_L20_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_t_5);
         __pyx_v_export_scip_model = __pyx_t_5;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1156
+        /* "amplpy/ampl.pyx":1162
  *             return export_cplex_model(self, options)
  *         elif driver == "scip":
  *             try:             # <<<<<<<<<<<<<<
@@ -66686,7 +66768,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "amplpy/ampl.pyx":1158
+      /* "amplpy/ampl.pyx":1164
  *             try:
  *                 from amplpy_scip import export_scip_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -66696,12 +66778,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1158, __pyx_L22_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1164, __pyx_L22_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_5);
         __Pyx_XGOTREF(__pyx_t_8);
 
-        /* "amplpy/ampl.pyx":1159
+        /* "amplpy/ampl.pyx":1165
  *                 from amplpy_scip import export_scip_model
  *             except ImportError:
  *                 raise ImportError("amplpy_scip package not found")             # <<<<<<<<<<<<<<
@@ -66717,16 +66799,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1159, __pyx_L22_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1165, __pyx_L22_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1159, __pyx_L22_except_error)
+        __PYX_ERR(0, 1165, __pyx_L22_except_error)
       }
       goto __pyx_L22_except_error;
 
-      /* "amplpy/ampl.pyx":1156
+      /* "amplpy/ampl.pyx":1162
  *             return export_cplex_model(self, options)
  *         elif driver == "scip":
  *             try:             # <<<<<<<<<<<<<<
@@ -66742,7 +66824,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L25_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1160
+    /* "amplpy/ampl.pyx":1166
  *             except ImportError:
  *                 raise ImportError("amplpy_scip package not found")
  *             return export_scip_model(self, options)             # <<<<<<<<<<<<<<
@@ -66770,14 +66852,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1160, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     __pyx_r = __pyx_t_8;
     __pyx_t_8 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1155
+    /* "amplpy/ampl.pyx":1161
  *                 raise ImportError("amplpy_cplex package not found")
  *             return export_cplex_model(self, options)
  *         elif driver == "scip":             # <<<<<<<<<<<<<<
@@ -66786,17 +66868,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1161
+  /* "amplpy/ampl.pyx":1167
  *                 raise ImportError("amplpy_scip package not found")
  *             return export_scip_model(self, options)
  *         elif driver == "copt":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_copt import export_copt_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_copt, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1161, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_copt, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1167, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1162
+    /* "amplpy/ampl.pyx":1168
  *             return export_scip_model(self, options)
  *         elif driver == "copt":
  *             try:             # <<<<<<<<<<<<<<
@@ -66812,29 +66894,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_2);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1163
+        /* "amplpy/ampl.pyx":1169
  *         elif driver == "copt":
  *             try:
  *                 from amplpy_copt import export_copt_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_copt package not found")
 */
-        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1163, __pyx_L28_error)
+        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1169, __pyx_L28_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_copt_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_copt_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_copt_model) != (0)) __PYX_ERR(0, 1163, __pyx_L28_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_copt, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1163, __pyx_L28_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_copt_model) != (0)) __PYX_ERR(0, 1169, __pyx_L28_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_copt, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1169, __pyx_L28_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_copt_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1163, __pyx_L28_error)
+        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_copt_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1169, __pyx_L28_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_t_8);
         __pyx_v_export_copt_model = __pyx_t_8;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1162
+        /* "amplpy/ampl.pyx":1168
  *             return export_scip_model(self, options)
  *         elif driver == "copt":
  *             try:             # <<<<<<<<<<<<<<
@@ -66854,7 +66936,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "amplpy/ampl.pyx":1164
+      /* "amplpy/ampl.pyx":1170
  *             try:
  *                 from amplpy_copt import export_copt_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -66864,12 +66946,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1164, __pyx_L30_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1170, __pyx_L30_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_5);
 
-        /* "amplpy/ampl.pyx":1165
+        /* "amplpy/ampl.pyx":1171
  *                 from amplpy_copt import export_copt_model
  *             except ImportError:
  *                 raise ImportError("amplpy_copt package not found")             # <<<<<<<<<<<<<<
@@ -66885,16 +66967,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1165, __pyx_L30_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1171, __pyx_L30_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1165, __pyx_L30_except_error)
+        __PYX_ERR(0, 1171, __pyx_L30_except_error)
       }
       goto __pyx_L30_except_error;
 
-      /* "amplpy/ampl.pyx":1162
+      /* "amplpy/ampl.pyx":1168
  *             return export_scip_model(self, options)
  *         elif driver == "copt":
  *             try:             # <<<<<<<<<<<<<<
@@ -66910,7 +66992,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L33_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1166
+    /* "amplpy/ampl.pyx":1172
  *             except ImportError:
  *                 raise ImportError("amplpy_copt package not found")
  *             return export_copt_model(self, options)             # <<<<<<<<<<<<<<
@@ -66938,14 +67020,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1166, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1161
+    /* "amplpy/ampl.pyx":1167
  *                 raise ImportError("amplpy_scip package not found")
  *             return export_scip_model(self, options)
  *         elif driver == "copt":             # <<<<<<<<<<<<<<
@@ -66954,17 +67036,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1167
+  /* "amplpy/ampl.pyx":1173
  *                 raise ImportError("amplpy_copt package not found")
  *             return export_copt_model(self, options)
  *         elif driver == "highs":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_highs import export_highs_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_highs, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1167, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_highs, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1173, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1168
+    /* "amplpy/ampl.pyx":1174
  *             return export_copt_model(self, options)
  *         elif driver == "highs":
  *             try:             # <<<<<<<<<<<<<<
@@ -66980,29 +67062,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1169
+        /* "amplpy/ampl.pyx":1175
  *         elif driver == "highs":
  *             try:
  *                 from amplpy_highs import export_highs_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_highs package not found")
 */
-        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1169, __pyx_L36_error)
+        __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1175, __pyx_L36_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_highs_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_highs_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_highs_model) != (0)) __PYX_ERR(0, 1169, __pyx_L36_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_highs, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1169, __pyx_L36_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_export_highs_model) != (0)) __PYX_ERR(0, 1175, __pyx_L36_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_highs, __pyx_t_5, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1175, __pyx_L36_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_highs_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1169, __pyx_L36_error)
+        __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_highs_model); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1175, __pyx_L36_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_INCREF(__pyx_t_5);
         __pyx_v_export_highs_model = __pyx_t_5;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1168
+        /* "amplpy/ampl.pyx":1174
  *             return export_copt_model(self, options)
  *         elif driver == "highs":
  *             try:             # <<<<<<<<<<<<<<
@@ -67022,7 +67104,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "amplpy/ampl.pyx":1170
+      /* "amplpy/ampl.pyx":1176
  *             try:
  *                 from amplpy_highs import export_highs_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -67032,12 +67114,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1170, __pyx_L38_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 1176, __pyx_L38_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_5);
         __Pyx_XGOTREF(__pyx_t_8);
 
-        /* "amplpy/ampl.pyx":1171
+        /* "amplpy/ampl.pyx":1177
  *                 from amplpy_highs import export_highs_model
  *             except ImportError:
  *                 raise ImportError("amplpy_highs package not found")             # <<<<<<<<<<<<<<
@@ -67053,16 +67135,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1171, __pyx_L38_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1177, __pyx_L38_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1171, __pyx_L38_except_error)
+        __PYX_ERR(0, 1177, __pyx_L38_except_error)
       }
       goto __pyx_L38_except_error;
 
-      /* "amplpy/ampl.pyx":1168
+      /* "amplpy/ampl.pyx":1174
  *             return export_copt_model(self, options)
  *         elif driver == "highs":
  *             try:             # <<<<<<<<<<<<<<
@@ -67078,7 +67160,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L41_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1172
+    /* "amplpy/ampl.pyx":1178
  *             except ImportError:
  *                 raise ImportError("amplpy_highs package not found")
  *             return export_highs_model(self, options)             # <<<<<<<<<<<<<<
@@ -67106,14 +67188,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1172, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1178, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     __pyx_r = __pyx_t_8;
     __pyx_t_8 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1167
+    /* "amplpy/ampl.pyx":1173
  *                 raise ImportError("amplpy_copt package not found")
  *             return export_copt_model(self, options)
  *         elif driver == "highs":             # <<<<<<<<<<<<<<
@@ -67122,17 +67204,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1173
+  /* "amplpy/ampl.pyx":1179
  *                 raise ImportError("amplpy_highs package not found")
  *             return export_highs_model(self, options)
  *         elif driver == "xpress":             # <<<<<<<<<<<<<<
  *             try:
  *                 from amplpy_xpress import export_xpress_model
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_xpress, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1173, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_driver, __pyx_mstate_global->__pyx_n_u_xpress, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1179, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1174
+    /* "amplpy/ampl.pyx":1180
  *             return export_highs_model(self, options)
  *         elif driver == "xpress":
  *             try:             # <<<<<<<<<<<<<<
@@ -67148,29 +67230,29 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XGOTREF(__pyx_t_2);
       /*try:*/ {
 
-        /* "amplpy/ampl.pyx":1175
+        /* "amplpy/ampl.pyx":1181
  *         elif driver == "xpress":
  *             try:
  *                 from amplpy_xpress import export_xpress_model             # <<<<<<<<<<<<<<
  *             except ImportError:
  *                 raise ImportError("amplpy_xpress package not found")
 */
-        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1175, __pyx_L44_error)
+        __pyx_t_8 = PyList_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1181, __pyx_L44_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_export_xpress_model);
         __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_export_xpress_model);
-        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_xpress_model) != (0)) __PYX_ERR(0, 1175, __pyx_L44_error);
-        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_xpress, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1175, __pyx_L44_error)
+        if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_export_xpress_model) != (0)) __PYX_ERR(0, 1181, __pyx_L44_error);
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_amplpy_xpress, __pyx_t_8, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1181, __pyx_L44_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_xpress_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1175, __pyx_L44_error)
+        __pyx_t_8 = __Pyx_ImportFrom(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_export_xpress_model); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1181, __pyx_L44_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_INCREF(__pyx_t_8);
         __pyx_v_export_xpress_model = __pyx_t_8;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "amplpy/ampl.pyx":1174
+        /* "amplpy/ampl.pyx":1180
  *             return export_highs_model(self, options)
  *         elif driver == "xpress":
  *             try:             # <<<<<<<<<<<<<<
@@ -67190,7 +67272,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "amplpy/ampl.pyx":1176
+      /* "amplpy/ampl.pyx":1182
  *             try:
  *                 from amplpy_xpress import export_xpress_model
  *             except ImportError:             # <<<<<<<<<<<<<<
@@ -67200,12 +67282,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
       if (__pyx_t_7) {
         __Pyx_AddTraceback("amplpy.ampl.AMPL.to_ampls", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1176, __pyx_L46_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 1182, __pyx_L46_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_8);
         __Pyx_XGOTREF(__pyx_t_5);
 
-        /* "amplpy/ampl.pyx":1177
+        /* "amplpy/ampl.pyx":1183
  *                 from amplpy_xpress import export_xpress_model
  *             except ImportError:
  *                 raise ImportError("amplpy_xpress package not found")             # <<<<<<<<<<<<<<
@@ -67221,16 +67303,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
           __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1177, __pyx_L46_except_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1183, __pyx_L46_except_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 1177, __pyx_L46_except_error)
+        __PYX_ERR(0, 1183, __pyx_L46_except_error)
       }
       goto __pyx_L46_except_error;
 
-      /* "amplpy/ampl.pyx":1174
+      /* "amplpy/ampl.pyx":1180
  *             return export_highs_model(self, options)
  *         elif driver == "xpress":
  *             try:             # <<<<<<<<<<<<<<
@@ -67246,7 +67328,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_L49_try_end:;
     }
 
-    /* "amplpy/ampl.pyx":1178
+    /* "amplpy/ampl.pyx":1184
  *             except ImportError:
  *                 raise ImportError("amplpy_xpress package not found")
  *             return export_xpress_model(self, options)             # <<<<<<<<<<<<<<
@@ -67274,14 +67356,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
       __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1178, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1184, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1173
+    /* "amplpy/ampl.pyx":1179
  *                 raise ImportError("amplpy_highs package not found")
  *             return export_highs_model(self, options)
  *         elif driver == "xpress":             # <<<<<<<<<<<<<<
@@ -67290,7 +67372,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
 */
   }
 
-  /* "amplpy/ampl.pyx":1179
+  /* "amplpy/ampl.pyx":1185
  *                 raise ImportError("amplpy_xpress package not found")
  *             return export_xpress_model(self, options)
  *         solver_list = "copt, cplex, gurobi, highs, scip, xpress"             # <<<<<<<<<<<<<<
@@ -67300,7 +67382,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr);
   __pyx_v_solver_list = __pyx_mstate_global->__pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr;
 
-  /* "amplpy/ampl.pyx":1180
+  /* "amplpy/ampl.pyx":1186
  *             return export_xpress_model(self, options)
  *         solver_list = "copt, cplex, gurobi, highs, scip, xpress"
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")             # <<<<<<<<<<<<<<
@@ -67310,13 +67392,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
   __pyx_t_6 = NULL;
   __Pyx_INCREF(__pyx_builtin_ValueError);
   __pyx_t_8 = __pyx_builtin_ValueError; 
-  __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_driver, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1180, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_driver, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_t_13[0] = __pyx_t_9;
   __pyx_t_13[1] = __pyx_mstate_global->__pyx_kp_u_is_not_supported_please_choose;
   __pyx_t_13[2] = __pyx_v_solver_list;
   __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_13, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_solver_list), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_solver_list));
-  if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1180, __pyx_L1_error)
+  if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_t_12 = 1;
@@ -67326,14 +67408,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1180, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __Pyx_Raise(__pyx_t_5, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __PYX_ERR(0, 1180, __pyx_L1_error)
+  __PYX_ERR(0, 1186, __pyx_L1_error)
 
-  /* "amplpy/ampl.pyx":1142
+  /* "amplpy/ampl.pyx":1148
  *             print(exp)
  * 
  *     def to_ampls(self, driver, options=None):             # <<<<<<<<<<<<<<
@@ -67364,7 +67446,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_102to_ampls(struct __pyx_obj_6ampl
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1182
+/* "amplpy/ampl.pyx":1188
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):             # <<<<<<<<<<<<<<
@@ -67415,53 +67497,53 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_model,&__pyx_mstate_global->__pyx_n_u_number,&__pyx_mstate_global->__pyx_n_u_import_entities,&__pyx_mstate_global->__pyx_n_u_keep_files,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1182, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1188, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "import_ampls_solution", 0) < 0) __PYX_ERR(0, 1182, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "import_ampls_solution", 0) < 0) __PYX_ERR(0, 1188, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_False));
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_False));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("import_ampls_solution", 0, 1, 4, i); __PYX_ERR(0, 1182, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("import_ampls_solution", 0, 1, 4, i); __PYX_ERR(0, 1188, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1182, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1188, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -67476,7 +67558,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("import_ampls_solution", 0, 1, 4, __pyx_nargs); __PYX_ERR(0, 1182, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("import_ampls_solution", 0, 1, 4, __pyx_nargs); __PYX_ERR(0, 1188, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -67498,7 +67580,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator14(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "amplpy/ampl.pyx":1186
+/* "amplpy/ampl.pyx":1192
  *             self.eval(
  *                 "".join(
  *                     "let {} := {};".format(name, value) for name, value in model.items()             # <<<<<<<<<<<<<<
@@ -67518,7 +67600,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_21import_ampls_solution_genexpr(CY
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6amplpy_4ampl___pyx_scope_struct_18_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 1186, __pyx_L1_error)
+    __PYX_ERR(0, 1192, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -67526,7 +67608,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_21import_ampls_solution_genexpr(CY
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator14, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_import_ampls_solution_locals_gen, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 1186, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator14, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_import_ampls_solution_locals_gen, __pyx_mstate_global->__pyx_n_u_amplpy_ampl); if (unlikely(!gen)) __PYX_ERR(0, 1192, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -67566,16 +67648,16 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 1186, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 1186, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 1192, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 1192, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 1186, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 1192, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 1186, __pyx_L1_error)
+    __PYX_ERR(0, 1192, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1186, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1192, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -67583,7 +67665,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 1186, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 1192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_name);
@@ -67601,10 +67683,10 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator
       PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_cur_scope->__pyx_v_name, __pyx_cur_scope->__pyx_v_value};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_8, (3-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1186, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1192, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 1186, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 1192, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -67632,7 +67714,7 @@ static PyObject *__pyx_gb_6amplpy_4ampl_4AMPL_21import_ampls_solution_2generator
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1182
+/* "amplpy/ampl.pyx":1188
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):             # <<<<<<<<<<<<<<
@@ -67660,7 +67742,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ampls_solution", 0);
 
-  /* "amplpy/ampl.pyx":1183
+  /* "amplpy/ampl.pyx":1189
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):
  *         if isinstance(model, dict):             # <<<<<<<<<<<<<<
@@ -67670,7 +67752,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
   __pyx_t_1 = PyDict_Check(__pyx_v_model); 
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1184
+    /* "amplpy/ampl.pyx":1190
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):
  *         if isinstance(model, dict):
  *             self.eval(             # <<<<<<<<<<<<<<
@@ -67680,27 +67762,27 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     __pyx_t_3 = ((PyObject *)__pyx_v_self);
     __Pyx_INCREF(__pyx_t_3);
 
-    /* "amplpy/ampl.pyx":1186
+    /* "amplpy/ampl.pyx":1192
  *             self.eval(
  *                 "".join(
  *                     "let {} := {};".format(name, value) for name, value in model.items()             # <<<<<<<<<<<<<<
  *                 )
  *             )
 */
-    __pyx_t_4 = __pyx_pf_6amplpy_4ampl_4AMPL_21import_ampls_solution_genexpr(NULL, __pyx_v_model); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1186, __pyx_L1_error)
+    __pyx_t_4 = __pyx_pf_6amplpy_4ampl_4AMPL_21import_ampls_solution_genexpr(NULL, __pyx_v_model); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "amplpy/ampl.pyx":1185
+    /* "amplpy/ampl.pyx":1191
  *         if isinstance(model, dict):
  *             self.eval(
  *                 "".join(             # <<<<<<<<<<<<<<
  *                     "let {} := {};".format(name, value) for name, value in model.items()
  *                 )
 */
-    __pyx_t_5 = __Pyx_Generator_GetInlinedResult(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1185, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_Generator_GetInlinedResult(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1185, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1191, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_6 = 0;
@@ -67709,12 +67791,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1184, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1190, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "amplpy/ampl.pyx":1189
+    /* "amplpy/ampl.pyx":1195
  *                 )
  *             )
  *             return             # <<<<<<<<<<<<<<
@@ -67725,7 +67807,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1183
+    /* "amplpy/ampl.pyx":1189
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):
  *         if isinstance(model, dict):             # <<<<<<<<<<<<<<
@@ -67734,7 +67816,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
   }
 
-  /* "amplpy/ampl.pyx":1190
+  /* "amplpy/ampl.pyx":1196
  *             )
  *             return
  *         if isinstance(model, str):             # <<<<<<<<<<<<<<
@@ -67744,7 +67826,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
   __pyx_t_1 = PyUnicode_Check(__pyx_v_model); 
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1191
+    /* "amplpy/ampl.pyx":1197
  *             return
  *         if isinstance(model, str):
  *             if number is None:             # <<<<<<<<<<<<<<
@@ -67754,7 +67836,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     __pyx_t_1 = (__pyx_v_number == Py_None);
     if (__pyx_t_1) {
 
-      /* "amplpy/ampl.pyx":1192
+      /* "amplpy/ampl.pyx":1198
  *         if isinstance(model, str):
  *             if number is None:
  *                 self.eval(f'solution "{model}.sol";')             # <<<<<<<<<<<<<<
@@ -67763,13 +67845,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
       __pyx_t_4 = ((PyObject *)__pyx_v_self);
       __Pyx_INCREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_model, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1192, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_model, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1198, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_solution;
       __pyx_t_7[1] = __pyx_t_3;
       __pyx_t_7[2] = __pyx_mstate_global->__pyx_kp_u_sol;
       __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, 10 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1192, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1198, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_6 = 0;
@@ -67778,12 +67860,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1192, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1198, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "amplpy/ampl.pyx":1191
+      /* "amplpy/ampl.pyx":1197
  *             return
  *         if isinstance(model, str):
  *             if number is None:             # <<<<<<<<<<<<<<
@@ -67793,7 +67875,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
       goto __pyx_L5;
     }
 
-    /* "amplpy/ampl.pyx":1194
+    /* "amplpy/ampl.pyx":1200
  *                 self.eval(f'solution "{model}.sol";')
  *             else:
  *                 self.eval(f'solution "{model}{number}.sol";')             # <<<<<<<<<<<<<<
@@ -67803,16 +67885,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     /*else*/ {
       __pyx_t_5 = ((PyObject *)__pyx_v_self);
       __Pyx_INCREF(__pyx_t_5);
-      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_model, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1194, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_model, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1200, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_number, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1194, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_number, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1200, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_solution;
       __pyx_t_8[1] = __pyx_t_4;
       __pyx_t_8[2] = __pyx_t_3;
       __pyx_t_8[3] = __pyx_mstate_global->__pyx_kp_u_sol;
       __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 10 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 6, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1194, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1200, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -67822,14 +67904,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1194, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1200, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __pyx_L5:;
 
-    /* "amplpy/ampl.pyx":1195
+    /* "amplpy/ampl.pyx":1201
  *             else:
  *                 self.eval(f'solution "{model}{number}.sol";')
  *             return             # <<<<<<<<<<<<<<
@@ -67840,7 +67922,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "amplpy/ampl.pyx":1190
+    /* "amplpy/ampl.pyx":1196
  *             )
  *             return
  *         if isinstance(model, str):             # <<<<<<<<<<<<<<
@@ -67849,19 +67931,19 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
   }
 
-  /* "amplpy/ampl.pyx":1196
+  /* "amplpy/ampl.pyx":1202
  *                 self.eval(f'solution "{model}{number}.sol";')
  *             return
  *         import shutil             # <<<<<<<<<<<<<<
  *         model.write_sol()
  *         self.eval(f'solution "{model._solfile}";')
 */
-  __pyx_t_2 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_shutil, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1196, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_shutil, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_shutil = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":1197
+  /* "amplpy/ampl.pyx":1203
  *             return
  *         import shutil
  *         model.write_sol()             # <<<<<<<<<<<<<<
@@ -67875,12 +67957,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_write_sol, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1197, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1203, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":1198
+  /* "amplpy/ampl.pyx":1204
  *         import shutil
  *         model.write_sol()
  *         self.eval(f'solution "{model._solfile}";')             # <<<<<<<<<<<<<<
@@ -67889,16 +67971,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
   __pyx_t_9 = ((PyObject *)__pyx_v_self);
   __Pyx_INCREF(__pyx_t_9);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_model, __pyx_mstate_global->__pyx_n_u_solfile); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1198, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_model, __pyx_mstate_global->__pyx_n_u_solfile); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1198, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_solution;
   __pyx_t_7[1] = __pyx_t_3;
   __pyx_t_7[2] = __pyx_mstate_global->__pyx_kp_u__17;
   __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, 10 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1198, __pyx_L1_error)
+  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_6 = 0;
@@ -67907,22 +67989,22 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1198, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/ampl.pyx":1199
+  /* "amplpy/ampl.pyx":1205
  *         model.write_sol()
  *         self.eval(f'solution "{model._solfile}";')
  *         if import_entities:             # <<<<<<<<<<<<<<
  *             self.eval(model.getRecordedEntities())
  *         if not keep_files:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_import_entities); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1199, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_import_entities); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1205, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1200
+    /* "amplpy/ampl.pyx":1206
  *         self.eval(f'solution "{model._solfile}";')
  *         if import_entities:
  *             self.eval(model.getRecordedEntities())             # <<<<<<<<<<<<<<
@@ -67938,7 +68020,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_getRecordedEntities, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1200, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1206, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __pyx_t_6 = 0;
@@ -67947,12 +68029,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_eval, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1200, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1206, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "amplpy/ampl.pyx":1199
+    /* "amplpy/ampl.pyx":1205
  *         model.write_sol()
  *         self.eval(f'solution "{model._solfile}";')
  *         if import_entities:             # <<<<<<<<<<<<<<
@@ -67961,18 +68043,18 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
   }
 
-  /* "amplpy/ampl.pyx":1201
+  /* "amplpy/ampl.pyx":1207
  *         if import_entities:
  *             self.eval(model.getRecordedEntities())
  *         if not keep_files:             # <<<<<<<<<<<<<<
  *             shutil.rmtree(model._tmpdir)
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_keep_files); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1201, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_keep_files); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1207, __pyx_L1_error)
   __pyx_t_10 = (!__pyx_t_1);
   if (__pyx_t_10) {
 
-    /* "amplpy/ampl.pyx":1202
+    /* "amplpy/ampl.pyx":1208
  *             self.eval(model.getRecordedEntities())
  *         if not keep_files:
  *             shutil.rmtree(model._tmpdir)             # <<<<<<<<<<<<<<
@@ -67981,7 +68063,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
     __pyx_t_9 = __pyx_v_shutil;
     __Pyx_INCREF(__pyx_t_9);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_model, __pyx_mstate_global->__pyx_n_u_tmpdir); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1202, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_model, __pyx_mstate_global->__pyx_n_u_tmpdir); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 0;
     {
@@ -67989,12 +68071,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_rmtree, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1202, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1208, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "amplpy/ampl.pyx":1201
+    /* "amplpy/ampl.pyx":1207
  *         if import_entities:
  *             self.eval(model.getRecordedEntities())
  *         if not keep_files:             # <<<<<<<<<<<<<<
@@ -68003,7 +68085,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
 */
   }
 
-  /* "amplpy/ampl.pyx":1182
+  /* "amplpy/ampl.pyx":1188
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):             # <<<<<<<<<<<<<<
@@ -68030,7 +68112,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_104import_ampls_solution(struct __
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1204
+/* "amplpy/ampl.pyx":1210
  *             shutil.rmtree(model._tmpdir)
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
@@ -68095,7 +68177,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_string", 0);
 
-  /* "amplpy/ampl.pyx":1207
+  /* "amplpy/ampl.pyx":1213
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_ToString(self._c_ampl, &output_c)             # <<<<<<<<<<<<<<
@@ -68104,7 +68186,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
 */
   __pyx_v_errorinfo = AMPL_ToString(__pyx_v_self->_c_ampl, (&__pyx_v_output_c));
 
-  /* "amplpy/ampl.pyx":1208
+  /* "amplpy/ampl.pyx":1214
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_ToString(self._c_ampl, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -68114,16 +68196,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
   __pyx_t_1 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_1) {
 
-    /* "amplpy/ampl.pyx":1209
+    /* "amplpy/ampl.pyx":1215
  *         errorinfo = campl.AMPL_ToString(self._c_ampl, &output_c)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1209, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1215, __pyx_L1_error)
 
-    /* "amplpy/ampl.pyx":1208
+    /* "amplpy/ampl.pyx":1214
  *         cdef char* output_c
  *         errorinfo = campl.AMPL_ToString(self._c_ampl, &output_c)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -68132,20 +68214,20 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
 */
   }
 
-  /* "amplpy/ampl.pyx":1210
+  /* "amplpy/ampl.pyx":1216
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))             # <<<<<<<<<<<<<<
  *         campl.AMPL_StringFree(&output_c)
  * 
 */
-  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1210, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1210, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_v_output_c); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1216, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_decode_c_string(__pyx_v_output_c, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_output = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "amplpy/ampl.pyx":1211
+  /* "amplpy/ampl.pyx":1217
  *             PY_AMPL_CALL(errorinfo)
  *         output = str(output_c.decode('utf-8'))
  *         campl.AMPL_StringFree(&output_c)             # <<<<<<<<<<<<<<
@@ -68154,7 +68236,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
 */
   (void)(AMPL_StringFree((&__pyx_v_output_c)));
 
-  /* "amplpy/ampl.pyx":1213
+  /* "amplpy/ampl.pyx":1219
  *         campl.AMPL_StringFree(&output_c)
  * 
  *         return output             # <<<<<<<<<<<<<<
@@ -68166,7 +68248,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
   __pyx_r = __pyx_v_output;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":1204
+  /* "amplpy/ampl.pyx":1210
  *             shutil.rmtree(model._tmpdir)
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
@@ -68186,7 +68268,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_106to_string(struct __pyx_obj_6amp
   return __pyx_r;
 }
 
-/* "amplpy/ampl.pyx":1215
+/* "amplpy/ampl.pyx":1221
  *         return output
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -68220,7 +68302,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_108__str__(struct __pyx_obj_6amplp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__str__", 0);
 
-  /* "amplpy/ampl.pyx":1216
+  /* "amplpy/ampl.pyx":1222
  * 
  *     def __str__(self):
  *         return self.to_string()             # <<<<<<<<<<<<<<
@@ -68235,14 +68317,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_4AMPL_108__str__(struct __pyx_obj_6amplp
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_string, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1216, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/ampl.pyx":1215
+  /* "amplpy/ampl.pyx":1221
  *         return output
  * 
  *     def __str__(self):             # <<<<<<<<<<<<<<
@@ -76874,15 +76956,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_16_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr)) __PYX_ERR(0, 899, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_16_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr) < 0) __PYX_ERR(0, 899, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_16_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr)) __PYX_ERR(0, 905, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_16_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr) < 0) __PYX_ERR(0, 905, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr = &__pyx_type_6amplpy_4ampl___pyx_scope_struct_16_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr) < 0) __PYX_ERR(0, 899, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr) < 0) __PYX_ERR(0, 905, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_16_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -76890,15 +76972,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_17_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr)) __PYX_ERR(0, 909, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_17_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr) < 0) __PYX_ERR(0, 909, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_17_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr)) __PYX_ERR(0, 915, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_17_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr) < 0) __PYX_ERR(0, 915, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr = &__pyx_type_6amplpy_4ampl___pyx_scope_struct_17_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr) < 0) __PYX_ERR(0, 909, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr) < 0) __PYX_ERR(0, 915, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_17_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -76906,15 +76988,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_18_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr)) __PYX_ERR(0, 1186, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_18_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr) < 0) __PYX_ERR(0, 1186, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6amplpy_4ampl___pyx_scope_struct_18_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr)) __PYX_ERR(0, 1192, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6amplpy_4ampl___pyx_scope_struct_18_genexpr_spec, __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr) < 0) __PYX_ERR(0, 1192, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr = &__pyx_type_6amplpy_4ampl___pyx_scope_struct_18_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr) < 0) __PYX_ERR(0, 1186, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr) < 0) __PYX_ERR(0, 1192, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_6amplpy_4ampl___pyx_scope_struct_18_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
@@ -79437,52 +79519,52 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_message, __pyx_t_3) < 0) __PYX_ERR(2, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":48
+  /* "amplpy/exceptions.pxi":49
  * 
  *     # Aliases
  *     getLineNumber = get_line_number             # <<<<<<<<<<<<<<
  *     getMessage = get_message
  *     getOffset = get_offset
 */
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_line_number); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 48, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_line_number); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getLineNumber, __pyx_t_3) < 0) __PYX_ERR(2, 48, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getLineNumber, __pyx_t_3) < 0) __PYX_ERR(2, 49, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":49
+  /* "amplpy/exceptions.pxi":50
  *     # Aliases
  *     getLineNumber = get_line_number
  *     getMessage = get_message             # <<<<<<<<<<<<<<
  *     getOffset = get_offset
  *     getSourceName = get_source_name
 */
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_message); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 49, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_message); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getMessage, __pyx_t_3) < 0) __PYX_ERR(2, 49, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getMessage, __pyx_t_3) < 0) __PYX_ERR(2, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":50
+  /* "amplpy/exceptions.pxi":51
  *     getLineNumber = get_line_number
  *     getMessage = get_message
  *     getOffset = get_offset             # <<<<<<<<<<<<<<
  *     getSourceName = get_source_name
  * 
 */
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 50, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getOffset, __pyx_t_3) < 0) __PYX_ERR(2, 50, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getOffset, __pyx_t_3) < 0) __PYX_ERR(2, 51, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":51
+  /* "amplpy/exceptions.pxi":52
  *     getMessage = get_message
  *     getOffset = get_offset
  *     getSourceName = get_source_name             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_source_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 51, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_get_source_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getSourceName, __pyx_t_3) < 0) __PYX_ERR(2, 51, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_getSourceName, __pyx_t_3) < 0) __PYX_ERR(2, 52, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "(tree fragment)":1
@@ -79506,48 +79588,48 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPLException, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(8, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":54
+  /* "amplpy/exceptions.pxi":55
  * 
  * 
  * class PresolveException(RuntimeError):             # <<<<<<<<<<<<<<
  *     pass
  * 
 */
-  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[20]); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[20]); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_10 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_mstate_global->__pyx_n_u_PresolveException, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_mstate_global->__pyx_n_u_PresolveException, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   if (__pyx_t_3 != __pyx_mstate_global->__pyx_tuple[20]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_10, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[20]) < 0))) __PYX_ERR(2, 54, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_10, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[20]) < 0))) __PYX_ERR(2, 55, __pyx_L1_error)
   }
-  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_t_3, __pyx_t_10, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_t_3, __pyx_t_10, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_t_9) < 0) __PYX_ERR(2, 54, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_PresolveException, __pyx_t_9) < 0) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "amplpy/exceptions.pxi":58
+  /* "amplpy/exceptions.pxi":59
  * 
  * 
  * class InfeasibilityException(RuntimeError):             # <<<<<<<<<<<<<<
  *     pass
 */
-  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[22]); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[22]); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_10 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_3, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, (PyObject *) NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   if (__pyx_t_3 != __pyx_mstate_global->__pyx_tuple[22]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_10, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[22]) < 0))) __PYX_ERR(2, 58, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_10, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[22]) < 0))) __PYX_ERR(2, 59, __pyx_L1_error)
   }
-  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_t_3, __pyx_t_10, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_t_3, __pyx_t_10, NULL, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_t_9) < 0) __PYX_ERR(2, 58, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_InfeasibilityException, __pyx_t_9) < 0) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -81913,187 +81995,187 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_error_handler, __pyx_t_10) < 0) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":712
+  /* "amplpy/ampl.pyx":718
  *         PY_AMPL_CALL(campl.AMPL_SetErrorHandler(self._c_ampl, PyError, <void*>self._error_handler_wrapper))
  * 
  *     def get_output_handler(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the current output handler.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_55get_output_handler, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_output_handler, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[230])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 712, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_55get_output_handler, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_output_handler, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[230])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 718, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output_handler, __pyx_t_10) < 0) __PYX_ERR(0, 712, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output_handler, __pyx_t_10) < 0) __PYX_ERR(0, 718, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":723
+  /* "amplpy/ampl.pyx":729
  *         return <OutputHandler>output_handler
  * 
  *     def get_error_handler(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the current error handler.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_57get_error_handler, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_error_handler, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[231])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 723, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_57get_error_handler, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_error_handler, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[231])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 729, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_error_handler, __pyx_t_10) < 0) __PYX_ERR(0, 723, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_error_handler, __pyx_t_10) < 0) __PYX_ERR(0, 729, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":732
+  /* "amplpy/ampl.pyx":738
  *         return <ErrorHandler>self._error_handler
  * 
  *     def get_variables(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the variables declared.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_59get_variables, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_variables, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[232])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 732, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_59get_variables, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_variables, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[232])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 738, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variables, __pyx_t_10) < 0) __PYX_ERR(0, 732, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variables, __pyx_t_10) < 0) __PYX_ERR(0, 738, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":738
+  /* "amplpy/ampl.pyx":744
  *         return EntityMap.create(self, campl.AMPL_VARIABLE)
  * 
  *     def get_constraints(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the constraints declared.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_61get_constraints, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_constraints, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[233])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 738, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_61get_constraints, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_constraints, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[233])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 744, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraints, __pyx_t_10) < 0) __PYX_ERR(0, 738, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraints, __pyx_t_10) < 0) __PYX_ERR(0, 744, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":744
+  /* "amplpy/ampl.pyx":750
  *         return EntityMap.create(self, campl.AMPL_CONSTRAINT)
  * 
  *     def get_objectives(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the objectives declared.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_63get_objectives, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_objectives, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[234])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 744, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_63get_objectives, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_objectives, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[234])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 750, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objectives, __pyx_t_10) < 0) __PYX_ERR(0, 744, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objectives, __pyx_t_10) < 0) __PYX_ERR(0, 750, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":750
+  /* "amplpy/ampl.pyx":756
  *         return EntityMap.create(self, campl.AMPL_OBJECTIVE)
  * 
  *     def get_sets(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the sets declared.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_65get_sets, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_sets, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[235])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 750, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_65get_sets, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_sets, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[235])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 756, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_sets, __pyx_t_10) < 0) __PYX_ERR(0, 750, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_sets, __pyx_t_10) < 0) __PYX_ERR(0, 756, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":756
+  /* "amplpy/ampl.pyx":762
  *         return EntityMap.create(self, campl.AMPL_SET)
  * 
  *     def get_parameters(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the parameters declared.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_67get_parameters, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_parameters, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[236])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 756, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_67get_parameters, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_parameters, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[236])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 762, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameters, __pyx_t_10) < 0) __PYX_ERR(0, 756, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameters, __pyx_t_10) < 0) __PYX_ERR(0, 762, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":762
+  /* "amplpy/ampl.pyx":768
  *         return EntityMap.create(self, campl.AMPL_PARAMETER)
  * 
  *     def get_current_objective(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the the current objective. Returns `None` if no objective is set.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_69get_current_objective, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_current_objective, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[237])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 762, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_69get_current_objective, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_current_objective, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[237])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 768, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_current_objective, __pyx_t_10) < 0) __PYX_ERR(0, 762, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_current_objective, __pyx_t_10) < 0) __PYX_ERR(0, 768, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":778
+  /* "amplpy/ampl.pyx":784
  *             return self.get_objective(objname)
  * 
  *     def _var(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get/Set a variable.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_71_var, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__var, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[238])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 778, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_71_var, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__var, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[238])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 784, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var, __pyx_t_10) < 0) __PYX_ERR(0, 778, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var, __pyx_t_10) < 0) __PYX_ERR(0, 784, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":801
+  /* "amplpy/ampl.pyx":807
  *         return Variables(self)
  * 
  *     def _con(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get/Set a constraint.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_73_con, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__con, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[239])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 801, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_73_con, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__con, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[239])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 807, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con, __pyx_t_10) < 0) __PYX_ERR(0, 801, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con, __pyx_t_10) < 0) __PYX_ERR(0, 807, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":824
+  /* "amplpy/ampl.pyx":830
  *         return Constraints(self)
  * 
  *     def _obj(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get an objective.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_75_obj, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__obj, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[240])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 824, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_75_obj, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__obj, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[240])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 830, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj, __pyx_t_10) < 0) __PYX_ERR(0, 824, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj, __pyx_t_10) < 0) __PYX_ERR(0, 830, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":841
+  /* "amplpy/ampl.pyx":847
  *         return Objectives(self)
  * 
  *     def _set(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get/Set a set.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_77_set, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__set, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[241])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 841, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_77_set, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__set, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[241])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 847, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_2, __pyx_t_10) < 0) __PYX_ERR(0, 841, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_2, __pyx_t_10) < 0) __PYX_ERR(0, 847, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":861
+  /* "amplpy/ampl.pyx":867
  *         return Sets(self)
  * 
  *     def _param(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get/Set a parameter.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_79_param, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__param, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[242])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 861, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_79_param, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__param, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[242])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 867, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param, __pyx_t_10) < 0) __PYX_ERR(0, 861, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param, __pyx_t_10) < 0) __PYX_ERR(0, 867, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":884
+  /* "amplpy/ampl.pyx":890
  *         return Parameters(self)
  * 
  *     def _option(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get/Set an option.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_81_option, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__option, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[243])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 884, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_81_option, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__option, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[243])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 890, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option, __pyx_t_10) < 0) __PYX_ERR(0, 884, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option, __pyx_t_10) < 0) __PYX_ERR(0, 890, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":905
+  /* "amplpy/ampl.pyx":911
  *         return Options(self)
  * 
  *     def _set_option(self, options_dict):             # <<<<<<<<<<<<<<
  *         for name, value in options_dict.items():
  *             if isinstance(value, dict):
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_83_set_option, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__set_option, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[244])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 905, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_83_set_option, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__set_option, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[244])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 911, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option_2, __pyx_t_10) < 0) __PYX_ERR(0, 905, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option_2, __pyx_t_10) < 0) __PYX_ERR(0, 911, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":913
+  /* "amplpy/ampl.pyx":919
  *                 self.set_option(name, value)
  * 
  *     var = property(_var)             # <<<<<<<<<<<<<<
@@ -82103,7 +82185,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_7 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_3 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_9, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 913, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_9, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 919, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_t_8 = 1;
   {
@@ -82112,13 +82194,13 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 913, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 919, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var_2, __pyx_t_10) < 0) __PYX_ERR(0, 913, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_var_2, __pyx_t_10) < 0) __PYX_ERR(0, 919, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":914
+  /* "amplpy/ampl.pyx":920
  * 
  *     var = property(_var)
  *     con = property(_con)             # <<<<<<<<<<<<<<
@@ -82128,7 +82210,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_9 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 914, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 920, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_8 = 1;
   {
@@ -82137,13 +82219,13 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 914, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 920, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con_2, __pyx_t_10) < 0) __PYX_ERR(0, 914, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_con_2, __pyx_t_10) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":915
+  /* "amplpy/ampl.pyx":921
  *     var = property(_var)
  *     con = property(_con)
  *     obj = property(_obj)             # <<<<<<<<<<<<<<
@@ -82153,7 +82235,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_9 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_7 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 915, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 921, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_8 = 1;
   {
@@ -82162,13 +82244,13 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 915, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 921, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj_2, __pyx_t_10) < 0) __PYX_ERR(0, 915, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_obj_2, __pyx_t_10) < 0) __PYX_ERR(0, 921, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":916
+  /* "amplpy/ampl.pyx":922
  *     con = property(_con)
  *     obj = property(_obj)
  *     set = property(_set)             # <<<<<<<<<<<<<<
@@ -82178,7 +82260,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_7 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_3 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_9, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 916, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_9, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_t_8 = 1;
   {
@@ -82187,13 +82269,13 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 916, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 922, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set, __pyx_t_10) < 0) __PYX_ERR(0, 916, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set, __pyx_t_10) < 0) __PYX_ERR(0, 922, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":917
+  /* "amplpy/ampl.pyx":923
  *     obj = property(_obj)
  *     set = property(_set)
  *     param = property(_param)             # <<<<<<<<<<<<<<
@@ -82203,7 +82285,7 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_3 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_9 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 917, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_7, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 923, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_8 = 1;
   {
@@ -82212,13 +82294,13 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 917, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 923, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param_2, __pyx_t_10) < 0) __PYX_ERR(0, 917, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_param_2, __pyx_t_10) < 0) __PYX_ERR(0, 923, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":918
+  /* "amplpy/ampl.pyx":924
  *     set = property(_set)
  *     param = property(_param)
  *     option = property(_option, _set_option)             # <<<<<<<<<<<<<<
@@ -82228,9 +82310,9 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   __pyx_t_9 = NULL;
   __Pyx_INCREF(__pyx_builtin_property);
   __pyx_t_7 = __pyx_builtin_property; 
-  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 918, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_3, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 924, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 918, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 924, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_8 = 1;
   {
@@ -82240,543 +82322,543 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 918, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 924, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option_2, __pyx_t_10) < 0) __PYX_ERR(0, 918, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_option_2, __pyx_t_10) < 0) __PYX_ERR(0, 924, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":920
+  /* "amplpy/ampl.pyx":926
  *     option = property(_option, _set_option)
  * 
  *     def export_model(self, filename=""):             # <<<<<<<<<<<<<<
  *         """
  *         Create a .mod file with the model that has been loaded.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_85export_model, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_export_model, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[245])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 920, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_85export_model, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_export_model, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[245])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 926, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[26]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_model, __pyx_t_10) < 0) __PYX_ERR(0, 920, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_model, __pyx_t_10) < 0) __PYX_ERR(0, 926, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":938
+  /* "amplpy/ampl.pyx":944
  *         return output
  * 
  *     def export_data(self, filename=""):             # <<<<<<<<<<<<<<
  *         """
  *         Create a .dat file with the data that has been loaded.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_87export_data, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_export_data, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[246])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 938, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_87export_data, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_export_data, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[246])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 944, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[26]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_data, __pyx_t_10) < 0) __PYX_ERR(0, 938, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_data, __pyx_t_10) < 0) __PYX_ERR(0, 944, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":956
+  /* "amplpy/ampl.pyx":962
  *         return output
  * 
  *     def snapshot(self, filename="", model=True, data=True, options=True):             # <<<<<<<<<<<<<<
  *         """
  *         Create a snapshot file that replicates the current session.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_89snapshot, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_snapshot, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[247])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 956, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_89snapshot, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_snapshot, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[247])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 962, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[27]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_snapshot, __pyx_t_10) < 0) __PYX_ERR(0, 956, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_snapshot, __pyx_t_10) < 0) __PYX_ERR(0, 962, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":983
+  /* "amplpy/ampl.pyx":989
  *         return output
  * 
  *     def write(self, filename, auxfiles=""):             # <<<<<<<<<<<<<<
  *         """
  *         Invoke write command with filename as argument and
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_91write, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_write, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[248])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 983, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_91write, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_write, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[248])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 989, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[26]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_write, __pyx_t_10) < 0) __PYX_ERR(0, 983, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_write, __pyx_t_10) < 0) __PYX_ERR(0, 989, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1044
+  /* "amplpy/ampl.pyx":1050
  *         return self.get_value("solve_result_num")
  * 
  *     def get_iis(self, flat=True):             # <<<<<<<<<<<<<<
  *         """
  *         Get IIS attributes for all variables and constraints.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_93get_iis, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_iis, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[249])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1044, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_93get_iis, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_iis, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[249])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1050, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[18]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_iis, __pyx_t_10) < 0) __PYX_ERR(0, 1044, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_iis, __pyx_t_10) < 0) __PYX_ERR(0, 1050, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1088
+  /* "amplpy/ampl.pyx":1094
  *         return iis_var, iis_con
  * 
  *     def get_solution(self, flat=True, zeros=False):             # <<<<<<<<<<<<<<
  *         """
  *         Get solution values for all variables.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_95get_solution, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_solution, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[250])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1088, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_95get_solution, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_get_solution, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[250])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[28]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_solution, __pyx_t_10) < 0) __PYX_ERR(0, 1088, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_solution, __pyx_t_10) < 0) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1117
+  /* "amplpy/ampl.pyx":1123
  *         return nested_dict_of_suffixes(lst_solution)
  * 
  *     def _start_recording(self, filename):             # <<<<<<<<<<<<<<
  *         """
  *         Start recording the session to a file for debug purposes.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_97_start_recording, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__start_recording, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[251])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1117, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_97_start_recording, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__start_recording, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[251])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_start_recording, __pyx_t_10) < 0) __PYX_ERR(0, 1117, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_start_recording, __pyx_t_10) < 0) __PYX_ERR(0, 1123, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1126
+  /* "amplpy/ampl.pyx":1132
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 1))
  * 
  *     def _stop_recording(self):             # <<<<<<<<<<<<<<
  *         """
  *         Stop recording the session.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_99_stop_recording, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__stop_recording, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[252])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1126, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_99_stop_recording, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__stop_recording, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[252])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stop_recording, __pyx_t_10) < 0) __PYX_ERR(0, 1126, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stop_recording, __pyx_t_10) < 0) __PYX_ERR(0, 1132, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1132
+  /* "amplpy/ampl.pyx":1138
  *         PY_AMPL_CALL(campl.AMPL_SetDblOption(self._c_ampl, "_log", 0))
  * 
  *     def _load_session(self, filename):             # <<<<<<<<<<<<<<
  *         """
  *         Load a recorded session.
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_101_load_session, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__load_session, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[253])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1132, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_101_load_session, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL__load_session, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[253])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_load_session, __pyx_t_10) < 0) __PYX_ERR(0, 1132, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_load_session, __pyx_t_10) < 0) __PYX_ERR(0, 1138, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1142
+  /* "amplpy/ampl.pyx":1148
  *             print(exp)
  * 
  *     def to_ampls(self, driver, options=None):             # <<<<<<<<<<<<<<
  *         if driver == "gurobi":
  *             try:
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_103to_ampls, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_to_ampls, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[254])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1142, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_103to_ampls, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_to_ampls, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[254])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[16]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_ampls, __pyx_t_10) < 0) __PYX_ERR(0, 1142, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_ampls, __pyx_t_10) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1182
+  /* "amplpy/ampl.pyx":1188
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):             # <<<<<<<<<<<<<<
  *         if isinstance(model, dict):
  *             self.eval(
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_105import_ampls_solution, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_import_ampls_solution, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[255])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1182, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_105import_ampls_solution, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_import_ampls_solution, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[255])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[29]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_import_ampls_solution, __pyx_t_10) < 0) __PYX_ERR(0, 1182, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_import_ampls_solution, __pyx_t_10) < 0) __PYX_ERR(0, 1188, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1204
+  /* "amplpy/ampl.pyx":1210
  *             shutil.rmtree(model._tmpdir)
  * 
  *     def to_string(self):             # <<<<<<<<<<<<<<
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef char* output_c
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_107to_string, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_to_string, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[256])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1204, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_4AMPL_107to_string, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AMPL_to_string, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[256])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_string, __pyx_t_10) < 0) __PYX_ERR(0, 1204, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_string, __pyx_t_10) < 0) __PYX_ERR(0, 1210, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1219
+  /* "amplpy/ampl.pyx":1225
  * 
  *     # Aliases
  *     _loadSession = _load_session             # <<<<<<<<<<<<<<
  *     _startRecording = _start_recording
  *     _stopRecording = _stop_recording
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_load_session); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1219, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_load_session); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_loadSession, __pyx_t_10) < 0) __PYX_ERR(0, 1219, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_loadSession, __pyx_t_10) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1220
+  /* "amplpy/ampl.pyx":1226
  *     # Aliases
  *     _loadSession = _load_session
  *     _startRecording = _start_recording             # <<<<<<<<<<<<<<
  *     _stopRecording = _stop_recording
  *     exportData = export_data
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_start_recording); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1220, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_start_recording); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_startRecording, __pyx_t_10) < 0) __PYX_ERR(0, 1220, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_startRecording, __pyx_t_10) < 0) __PYX_ERR(0, 1226, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1221
+  /* "amplpy/ampl.pyx":1227
  *     _loadSession = _load_session
  *     _startRecording = _start_recording
  *     _stopRecording = _stop_recording             # <<<<<<<<<<<<<<
  *     exportData = export_data
  *     exportModel = export_model
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stop_recording); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1221, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stop_recording); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stopRecording, __pyx_t_10) < 0) __PYX_ERR(0, 1221, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_stopRecording, __pyx_t_10) < 0) __PYX_ERR(0, 1227, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1222
+  /* "amplpy/ampl.pyx":1228
  *     _startRecording = _start_recording
  *     _stopRecording = _stop_recording
  *     exportData = export_data             # <<<<<<<<<<<<<<
  *     exportModel = export_model
  *     getConstraint = get_constraint
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1222, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_exportData, __pyx_t_10) < 0) __PYX_ERR(0, 1222, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_exportData, __pyx_t_10) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1223
+  /* "amplpy/ampl.pyx":1229
  *     _stopRecording = _stop_recording
  *     exportData = export_data
  *     exportModel = export_model             # <<<<<<<<<<<<<<
  *     getConstraint = get_constraint
  *     getConstraints = get_constraints
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_model); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1223, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_export_model); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1229, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_exportModel, __pyx_t_10) < 0) __PYX_ERR(0, 1223, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_exportModel, __pyx_t_10) < 0) __PYX_ERR(0, 1229, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1224
+  /* "amplpy/ampl.pyx":1230
  *     exportData = export_data
  *     exportModel = export_model
  *     getConstraint = get_constraint             # <<<<<<<<<<<<<<
  *     getConstraints = get_constraints
  *     getCurrentObjective = get_current_objective
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraint); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1224, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraint); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getConstraint, __pyx_t_10) < 0) __PYX_ERR(0, 1224, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getConstraint, __pyx_t_10) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1225
+  /* "amplpy/ampl.pyx":1231
  *     exportModel = export_model
  *     getConstraint = get_constraint
  *     getConstraints = get_constraints             # <<<<<<<<<<<<<<
  *     getCurrentObjective = get_current_objective
  *     getData = get_data
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraints); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1225, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_constraints); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getConstraints, __pyx_t_10) < 0) __PYX_ERR(0, 1225, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getConstraints, __pyx_t_10) < 0) __PYX_ERR(0, 1231, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1226
+  /* "amplpy/ampl.pyx":1232
  *     getConstraint = get_constraint
  *     getConstraints = get_constraints
  *     getCurrentObjective = get_current_objective             # <<<<<<<<<<<<<<
  *     getData = get_data
  *     getEntity = get_entity
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_current_objective); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1226, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_current_objective); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1232, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getCurrentObjective, __pyx_t_10) < 0) __PYX_ERR(0, 1226, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getCurrentObjective, __pyx_t_10) < 0) __PYX_ERR(0, 1232, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1227
+  /* "amplpy/ampl.pyx":1233
  *     getConstraints = get_constraints
  *     getCurrentObjective = get_current_objective
  *     getData = get_data             # <<<<<<<<<<<<<<
  *     getEntity = get_entity
  *     getErrorHandler = get_error_handler
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1227, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getData, __pyx_t_10) < 0) __PYX_ERR(0, 1227, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getData, __pyx_t_10) < 0) __PYX_ERR(0, 1233, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1228
+  /* "amplpy/ampl.pyx":1234
  *     getCurrentObjective = get_current_objective
  *     getData = get_data
  *     getEntity = get_entity             # <<<<<<<<<<<<<<
  *     getErrorHandler = get_error_handler
  *     getObjective = get_objective
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_entity); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1228, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_entity); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getEntity, __pyx_t_10) < 0) __PYX_ERR(0, 1228, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getEntity, __pyx_t_10) < 0) __PYX_ERR(0, 1234, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1229
+  /* "amplpy/ampl.pyx":1235
  *     getData = get_data
  *     getEntity = get_entity
  *     getErrorHandler = get_error_handler             # <<<<<<<<<<<<<<
  *     getObjective = get_objective
  *     getObjectives = get_objectives
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_error_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1229, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_error_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1235, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getErrorHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1229, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getErrorHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1230
+  /* "amplpy/ampl.pyx":1236
  *     getEntity = get_entity
  *     getErrorHandler = get_error_handler
  *     getObjective = get_objective             # <<<<<<<<<<<<<<
  *     getObjectives = get_objectives
  *     getOption = get_option
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objective); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1230, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objective); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1236, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getObjective, __pyx_t_10) < 0) __PYX_ERR(0, 1230, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getObjective, __pyx_t_10) < 0) __PYX_ERR(0, 1236, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1231
+  /* "amplpy/ampl.pyx":1237
  *     getErrorHandler = get_error_handler
  *     getObjective = get_objective
  *     getObjectives = get_objectives             # <<<<<<<<<<<<<<
  *     getOption = get_option
  *     getOutput = get_output
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objectives); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1231, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_objectives); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getObjectives, __pyx_t_10) < 0) __PYX_ERR(0, 1231, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getObjectives, __pyx_t_10) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1232
+  /* "amplpy/ampl.pyx":1238
  *     getObjective = get_objective
  *     getObjectives = get_objectives
  *     getOption = get_option             # <<<<<<<<<<<<<<
  *     getOutput = get_output
  *     getOutputHandler = get_output_handler
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_option); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1232, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_option); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOption, __pyx_t_10) < 0) __PYX_ERR(0, 1232, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOption, __pyx_t_10) < 0) __PYX_ERR(0, 1238, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1233
+  /* "amplpy/ampl.pyx":1239
  *     getObjectives = get_objectives
  *     getOption = get_option
  *     getOutput = get_output             # <<<<<<<<<<<<<<
  *     getOutputHandler = get_output_handler
  *     getParameter = get_parameter
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1233, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOutput, __pyx_t_10) < 0) __PYX_ERR(0, 1233, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOutput, __pyx_t_10) < 0) __PYX_ERR(0, 1239, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1234
+  /* "amplpy/ampl.pyx":1240
  *     getOption = get_option
  *     getOutput = get_output
  *     getOutputHandler = get_output_handler             # <<<<<<<<<<<<<<
  *     getParameter = get_parameter
  *     getParameters = get_parameters
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1234, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_output_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1240, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOutputHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1234, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getOutputHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1240, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1235
+  /* "amplpy/ampl.pyx":1241
  *     getOutput = get_output
  *     getOutputHandler = get_output_handler
  *     getParameter = get_parameter             # <<<<<<<<<<<<<<
  *     getParameters = get_parameters
  *     getSet = get_set
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameter); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1235, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameter); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1241, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getParameter, __pyx_t_10) < 0) __PYX_ERR(0, 1235, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getParameter, __pyx_t_10) < 0) __PYX_ERR(0, 1241, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1236
+  /* "amplpy/ampl.pyx":1242
  *     getOutputHandler = get_output_handler
  *     getParameter = get_parameter
  *     getParameters = get_parameters             # <<<<<<<<<<<<<<
  *     getSet = get_set
  *     getSets = get_sets
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameters); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1236, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_parameters); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1242, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getParameters, __pyx_t_10) < 0) __PYX_ERR(0, 1236, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getParameters, __pyx_t_10) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1237
+  /* "amplpy/ampl.pyx":1243
  *     getParameter = get_parameter
  *     getParameters = get_parameters
  *     getSet = get_set             # <<<<<<<<<<<<<<
  *     getSets = get_sets
  *     getValue = get_value
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_set); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1237, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_set); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1243, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getSet, __pyx_t_10) < 0) __PYX_ERR(0, 1237, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getSet, __pyx_t_10) < 0) __PYX_ERR(0, 1243, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1238
+  /* "amplpy/ampl.pyx":1244
  *     getParameters = get_parameters
  *     getSet = get_set
  *     getSets = get_sets             # <<<<<<<<<<<<<<
  *     getValue = get_value
  *     getVariable = get_variable
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_sets); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1238, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_sets); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getSets, __pyx_t_10) < 0) __PYX_ERR(0, 1238, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getSets, __pyx_t_10) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1239
+  /* "amplpy/ampl.pyx":1245
  *     getSet = get_set
  *     getSets = get_sets
  *     getValue = get_value             # <<<<<<<<<<<<<<
  *     getVariable = get_variable
  *     getVariables = get_variables
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1239, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1245, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getValue, __pyx_t_10) < 0) __PYX_ERR(0, 1239, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getValue, __pyx_t_10) < 0) __PYX_ERR(0, 1245, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1240
+  /* "amplpy/ampl.pyx":1246
  *     getSets = get_sets
  *     getValue = get_value
  *     getVariable = get_variable             # <<<<<<<<<<<<<<
  *     getVariables = get_variables
  *     isRunning = is_running
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variable); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1240, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variable); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1246, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getVariable, __pyx_t_10) < 0) __PYX_ERR(0, 1240, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getVariable, __pyx_t_10) < 0) __PYX_ERR(0, 1246, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1241
+  /* "amplpy/ampl.pyx":1247
  *     getValue = get_value
  *     getVariable = get_variable
  *     getVariables = get_variables             # <<<<<<<<<<<<<<
  *     isRunning = is_running
  *     readData = read_data
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variables); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1241, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_get_variables); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getVariables, __pyx_t_10) < 0) __PYX_ERR(0, 1241, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_getVariables, __pyx_t_10) < 0) __PYX_ERR(0, 1247, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1242
+  /* "amplpy/ampl.pyx":1248
  *     getVariable = get_variable
  *     getVariables = get_variables
  *     isRunning = is_running             # <<<<<<<<<<<<<<
  *     readData = read_data
  *     readTable = read_table
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_is_running); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1242, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_is_running); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_isRunning, __pyx_t_10) < 0) __PYX_ERR(0, 1242, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_isRunning, __pyx_t_10) < 0) __PYX_ERR(0, 1248, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1243
+  /* "amplpy/ampl.pyx":1249
  *     getVariables = get_variables
  *     isRunning = is_running
  *     readData = read_data             # <<<<<<<<<<<<<<
  *     readTable = read_table
  *     setData = set_data
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_read_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1243, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_read_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1249, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_readData, __pyx_t_10) < 0) __PYX_ERR(0, 1243, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_readData, __pyx_t_10) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1244
+  /* "amplpy/ampl.pyx":1250
  *     isRunning = is_running
  *     readData = read_data
  *     readTable = read_table             # <<<<<<<<<<<<<<
  *     setData = set_data
  *     setErrorHandler = set_error_handler
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_read_table); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1244, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_read_table); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_readTable, __pyx_t_10) < 0) __PYX_ERR(0, 1244, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_readTable, __pyx_t_10) < 0) __PYX_ERR(0, 1250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1245
+  /* "amplpy/ampl.pyx":1251
  *     readData = read_data
  *     readTable = read_table
  *     setData = set_data             # <<<<<<<<<<<<<<
  *     setErrorHandler = set_error_handler
  *     setOption = set_option
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1245, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setData, __pyx_t_10) < 0) __PYX_ERR(0, 1245, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setData, __pyx_t_10) < 0) __PYX_ERR(0, 1251, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1246
+  /* "amplpy/ampl.pyx":1252
  *     readTable = read_table
  *     setData = set_data
  *     setErrorHandler = set_error_handler             # <<<<<<<<<<<<<<
  *     setOption = set_option
  *     setOutputHandler = set_output_handler
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_error_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1246, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_error_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setErrorHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1246, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setErrorHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1252, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1247
+  /* "amplpy/ampl.pyx":1253
  *     setData = set_data
  *     setErrorHandler = set_error_handler
  *     setOption = set_option             # <<<<<<<<<<<<<<
  *     setOutputHandler = set_output_handler
  *     toString = to_string
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1247, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_option); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setOption, __pyx_t_10) < 0) __PYX_ERR(0, 1247, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setOption, __pyx_t_10) < 0) __PYX_ERR(0, 1253, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1248
+  /* "amplpy/ampl.pyx":1254
  *     setErrorHandler = set_error_handler
  *     setOption = set_option
  *     setOutputHandler = set_output_handler             # <<<<<<<<<<<<<<
  *     toString = to_string
  *     writeTable = write_table
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_output_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1248, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_set_output_handler); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setOutputHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1248, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_setOutputHandler, __pyx_t_10) < 0) __PYX_ERR(0, 1254, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1249
+  /* "amplpy/ampl.pyx":1255
  *     setOption = set_option
  *     setOutputHandler = set_output_handler
  *     toString = to_string             # <<<<<<<<<<<<<<
  *     writeTable = write_table
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_string); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1249, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_to_string); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1255, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_toString, __pyx_t_10) < 0) __PYX_ERR(0, 1249, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_toString, __pyx_t_10) < 0) __PYX_ERR(0, 1255, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "amplpy/ampl.pyx":1250
+  /* "amplpy/ampl.pyx":1256
  *     setOutputHandler = set_output_handler
  *     toString = to_string
  *     writeTable = write_table             # <<<<<<<<<<<<<<
 */
-  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_write_table); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1250, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_10, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_write_table); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_writeTable, __pyx_t_10) < 0) __PYX_ERR(0, 1250, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_AMPL, __pyx_mstate_global->__pyx_n_u_writeTable, __pyx_t_10) < 0) __PYX_ERR(0, 1256, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
   /* "(tree fragment)":1
@@ -83279,6 +83361,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_add_row, sizeof(__pyx_k_add_row), 0, 1, 1}, /* PyObject cname: __pyx_n_u_add_row */
   {__pyx_k_ampl, sizeof(__pyx_k_ampl), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ampl */
   {__pyx_k_ampl_expressions, sizeof(__pyx_k_ampl_expressions), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ampl_expressions */
+  {__pyx_k_ampl_instance, sizeof(__pyx_k_ampl_instance), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ampl_instance */
   {__pyx_k_ampl_libpath, sizeof(__pyx_k_ampl_libpath), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ampl_libpath */
   {__pyx_k_amplpy, sizeof(__pyx_k_amplpy), 0, 1, 1}, /* PyObject cname: __pyx_n_u_amplpy */
   {__pyx_k_amplpy_ampl, sizeof(__pyx_k_amplpy_ampl), 0, 1, 1}, /* PyObject cname: __pyx_n_u_amplpy_ampl */
@@ -83392,6 +83475,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_environment, sizeof(__pyx_k_environment), 0, 1, 1}, /* PyObject cname: __pyx_n_u_environment */
   {__pyx_k_error, sizeof(__pyx_k_error), 0, 1, 1}, /* PyObject cname: __pyx_n_u_error */
   {__pyx_k_error_handler, sizeof(__pyx_k_error_handler), 0, 1, 1}, /* PyObject cname: __pyx_n_u_error_handler */
+  {__pyx_k_error_handler_wrapper, sizeof(__pyx_k_error_handler_wrapper), 0, 1, 1}, /* PyObject cname: __pyx_n_u_error_handler_wrapper */
   {__pyx_k_errorinfo, sizeof(__pyx_k_errorinfo), 0, 1, 1}, /* PyObject cname: __pyx_n_u_errorinfo */
   {__pyx_k_errors, sizeof(__pyx_k_errors), 0, 1, 1}, /* PyObject cname: __pyx_n_u_errors */
   {__pyx_k_eval, sizeof(__pyx_k_eval), 0, 1, 1}, /* PyObject cname: __pyx_n_u_eval */
@@ -83793,6 +83877,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_table_name, sizeof(__pyx_k_table_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_table_name */
   {__pyx_k_test, sizeof(__pyx_k_test), 0, 1, 1}, /* PyObject cname: __pyx_n_u_test */
   {__pyx_k_throw, sizeof(__pyx_k_throw), 0, 1, 1}, /* PyObject cname: __pyx_n_u_throw */
+  {__pyx_k_throw_on_warnings, sizeof(__pyx_k_throw_on_warnings), 0, 1, 1}, /* PyObject cname: __pyx_n_u_throw_on_warnings */
   {__pyx_k_tmpdir, sizeof(__pyx_k_tmpdir), 0, 1, 1}, /* PyObject cname: __pyx_n_u_tmpdir */
   {__pyx_k_toDict, sizeof(__pyx_k_toDict), 0, 1, 1}, /* PyObject cname: __pyx_n_u_toDict */
   {__pyx_k_toList, sizeof(__pyx_k_toList), 0, 1, 1}, /* PyObject cname: __pyx_n_u_toList */
@@ -83856,9 +83941,9 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(1, 13, __pyx_L1_error)
-  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(2, 55, __pyx_L1_error)
   __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(3, 33, __pyx_L1_error)
-  __pyx_builtin_property = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_property); if (!__pyx_builtin_property) __PYX_ERR(0, 913, __pyx_L1_error)
+  __pyx_builtin_property = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_property); if (!__pyx_builtin_property) __PYX_ERR(0, 919, __pyx_L1_error)
   __pyx_builtin_SystemError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_SystemError); if (!__pyx_builtin_SystemError) __PYX_ERR(4, 24, __pyx_L1_error)
   __pyx_builtin_IOError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_IOError); if (!__pyx_builtin_IOError) __PYX_ERR(4, 27, __pyx_L1_error)
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(4, 30, __pyx_L1_error)
@@ -83874,7 +83959,7 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(2, 10, __pyx_L1_error)
   __pyx_builtin_StopIteration = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_StopIteration); if (!__pyx_builtin_StopIteration) __PYX_ERR(6, 26, __pyx_L1_error)
   __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_print); if (!__pyx_builtin_print) __PYX_ERR(3, 27, __pyx_L1_error)
-  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_open); if (!__pyx_builtin_open) __PYX_ERR(0, 1138, __pyx_L1_error)
+  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_open); if (!__pyx_builtin_open) __PYX_ERR(0, 1144, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -83919,87 +84004,87 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "amplpy/ampl.pyx":783
+  /* "amplpy/ampl.pyx":789
  *         """
  * 
  *         class Variables(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
-  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 789, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[4]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
 
-  /* "amplpy/ampl.pyx":806
+  /* "amplpy/ampl.pyx":812
  *         """
  * 
  *         class Constraints(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[5] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[5] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[5]);
-  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 812, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[6]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[6]);
 
-  /* "amplpy/ampl.pyx":829
+  /* "amplpy/ampl.pyx":835
  *         """
  * 
  *         class Objectives(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[7]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[7]);
-  __pyx_mstate_global->__pyx_tuple[8] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 829, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[8] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 835, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[8]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[8]);
 
-  /* "amplpy/ampl.pyx":846
+  /* "amplpy/ampl.pyx":852
  *         """
  * 
  *         class Sets(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[9]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[9]);
-  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 852, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[10]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[10]);
 
-  /* "amplpy/ampl.pyx":866
+  /* "amplpy/ampl.pyx":872
  *         """
  * 
  *         class Parameters(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[11]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[11]);
-  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[12]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[12]);
 
-  /* "amplpy/ampl.pyx":889
+  /* "amplpy/ampl.pyx":895
  *         """
  * 
  *         class Options(object):             # <<<<<<<<<<<<<<
  *             def __init__(self, ampl):
  *                 self.ampl = ampl
 */
-  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[13]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[13]);
-  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 895, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[14]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[14]);
 
@@ -84047,30 +84132,30 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[18]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[18]);
 
-  /* "amplpy/exceptions.pxi":54
+  /* "amplpy/exceptions.pxi":55
  * 
  * 
  * class PresolveException(RuntimeError):             # <<<<<<<<<<<<<<
  *     pass
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[19]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[19]);
-  __pyx_mstate_global->__pyx_tuple[20] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[20])) __PYX_ERR(2, 54, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[20] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[20])) __PYX_ERR(2, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[20]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[20]);
 
-  /* "amplpy/exceptions.pxi":58
+  /* "amplpy/exceptions.pxi":59
  * 
  * 
  * class InfeasibilityException(RuntimeError):             # <<<<<<<<<<<<<<
  *     pass
 */
-  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[21]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[21]);
-  __pyx_mstate_global->__pyx_tuple[22] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[22])) __PYX_ERR(2, 58, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[22] = PyTuple_Pack(1, __pyx_builtin_RuntimeError); if (unlikely(!__pyx_mstate_global->__pyx_tuple[22])) __PYX_ERR(2, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[22]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[22]);
 
@@ -84099,47 +84184,47 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[25]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[25]);
 
-  /* "amplpy/ampl.pyx":920
+  /* "amplpy/ampl.pyx":926
  *     option = property(_option, _set_option)
  * 
  *     def export_model(self, filename=""):             # <<<<<<<<<<<<<<
  *         """
  *         Create a .mod file with the model that has been loaded.
 */
-  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_kp_u__3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 920, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_kp_u__3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 926, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[26]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[26]);
 
-  /* "amplpy/ampl.pyx":956
+  /* "amplpy/ampl.pyx":962
  *         return output
  * 
  *     def snapshot(self, filename="", model=True, data=True, options=True):             # <<<<<<<<<<<<<<
  *         """
  *         Create a snapshot file that replicates the current session.
 */
-  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(4, __pyx_mstate_global->__pyx_kp_u__3, Py_True, Py_True, Py_True); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 956, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(4, __pyx_mstate_global->__pyx_kp_u__3, Py_True, Py_True, Py_True); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 962, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[27]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[27]);
 
-  /* "amplpy/ampl.pyx":1088
+  /* "amplpy/ampl.pyx":1094
  *         return iis_var, iis_con
  * 
  *     def get_solution(self, flat=True, zeros=False):             # <<<<<<<<<<<<<<
  *         """
  *         Get solution values for all variables.
 */
-  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(2, Py_True, Py_False); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 1088, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(2, Py_True, Py_False); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[28]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[28]);
 
-  /* "amplpy/ampl.pyx":1182
+  /* "amplpy/ampl.pyx":1188
  *         raise ValueError(f"{driver} is not supported, please choose from: {solver_list}")
  * 
  *     def import_ampls_solution(self, model, number=None, import_entities=False, keep_files=False):             # <<<<<<<<<<<<<<
  *         if isinstance(model, dict):
  *             self.eval(
 */
-  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(3, Py_None, Py_False, Py_False); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 1182, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(3, Py_None, Py_False, Py_False); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 1188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[29]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[29]);
   __Pyx_RefNannyFinishContext();
@@ -84155,6 +84240,7 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.type = (PyObject*)&PyDict_Type;
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.method_name = &__pyx_mstate->__pyx_n_u_pop;
   if (__Pyx_InitStrings(__pyx_string_tab, __pyx_mstate->__pyx_string_tab, __pyx_string_tab_encodings) < 0) __PYX_ERR(0, 1, __pyx_L1_error);
+  __pyx_mstate->__pyx_float_1_0 = PyFloat_FromDouble(1.0); if (unlikely(!__pyx_mstate->__pyx_float_1_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_0 = PyLong_FromLong(0); if (unlikely(!__pyx_mstate->__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_1 = PyLong_FromLong(1); if (unlikely(!__pyx_mstate->__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_222419149 = PyLong_FromLong(222419149L); if (unlikely(!__pyx_mstate->__pyx_int_222419149)) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -84271,147 +84357,147 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_set_pxi, __pyx_mstate->__pyx_n_u_cast_row, __pyx_k_z_q_q_1E_uAQ_1E_uAS_Q_6_A_1A_AR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 683, 18};
-    PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_error_handler};
-    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_Q_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 683, 25};
+    PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl_instance, __pyx_mstate->__pyx_n_u_error_handler};
+    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA_Q_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 687, 43};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 688, 43};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_exception, __pyx_mstate->__pyx_n_u_exp};
     __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_error, __pyx_k_A_fAQ_A_t_3a_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 694, 43};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 695, 63};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_exception, __pyx_mstate->__pyx_n_u_exp};
-    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_warning, __pyx_k_A_haq_A_t_3a_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_warning, __pyx_k_A_haq_A_t_3a_4uKq0Fc_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 701, 36};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 705, 36};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_exp};
     __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_check, __pyx_k_A_Qd_31_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 784, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 790, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 787, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 793, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 790, 47};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 796, 47};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_setitem, __pyx_k_A_QgQ_5_1_5_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 796, 13};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 802, 13};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_iter, __pyx_k_A_t5_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 807, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 813, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 810, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 816, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 813, 47};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 819, 47};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_setitem, __pyx_k_A_QgQ__AU_1A__AU_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 819, 14};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 825, 14};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_iter, __pyx_k_A_t5_0, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 830, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 836, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 833, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 839, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 836, 13};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 842, 13};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[30] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_iter, __pyx_k_A_t5_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[30])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 847, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 853, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[31] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[31])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 850, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 856, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[32] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[32])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 853, 19};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 859, 19};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_values};
     __pyx_mstate_global->__pyx_codeobj_tab[33] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_setitem, __pyx_k_A_E_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[33])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 856, 13};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 862, 13};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[34] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_iter, __pyx_k_A_t5_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[34])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 867, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 873, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[35] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[35])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 870, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 876, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[36] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[36])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 873, 49};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 879, 49};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[37] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_setitem, __pyx_k_A_QhfA_1E_Qa_1E_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[37])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 879, 13};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 885, 13};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[38] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_iter, __pyx_k_A_t5_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[38])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 899, 2};
+    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 905, 2};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_v};
     __pyx_mstate_global->__pyx_codeobj_tab[39] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[39])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 890, 9};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 896, 9};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_ampl};
     __pyx_mstate_global->__pyx_codeobj_tab[40] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[40])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 893, 15};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 899, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name};
     __pyx_mstate_global->__pyx_codeobj_tab[41] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_getitem, __pyx_k_A_t5_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[41])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 896, 56};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 902, 56};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[42] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_setitem, __pyx_k_A_QgQ_t9AQ_E_AV3e1A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[42])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 909, 2};
+    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 915, 2};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_v};
     __pyx_mstate_global->__pyx_codeobj_tab[43] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[43])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 1186, 2};
+    __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 1192, 2};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[44] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_genexpr, __pyx_k__20, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[44])) goto bad;
   }
@@ -85336,142 +85422,142 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[228] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_set_output_handler, __pyx_k_A_q_F_0_Zz_PQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[228])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 675, 73};
-    PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_error_handler, __pyx_mstate->__pyx_n_u_ErrorHandlerWrapper};
-    __pyx_mstate_global->__pyx_codeobj_tab[229] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_set_error_handler, __pyx_k_A_a_9_F_q_JiwdRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[229])) goto bad;
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 675, 80};
+    PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_error_handler, __pyx_mstate->__pyx_n_u_ErrorHandlerWrapper, __pyx_mstate->__pyx_n_u_error_handler_wrapper};
+    __pyx_mstate_global->__pyx_codeobj_tab[229] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_set_error_handler, __pyx_k_A_31F_a_a_F_q_JiwdRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[229])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 712, 29};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 718, 29};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_output_handler};
     __pyx_mstate_global->__pyx_codeobj_tab[230] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_output_handler, __pyx_k_A_F_0_Zq_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[230])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 723, 13};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 729, 13};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[231] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_error_handler, __pyx_k_A_T, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[231])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 732, 15};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 738, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[232] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_variables, __pyx_k_A_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[232])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 738, 15};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 744, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[233] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_constraints, __pyx_k_A_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[233])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 744, 15};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 750, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[234] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_objectives, __pyx_k_A_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[234])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 750, 15};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 756, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[235] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_sets, __pyx_k_A_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[235])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 756, 15};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 762, 15};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[236] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_parameters, __pyx_k_A_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[236])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 762, 81};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 768, 81};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_objname_c, __pyx_mstate->__pyx_n_u_objname};
     __pyx_mstate_global->__pyx_codeobj_tab[237] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_current_objective, __pyx_k_A_2_4z_1_Qiwaq_Qaq_83a_1_4_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[237])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 778, 38};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 784, 38};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Variables};
     __pyx_mstate_global->__pyx_codeobj_tab[238] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_var, __pyx_k_A_y, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[238])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 801, 38};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 807, 38};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Constraints};
     __pyx_mstate_global->__pyx_codeobj_tab[239] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_con, __pyx_k_A_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[239])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 824, 33};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 830, 33};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Objectives};
     __pyx_mstate_global->__pyx_codeobj_tab[240] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_obj, __pyx_k_A_z, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[240])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 841, 38};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 847, 38};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Sets};
     __pyx_mstate_global->__pyx_codeobj_tab[241] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_set_2, __pyx_k_A_1_t1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[241])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 861, 38};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 867, 38};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Parameters};
     __pyx_mstate_global->__pyx_codeobj_tab[242] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_param, __pyx_k_A_z_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[242])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 884, 33};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 890, 33};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_Options};
     __pyx_mstate_global->__pyx_codeobj_tab[243] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_option, __pyx_k_A_a_waq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[243])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 905, 65};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 911, 65};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_options_dict, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[244] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_set_option_2, __pyx_k_A_F_vQ_z_4y_1F_U_1_Kq_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[244])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 920, 82};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 926, 82};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_output_c, __pyx_mstate->__pyx_n_u_output};
     __pyx_mstate_global->__pyx_codeobj_tab[245] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_export_model, __pyx_k_A_q_JhgQjPSSVVYYZZ_1_AXWAQ_Qaq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[245])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 938, 82};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 944, 82};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_output_c, __pyx_mstate->__pyx_n_u_output};
     __pyx_mstate_global->__pyx_codeobj_tab[246] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_export_data, __pyx_k_1_q_JhgQjPSSVVYYZZ_1_AXWAQ_Qaq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[246])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {5, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 956, 103};
+    __Pyx_PyCode_New_function_description descr = {5, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 962, 103};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename, __pyx_mstate->__pyx_n_u_model, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_options_2, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_model_c, __pyx_mstate->__pyx_n_u_data_c, __pyx_mstate->__pyx_n_u_options_c, __pyx_mstate->__pyx_n_u_output_c, __pyx_mstate->__pyx_n_u_output};
     __pyx_mstate_global->__pyx_codeobj_tab[247] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_snapshot, __pyx_k_1_1_Q_q_JhgQjPYYaallmmn_1_AXWAQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[247])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 983, 39};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 989, 39};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename, __pyx_mstate->__pyx_n_u_auxfiles};
     __pyx_mstate_global->__pyx_codeobj_tab[248] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_write, __pyx_k_q_F_Qd_HG1JhV, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[248])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1044, 103};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1050, 103};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_flat, __pyx_mstate->__pyx_n_u_iis_var, __pyx_mstate->__pyx_n_u_iis_con};
     __pyx_mstate_global->__pyx_codeobj_tab[249] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_iis, __pyx_k_1_iq_Q_iq_Q_5_1_Qa_Qa_d_1_d_1_y, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[249])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1088, 67};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1094, 67};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_flat, __pyx_mstate->__pyx_n_u_zeros, __pyx_mstate->__pyx_n_u_stmt, __pyx_mstate->__pyx_n_u_lst_solution};
     __pyx_mstate_global->__pyx_codeobj_tab[250] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_get_solution, __pyx_k_A_1_1_1_t9AU_a_1_4q_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[250])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1117, 77};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1123, 77};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename};
     __pyx_mstate_global->__pyx_codeobj_tab[251] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_start_recording, __pyx_k_A_3aq_F_j8J_RYYZZ_F_AT_Na_F_AT_8, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[251])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1126, 22};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1132, 22};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[252] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_stop_recording, __pyx_k_A_F_AT_81, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[252])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1132, 48};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1138, 48};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_filename, __pyx_mstate->__pyx_n_u_exp};
     __pyx_mstate_global->__pyx_codeobj_tab[253] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_load_session, __pyx_k_A_3aq_Qd_9E_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[253])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1142, 280};
+    __Pyx_PyCode_New_function_description descr = {3, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1148, 280};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_driver, __pyx_mstate->__pyx_n_u_options_2, __pyx_mstate->__pyx_n_u_export_gurobi_model, __pyx_mstate->__pyx_n_u_export_cplex_model, __pyx_mstate->__pyx_n_u_export_scip_model, __pyx_mstate->__pyx_n_u_export_copt_model, __pyx_mstate->__pyx_n_u_export_highs_model, __pyx_mstate->__pyx_n_u_export_xpress_model, __pyx_mstate->__pyx_n_u_solver_list};
     __pyx_mstate_global->__pyx_codeobj_tab[254] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_to_ampls, __pyx_k_q_7_Q_k_avQ_Cq_k_QfA_Cq_k_AV1_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[254])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {5, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1182, 158};
+    __Pyx_PyCode_New_function_description descr = {5, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1188, 158};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_model, __pyx_mstate->__pyx_n_u_number, __pyx_mstate->__pyx_n_u_import_entities, __pyx_mstate->__pyx_n_u_keep_files, __pyx_mstate->__pyx_n_u_shutil, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[255] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_import_ampls_solution, __pyx_k_22HHZZ_QgQ_Q_q_QgQ_wc_E_N_E_N_Z, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[255])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1204, 60};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1210, 60};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_output_c, __pyx_mstate->__pyx_n_u_output};
     __pyx_mstate_global->__pyx_codeobj_tab[256] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_ampl_pyx, __pyx_mstate->__pyx_n_u_to_string, __pyx_k_A_q_Jaq_1_AXWAQ_Qaq_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[256])) goto bad;
   }
@@ -90424,6 +90510,94 @@ static void __Pyx_WriteUnraisable(const char *name, int clineno,
     if (nogil)
         PyGILState_Release(state);
 }
+
+/* PyFloatBinop */
+#if !CYTHON_COMPILING_IN_PYPY
+static int __Pyx_PyFloat_BoolNeObjC(PyObject *op1, PyObject *op2, double floatval, int inplace, int zerodivision_check) {
+    const double b = floatval;
+    double a;
+    CYTHON_UNUSED_VAR(inplace);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    if (op1 == op2) {
+        return 0;
+    }
+    if (likely(PyFloat_CheckExact(op1))) {
+        a = __Pyx_PyFloat_AS_DOUBLE(op1);
+        
+    } else
+    if (likely(PyLong_CheckExact(op1))) {
+        #if CYTHON_USE_PYLONG_INTERNALS
+        if (__Pyx_PyLong_IsZero(op1)) {
+            a = 0.0;
+            
+        } else if (__Pyx_PyLong_IsCompact(op1)) {
+            a = (double) __Pyx_PyLong_CompactValue(op1);
+        } else {
+            const digit* digits = __Pyx_PyLong_Digits(op1);
+            const Py_ssize_t size = __Pyx_PyLong_SignedDigitCount(op1);
+            switch (size) {
+                case -2:
+                case 2:
+                    if (8 * sizeof(unsigned long) > 2 * PyLong_SHIFT && ((8 * sizeof(unsigned long) < 53) || (1 * PyLong_SHIFT < 53))) {
+                        a = (double) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                        if ((8 * sizeof(unsigned long) < 53) || (2 * PyLong_SHIFT < 53) || (a < (double) ((PY_LONG_LONG)1 << 53))) {
+                            if (size == -2)
+                                a = -a;
+                            break;
+                        }
+                    }
+                    CYTHON_FALLTHROUGH;
+                case -3:
+                case 3:
+                    if (8 * sizeof(unsigned long) > 3 * PyLong_SHIFT && ((8 * sizeof(unsigned long) < 53) || (2 * PyLong_SHIFT < 53))) {
+                        a = (double) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                        if ((8 * sizeof(unsigned long) < 53) || (3 * PyLong_SHIFT < 53) || (a < (double) ((PY_LONG_LONG)1 << 53))) {
+                            if (size == -3)
+                                a = -a;
+                            break;
+                        }
+                    }
+                    CYTHON_FALLTHROUGH;
+                case -4:
+                case 4:
+                    if (8 * sizeof(unsigned long) > 4 * PyLong_SHIFT && ((8 * sizeof(unsigned long) < 53) || (3 * PyLong_SHIFT < 53))) {
+                        a = (double) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                        if ((8 * sizeof(unsigned long) < 53) || (4 * PyLong_SHIFT < 53) || (a < (double) ((PY_LONG_LONG)1 << 53))) {
+                            if (size == -4)
+                                a = -a;
+                            break;
+                        }
+                    }
+                    CYTHON_FALLTHROUGH;
+                default:
+        #endif
+                    {
+                        PyObject *res =
+                    #if CYTHON_USE_TYPE_SLOTS || __PYX_LIMITED_VERSION_HEX >= 0x030A0000
+                            __Pyx_PyType_GetSlot((&PyFloat_Type), tp_richcompare, richcmpfunc)
+                    #else
+                            PyObject_RichCompare
+                    #endif
+                        (op2, op1,
+                         Py_NE);
+                    return __Pyx_PyObject_IsTrueAndDecref(
+                        res);
+                    }
+        #if CYTHON_USE_PYLONG_INTERNALS
+            }
+        }
+        #endif
+    } else {
+        return __Pyx_PyObject_IsTrueAndDecref(
+            PyObject_RichCompare(op1, op2, Py_NE));
+    }
+        if (a != b) {
+            return 1;
+        } else {
+            return 0;
+        }
+}
+#endif
 
 /* Py3UpdateBases */
 static PyObject*

@@ -54,6 +54,7 @@ class LegacyParseJobConfig(pydantic.BaseModel):
     )
     spread_sheet_extract_sub_tables: typing.Optional[bool] = pydantic.Field(alias="spreadSheetExtractSubTables")
     extract_layout: typing.Optional[bool] = pydantic.Field(alias="extractLayout")
+    high_res_ocr: typing.Optional[bool] = pydantic.Field(alias="highResOcr")
     html_make_all_elements_visible: typing.Optional[bool] = pydantic.Field(alias="htmlMakeAllElementsVisible")
     html_remove_fixed_elements: typing.Optional[bool] = pydantic.Field(alias="htmlRemoveFixedElements")
     html_remove_navigation_elements: typing.Optional[bool] = pydantic.Field(alias="htmlRemoveNavigationElements")

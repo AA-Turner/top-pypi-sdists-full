@@ -540,6 +540,7 @@ pass in order to promote from the `PreProd` to the `Prod` environment:
 
 preprod = MyApplicationStage(self, "PreProd")
 prod = MyApplicationStage(self, "Prod")
+topic = sns.Topic(self, "ChangeApprovalTopic")
 
 pipeline.add_stage(preprod,
     post=[
@@ -549,7 +550,12 @@ pipeline.add_stage(preprod,
     ]
 )
 pipeline.add_stage(prod,
-    pre=[pipelines.ManualApprovalStep("PromoteToProd")]
+    pre=[pipelines.ManualApprovalStep("PromoteToProd",
+        # All options below are optional
+        comment="Please validate changes",
+        review_url="https://my.webservice.com/",
+        notification_topic=topic
+    )]
 )
 ```
 
@@ -1837,18 +1843,17 @@ class AddStageOpts:
 
             # pipeline: pipelines.CodePipeline
             
-            preprod = MyApplicationStage(self, "PreProd")
-            prod = MyApplicationStage(self, "Prod")
+            topic = sns.Topic(self, "SecurityChangesTopic")
+            topic.add_subscription(subscriptions.EmailSubscription("test@email.com"))
             
-            pipeline.add_stage(preprod,
-                post=[
-                    pipelines.ShellStep("Validate Endpoint",
-                        commands=["curl -Ssf https://my.webservice.com/"]
+            stage = MyApplicationStage(self, "MyApplication")
+            pipeline.add_stage(stage,
+                pre=[
+                    pipelines.ConfirmPermissionsBroadening("Check",
+                        stage=stage,
+                        notification_topic=topic
                     )
                 ]
-            )
-            pipeline.add_stage(prod,
-                pre=[pipelines.ManualApprovalStep("PromoteToProd")]
             )
         '''
         if __debug__:
@@ -3759,32 +3764,64 @@ typing.cast(typing.Any, IFileSetProducer).__jsii_proxy_class__ = lambda : _IFile
 @jsii.data_type(
     jsii_type="aws-cdk-lib.pipelines.ManualApprovalStepProps",
     jsii_struct_bases=[],
-    name_mapping={"comment": "comment"},
+    name_mapping={
+        "comment": "comment",
+        "notification_topic": "notificationTopic",
+        "review_url": "reviewUrl",
+    },
 )
 class ManualApprovalStepProps:
-    def __init__(self, *, comment: typing.Optional[builtins.str] = None) -> None:
+    def __init__(
+        self,
+        *,
+        comment: typing.Optional[builtins.str] = None,
+        notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+        review_url: typing.Optional[builtins.str] = None,
+    ) -> None:
         '''Construction properties for a ``ManualApprovalStep``.
 
         :param comment: The comment to display with this manual approval. Default: - No comment
+        :param notification_topic: Optional SNS topic to send notifications to when an approval is pending. Default: - No notifications
+        :param review_url: The URL for review associated with this manual approval. Default: - No URL
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import pipelines
+            # pipeline: pipelines.CodePipeline
             
-            manual_approval_step_props = pipelines.ManualApprovalStepProps(
-                comment="comment"
+            preprod = MyApplicationStage(self, "PreProd")
+            prod = MyApplicationStage(self, "Prod")
+            topic = sns.Topic(self, "ChangeApprovalTopic")
+            
+            pipeline.add_stage(preprod,
+                post=[
+                    pipelines.ShellStep("Validate Endpoint",
+                        commands=["curl -Ssf https://my.webservice.com/"]
+                    )
+                ]
+            )
+            pipeline.add_stage(prod,
+                pre=[pipelines.ManualApprovalStep("PromoteToProd",
+                    # All options below are optional
+                    comment="Please validate changes",
+                    review_url="https://my.webservice.com/",
+                    notification_topic=topic
+                )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bde8793ed)
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument notification_topic", value=notification_topic, expected_type=type_hints["notification_topic"])
+            check_type(argname="argument review_url", value=review_url, expected_type=type_hints["review_url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if comment is not None:
             self._values["comment"] = comment
+        if notification_topic is not None:
+            self._values["notification_topic"] = notification_topic
+        if review_url is not None:
+            self._values["review_url"] = review_url
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
@@ -3793,6 +3830,24 @@ class ManualApprovalStepProps:
         :default: - No comment
         '''
         result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def notification_topic(self) -> typing.Optional[_ITopic_9eca4852]:
+        '''Optional SNS topic to send notifications to when an approval is pending.
+
+        :default: - No notifications
+        '''
+        result = self._values.get("notification_topic")
+        return typing.cast(typing.Optional[_ITopic_9eca4852], result)
+
+    @builtins.property
+    def review_url(self) -> typing.Optional[builtins.str]:
+        '''The URL for review associated with this manual approval.
+
+        :default: - No URL
+        '''
+        result = self._values.get("review_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4505,17 +4560,26 @@ class ShellStepProps:
 
         Example::
 
-            # code_pipeline: codepipeline.Pipeline
+            # pipeline: pipelines.CodePipeline
             
+            preprod = MyApplicationStage(self, "PreProd")
+            prod = MyApplicationStage(self, "Prod")
+            topic = sns.Topic(self, "ChangeApprovalTopic")
             
-            source_artifact = codepipeline.Artifact("MySourceArtifact")
-            
-            pipeline = pipelines.CodePipeline(self, "Pipeline",
-                code_pipeline=code_pipeline,
-                synth=pipelines.ShellStep("Synth",
-                    input=pipelines.CodePipelineFileSet.from_artifact(source_artifact),
-                    commands=["npm ci", "npm run build", "npx cdk synth"]
-                )
+            pipeline.add_stage(preprod,
+                post=[
+                    pipelines.ShellStep("Validate Endpoint",
+                        commands=["curl -Ssf https://my.webservice.com/"]
+                    )
+                ]
+            )
+            pipeline.add_stage(prod,
+                pre=[pipelines.ManualApprovalStep("PromoteToProd",
+                    # All options below are optional
+                    comment="Please validate changes",
+                    review_url="https://my.webservice.com/",
+                    notification_topic=topic
+                )]
             )
         '''
         if __debug__:
@@ -7317,6 +7381,7 @@ class ManualApprovalStep(
         
         preprod = MyApplicationStage(self, "PreProd")
         prod = MyApplicationStage(self, "Prod")
+        topic = sns.Topic(self, "ChangeApprovalTopic")
         
         pipeline.add_stage(preprod,
             post=[
@@ -7326,7 +7391,12 @@ class ManualApprovalStep(
             ]
         )
         pipeline.add_stage(prod,
-            pre=[pipelines.ManualApprovalStep("PromoteToProd")]
+            pre=[pipelines.ManualApprovalStep("PromoteToProd",
+                # All options below are optional
+                comment="Please validate changes",
+                review_url="https://my.webservice.com/",
+                notification_topic=topic
+            )]
         )
     '''
 
@@ -7335,15 +7405,23 @@ class ManualApprovalStep(
         id: builtins.str,
         *,
         comment: typing.Optional[builtins.str] = None,
+        notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+        review_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param id: Identifier for this step.
         :param comment: The comment to display with this manual approval. Default: - No comment
+        :param notification_topic: Optional SNS topic to send notifications to when an approval is pending. Default: - No notifications
+        :param review_url: The URL for review associated with this manual approval. Default: - No URL
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1bf3ac4525b2831190c490c38deb9452f7e662bb66f5cb63ba43cdac1db0dc4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ManualApprovalStepProps(comment=comment)
+        props = ManualApprovalStepProps(
+            comment=comment,
+            notification_topic=notification_topic,
+            review_url=review_url,
+        )
 
         jsii.create(self.__class__, self, [id, props])
 
@@ -7355,6 +7433,24 @@ class ManualApprovalStep(
         :default: - No comment
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "comment"))
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationTopic")
+    def notification_topic(self) -> typing.Optional[_ITopic_9eca4852]:
+        '''Optional SNS topic to send notifications.
+
+        :default: - No notifications
+        '''
+        return typing.cast(typing.Optional[_ITopic_9eca4852], jsii.get(self, "notificationTopic"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reviewUrl")
+    def review_url(self) -> typing.Optional[builtins.str]:
+        '''The URL for review associated with this manual approval.
+
+        :default: - No URL
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "reviewUrl"))
 
 
 class ShellStep(
@@ -7371,17 +7467,26 @@ class ShellStep(
 
     Example::
 
-        # code_pipeline: codepipeline.Pipeline
+        # pipeline: pipelines.CodePipeline
         
+        preprod = MyApplicationStage(self, "PreProd")
+        prod = MyApplicationStage(self, "Prod")
+        topic = sns.Topic(self, "ChangeApprovalTopic")
         
-        source_artifact = codepipeline.Artifact("MySourceArtifact")
-        
-        pipeline = pipelines.CodePipeline(self, "Pipeline",
-            code_pipeline=code_pipeline,
-            synth=pipelines.ShellStep("Synth",
-                input=pipelines.CodePipelineFileSet.from_artifact(source_artifact),
-                commands=["npm ci", "npm run build", "npx cdk synth"]
-            )
+        pipeline.add_stage(preprod,
+            post=[
+                pipelines.ShellStep("Validate Endpoint",
+                    commands=["curl -Ssf https://my.webservice.com/"]
+                )
+            ]
+        )
+        pipeline.add_stage(prod,
+            pre=[pipelines.ManualApprovalStep("PromoteToProd",
+                # All options below are optional
+                comment="Please validate changes",
+                review_url="https://my.webservice.com/",
+                notification_topic=topic
+            )]
         )
     '''
 
@@ -8109,6 +8214,8 @@ def _typecheckingstub__99773084b7df122e2f7df8455d5966ec674016081ec53bbdb52b9a758
 def _typecheckingstub__5a0a42f985a6aa39b8db8606833d899bd8c93567a96ac5acb2c9407bde8793ed(
     *,
     comment: typing.Optional[builtins.str] = None,
+    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    review_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8592,6 +8699,8 @@ def _typecheckingstub__e1bf3ac4525b2831190c490c38deb9452f7e662bb66f5cb63ba43cdac
     id: builtins.str,
     *,
     comment: typing.Optional[builtins.str] = None,
+    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    review_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

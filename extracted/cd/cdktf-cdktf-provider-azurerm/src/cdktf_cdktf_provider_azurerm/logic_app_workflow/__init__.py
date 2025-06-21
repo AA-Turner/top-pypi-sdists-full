@@ -1,7 +1,7 @@
 r'''
 # `azurerm_logic_app_workflow`
 
-Refer to the Terraform Registry for docs: [`azurerm_logic_app_workflow`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow).
+Refer to the Terraform Registry for docs: [`azurerm_logic_app_workflow`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogicAppWorkflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.logicAppWorkflow.LogicAppWorkflow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow azurerm_logic_app_workflow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow azurerm_logic_app_workflow}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class LogicAppWorkflow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow azurerm_logic_app_workflow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow azurerm_logic_app_workflow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.
-        :param access_control: access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
-        :param integration_service_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.
-        :param logic_app_integration_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
-        :param workflow_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.
-        :param workflow_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.
-        :param workflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.
+        :param access_control: access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
+        :param integration_service_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.
+        :param logic_app_integration_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
+        :param workflow_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.
+        :param workflow_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.
+        :param workflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class LogicAppWorkflow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogicAppWorkflow to import.
-        :param import_from_id: The id of the existing LogicAppWorkflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogicAppWorkflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogicAppWorkflow to import is found.
         '''
         if __debug__:
@@ -166,10 +166,10 @@ class LogicAppWorkflow(
         workflow_management: typing.Optional[typing.Union["LogicAppWorkflowAccessControlWorkflowManagement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
-        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
-        :param workflow_management: workflow_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
+        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
+        :param workflow_management: workflow_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
         '''
         value = LogicAppWorkflowAccessControl(
             action=action,
@@ -188,8 +188,8 @@ class LogicAppWorkflow(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.
         '''
         value = LogicAppWorkflowIdentity(type=type, identity_ids=identity_ids)
 
@@ -205,10 +205,10 @@ class LogicAppWorkflow(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.
         '''
         value = LogicAppWorkflowTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -571,10 +571,10 @@ class LogicAppWorkflowAccessControl:
         workflow_management: typing.Optional[typing.Union["LogicAppWorkflowAccessControlWorkflowManagement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
-        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
-        :param workflow_management: workflow_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
+        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
+        :param workflow_management: workflow_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
         '''
         if isinstance(action, dict):
             action = LogicAppWorkflowAccessControlAction(**action)
@@ -604,7 +604,7 @@ class LogicAppWorkflowAccessControl:
     def action(self) -> typing.Optional["LogicAppWorkflowAccessControlAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#action LogicAppWorkflow#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["LogicAppWorkflowAccessControlAction"], result)
@@ -613,7 +613,7 @@ class LogicAppWorkflowAccessControl:
     def content(self) -> typing.Optional["LogicAppWorkflowAccessControlContent"]:
         '''content block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#content LogicAppWorkflow#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional["LogicAppWorkflowAccessControlContent"], result)
@@ -622,7 +622,7 @@ class LogicAppWorkflowAccessControl:
     def trigger(self) -> typing.Optional["LogicAppWorkflowAccessControlTrigger"]:
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#trigger LogicAppWorkflow#trigger}
         '''
         result = self._values.get("trigger")
         return typing.cast(typing.Optional["LogicAppWorkflowAccessControlTrigger"], result)
@@ -633,7 +633,7 @@ class LogicAppWorkflowAccessControl:
     ) -> typing.Optional["LogicAppWorkflowAccessControlWorkflowManagement"]:
         '''workflow_management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_management LogicAppWorkflow#workflow_management}
         '''
         result = self._values.get("workflow_management")
         return typing.cast(typing.Optional["LogicAppWorkflowAccessControlWorkflowManagement"], result)
@@ -662,7 +662,7 @@ class LogicAppWorkflowAccessControlAction:
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8eda4ffeb5f01fc0deece537ea93211d39448fa8e93c2e1dc9c6cf17fb7a661)
@@ -673,7 +673,7 @@ class LogicAppWorkflowAccessControlAction:
 
     @builtins.property
     def allowed_caller_ip_address_range(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
         result = self._values.get("allowed_caller_ip_address_range")
         assert result is not None, "Required property 'allowed_caller_ip_address_range' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -757,7 +757,7 @@ class LogicAppWorkflowAccessControlContent:
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e02b45811689d38931e067684de95826aae3870d43cf10958071530322e0f62a)
@@ -768,7 +768,7 @@ class LogicAppWorkflowAccessControlContent:
 
     @builtins.property
     def allowed_caller_ip_address_range(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
         result = self._values.get("allowed_caller_ip_address_range")
         assert result is not None, "Required property 'allowed_caller_ip_address_range' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -867,7 +867,7 @@ class LogicAppWorkflowAccessControlOutputReference(
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         value = LogicAppWorkflowAccessControlAction(
             allowed_caller_ip_address_range=allowed_caller_ip_address_range
@@ -882,7 +882,7 @@ class LogicAppWorkflowAccessControlOutputReference(
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         value = LogicAppWorkflowAccessControlContent(
             allowed_caller_ip_address_range=allowed_caller_ip_address_range
@@ -898,8 +898,8 @@ class LogicAppWorkflowAccessControlOutputReference(
         open_authentication_policy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
-        :param open_authentication_policy: open_authentication_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param open_authentication_policy: open_authentication_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
         '''
         value = LogicAppWorkflowAccessControlTrigger(
             allowed_caller_ip_address_range=allowed_caller_ip_address_range,
@@ -915,7 +915,7 @@ class LogicAppWorkflowAccessControlOutputReference(
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         value = LogicAppWorkflowAccessControlWorkflowManagement(
             allowed_caller_ip_address_range=allowed_caller_ip_address_range
@@ -1015,8 +1015,8 @@ class LogicAppWorkflowAccessControlTrigger:
         open_authentication_policy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
-        :param open_authentication_policy: open_authentication_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param open_authentication_policy: open_authentication_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26b62439484ae56ee9642e1da862639a66b1938c911e39fceced61be86c20be2)
@@ -1030,7 +1030,7 @@ class LogicAppWorkflowAccessControlTrigger:
 
     @builtins.property
     def allowed_caller_ip_address_range(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
         result = self._values.get("allowed_caller_ip_address_range")
         assert result is not None, "Required property 'allowed_caller_ip_address_range' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1041,7 +1041,7 @@ class LogicAppWorkflowAccessControlTrigger:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy"]]]:
         '''open_authentication_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#open_authentication_policy LogicAppWorkflow#open_authentication_policy}
         '''
         result = self._values.get("open_authentication_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy"]]], result)
@@ -1071,8 +1071,8 @@ class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy:
         name: builtins.str,
     ) -> None:
         '''
-        :param claim: claim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#claim LogicAppWorkflow#claim}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
+        :param claim: claim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#claim LogicAppWorkflow#claim}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7440e5f5e7f973c5d69c18b5f914d216d577d1c53132a8487f52aa6aa807cd90)
@@ -1089,7 +1089,7 @@ class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicyClaim"]]:
         '''claim block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#claim LogicAppWorkflow#claim}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#claim LogicAppWorkflow#claim}
         '''
         result = self._values.get("claim")
         assert result is not None, "Required property 'claim' is missing"
@@ -1097,7 +1097,7 @@ class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1122,8 +1122,8 @@ class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicy:
 class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicyClaim:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#value LogicAppWorkflow#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#value LogicAppWorkflow#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__678df7d21176484c18601ad7aa1e1928c1ed059e5d4ed02485f98c9d36178fa0)
@@ -1136,14 +1136,14 @@ class LogicAppWorkflowAccessControlTriggerOpenAuthenticationPolicyClaim:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#value LogicAppWorkflow#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#value LogicAppWorkflow#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1610,7 +1610,7 @@ class LogicAppWorkflowAccessControlWorkflowManagement:
         allowed_caller_ip_address_range: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
+        :param allowed_caller_ip_address_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2138f4326c090bd4c63b1fbce5700ded552aabaa920a15c1eadb22a40879a3ab)
@@ -1621,7 +1621,7 @@ class LogicAppWorkflowAccessControlWorkflowManagement:
 
     @builtins.property
     def allowed_caller_ip_address_range(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#allowed_caller_ip_address_range LogicAppWorkflow#allowed_caller_ip_address_range}.'''
         result = self._values.get("allowed_caller_ip_address_range")
         assert result is not None, "Required property 'allowed_caller_ip_address_range' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1758,21 +1758,21 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.
-        :param access_control: access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
-        :param integration_service_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.
-        :param logic_app_integration_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
-        :param workflow_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.
-        :param workflow_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.
-        :param workflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.
+        :param access_control: access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
+        :param integration_service_environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.
+        :param logic_app_integration_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
+        :param workflow_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.
+        :param workflow_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.
+        :param workflow_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1916,21 +1916,21 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#location LogicAppWorkflow#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#name LogicAppWorkflow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#resource_group_name LogicAppWorkflow#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1939,7 +1939,7 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_control(self) -> typing.Optional[LogicAppWorkflowAccessControl]:
         '''access_control block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#access_control LogicAppWorkflow#access_control}
         '''
         result = self._values.get("access_control")
         return typing.cast(typing.Optional[LogicAppWorkflowAccessControl], result)
@@ -1948,13 +1948,13 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#enabled LogicAppWorkflow#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#id LogicAppWorkflow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1966,32 +1966,32 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["LogicAppWorkflowIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity LogicAppWorkflow#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["LogicAppWorkflowIdentity"], result)
 
     @builtins.property
     def integration_service_environment_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#integration_service_environment_id LogicAppWorkflow#integration_service_environment_id}.'''
         result = self._values.get("integration_service_environment_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logic_app_integration_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#logic_app_integration_account_id LogicAppWorkflow#logic_app_integration_account_id}.'''
         result = self._values.get("logic_app_integration_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#parameters LogicAppWorkflow#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#tags LogicAppWorkflow#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1999,7 +1999,7 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LogicAppWorkflowTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#timeouts LogicAppWorkflow#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LogicAppWorkflowTimeouts"], result)
@@ -2008,19 +2008,19 @@ class LogicAppWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def workflow_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_parameters LogicAppWorkflow#workflow_parameters}.'''
         result = self._values.get("workflow_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def workflow_schema(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_schema LogicAppWorkflow#workflow_schema}.'''
         result = self._values.get("workflow_schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def workflow_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#workflow_version LogicAppWorkflow#workflow_version}.'''
         result = self._values.get("workflow_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2049,8 +2049,8 @@ class LogicAppWorkflowIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83293e4812881b846e5a2f1296a177a1a8ef0b765fa5eac43fe17da67a705a5f)
@@ -2064,14 +2064,14 @@ class LogicAppWorkflowIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#type LogicAppWorkflow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#identity_ids LogicAppWorkflow#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2188,10 +2188,10 @@ class LogicAppWorkflowTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14516642404bed7af0b722f8d30ac7d75b69e125b033547e7a1f52f37f364d61)
@@ -2211,25 +2211,25 @@ class LogicAppWorkflowTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#create LogicAppWorkflow#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#delete LogicAppWorkflow#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#read LogicAppWorkflow#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/logic_app_workflow#update LogicAppWorkflow#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

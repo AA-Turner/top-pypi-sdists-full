@@ -155,7 +155,7 @@ class CfnCalculatedAttributeDefinition(
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
         :param tags: An array of key-value pairs to apply to this resource.
-        :param use_historical_data: Whether to use historical data for the calculated attribute.
+        :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf2971669)
@@ -235,7 +235,7 @@ class CfnCalculatedAttributeDefinition(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''The status of the calculated attribute definition.
+        '''Status of the Calculated Attribute creation (whether all historical data has been indexed.).
 
         :cloudformationAttribute: Status
         '''
@@ -371,7 +371,7 @@ class CfnCalculatedAttributeDefinition(
     def use_historical_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to use historical data for the calculated attribute.'''
+        '''Whether historical data ingested before the Calculated Attribute was created should be included in calculations.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useHistoricalData"))
 
     @use_historical_data.setter
@@ -1002,7 +1002,7 @@ class CfnCalculatedAttributeDefinitionProps:
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
         :param tags: An array of key-value pairs to apply to this resource.
-        :param use_historical_data: Whether to use historical data for the calculated attribute.
+        :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html
         :exampleMetadata: fixture=_generated
@@ -1165,7 +1165,7 @@ class CfnCalculatedAttributeDefinitionProps:
     def use_historical_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to use historical data for the calculated attribute.
+        '''Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-usehistoricaldata
         '''
@@ -6392,7 +6392,7 @@ class CfnObjectType(
         :param expiration_days: The number of days until the data of this type expires.
         :param fields: A list of field definitions for the object type mapping.
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
-        :param max_profile_object_count: The maximum number of profile objects for this object type.
+        :param max_profile_object_count: The amount of profile object max count assigned to the object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
@@ -6469,7 +6469,7 @@ class CfnObjectType(
     @builtins.property
     @jsii.member(jsii_name="attrMaxAvailableProfileObjectCount")
     def attr_max_available_profile_object_count(self) -> jsii.Number:
-        '''The maximum available number of profile objects.
+        '''The amount of provisioned profile object max count available.
 
         :cloudformationAttribute: MaxAvailableProfileObjectCount
         '''
@@ -6608,7 +6608,7 @@ class CfnObjectType(
     @builtins.property
     @jsii.member(jsii_name="maxProfileObjectCount")
     def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of profile objects for this object type.'''
+        '''The amount of profile object max count assigned to the object type.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxProfileObjectCount"))
 
     @max_profile_object_count.setter
@@ -7029,7 +7029,7 @@ class CfnObjectTypeProps:
         :param expiration_days: The number of days until the data of this type expires.
         :param fields: A list of field definitions for the object type mapping.
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
-        :param max_profile_object_count: The maximum number of profile objects for this object type.
+        :param max_profile_object_count: The amount of profile object max count assigned to the object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
@@ -7201,7 +7201,7 @@ class CfnObjectTypeProps:
 
     @builtins.property
     def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of profile objects for this object type.
+        '''The amount of profile object max count assigned to the object type.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-maxprofileobjectcount
         '''

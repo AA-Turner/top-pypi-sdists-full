@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfc3161-client
-Version: 1.0.2
+Version: 1.0.3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3
@@ -14,8 +14,10 @@ Requires-Dist: pytest ; extra == 'test'
 Requires-Dist: pytest-cov ; extra == 'test'
 Requires-Dist: pretend ; extra == 'test'
 Requires-Dist: coverage[toml] ; extra == 'test'
-Requires-Dist: ruff>=0.7,<0.12 ; extra == 'lint'
+Requires-Dist: ruff>=0.7,<0.13 ; extra == 'lint'
 Requires-Dist: interrogate ; extra == 'lint'
+Requires-Dist: mypy ; extra == 'lint'
+Requires-Dist: types-requests ; extra == 'lint'
 Requires-Dist: rfc3161-client[test,lint,doc] ; extra == 'dev'
 Requires-Dist: maturin>=1.7,<2.0 ; extra == 'dev'
 Provides-Extra: doc

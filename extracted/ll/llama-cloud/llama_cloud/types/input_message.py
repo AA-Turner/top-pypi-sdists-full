@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
-from .message_role import MessageRole
+from .llama_index_core_base_llms_types_message_role import LlamaIndexCoreBaseLlmsTypesMessageRole
 
 try:
     import pydantic
@@ -21,7 +21,7 @@ class InputMessage(pydantic.BaseModel):
     """
 
     id: typing.Optional[str] = pydantic.Field(description="ID of the message, if any. a UUID.")
-    role: MessageRole
+    role: LlamaIndexCoreBaseLlmsTypesMessageRole
     content: str
     data: typing.Optional[typing.Dict[str, typing.Any]]
     class_name: typing.Optional[str]

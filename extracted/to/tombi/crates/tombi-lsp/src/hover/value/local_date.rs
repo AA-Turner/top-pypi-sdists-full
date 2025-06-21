@@ -2,8 +2,11 @@ use futures::{future::BoxFuture, FutureExt};
 use tombi_schema_store::{Accessor, CurrentSchema, LocalDateSchema, ValueSchema};
 
 use crate::hover::{
-    all_of::get_all_of_hover_content, any_of::get_any_of_hover_content,
-    constraints::ValueConstraints, display_value::DisplayValue, one_of::get_one_of_hover_content,
+    all_of::get_all_of_hover_content,
+    any_of::get_any_of_hover_content,
+    constraints::{build_enumerate_values, ValueConstraints},
+    display_value::DisplayValue,
+    one_of::get_one_of_hover_content,
     GetHoverContent, HoverContent,
 };
 
@@ -105,12 +108,11 @@ impl GetHoverContent for LocalDateSchema {
                 accessors: tombi_schema_store::Accessors::new(accessors.to_vec()),
                 value_type: tombi_schema_store::ValueType::LocalDate,
                 constraints: Some(ValueConstraints {
-                    enumerate: self.enumerate.as_ref().map(|value| {
-                        value
-                            .iter()
-                            .filter_map(|value| DisplayValue::try_new_local_date(value).ok())
-                            .collect()
-                    }),
+                    enumerate: build_enumerate_values(
+                        &self.const_value,
+                        &self.enumerate,
+                        |value| DisplayValue::try_new_local_date(value).ok(),
+                    ),
                     default: self
                         .default
                         .as_ref()

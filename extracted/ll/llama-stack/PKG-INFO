@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.2.11
+Version: 0.2.12
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -13,7 +13,7 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
@@ -23,7 +23,7 @@ Requires-Dist: httpx
 Requires-Dist: huggingface-hub
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: jsonschema
-Requires-Dist: llama-stack-client>=0.2.11
+Requires-Dist: llama-stack-client>=0.2.12
 Requires-Dist: openai>=1.66
 Requires-Dist: prompt-toolkit
 Requires-Dist: python-dotenv
@@ -41,7 +41,7 @@ Requires-Dist: python-multipart>=0.0.20
 Provides-Extra: ui
 Requires-Dist: streamlit; extra == "ui"
 Requires-Dist: pandas; extra == "ui"
-Requires-Dist: llama-stack-client>=0.2.11; extra == "ui"
+Requires-Dist: llama-stack-client>=0.2.12; extra == "ui"
 Requires-Dist: streamlit-option-menu; extra == "ui"
 Dynamic: license-file
 

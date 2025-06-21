@@ -41,9 +41,14 @@ class EvaluationJob:
                 f"Evaluation job {self.evaluation_job.name} status update - Current state: {SyncJobState.Name(self.evaluation_job.state)}"
             )
             time.sleep(10)
-            self.evaluation_job = (
-                self.gateway.get_evaluation_job_sync(name=self.evaluation_job.name) or self.evaluation_job
-            )
+            try:
+                self.evaluation_job = (
+                    self.gateway.get_evaluation_job_sync(name=self.evaluation_job.name) or self.evaluation_job
+                )
+            except Exception as e:
+                logger.error(f"Failed to get evaluation job status: {e}")
+                # Keep existing evaluation job state if update fails
+                pass
 
         logger.info(f"Evaluation job {self.evaluation_job.name} completed successfully")
         return self

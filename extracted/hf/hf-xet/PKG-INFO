@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hf-xet
-Version: 1.1.4
+Version: 1.1.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

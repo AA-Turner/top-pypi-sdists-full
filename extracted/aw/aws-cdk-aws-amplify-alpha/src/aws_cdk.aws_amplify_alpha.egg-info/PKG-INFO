@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-amplify-alpha
-Version: 2.201.0a0
+Version: 2.202.0a0
 Summary: The CDK Construct Library for AWS::Amplify
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.201.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.202.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
@@ -269,6 +269,65 @@ amplify_app = amplify.App(self, "App",
 )
 ```
 
+If the app uses a monorepo structure, define which appRoot from the build spec the custom response headers should apply to by using the `appRoot` property:
+
+```python
+import aws_cdk.aws_codebuild as codebuild
+
+
+amplify_app = amplify.App(self, "App",
+    source_code_provider=amplify.GitHubSourceCodeProvider(
+        owner="<user>",
+        repository="<repo>",
+        oauth_token=SecretValue.secrets_manager("my-github-token")
+    ),
+    build_spec=codebuild.BuildSpec.from_object_to_yaml({
+        "version": "1.0",
+        "applications": [{
+            "app_root": "frontend",
+            "frontend": {
+                "phases": {
+                    "pre_build": {
+                        "commands": ["npm install"]
+                    },
+                    "build": {
+                        "commands": ["npm run build"]
+                    }
+                }
+            }
+        }, {
+            "app_root": "backend",
+            "backend": {
+                "phases": {
+                    "pre_build": {
+                        "commands": ["npm install"]
+                    },
+                    "build": {
+                        "commands": ["npm run build"]
+                    }
+                }
+            }
+        }
+        ]
+    }),
+    custom_response_headers=[amplify.CustomResponseHeader(
+        app_root="frontend",
+        pattern="*.json",
+        headers={
+            "custom-header-name-1": "custom-header-value-1",
+            "custom-header-name-2": "custom-header-value-2"
+        }
+    ), amplify.CustomResponseHeader(
+        app_root="backend",
+        pattern="/path/*",
+        headers={
+            "custom-header-name-1": "custom-header-value-2"
+        }
+    )
+    ]
+)
+```
+
 ## Configure server side rendering when hosting app
 
 Setting the `platform` field on the Amplify `App` construct can be used to control whether the app will host only static assets or server side rendered assets in addition to static. By default, the value is set to `WEB` (static only), however, server side rendering can be turned on by setting to `WEB_COMPUTE` as follows:
@@ -298,6 +357,16 @@ amplify_app = amplify.App(self, "MyApp",
     platform=amplify.Platform.WEB_COMPUTE,
     compute_role=compute_role
 )
+```
+
+It is also possible to override the compute role for a specific branch by setting `computeRole` in `Branch`:
+
+```python
+# compute_role: iam.Role
+# amplify_app: amplify.App
+
+
+branch = amplify_app.add_branch("dev", compute_role=compute_role)
 ```
 
 ## Cache Config

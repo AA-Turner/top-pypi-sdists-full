@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: flake8
-Version: 7.2.0
+Version: 7.3.0
 Summary: the modular source code checker: pep8 pyflakes and co
 Home-page: https://github.com/pycqa/flake8
 Author: Tarek Ziade
@@ -24,8 +24,8 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: mccabe<0.8.0,>=0.7.0
-Requires-Dist: pycodestyle<2.14.0,>=2.13.0
-Requires-Dist: pyflakes<3.4.0,>=3.3.0
+Requires-Dist: pycodestyle<2.15.0,>=2.14.0
+Requires-Dist: pyflakes<3.5.0,>=3.4.0
 
 .. image:: https://github.com/PyCQA/flake8/workflows/main/badge.svg
    :target: https://github.com/PyCQA/flake8/actions?query=workflow%3Amain

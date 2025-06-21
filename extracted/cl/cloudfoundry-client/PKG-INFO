@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: cloudfoundry_client
-Version: 1.38.3
+Version: 1.38.4
 Summary: A client library for CloudFoundry
-Home-page: https://pypi.org/project/cloudfoundry-client/
 Keywords: cloudfoundry,cf
 Author: Benjamin Einaudi
 Author-email: antechrestos@gmail.com
@@ -17,10 +16,11 @@ Requires-Dist: PyYAML (>=6.0)
 Requires-Dist: aiohttp (>=3.8.0)
 Requires-Dist: oauth2-client (==1.4.2)
 Requires-Dist: polling2 (==0.5.0)
-Requires-Dist: protobuf (==6.31.0)
+Requires-Dist: protobuf (==6.31.1)
 Requires-Dist: requests (>=2.5.0)
 Requires-Dist: websocket-client (>=1.8.0,<1.9.0)
 Project-URL: Documentation, https://pypi.org/project/cloudfoundry-client/
+Project-URL: Homepage, https://pypi.org/project/cloudfoundry-client/
 Project-URL: Repository, https://github.com/cloudfoundry-community/cf-python-client
 Description-Content-Type: text/x-rst
 

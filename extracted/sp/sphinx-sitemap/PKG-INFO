@@ -1,31 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-sitemap
-Version: 2.6.0
+Version: 2.7.1
 Summary: Sitemap generator for Sphinx
 Author-email: Jared Dillard <jared.dillard@gmail.com>
 Maintainer-email: Jared Dillard <jared.dillard@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: documentation, https://sphinx-sitemap.readthedocs.io/en/latest/index.html
 Project-URL: download, https://pypi.org/project/sphinx-sitemap/
 Project-URL: source, https://github.com/jdillard/sphinx-sitemap
 Project-URL: changelog, https://github.com/jdillard/sphinx-sitemap/blob/master/CHANGELOG.rst
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Topic :: Documentation :: Sphinx
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Framework :: Sphinx :: Extension
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Framework :: Sphinx :: Extension
+Classifier: Topic :: Documentation :: Sphinx
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sphinx>=1.2
+Requires-Dist: requests>=2.28.1
+Requires-Dist: flask>=2.0.0
+Requires-Dist: sphinx-last-updated-by-git
 Provides-Extra: dev
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx-last-updated-by-git; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
 
 Sphinx Sitemap Generator Extension
 ==================================

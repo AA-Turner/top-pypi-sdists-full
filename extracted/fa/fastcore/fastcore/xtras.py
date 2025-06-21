@@ -9,11 +9,12 @@ from __future__ import annotations
 __all__ = ['spark_chars', 'UNSET', 'walk', 'globtastic', 'maybe_open', 'mkdir', 'image_size', 'bunzip', 'loads', 'loads_multi',
            'dumps', 'untar_dir', 'repo_details', 'run', 'open_file', 'save_pickle', 'load_pickle', 'parse_env',
            'expand_wildcards', 'dict2obj', 'obj2dict', 'repr_dict', 'is_listy', 'mapped', 'IterLen',
-           'ReindexCollection', 'exec_eval', 'get_source_link', 'truncstr', 'sparkline', 'modify_exception',
-           'round_multiple', 'set_num_threads', 'join_path_file', 'autostart', 'EventTimer', 'stringfmt_names',
-           'PartialFormatter', 'partial_format', 'utc2local', 'local2utc', 'trace', 'modified_env', 'ContextManagers',
-           'shufflish', 'console_help', 'hl_md', 'type2str', 'dataclass_src', 'Unset', 'nullable_dc', 'make_nullable',
-           'flexiclass', 'asdict', 'is_typeddict', 'is_namedtuple', 'flexicache', 'time_policy', 'mtime_policy',
+           'ReindexCollection', 'SaveReturn', 'trim_wraps', 'save_iter', 'asave_iter', 'exec_eval', 'get_source_link',
+           'truncstr', 'sparkline', 'modify_exception', 'round_multiple', 'set_num_threads', 'join_path_file',
+           'autostart', 'EventTimer', 'stringfmt_names', 'PartialFormatter', 'partial_format', 'utc2local', 'local2utc',
+           'trace', 'modified_env', 'ContextManagers', 'shufflish', 'console_help', 'hl_md', 'type2str',
+           'dataclass_src', 'Unset', 'nullable_dc', 'make_nullable', 'flexiclass', 'asdict', 'is_typeddict',
+           'is_namedtuple', 'CachedIter', 'CachedAwaitable', 'reawaitable', 'flexicache', 'time_policy', 'mtime_policy',
            'timed_cache']
 
 # %% ../nbs/03_xtras.ipynb
@@ -410,6 +411,45 @@ class ReindexCollection(GetAttr, IterLen):
                 cache_clear="Clear LRU cache")
 
 # %% ../nbs/03_xtras.ipynb
+class SaveReturn:
+    "Wrap an iterator such that the generator function's return value is stored in `.value`"
+    def __init__(self, its): self.its = its
+    def __iter__(self):
+        self.value = yield from self.its
+        return self.value
+
+# %% ../nbs/03_xtras.ipynb
+def trim_wraps(f, n=1):
+    "Like wraps, but removes the first n parameters from the signature"
+    import inspect
+    def _(g):
+        g = wraps(f)(g)
+        sig = inspect.signature(f)
+        params = list(sig.parameters.values())[n:]
+        g.__signature__ = sig.replace(parameters=params)
+        return g
+    return _
+
+# %% ../nbs/03_xtras.ipynb
+class _save_iter:
+    def __init__(self, g, *args, **kw): self.g,self.args,self.kw = g,args,kw
+    def __iter__(self): yield from self.g(self, *self.args, **self.kw)
+    def __aiter__(self): return self.g(self, *self.args, **self.kw)
+
+def save_iter(g):
+    "Decorator that allows a generator function to store values in the returned iterator object"
+    @trim_wraps(g)
+    def _(*args, **kwargs): return _save_iter(g, *args, **kwargs)
+    return _
+
+# %% ../nbs/03_xtras.ipynb
+def asave_iter(g):
+    "Like `save_iter`, but for async iterators"
+    @trim_wraps(g)
+    def _(*args, **kwargs): return _save_iter(g, *args, **kwargs)
+    return _
+
+# %% ../nbs/03_xtras.ipynb
 def exec_eval(code,   # Code to exec/eval
               g=None, # Globals namespace dict
               l=None  # Locals namespace dict
@@ -743,6 +783,29 @@ def is_typeddict(cls:type)->bool:
 def is_namedtuple(cls):
     "`True` if `cls` is a namedtuple type"
     return issubclass(cls, tuple) and hasattr(cls, '_fields')
+
+# %% ../nbs/03_xtras.ipynb
+class CachedIter:
+    "Cache the result returned by an iterator"
+    def __init__(self, o): self.o,self.value = o,UNSET
+    def __iter__(self):
+        if self.value is UNSET: self.value = yield from self.o
+        return self.value
+
+# %% ../nbs/03_xtras.ipynb
+class CachedAwaitable:
+    "Cache the result from an awaitable"
+    def __init__(self, o): self.o,self.value = o,UNSET
+    def __await__(self):
+        if self.value is UNSET: self.value = yield from self.o.__await__()
+        return self.value
+
+# %% ../nbs/03_xtras.ipynb
+def reawaitable(func:callable):
+    "Wraps the result of an asynchronous function into an object which can be awaited more than once"
+    @wraps(func)
+    def _f(*args, **kwargs): return CachedAwaitable(func(*args, **kwargs))
+    return _f
 
 # %% ../nbs/03_xtras.ipynb
 def flexicache(*funcs, maxsize=128):

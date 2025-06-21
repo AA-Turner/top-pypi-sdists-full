@@ -148,7 +148,8 @@ def update(  # noqa: max-complexity: 19
 
     data = get(ctx, org_id)
 
-    del data["created"]
+    if "created" in data:
+        del data["created"]
     if "updated" in data:
         del data["updated"]
 

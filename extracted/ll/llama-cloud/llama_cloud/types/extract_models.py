@@ -9,10 +9,12 @@ T_Result = typing.TypeVar("T_Result")
 class ExtractModels(str, enum.Enum):
     GPT_41 = "gpt-4.1"
     GPT_41_MINI = "gpt-4.1-mini"
+    GPT_41_NANO = "gpt-4.1-nano"
     GEMINI_20_FLASH = "gemini-2.0-flash"
     O_3_MINI = "o3-mini"
     GEMINI_25_FLASH = "gemini-2.5-flash"
     GEMINI_25_PRO = "gemini-2.5-pro"
+    GEMINI_25_FLASH_LITE_001 = "gemini-2.5-flash-lite-001"
     GPT_4_O = "gpt-4o"
     GPT_4_O_MINI = "gpt-4o-mini"
 
@@ -20,10 +22,12 @@ class ExtractModels(str, enum.Enum):
         self,
         gpt_41: typing.Callable[[], T_Result],
         gpt_41_mini: typing.Callable[[], T_Result],
+        gpt_41_nano: typing.Callable[[], T_Result],
         gemini_20_flash: typing.Callable[[], T_Result],
         o_3_mini: typing.Callable[[], T_Result],
         gemini_25_flash: typing.Callable[[], T_Result],
         gemini_25_pro: typing.Callable[[], T_Result],
+        gemini_25_flash_lite_001: typing.Callable[[], T_Result],
         gpt_4_o: typing.Callable[[], T_Result],
         gpt_4_o_mini: typing.Callable[[], T_Result],
     ) -> T_Result:
@@ -31,6 +35,8 @@ class ExtractModels(str, enum.Enum):
             return gpt_41()
         if self is ExtractModels.GPT_41_MINI:
             return gpt_41_mini()
+        if self is ExtractModels.GPT_41_NANO:
+            return gpt_41_nano()
         if self is ExtractModels.GEMINI_20_FLASH:
             return gemini_20_flash()
         if self is ExtractModels.O_3_MINI:
@@ -39,6 +45,8 @@ class ExtractModels(str, enum.Enum):
             return gemini_25_flash()
         if self is ExtractModels.GEMINI_25_PRO:
             return gemini_25_pro()
+        if self is ExtractModels.GEMINI_25_FLASH_LITE_001:
+            return gemini_25_flash_lite_001()
         if self is ExtractModels.GPT_4_O:
             return gpt_4_o()
         if self is ExtractModels.GPT_4_O_MINI:

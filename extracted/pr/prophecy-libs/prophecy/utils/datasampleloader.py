@@ -432,18 +432,12 @@ class DataSampleLoaderLib:
             result = spark.createDataFrame(
                 [(job, schema_json, data_json)], ["job", "schema", "data"]
             )
-
             try:
                 return result.toJSON().first()
-            except:
-                data = result.first()
-                try:
-                    return json.dumps(data.asDict(recursive=True))
-                except:
-                    return json.dumps(
-                        cls._preprocess_data(data.asDict()),
-                        cls=ComprehensiveJSONEncoder,
-                    )
+            except Exception as e:
+                from pyspark.sql.functions import struct, col, to_json
+
+                return result.select(to_json(struct(col("*")))).first()
         except Exception as e:
             print(f"Error creating payload: {str(e)}")  # Log error before raising
             raise ValueError(f"Error creating payload: {str(e)}")

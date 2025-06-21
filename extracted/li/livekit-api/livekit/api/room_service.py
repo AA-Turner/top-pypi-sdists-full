@@ -20,6 +20,8 @@ from livekit.protocol.room import (
     UpdateSubscriptionsResponse,
     ForwardParticipantRequest,
     ForwardParticipantResponse,
+    MoveParticipantRequest,
+    MoveParticipantResponse,
 )
 from livekit.protocol.models import Room, ParticipantInfo
 from ._service import Service
@@ -215,8 +217,38 @@ class RoomService(Service):
             SVC,
             "ForwardParticipant",
             forward,
-            self._auth_header(VideoGrants(room_admin=True, room=forward.room)),
+            self._auth_header(
+                VideoGrants(
+                    room_admin=True, room=forward.room, destination_room=forward.destination_room
+                )
+            ),
             ForwardParticipantResponse,
+        )
+
+    async def move_participant(self, move: MoveParticipantRequest) -> None:
+        """Moves a participant from one room to another.
+
+        This feature is only available for LiveKit Cloud/Private Cloud.
+
+        Args:
+            move (MoveParticipantRequest): arg containing:
+                - room: str - Room name
+                - identity: str - Participant identity
+                - destination_room: str - Destination room name
+        """
+        # currently nothing is returned
+        await self._client.request(
+            SVC,
+            "MoveParticipant",
+            move,
+            self._auth_header(
+                VideoGrants(
+                    room_admin=True,
+                    room=move.room,
+                    destination_room=move.destination_room,
+                )
+            ),
+            MoveParticipantResponse,
         )
 
     async def mute_published_track(

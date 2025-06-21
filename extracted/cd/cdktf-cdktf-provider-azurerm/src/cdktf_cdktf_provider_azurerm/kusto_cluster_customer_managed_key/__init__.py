@@ -1,7 +1,7 @@
 r'''
 # `azurerm_kusto_cluster_customer_managed_key`
 
-Refer to the Terraform Registry for docs: [`azurerm_kusto_cluster_customer_managed_key`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key).
+Refer to the Terraform Registry for docs: [`azurerm_kusto_cluster_customer_managed_key`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KustoClusterCustomerManagedKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.kustoClusterCustomerManagedKey.KustoClusterCustomerManagedKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key azurerm_kusto_cluster_customer_managed_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key azurerm_kusto_cluster_customer_managed_key}.'''
 
     def __init__(
         self,
@@ -52,10 +52,11 @@ class KustoClusterCustomerManagedKey(
         id_: builtins.str,
         *,
         cluster_id: builtins.str,
-        key_name: builtins.str,
-        key_vault_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        key_name: typing.Optional[builtins.str] = None,
+        key_vault_id: typing.Optional[builtins.str] = None,
         key_version: typing.Optional[builtins.str] = None,
+        managed_hsm_key_id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["KustoClusterCustomerManagedKeyTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         user_identity: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -66,17 +67,18 @@ class KustoClusterCustomerManagedKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key azurerm_kusto_cluster_customer_managed_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key azurerm_kusto_cluster_customer_managed_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
-        :param user_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.
+        :param key_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#managed_hsm_key_id KustoClusterCustomerManagedKey#managed_hsm_key_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
+        :param user_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -91,10 +93,11 @@ class KustoClusterCustomerManagedKey(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = KustoClusterCustomerManagedKeyConfig(
             cluster_id=cluster_id,
+            id=id,
             key_name=key_name,
             key_vault_id=key_vault_id,
-            id=id,
             key_version=key_version,
+            managed_hsm_key_id=managed_hsm_key_id,
             timeouts=timeouts,
             user_identity=user_identity,
             connection=connection,
@@ -121,7 +124,7 @@ class KustoClusterCustomerManagedKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KustoClusterCustomerManagedKey to import.
-        :param import_from_id: The id of the existing KustoClusterCustomerManagedKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KustoClusterCustomerManagedKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KustoClusterCustomerManagedKey to import is found.
         '''
         if __debug__:
@@ -142,10 +145,10 @@ class KustoClusterCustomerManagedKey(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.
         '''
         value = KustoClusterCustomerManagedKeyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -157,9 +160,21 @@ class KustoClusterCustomerManagedKey(
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
 
+    @jsii.member(jsii_name="resetKeyName")
+    def reset_key_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKeyName", []))
+
+    @jsii.member(jsii_name="resetKeyVaultId")
+    def reset_key_vault_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKeyVaultId", []))
+
     @jsii.member(jsii_name="resetKeyVersion")
     def reset_key_version(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKeyVersion", []))
+
+    @jsii.member(jsii_name="resetManagedHsmKeyId")
+    def reset_managed_hsm_key_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetManagedHsmKeyId", []))
 
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
@@ -211,6 +226,11 @@ class KustoClusterCustomerManagedKey(
     @jsii.member(jsii_name="keyVersionInput")
     def key_version_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyVersionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedHsmKeyIdInput")
+    def managed_hsm_key_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "managedHsmKeyIdInput"))
 
     @builtins.property
     @jsii.member(jsii_name="timeoutsInput")
@@ -285,6 +305,18 @@ class KustoClusterCustomerManagedKey(
         jsii.set(self, "keyVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="managedHsmKeyId")
+    def managed_hsm_key_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "managedHsmKeyId"))
+
+    @managed_hsm_key_id.setter
+    def managed_hsm_key_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a89ad2f4d43d3dd913a4c72be4f798f48a542c6cb0e4753cac8dc195e68f0e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedHsmKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="userIdentity")
     def user_identity(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "userIdentity"))
@@ -309,10 +341,11 @@ class KustoClusterCustomerManagedKey(
         "provider": "provider",
         "provisioners": "provisioners",
         "cluster_id": "clusterId",
+        "id": "id",
         "key_name": "keyName",
         "key_vault_id": "keyVaultId",
-        "id": "id",
         "key_version": "keyVersion",
+        "managed_hsm_key_id": "managedHsmKeyId",
         "timeouts": "timeouts",
         "user_identity": "userIdentity",
     },
@@ -329,10 +362,11 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         cluster_id: builtins.str,
-        key_name: builtins.str,
-        key_vault_id: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        key_name: typing.Optional[builtins.str] = None,
+        key_vault_id: typing.Optional[builtins.str] = None,
         key_version: typing.Optional[builtins.str] = None,
+        managed_hsm_key_id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["KustoClusterCustomerManagedKeyTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         user_identity: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -344,13 +378,14 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
-        :param user_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.
+        :param key_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#managed_hsm_key_id KustoClusterCustomerManagedKey#managed_hsm_key_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
+        :param user_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -366,16 +401,15 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
             check_type(argname="argument key_vault_id", value=key_vault_id, expected_type=type_hints["key_vault_id"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_version", value=key_version, expected_type=type_hints["key_version"])
+            check_type(argname="argument managed_hsm_key_id", value=managed_hsm_key_id, expected_type=type_hints["managed_hsm_key_id"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
             check_type(argname="argument user_identity", value=user_identity, expected_type=type_hints["user_identity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_id": cluster_id,
-            "key_name": key_name,
-            "key_vault_id": key_vault_id,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -393,8 +427,14 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if key_name is not None:
+            self._values["key_name"] = key_name
+        if key_vault_id is not None:
+            self._values["key_vault_id"] = key_vault_id
         if key_version is not None:
             self._values["key_version"] = key_version
+        if managed_hsm_key_id is not None:
+            self._values["managed_hsm_key_id"] = managed_hsm_key_id
         if timeouts is not None:
             self._values["timeouts"] = timeouts
         if user_identity is not None:
@@ -466,28 +506,14 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#cluster_id KustoClusterCustomerManagedKey#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def key_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.'''
-        result = self._values.get("key_name")
-        assert result is not None, "Required property 'key_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def key_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.'''
-        result = self._values.get("key_vault_id")
-        assert result is not None, "Required property 'key_vault_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#id KustoClusterCustomerManagedKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -496,23 +522,41 @@ class KustoClusterCustomerManagedKeyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def key_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_name KustoClusterCustomerManagedKey#key_name}.'''
+        result = self._values.get("key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key_vault_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_vault_id KustoClusterCustomerManagedKey#key_vault_id}.'''
+        result = self._values.get("key_vault_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def key_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#key_version KustoClusterCustomerManagedKey#key_version}.'''
         result = self._values.get("key_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def managed_hsm_key_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#managed_hsm_key_id KustoClusterCustomerManagedKey#managed_hsm_key_id}.'''
+        result = self._values.get("managed_hsm_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeouts(self) -> typing.Optional["KustoClusterCustomerManagedKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#timeouts KustoClusterCustomerManagedKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KustoClusterCustomerManagedKeyTimeouts"], result)
 
     @builtins.property
     def user_identity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#user_identity KustoClusterCustomerManagedKey#user_identity}.'''
         result = self._values.get("user_identity")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -548,10 +592,10 @@ class KustoClusterCustomerManagedKeyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc2cb4a9490a85c1ba668a65126d83c5b14d5b6d3aa75a56bb686b12c29b7ba7)
@@ -571,25 +615,25 @@ class KustoClusterCustomerManagedKeyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#create KustoClusterCustomerManagedKey#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#delete KustoClusterCustomerManagedKey#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#read KustoClusterCustomerManagedKey#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/kusto_cluster_customer_managed_key#update KustoClusterCustomerManagedKey#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -741,10 +785,11 @@ def _typecheckingstub__4264dfeb1e99ff99c1c4c7946695a322d28209f94428380bcacc818bc
     id_: builtins.str,
     *,
     cluster_id: builtins.str,
-    key_name: builtins.str,
-    key_vault_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    key_name: typing.Optional[builtins.str] = None,
+    key_vault_id: typing.Optional[builtins.str] = None,
     key_version: typing.Optional[builtins.str] = None,
+    managed_hsm_key_id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[KustoClusterCustomerManagedKeyTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     user_identity: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -797,6 +842,12 @@ def _typecheckingstub__6cd85b5b60602f88750ae26c09a5b3a98ecfe42258439e817081d918b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0a89ad2f4d43d3dd913a4c72be4f798f48a542c6cb0e4753cac8dc195e68f0e9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__211efccef7d94bac7f9ec7e23d28ee9093e4b01bc006a2dc291d0483659be264(
     value: builtins.str,
 ) -> None:
@@ -813,10 +864,11 @@ def _typecheckingstub__c2fda9c9da58fb1306cdb150a4a776f54f2efde9616be1092a27afc7e
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     cluster_id: builtins.str,
-    key_name: builtins.str,
-    key_vault_id: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    key_name: typing.Optional[builtins.str] = None,
+    key_vault_id: typing.Optional[builtins.str] = None,
     key_version: typing.Optional[builtins.str] = None,
+    managed_hsm_key_id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[KustoClusterCustomerManagedKeyTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     user_identity: typing.Optional[builtins.str] = None,
 ) -> None:

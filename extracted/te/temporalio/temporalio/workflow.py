@@ -642,7 +642,12 @@ class _Runtime(ABC):
 
     @staticmethod
     def maybe_current() -> Optional[_Runtime]:
-        return getattr(asyncio.get_running_loop(), "__temporal_workflow_runtime", None)
+        try:
+            return getattr(
+                asyncio.get_running_loop(), "__temporal_workflow_runtime", None
+            )
+        except RuntimeError:
+            return None
 
     @staticmethod
     def set_on_loop(
@@ -2189,6 +2194,7 @@ def start_activity(
             need to. Contact Temporal before setting this value.
         versioning_intent: When using the Worker Versioning feature, specifies whether this Activity
             should run on a worker with a compatible Build Id or not.
+            Deprecated: Use Worker Deployment versioning instead.
         summary: A single-line fixed summary for this activity that may appear in UI/CLI.
             This can be in single-line Temporal markdown format.
         priority: Priority of the activity.
@@ -4156,6 +4162,7 @@ async def start_child_workflow(
             form of this is DEPRECATED.
         versioning_intent:  When using the Worker Versioning feature, specifies whether this Child
             Workflow should run on a worker with a compatible Build Id or not.
+            Deprecated: Use Worker Deployment versioning instead.
         static_summary: A single-line fixed summary for this child workflow execution that may appear
             in the UI/CLI. This can be in single-line Temporal markdown format.
         static_details: General fixed details for this child workflow execution that may appear in
@@ -4619,6 +4626,7 @@ def continue_as_new(
             DEPRECATED.
         versioning_intent: When using the Worker Versioning feature, specifies whether this Workflow
             should Continue-as-New onto a worker with a compatible Build Id or not.
+            Deprecated: Use Worker Deployment versioning instead.
 
     Returns:
         Never returns, always raises a :py:class:`ContinueAsNewError`.
@@ -5051,6 +5059,9 @@ class VersioningIntent(Enum):
     Where this type is accepted optionally, an unset value indicates that the SDK should choose the
     most sensible default behavior for the type of command, accounting for whether the command will
     be run on the same task queue as the current worker.
+
+    .. deprecated::
+        Use Worker Deployment versioning instead.
     """
 
     COMPATIBLE = 1

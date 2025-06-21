@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keepercommander
-Version: 17.1.1
+Version: 17.1.2
 Summary: Keeper Commander for Python 3
 Home-page: https://keepersecurity.com/
 Download-URL: https://github.com/Keeper-Security/Commander/releases
@@ -13,29 +13,28 @@ Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
 Classifier: Topic :: Security
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asciitree
 Requires-Dist: bcrypt
 Requires-Dist: colorama
-Requires-Dist: cryptography>=38.0.3
+Requires-Dist: cryptography>=41.0.0
 Requires-Dist: fido2>=2.0.0; python_version >= "3.10"
 Requires-Dist: flask; python_version >= "3.8"
 Requires-Dist: flask-limiter; python_version >= "3.8"
-Requires-Dist: keeper-secrets-manager-core>=16.2.0
+Requires-Dist: keeper-secrets-manager-core>=16.6.0
 Requires-Dist: prompt_toolkit
-Requires-Dist: protobuf>=3.18.0
+Requires-Dist: protobuf>=4.23.0
 Requires-Dist: psutil; python_version >= "3.8"
-Requires-Dist: pycryptodomex>=3.7.2
+Requires-Dist: pycryptodomex>=3.20.0
 Requires-Dist: pyngrok; python_version >= "3.8"
 Requires-Dist: pyperclip
 Requires-Dist: pysocks
 Requires-Dist: python-dotenv
-Requires-Dist: requests; python_version < "3.7"
-Requires-Dist: requests>=2.30.0; python_version >= "3.7"
+Requires-Dist: requests>=2.31.0
 Requires-Dist: tabulate
 Requires-Dist: websockets
 Requires-Dist: aiortc; python_version >= "3.8"

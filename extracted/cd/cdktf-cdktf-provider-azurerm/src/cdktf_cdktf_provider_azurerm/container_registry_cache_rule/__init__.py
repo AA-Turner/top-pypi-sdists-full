@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_registry_cache_rule`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_registry_cache_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule).
+Refer to the Terraform Registry for docs: [`azurerm_container_registry_cache_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerRegistryCacheRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerRegistryCacheRule.ContainerRegistryCacheRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule azurerm_container_registry_cache_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule azurerm_container_registry_cache_rule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ContainerRegistryCacheRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule azurerm_container_registry_cache_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule azurerm_container_registry_cache_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.
-        :param name: The name of the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
-        :param source_repo: The full source repository path such as 'docker.io/library/ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
-        :param target_repo: The target repository namespace such as 'ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
-        :param credential_set_id: The ARM resource ID of the credential store which is associated with the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
+        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.
+        :param name: The name of the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
+        :param source_repo: The full source repository path such as 'docker.io/library/ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
+        :param target_repo: The target repository namespace such as 'ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
+        :param credential_set_id: The ARM resource ID of the credential store which is associated with the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ContainerRegistryCacheRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerRegistryCacheRule to import.
-        :param import_from_id: The id of the existing ContainerRegistryCacheRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerRegistryCacheRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerRegistryCacheRule to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class ContainerRegistryCacheRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.
         '''
         value = ContainerRegistryCacheRuleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -340,13 +340,13 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.
-        :param name: The name of the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
-        :param source_repo: The full source repository path such as 'docker.io/library/ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
-        :param target_repo: The target repository namespace such as 'ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
-        :param credential_set_id: The ARM resource ID of the credential store which is associated with the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
+        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.
+        :param name: The name of the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
+        :param source_repo: The full source repository path such as 'docker.io/library/ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
+        :param target_repo: The target repository namespace such as 'ubuntu'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
+        :param credential_set_id: The ARM resource ID of the credential store which is associated with the cache rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container_registry_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#container_registry_id ContainerRegistryCacheRule#container_registry_id}.'''
         result = self._values.get("container_registry_id")
         assert result is not None, "Required property 'container_registry_id' is missing"
         return typing.cast(builtins.str, result)
@@ -470,7 +470,7 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the cache rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#name ContainerRegistryCacheRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -480,7 +480,7 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_repo(self) -> builtins.str:
         '''The full source repository path such as 'docker.io/library/ubuntu'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#source_repo ContainerRegistryCacheRule#source_repo}
         '''
         result = self._values.get("source_repo")
         assert result is not None, "Required property 'source_repo' is missing"
@@ -490,7 +490,7 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_repo(self) -> builtins.str:
         '''The target repository namespace such as 'ubuntu'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#target_repo ContainerRegistryCacheRule#target_repo}
         '''
         result = self._values.get("target_repo")
         assert result is not None, "Required property 'target_repo' is missing"
@@ -500,14 +500,14 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def credential_set_id(self) -> typing.Optional[builtins.str]:
         '''The ARM resource ID of the credential store which is associated with the cache rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#credential_set_id ContainerRegistryCacheRule#credential_set_id}
         '''
         result = self._values.get("credential_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#id ContainerRegistryCacheRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -519,7 +519,7 @@ class ContainerRegistryCacheRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerRegistryCacheRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#timeouts ContainerRegistryCacheRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerRegistryCacheRuleTimeouts"], result)
@@ -556,10 +556,10 @@ class ContainerRegistryCacheRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__531d2600a2d28c00f5a1f804bb6aa35631dfc2452f05ace8bb89295528843df1)
@@ -579,25 +579,25 @@ class ContainerRegistryCacheRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#create ContainerRegistryCacheRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#delete ContainerRegistryCacheRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#read ContainerRegistryCacheRule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.33.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/container_registry_cache_rule#update ContainerRegistryCacheRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
