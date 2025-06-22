@@ -5,9 +5,7 @@ not the underlying functions used (e.g. clean()). See test_masking.py and
 test_signal.py for this.
 """
 
-# Author: Gael Varoquaux, Philippe Gervais
 import shutil
-import warnings
 from pathlib import Path
 from tempfile import mkdtemp
 
@@ -15,64 +13,59 @@ import numpy as np
 import pytest
 from nibabel import Nifti1Image
 from numpy.testing import assert_array_equal
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
 from nilearn._utils import data_gen, exceptions, testing
-from nilearn._utils.class_inspect import check_estimator, get_params
-from nilearn._utils.helpers import is_matplotlib_installed
+from nilearn._utils.class_inspect import get_params
+from nilearn._utils.estimator_checks import (
+    check_estimator,
+    nilearn_check_estimator,
+    return_expected_failed_checks,
+)
+from nilearn._utils.tags import SKLEARN_LT_1_6
 from nilearn.image import get_data, index_img
 from nilearn.maskers import NiftiMasker
-from nilearn.maskers.nifti_masker import _filter_and_mask
+from nilearn.maskers.nifti_masker import filter_and_mask
 
-extra_valid_checks = [
-    "check_parameters_default_constructible",
-    "check_estimators_unfitted",
-    "check_get_params_invariance",
-    "check_transformer_n_iter",
-    "check_transformers_unfitted",
-]
+ESTIMATORS_TO_CHECK = [NiftiMasker()]
+
+if SKLEARN_LT_1_6:
+
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        check_estimator(estimators=ESTIMATORS_TO_CHECK),
+    )
+    def test_check_estimator_sklearn_valid(estimator, check, name):  # noqa: ARG001
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+    @pytest.mark.xfail(reason="invalid checks should fail")
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        check_estimator(estimators=ESTIMATORS_TO_CHECK, valid=False),
+    )
+    def test_check_estimator_sklearn_invalid(estimator, check, name):  # noqa: ARG001
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+else:
+
+    @parametrize_with_checks(
+        estimators=ESTIMATORS_TO_CHECK,
+        expected_failed_checks=return_expected_failed_checks,
+    )
+    def test_check_estimator_sklearn(estimator, check):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
 
 
 @pytest.mark.parametrize(
     "estimator, check, name",
-    check_estimator(
-        estimator=[NiftiMasker()],
-        extra_valid_checks=extra_valid_checks,
-    ),
+    nilearn_check_estimator(estimators=ESTIMATORS_TO_CHECK),
 )
-def test_check_estimator(estimator, check, name):  # noqa: ARG001
-    """Check compliance with sklearn estimators."""
+def test_check_estimator_nilearn(estimator, check, name):  # noqa: ARG001
+    """Check compliance with nilearn estimators rules."""
     check(estimator)
-
-
-@pytest.mark.xfail(reason="invalid checks should fail")
-@pytest.mark.parametrize(
-    "estimator, check, name",
-    check_estimator(
-        estimator=[NiftiMasker()],
-        extra_valid_checks=extra_valid_checks,
-        valid=False,
-    ),
-)
-def test_check_estimator_invalid(estimator, check, name):  # noqa: ARG001
-    """Check compliance with sklearn estimators."""
-    check(estimator)
-
-
-def test_auto_mask(img_3d_rand_eye):
-    """Perform a smoke test on the auto-mask option."""
-    masker = NiftiMasker()
-    # Smoke test the fit
-    masker.fit(img_3d_rand_eye)
-    # Smoke test the transform
-    # With a 4D img
-    masker.transform([img_3d_rand_eye])
-    # With a 3D img
-    masker.transform(img_3d_rand_eye)
-
-    # check exception when transform() called without prior fit()
-    masker2 = NiftiMasker(mask_img=img_3d_rand_eye)
-    with pytest.raises(ValueError, match="has not been fitted. "):
-        masker2.transform(img_3d_rand_eye)
 
 
 def test_detrend(img_3d_rand_eye, mask_img_1):
@@ -94,12 +87,15 @@ def test_fit_transform(y, img_3d_rand_eye, mask_img_1):
 
 
 def test_fit_transform_warning(img_3d_rand_eye, mask_img_1):
+    """Warn that mask creation is happening \
+        when mask was provided at instantiation.
+    """
     y = np.ones((9, 9, 9))
     masker = NiftiMasker(mask_img=mask_img_1)
     with pytest.warns(
         UserWarning,
         match="Generation of a mask has been requested .*"
-        "while a mask has been provided at masker creation.",
+        "while a mask was given at masker creation.",
     ):
         X = masker.fit_transform(X=img_3d_rand_eye, y=y)
         assert np.any(X != 0)
@@ -132,14 +128,6 @@ def test_resample_to_mask_warning(img_3d_rand_eye, affine_eye):
         "to save memory and computation time.",
     ):
         masker.fit_transform(img_3d_rand_eye)
-
-
-def test_with_files(tmp_path, img_3d_rand_eye):
-    """Test standard masking with filenames."""
-    filename = testing.write_imgs_to_path(img_3d_rand_eye, file_path=tmp_path)
-    masker = NiftiMasker()
-    masker.fit(filename)
-    masker.transform(filename)
 
 
 def test_nan(affine_eye):
@@ -185,17 +173,6 @@ def test_matrix_orientation():
     timeseries = masker.transform(fmri)
     recovered = masker.inverse_transform(timeseries)
     np.testing.assert_array_almost_equal(get_data(recovered), get_data(fmri))
-
-
-def test_mask_3d_error(shape_4d_default, affine_eye):
-    """Raise an error if 4D mask is provided with no img to fit."""
-    # Dummy mask
-    data = np.zeros(shape_4d_default)
-    data[5, 5, 5] = 1
-    mask_img = Nifti1Image(data, affine_eye)
-    masker = NiftiMasker(mask_img=mask_img)
-    with pytest.raises(TypeError, match="Expected dimension is 3D"):
-        masker.fit()
 
 
 def test_mask_4d(shape_3d_default, affine_eye):
@@ -262,39 +239,15 @@ def test_4d_single_scan(rng, shape_3d_default, affine_eye):
 
     masker = NiftiMasker(mask_img=mask_img)
 
-    # Check attributes defined at fit
-    assert not hasattr(masker, "mask_img_")
-    assert not hasattr(masker, "n_elements_")
-
     masker.fit()
 
     # Check attributes defined at fit
-    assert hasattr(masker, "mask_img_")
-    assert hasattr(masker, "n_elements_")
     assert masker.n_elements_ == np.sum(mask)
 
     data_trans_5d = masker.transform(data_5d)
     data_trans_4d = masker.transform(data_4d)
 
     assert_array_equal(data_trans_4d, data_trans_5d)
-
-
-def test_5d(rng, shape_3d_default, mask_img_1, affine_eye):
-    """Test that list of 4D images with last dim=3 raises a DimensionError."""
-    shape_4d = (*shape_3d_default, 3)
-    data_5d = [rng.random(shape_4d) for _ in range(5)]
-    data_5d = [Nifti1Image(d, affine_eye) for d in data_5d]
-
-    masker = NiftiMasker(mask_img=mask_img_1)
-    masker.fit()
-
-    with pytest.raises(
-        exceptions.DimensionError,
-        match="Input data has incompatible dimensionality: "
-        "Expected dimension is 4D and you provided "
-        "a list of 4D images \\(5D\\).",
-    ):
-        masker.transform(data_5d)
 
 
 def test_sessions(affine_eye):
@@ -345,30 +298,25 @@ def test_joblib_cache(tmp_path, mask_img_1):
         shutil.rmtree(cachedir, ignore_errors=True)
 
 
-def test_fit_no_mask_no_img_error():
-    """Check error is raised when no mask and no img is provided."""
-    mask = NiftiMasker(mask_img=None)
-    with pytest.raises(
-        ValueError, match="Parameter 'imgs' must be provided to "
-    ):
-        mask.fit()
-
-
-def test_mask_strategy_errors(img_3d_rand_eye):
+def test_mask_strategy_errors_warnings(img_fmri):
     """Check that mask_strategy errors are raised."""
     # Error with unknown mask_strategy
-    mask = NiftiMasker(mask_strategy="oops")
+
+    masker = NiftiMasker(mask_strategy="oops", mask_args={"threshold": 0.0})
     with pytest.raises(
         ValueError, match="Unknown value of mask_strategy 'oops'"
     ):
-        mask.fit(img_3d_rand_eye)
+        masker.fit(img_fmri)
+
     # Warning with deprecated 'template' strategy,
     # plus an exception because there's no resulting mask
-    mask = NiftiMasker(mask_strategy="template")
+    masker = NiftiMasker(
+        mask_strategy="template", mask_args={"threshold": 0.0}
+    )
     with pytest.warns(
         UserWarning, match="Masking strategy 'template' is deprecated."
     ):
-        mask.fit(img_3d_rand_eye)
+        masker.fit(img_fmri)
 
 
 def test_compute_epi_mask(affine_eye):
@@ -430,18 +378,34 @@ def expected_mask(mask_args):
 @pytest.mark.parametrize(
     "strategy", [f"{p}-template" for p in ["whole-brain", "gm", "wm"]]
 )
-@pytest.mark.parametrize("mask_args", [{}, {"threshold": 0.0}])
-def test_compute_brain_mask(strategy, mask_args, expected_mask):
-    """Check masker for template masking strategy."""
+@pytest.mark.parametrize("mask_args", [{}])
+def test_compute_brain_mask_empty_mask_error(strategy, mask_args):
+    """Check masker raise error when estimated mask is empty."""
+    masker = NiftiMasker(mask_strategy=strategy, mask_args=mask_args)
+
     img, _ = data_gen.generate_random_img((9, 9, 5))
 
+    with pytest.raises(ValueError, match="masks all data"):
+        masker.fit(img)
+
+
+@pytest.mark.timeout(0)
+@pytest.mark.parametrize(
+    "strategy", [f"{p}-template" for p in ["whole-brain", "gm", "wm"]]
+)
+@pytest.mark.parametrize("mask_args", [{"threshold": 0.0}])
+def test_compute_brain_mask(strategy, expected_mask, mask_args):
+    """Check masker for template masking strategy."""
     masker = NiftiMasker(mask_strategy=strategy, mask_args=mask_args)
+    img, _ = data_gen.generate_random_img((9, 9, 5))
+
     masker.fit(img)
 
     np.testing.assert_array_equal(get_data(masker.mask_img_), expected_mask)
 
 
 def test_filter_and_mask_error(affine_eye):
+    """Check filter_and_mask fails if mask if 4D."""
     data = np.zeros([20, 30, 40, 5])
     mask = np.zeros([20, 30, 40, 2])
     mask[10, 15, 20, :] = 1
@@ -458,12 +422,15 @@ def test_filter_and_mask_error(affine_eye):
         "Expected dimension is 3D and you provided "
         "a 4D image.",
     ):
-        _filter_and_mask(data_img, mask_img, params)
+        filter_and_mask(data_img, mask_img, params)
 
 
 def test_filter_and_mask(affine_eye):
-    data = np.zeros([20, 30, 40, 5])
-    mask = np.ones([20, 30, 40])
+    """Test filter_and_mask returns output with correct shape."""
+    data_shape = (20, 30, 40, 5)
+    mask_shape = (20, 30, 40)
+    data = np.zeros(data_shape)
+    mask = np.ones(mask_shape)
 
     data_img = Nifti1Image(data, affine_eye)
     mask_img = Nifti1Image(mask, affine_eye)
@@ -473,32 +440,12 @@ def test_filter_and_mask(affine_eye):
     params["clean_kwargs"] = {}
 
     # Test return_affine = False
-    data = _filter_and_mask(data_img, mask_img, params)
-    assert data.shape == (5, 24000)
-
-
-def test_dtype(shape_3d_default):
-    data_32 = np.zeros(shape_3d_default, dtype=np.float32)
-    data_64 = np.zeros(shape_3d_default, dtype=np.float64)
-    data_32[2:-2, 2:-2, 2:-2] = 10
-    data_64[2:-2, 2:-2, 2:-2] = 10
-
-    affine_32 = np.eye(4, dtype=np.float32)
-    affine_64 = np.eye(4, dtype=np.float64)
-
-    img_32 = Nifti1Image(data_32, affine_32)
-    img_64 = Nifti1Image(data_64, affine_64)
-
-    masker_1 = NiftiMasker(dtype="auto")
-    assert masker_1.fit_transform(img_32).dtype == np.float32
-    assert masker_1.fit_transform(img_64).dtype == np.float32
-
-    masker_2 = NiftiMasker(dtype="float64")
-    assert masker_2.fit_transform(img_32).dtype == np.float64
-    assert masker_2.fit_transform(img_64).dtype == np.float64
+    data = filter_and_mask(data_img, mask_img, params)
+    assert data.shape == (data_shape[3], np.prod(np.array(mask.shape)))
 
 
 def test_standardization(rng, shape_3d_default, affine_eye):
+    """Check output properly standardized with 'standardize' parameter."""
     n_samples = 500
 
     signals = rng.standard_normal(size=(np.prod(shape_3d_default), n_samples))
@@ -529,82 +476,3 @@ def test_standardization(rng, shape_3d_default, affine_eye):
         trans_signals,
         (signals / signals.mean(1)[:, np.newaxis] * 100 - 100).T,
     )
-
-
-def test_nifti_masker_io_shapes(rng, shape_3d_default, affine_eye):
-    """Ensure that NiftiMasker handles 1D/2D/3D/4D data appropriately.
-
-    transform(4D image) --> 2D output, no warning
-    transform(3D image) --> 2D output, DeprecationWarning
-    inverse_transform(2D array) --> 4D image, no warning
-    inverse_transform(1D array) --> 3D image, no warning
-    inverse_transform(2D array with wrong shape) --> ValueError
-    """
-    n_volumes = 5
-    shape_4d = (*shape_3d_default, n_volumes)
-
-    img_4d, mask_img = data_gen.generate_random_img(
-        shape_4d,
-        affine=affine_eye,
-    )
-    img_3d, _ = data_gen.generate_random_img(
-        shape_3d_default, affine=affine_eye
-    )
-    n_regions = np.sum(mask_img.get_fdata().astype(bool))
-    data_1d = rng.random(n_regions)
-    data_2d = rng.random((n_volumes, n_regions))
-
-    masker = NiftiMasker(mask_img)
-    masker.fit()
-
-    # DeprecationWarning *should* be raised for 3D inputs
-    with pytest.deprecated_call(match="Starting in version 0.12"):
-        test_data = masker.transform(img_3d)
-        assert test_data.shape == (1, n_regions)
-
-    # DeprecationWarning should *not* be raised for 4D inputs
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "error",
-            message="Starting in version 0.12",
-            category=DeprecationWarning,
-        )
-        test_data = masker.transform(img_4d)
-        assert test_data.shape == (n_volumes, n_regions)
-
-    # DeprecationWarning should *not* be raised for 1D inputs
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "error",
-            message="Starting in version 0.12",
-            category=DeprecationWarning,
-        )
-        test_img = masker.inverse_transform(data_1d)
-        assert test_img.shape == shape_3d_default
-
-    # DeprecationWarning should *not* be raised for 2D inputs
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "error",
-            message="Starting in version 0.12",
-            category=DeprecationWarning,
-        )
-        test_img = masker.inverse_transform(data_2d)
-        assert test_img.shape == shape_4d
-
-    with pytest.raises(TypeError):
-        masker.inverse_transform(data_2d.T)
-
-
-@pytest.mark.skipif(
-    is_matplotlib_installed(),
-    reason="Test requires matplotlib not to be installed.",
-)
-def test_nifti_masker_reporting_mpl_warning():
-    """Raise warning after exception if matplotlib is not installed."""
-    with warnings.catch_warnings(record=True) as warning_list:
-        result = NiftiMasker().generate_report()
-
-    assert len(warning_list) == 1
-    assert issubclass(warning_list[0].category, ImportWarning)
-    assert result == [None]

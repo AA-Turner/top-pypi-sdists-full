@@ -636,7 +636,9 @@ def check_onnx_compatibility():
     # Check compatibility
     expected_onnx_version = compatibility_dict.get(ort_version)
     if expected_onnx_version is None:
-        logger.warning(f"Onnx Runtime version {ort_version} has no specified compatible ONNX version.")
+        print(
+            f"Warning: Onnx Runtime version {ort_version} has no specified compatible ONNX version. Compatibility issues may occur."
+        )
     elif expected_onnx_version == ".".join(onnx_version.split("+")[0].split(".")[:2]):
         logger.info(
             f"Installed Onnx Runtime version {ort_version} is compatible with installed ONNX version {onnx_version}."
@@ -689,6 +691,11 @@ def update_outputs_dims(
 
     def update_dim(tensor, dim, j, name) -> None:
         dim_proto = tensor.type.tensor_type.shape.dim[j]
+
+        # if it's int in model, it won't be replaced by original symbol
+        if dim_proto.HasField("dim_value"):
+            return
+
         if isinstance(dim, int):
             if dim >= 0:
                 if dim_proto.HasField("dim_value") and dim_proto.dim_value != dim:
@@ -718,5 +725,4 @@ def update_outputs_dims(
         for j, dim in enumerate(output_dim_arr):
             update_dim(output, dim, j, output_name)
 
-    onnx.checker.check_model(model)
     return model

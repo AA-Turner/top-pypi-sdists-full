@@ -5,6 +5,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from nilearn._utils.logger import find_stack_level
+
 
 def optimize_scrub(motion_outliers_index, n_scans, scrub):
     """Remove continuous segments with fewer than a minimal segment length.
@@ -15,10 +17,10 @@ def optimize_scrub(motion_outliers_index, n_scans, scrub):
         Index array of shape (n_motion_outliers) indicating the volumes
         that are motion outliers.
 
-    n_scans : int
+    n_scans : :obj:`int`
         Number of volumes in the functional image.
 
-    scrub : int, default=5
+    scrub : :obj:`int`, default=5
         Minimal segment length.
 
     Returns
@@ -96,7 +98,7 @@ def extract_outlier_regressors(confounds):
             message="All volumes were marked as motion outliers. "
             "This would lead to all volumes in the time "
             "series to be scrubbed.",
-            stacklevel=4,
+            stacklevel=find_stack_level(),
         )
     return sample_mask, confounds, outliers
 

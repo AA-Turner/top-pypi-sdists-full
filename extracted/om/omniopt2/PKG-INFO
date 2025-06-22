@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omniopt2
-Version: 7322
+Version: 7327
 Summary: Automatic highly parallelized hyperparameter optimizer based on Ax/Botorch
 Home-page: https://scads.ai/transfer-2/verfuegbare-software-dienste-en/omniopt/
 Author: Norman Koch
@@ -97,6 +97,7 @@ Requires-Dist: pyfiglet
 Requires-Dist: setuptools
 Requires-Dist: pyright
 Requires-Dist: pymarkdownlnt
+Requires-Dist: types-qrcode
 Dynamic: home-page
 Dynamic: license-file
 Dynamic: platform

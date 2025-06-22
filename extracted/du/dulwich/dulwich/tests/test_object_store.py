@@ -22,7 +22,7 @@
 """Tests for the object store interface."""
 
 from typing import TYPE_CHECKING, Any, Callable
-from unittest import skipUnless
+from unittest.mock import patch
 
 from dulwich.index import commit_tree
 from dulwich.object_store import (
@@ -42,11 +42,6 @@ from .utils import make_object, make_tag
 if TYPE_CHECKING:
     from dulwich.object_store import BaseObjectStore
 
-try:
-    from unittest.mock import patch
-except ImportError:
-    patch = None  # type: ignore
-
 
 testobject = make_object(Blob, data=b"yummy data")
 
@@ -55,10 +50,13 @@ class ObjectStoreTests:
     store: "BaseObjectStore"
 
     assertEqual: Callable[[object, object], None]
-    assertRaises: Callable[[type[Exception], Callable[[], Any]], None]
+    # For type checker purposes - actual implementation supports both styles
+    assertRaises: Callable[..., Any]
     assertNotIn: Callable[[object, object], None]
     assertNotEqual: Callable[[object, object], None]
     assertIn: Callable[[object, object], None]
+    assertTrue: Callable[[bool], None]
+    assertFalse: Callable[[bool], None]
 
     def test_determine_wants_all(self) -> None:
         self.assertEqual(
@@ -71,7 +69,6 @@ class ObjectStoreTests:
             [], self.store.determine_wants_all({b"refs/heads/foo": b"0" * 40})
         )
 
-    @skipUnless(patch, "Required mock.patch")
     def test_determine_wants_all_depth(self) -> None:
         self.store.add_object(testobject)
         refs = {b"refs/heads/foo": testobject.id}
@@ -259,10 +256,41 @@ class ObjectStoreTests:
         self.assertEqual(
             [testobject.id], list(self.store.iter_prefix(testobject.id[:10]))
         )
-        self.assertEqual(
-            [testobject.id], list(self.store.iter_prefix(testobject.id[:4]))
+
+    def test_iterobjects_subset_all_present(self) -> None:
+        """Test iterating over a subset of objects that all exist."""
+        blob1 = make_object(Blob, data=b"blob 1 data")
+        blob2 = make_object(Blob, data=b"blob 2 data")
+        self.store.add_object(blob1)
+        self.store.add_object(blob2)
+
+        objects = list(self.store.iterobjects_subset([blob1.id, blob2.id]))
+        self.assertEqual(2, len(objects))
+        object_ids = set(o.id for o in objects)
+        self.assertEqual(set([blob1.id, blob2.id]), object_ids)
+
+    def test_iterobjects_subset_missing_not_allowed(self) -> None:
+        """Test iterating with missing objects when not allowed."""
+        blob1 = make_object(Blob, data=b"blob 1 data")
+        self.store.add_object(blob1)
+        missing_sha = b"1" * 40
+
+        self.assertRaises(
+            KeyError,
+            lambda: list(self.store.iterobjects_subset([blob1.id, missing_sha])),
         )
-        self.assertEqual([testobject.id], list(self.store.iter_prefix(b"")))
+
+    def test_iterobjects_subset_missing_allowed(self) -> None:
+        """Test iterating with missing objects when allowed."""
+        blob1 = make_object(Blob, data=b"blob 1 data")
+        self.store.add_object(blob1)
+        missing_sha = b"1" * 40
+
+        objects = list(
+            self.store.iterobjects_subset([blob1.id, missing_sha], allow_missing=True)
+        )
+        self.assertEqual(1, len(objects))
+        self.assertEqual(blob1.id, objects[0].id)
 
     def test_iter_prefix_not_found(self) -> None:
         self.assertEqual([], list(self.store.iter_prefix(b"1" * 40)))
@@ -327,3 +355,43 @@ class PackBasedObjectStoreTests(ObjectStoreTests):
         self.assertEqual(2, self.store.repack())
         self.assertEqual(1, len(self.store.packs))
         self.assertEqual(0, self.store.pack_loose_objects())
+
+    def test_repack_with_exclude(self) -> None:
+        """Test repacking while excluding specific objects."""
+        b1 = make_object(Blob, data=b"yummy data")
+        self.store.add_object(b1)
+        b2 = make_object(Blob, data=b"more yummy data")
+        self.store.add_object(b2)
+        b3 = make_object(Blob, data=b"even more yummy data")
+        b4 = make_object(Blob, data=b"and more yummy data")
+        self.store.add_objects([(b3, None), (b4, None)])
+
+        self.assertEqual({b1.id, b2.id, b3.id, b4.id}, set(self.store))
+        self.assertEqual(1, len(self.store.packs))
+
+        # Repack, excluding b2 and b3
+        excluded = {b2.id, b3.id}
+        self.assertEqual(2, self.store.repack(exclude=excluded))
+
+        # Should have repacked only b1 and b4
+        self.assertEqual(1, len(self.store.packs))
+        self.assertIn(b1.id, self.store)
+        self.assertNotIn(b2.id, self.store)
+        self.assertNotIn(b3.id, self.store)
+        self.assertIn(b4.id, self.store)
+
+    def test_delete_loose_object(self) -> None:
+        """Test deleting loose objects."""
+        b1 = make_object(Blob, data=b"test data")
+        self.store.add_object(b1)
+
+        # Verify it's loose
+        self.assertTrue(self.store.contains_loose(b1.id))
+        self.assertIn(b1.id, self.store)
+
+        # Delete it
+        self.store.delete_loose_object(b1.id)
+
+        # Verify it's gone
+        self.assertFalse(self.store.contains_loose(b1.id))
+        self.assertNotIn(b1.id, self.store)

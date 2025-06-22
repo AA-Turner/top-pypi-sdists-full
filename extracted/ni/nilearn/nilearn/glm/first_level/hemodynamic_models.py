@@ -1,18 +1,20 @@
 """Hemodynamic response function (hrf) specification.
 
-Here we provide for SPM, Glover hrfs and finite timpulse response (FIR) models.
+Here we provide for SPM, Glover hrfs and finite impulse response (FIR) models.
 This module closely follows SPM implementation
-
-Author: Bertrand Thirion, 2011--2018
 """
 
 import warnings
 from collections.abc import Iterable
 
 import numpy as np
+from scipy.interpolate import interp1d
+from scipy.linalg import pinv
 from scipy.stats import gamma
 
 from nilearn._utils import fill_doc, rename_parameters
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.param_validation import check_params
 
 
 def _gamma_difference_hrf(
@@ -449,6 +451,7 @@ def _sample_condition(
                 " experiment and are thus not considered in the model."
             ),
             UserWarning,
+            stacklevel=find_stack_level(),
         )
 
     # Set up the regressor timecourse
@@ -511,8 +514,6 @@ def _resample_regressor(hr_regressor, frame_times_high_res, frame_times):
          The resampled regressor.
 
     """
-    from scipy.interpolate import interp1d
-
     f = interp1d(frame_times_high_res, hr_regressor)
     return f(frame_times).T
 
@@ -537,8 +538,6 @@ def orthogonalize(X):
     """
     if X.size == X.shape[0]:
         return X
-
-    from scipy.linalg import pinv
 
     for i in range(1, X.shape[1]):
         X[:, i] -= np.dot(np.dot(X[:, i], X[:, :i]), pinv(X[:, :i]))
@@ -569,6 +568,7 @@ def _regressor_names(con_name, hrf_model, fir_delays=None):
         regressor names
 
     """
+    check_params(locals())
     # Default value
     names = [con_name]
 
@@ -606,8 +606,7 @@ def _hrf_kernel(hrf_model, t_r, oversampling=50, fir_delays=None):
 
     Parameters
     ----------
-    hrf_model : :obj:`str`, function, list of functions, or None,
-        HRF model to be used.
+    %(hrf_model)s
 
     t_r : :obj:`float`
         the repetition time in seconds
@@ -624,6 +623,7 @@ def _hrf_kernel(hrf_model, t_r, oversampling=50, fir_delays=None):
         Samples of the hrf (the number depends on the hrf_model used).
 
     """
+    check_params(locals())
     acceptable_hrfs = [
         "spm",
         "spm + derivative",
@@ -740,6 +740,7 @@ def compute_regressor(
         Corresponding regressor names.
 
     """
+    check_params(locals())
     # fir_delays should be integers
     if fir_delays is not None:
         fir_delays = [int(x) for x in fir_delays]
@@ -794,4 +795,4 @@ def _calculate_tr(frame_times):
     :obj:`float`
         repetition time
     """
-    return np.min(np.diff(frame_times))
+    return float(np.min(np.diff(frame_times)))

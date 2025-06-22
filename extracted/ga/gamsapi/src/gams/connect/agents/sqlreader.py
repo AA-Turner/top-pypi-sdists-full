@@ -31,16 +31,9 @@ import pandas as pd
 
 class SQLReader(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._connection = inst["connection"]
@@ -54,7 +47,7 @@ class SQLReader(ConnectAgent):
         self._read_sql_args = inst["readSQLArguments"]
         self._trace = inst["trace"]
 
-    def open(self):
+    def _open(self):
         if self._cnctn_type == "sqlalchemy":
             import sqlalchemy
 
@@ -79,7 +72,11 @@ class SQLReader(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
+
+        self._open()
+
         try:
             symbols_raw = self._symbols.copy()
             for s in self._symbols:
@@ -108,7 +105,7 @@ class SQLReader(ConnectAgent):
                         sym, sym_raw, description=f"Read symbol >{sym['name']}<:"
                     )
 
-                self._check_symbol_exists(sym_name)
+                self._symbols_exist_cdb(sym_name)
 
                 try:
                     if self._cnctn_type == "sqlalchemy":

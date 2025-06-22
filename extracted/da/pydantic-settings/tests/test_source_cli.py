@@ -2159,17 +2159,17 @@ def test_cli_suppress(capsys, monkeypatch):
     class HiddenSubModel(BaseModel):
         hidden_a: int
         hidden_b: int
-        deep_hidden_obj: DeepHiddenSubModel
+        deep_hidden_obj: DeepHiddenSubModel = Field(description='deep_hidden_obj description')
 
     class SubModel(BaseModel):
         visible_a: int
         visible_b: int
-        deep_hidden_obj: CliSuppress[DeepHiddenSubModel]
+        deep_hidden_obj: CliSuppress[DeepHiddenSubModel] = Field(description='deep_hidden_obj description')
 
     class Settings(BaseSettings, cli_parse_args=True):
         field_a: CliSuppress[int] = 0
-        field_b: str = Field(default=1, description=CLI_SUPPRESS)
-        hidden_obj: CliSuppress[HiddenSubModel]
+        field_b: str = Field(default='hi', description=CLI_SUPPRESS)
+        hidden_obj: CliSuppress[HiddenSubModel] = Field(description='hidden_obj description')
         visible_obj: SubModel
 
     with monkeypatch.context() as m:
@@ -2452,6 +2452,40 @@ positional arguments:
         )
 
 
+def test_cli_with_unbalanced_brackets_in_json_string():
+    class StrToStrDictOptions(BaseSettings):
+        nested: dict[str, str]
+
+    assert CliApp.run(StrToStrDictOptions, cli_args=['--nested={"test": "{"}']).model_dump() == {
+        'nested': {'test': '{'}
+    }
+    assert CliApp.run(StrToStrDictOptions, cli_args=['--nested={"test": "}"}']).model_dump() == {
+        'nested': {'test': '}'}
+    }
+    assert CliApp.run(StrToStrDictOptions, cli_args=['--nested={"test": "["}']).model_dump() == {
+        'nested': {'test': '['}
+    }
+    assert CliApp.run(StrToStrDictOptions, cli_args=['--nested={"test": "]"}']).model_dump() == {
+        'nested': {'test': ']'}
+    }
+
+    class StrToListDictOptions(BaseSettings):
+        nested: dict[str, list[str]]
+
+    assert CliApp.run(StrToListDictOptions, cli_args=['--nested={"test": ["{"]}']).model_dump() == {
+        'nested': {'test': ['{']}
+    }
+    assert CliApp.run(StrToListDictOptions, cli_args=['--nested={"test": ["}"]}']).model_dump() == {
+        'nested': {'test': ['}']}
+    }
+    assert CliApp.run(StrToListDictOptions, cli_args=['--nested={"test": ["["]}']).model_dump() == {
+        'nested': {'test': ['[']}
+    }
+    assert CliApp.run(StrToListDictOptions, cli_args=['--nested={"test": ["]"]}']).model_dump() == {
+        'nested': {'test': [']']}
+    }
+
+
 def test_cli_json_optional_default():
     class Nested(BaseModel):
         foo: int = 1
@@ -2464,3 +2498,79 @@ def test_cli_json_optional_default():
     assert CliApp.run(Options, cli_args=['--nested']).model_dump() == {'nested': {'foo': 1, 'bar': 2}}
     assert CliApp.run(Options, cli_args=['--nested={}']).model_dump() == {'nested': {'foo': 1, 'bar': 2}}
     assert CliApp.run(Options, cli_args=['--nested.foo=5']).model_dump() == {'nested': {'foo': 5, 'bar': 2}}
+
+
+def test_cli_parse_args_from_model_config_is_respected_with_settings_customise_sources(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class MySettings(BaseSettings):
+        model_config = SettingsConfigDict(cli_parse_args=True)
+
+        foo: str
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (CliSettingsSource(settings_cls),)
+
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'argv', ['example.py', '--foo', 'bar'])
+
+        cfg = CliApp.run(MySettings)
+
+        assert cfg.model_dump() == {'foo': 'bar'}
+
+
+def test_cli_shortcuts_on_flat_object():
+    class Settings(BaseSettings):
+        option: str = Field(default='foo')
+        list_option: str = Field(default='fizz')
+
+        model_config = SettingsConfigDict(cli_shortcuts={'option': 'option2', 'list_option': ['list_option2']})
+
+    assert CliApp.run(Settings, cli_args=['--option2', 'bar', '--list_option2', 'buzz']).model_dump() == {
+        'option': 'bar',
+        'list_option': 'buzz',
+    }
+
+
+def test_cli_shortcuts_on_nested_object():
+    class TwiceNested(BaseModel):
+        option: str = Field(default='foo')
+
+    class Nested(BaseModel):
+        twice_nested_option: TwiceNested = TwiceNested()
+        option: str = Field(default='foo')
+
+    class Settings(BaseSettings):
+        nested: Nested = Nested()
+
+        model_config = SettingsConfigDict(
+            cli_shortcuts={'nested.option': 'option2', 'nested.twice_nested_option.option': 'twice_nested_option'}
+        )
+
+    assert CliApp.run(Settings, cli_args=['--option2', 'bar', '--twice_nested_option', 'baz']).model_dump() == {
+        'nested': {'option': 'bar', 'twice_nested_option': {'option': 'baz'}}
+    }
+
+
+def test_cli_shortcuts_alias_collision_applies_to_first_target_field():
+    class Nested(BaseModel):
+        option: str = Field(default='foo')
+
+    class Settings(BaseSettings):
+        nested: Nested = Nested()
+        option2: str = Field(default='foo2')
+
+        model_config = SettingsConfigDict(cli_shortcuts={'option2': 'abc', 'nested.option': 'abc'})
+
+    assert CliApp.run(Settings, cli_args=['--abc', 'bar']).model_dump() == {
+        'nested': {'option': 'bar'},
+        'option2': 'foo2',
+    }

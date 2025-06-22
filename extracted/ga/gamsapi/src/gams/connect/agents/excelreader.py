@@ -58,17 +58,9 @@ class ExcelReader(ExcelAgent):
         "mergedcells": "mergedCells",
     }
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
-            np.set_printoptions(threshold=sys.maxsize)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
         if os.path.splitext(self._file)[1] in [".xls"]:
             self._connect_error("The ExcelReader does not support .xls files.")
 
@@ -428,7 +420,7 @@ class ExcelReader(ExcelAgent):
                 sym, sym_raw, description=f"Read symbol >{sym['name']}<:"
             )
 
-        self._check_symbol_exists(sym_name)
+        self._symbols_exist_cdb(sym_name)
 
         # check that sets do not have dim=0
         if sym_type == "set" and rdim == 0 and cdim == 0:
@@ -625,7 +617,7 @@ class ExcelReader(ExcelAgent):
                     df = df.replace(regex=pattern, value=GMS_SV_UNDEF).infer_objects()
         self._write(df, sym_name, sym_type, rdim, cdim)
 
-    def open(self):
+    def _open(self):
         read_only = not (
             any(sym["mergedCells"] for sym in self._symbols) or self._merged_cells
         )
@@ -638,7 +630,7 @@ class ExcelReader(ExcelAgent):
 
     def _read_symbols(self, symbols, validate=False):
         if validate:
-            sym_schema = self.cerberus()["symbols"]["schema"]["schema"]
+            sym_schema = self._cdb.load_schema(self)["symbols"]["schema"]["schema"]
             v = ConnectValidator(sym_schema)
         for i, sym in enumerate(symbols):
             if validate:
@@ -689,7 +681,11 @@ class ExcelReader(ExcelAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
+
+        self._open()
+
         if self._index:
             self._read_from_index()
         else:
@@ -702,5 +698,4 @@ class ExcelReader(ExcelAgent):
         if self._trace > 0:
             self._describe_container(self._cdb.container, "Connect Container (after):")
 
-    def close(self):
         self._wb.close()

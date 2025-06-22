@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blockkit
-Version: 2.0.2
+Version: 2.0.3
 Summary: A fast way to build Block Kit interfaces in Python
 Project-URL: Homepage, https://github.com/imryche/blockkit
 Project-URL: Issues, https://github.com/imryche/blockkit/issues

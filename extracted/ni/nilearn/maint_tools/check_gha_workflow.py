@@ -38,6 +38,8 @@ USAGE
     python maint_tools/check_gha_workflow.py $GITHUB_TOKEN
 """
 
+from __future__ import annotations
+
 import sys
 import warnings
 from pathlib import Path
@@ -59,13 +61,13 @@ REPO = "nilearn"
 # your github username
 USERNAME = "Remi-Gau"
 # file containing your github token
-TOKEN_FILE = Path("/home/remi/Documents/tokens/gh_read_repo_for_orga.txt")
+TOKEN_FILE = Path("/home/remi-gau/Documents/tokens/gh_user.txt")
 
 BRANCH = "main"
 
 # Set to True if yu want to also include the runs of a CI workflow
 # that did not complete successfully.
-INCLUDE_FAILED_RUNS = False
+INCLUDE_FAILED_RUNS = True
 
 # Pages of runs to collect
 # 100 per page
@@ -75,7 +77,7 @@ PAGES_TO_COLLECT = range(1, 30)
 UPDATE_TSV = True
 
 # used by set_python_version to filter jobs by their python version
-EXPECTED_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+EXPECTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.13t"]
 
 
 def main(args=sys.argv) -> None:
@@ -149,7 +151,7 @@ def _update_tsv(
     update: bool,
     output_file: Path,
     workflow_id: str,
-    event_type: None | str = None,
+    event_type: str | None = None,
 ) -> None:
     """Update TSV containing run time of every workflow."""
     update_tsv = update if output_file.exists() else True
@@ -279,7 +281,7 @@ def _set_dependencies(x: str) -> str:
     )
 
 
-def _get_auth(username: str, token_file: Path) -> None | tuple[str, str]:
+def _get_auth(username: str, token_file: Path) -> tuple[str, str] | None:
     """Get authentication with token."""
     token = None
 
@@ -294,10 +296,10 @@ def _get_auth(username: str, token_file: Path) -> None | tuple[str, str]:
 
 def _get_runs(
     workflow_id: str,
-    auth: None | tuple[str, str] = None,
+    auth: tuple[str, str] | None = None,
     page: int = 1,
     include_failed_runs: bool = True,
-    event_type: None | str = None,
+    event_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get list of runs for a workflow.
 
@@ -326,7 +328,7 @@ def _get_runs(
     return [run for run in runs if run["conclusion"] in conclusion]
 
 
-def _handle_request(url: str, auth: None | tuple[str, str]):
+def _handle_request(url: str, auth: tuple[str, str] | None):
     """Wrap request."""
     if isinstance(auth, tuple):
         response = requests.get(url, auth=auth)
@@ -345,11 +347,11 @@ def _handle_request(url: str, auth: None | tuple[str, str]):
 def _update_jobs_data(
     jobs_data: dict[str, list[str]],
     runs: list[dict[str, Any]],
-    auth: None | tuple[str, str] = None,
+    auth: tuple[str, str] | None = None,
 ) -> dict[str, list[str]]:
     """Collect info for each job in a run."""
     for run in runs:
-        print(f'{run["id"]}: {run["display_title"]}')
+        print(f"{run['id']}: {run['display_title']}")
 
         content = _handle_request(run["jobs_url"], auth)
 

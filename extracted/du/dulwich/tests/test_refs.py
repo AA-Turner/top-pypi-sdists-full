@@ -381,6 +381,43 @@ class DictRefsContainerTests(RefsContainerTests, TestCase):
         expected_refs[b"refs/stash"] = b"00" * 20
         self.assertEqual(expected_refs, self._refs.as_dict())
 
+    def test_set_if_equals_with_symbolic_ref(self) -> None:
+        # Test that set_if_equals only updates the requested ref,
+        # not all refs in a symbolic reference chain
+
+        # The bug in the original implementation was that when follow()
+        # was called on a ref, it would return all refs in the chain,
+        # and set_if_equals would update ALL of them instead of just the
+        # requested ref.
+
+        # Set up refs
+        master_sha = b"1" * 40
+        feature_sha = b"2" * 40
+        new_sha = b"3" * 40
+
+        self._refs[b"refs/heads/master"] = master_sha
+        self._refs[b"refs/heads/feature"] = feature_sha
+        # Create a second symbolic ref pointing to feature
+        self._refs.set_symbolic_ref(b"refs/heads/other", b"refs/heads/feature")
+
+        # Update refs/heads/other through set_if_equals
+        # With the bug, this would update BOTH refs/heads/other AND refs/heads/feature
+        # Without the bug, only refs/heads/other should be updated
+        # Note: old_ref needs to be the actual stored value (the symref)
+        self.assertTrue(
+            self._refs.set_if_equals(
+                b"refs/heads/other", b"ref: refs/heads/feature", new_sha
+            )
+        )
+
+        # refs/heads/other should now directly point to new_sha
+        self.assertEqual(self._refs.read_ref(b"refs/heads/other"), new_sha)
+
+        # refs/heads/feature should remain unchanged
+        # With the bug, refs/heads/feature would also be incorrectly updated to new_sha
+        self.assertEqual(self._refs[b"refs/heads/feature"], feature_sha)
+        self.assertEqual(self._refs[b"refs/heads/master"], master_sha)
+
 
 class DiskRefsContainerTests(RefsContainerTests, TestCase):
     def setUp(self) -> None:
@@ -755,6 +792,49 @@ _TEST_REFS_SERIALIZED = (
     b"df6800012397fb85c56e7418dd4eb9405dee075c\trefs/tags/refs-0.1\n"
     b"3ec9c43c84ff242e3ef4a9fc5bc111fd780a76a8\trefs/tags/refs-0.2\n"
 )
+
+
+class DiskRefsContainerPathlibTests(TestCase):
+    def test_pathlib_init(self) -> None:
+        from pathlib import Path
+
+        from dulwich.refs import DiskRefsContainer
+
+        # Create a temporary directory
+        temp_dir = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, temp_dir)
+
+        # Test with pathlib.Path
+        path_obj = Path(temp_dir)
+        refs = DiskRefsContainer(path_obj)
+        self.assertEqual(refs.path, temp_dir.encode())
+
+        # Test refpath with pathlib initialized container
+        ref_path = refs.refpath(b"HEAD")
+        self.assertTrue(isinstance(ref_path, bytes))
+        self.assertEqual(ref_path, os.path.join(temp_dir.encode(), b"HEAD"))
+
+    def test_pathlib_worktree_path(self) -> None:
+        from pathlib import Path
+
+        from dulwich.refs import DiskRefsContainer
+
+        # Create temporary directories
+        temp_dir = tempfile.mkdtemp()
+        worktree_dir = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, temp_dir)
+        self.addCleanup(os.rmdir, worktree_dir)
+
+        # Test with pathlib.Path for both paths
+        path_obj = Path(temp_dir)
+        worktree_obj = Path(worktree_dir)
+        refs = DiskRefsContainer(path_obj, worktree_path=worktree_obj)
+        self.assertEqual(refs.path, temp_dir.encode())
+        self.assertEqual(refs.worktree_path, worktree_dir.encode())
+
+        # Test refpath returns worktree path for HEAD
+        ref_path = refs.refpath(b"HEAD")
+        self.assertEqual(ref_path, os.path.join(worktree_dir.encode(), b"HEAD"))
 
 
 class InfoRefsContainerTests(TestCase):

@@ -4,8 +4,9 @@ import abc
 import gzip
 import pathlib
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import sklearn.cluster
@@ -17,9 +18,9 @@ from sklearn.exceptions import EfficiencyWarning
 
 from nilearn import _utils
 from nilearn._utils import stringify_path
+from nilearn._utils.logger import find_stack_level
 from nilearn._utils.niimg_conversions import check_niimg
 from nilearn._utils.path_finding import resolve_globbing
-from nilearn.image import get_data, load_img, resampling
 
 
 def _uniform_ball_cloud(n_points=20, dim=3, n_monte_carlo=50000):
@@ -46,7 +47,7 @@ def _load_uniform_ball_cloud(n_points=20):
         "have a big impact on the result, we strongly recommend using one "
         'of these values when using kind="ball" for much better performance.',
         EfficiencyWarning,
-        stacklevel=3,
+        stacklevel=find_stack_level(),
     )
     return _uniform_ball_cloud(n_points=n_points)
 
@@ -108,6 +109,9 @@ def _vertex_outer_normals(mesh):
 def _sample_locations_between_surfaces(
     mesh, inner_mesh, affine, n_points=10, depth=None
 ):
+    #  Avoid circular import
+    from nilearn.image.resampling import coord_transform
+
     outer_vertices = load_surf_mesh(mesh).coordinates
     inner_vertices = load_surf_mesh(inner_mesh).coordinates
 
@@ -122,7 +126,7 @@ def _sample_locations_between_surfaces(
     sample_locations = np.rollaxis(sample_locations, 1)
 
     sample_locations_voxel_space = np.asarray(
-        resampling.coord_transform(
+        coord_transform(
             *np.vstack(sample_locations).T, affine=np.linalg.inv(affine)
         )
     ).T.reshape(sample_locations.shape)
@@ -170,6 +174,9 @@ def _ball_sample_locations(
         z in voxel space.
 
     """
+    #  Avoid circular import
+    from nilearn.image.resampling import coord_transform
+
     if depth is not None:
         raise ValueError(
             "The 'ball' sampling strategy does not support "
@@ -181,12 +188,12 @@ def _ball_sample_locations(
         _load_uniform_ball_cloud(n_points=n_points) * ball_radius
     )
     mesh_voxel_space = np.asarray(
-        resampling.coord_transform(*vertices.T, affine=np.linalg.inv(affine))
+        coord_transform(*vertices.T, affine=np.linalg.inv(affine))
     ).T
     linear_map = np.eye(affine.shape[0])
     linear_map[:-1, :-1] = affine[:-1, :-1]
     offsets_voxel_space = np.asarray(
-        resampling.coord_transform(
+        coord_transform(
             *offsets_world_space.T, affine=np.linalg.inv(linear_map)
         )
     ).T
@@ -238,6 +245,9 @@ def _line_sample_locations(
         z in voxel space.
 
     """
+    #  Avoid circular import
+    from nilearn.image.resampling import coord_transform
+
     vertices = load_surf_mesh(mesh).coordinates
     normals = _vertex_outer_normals(mesh)
     if depth is None:
@@ -252,7 +262,7 @@ def _line_sample_locations(
     )
     sample_locations = np.rollaxis(sample_locations, 1)
     sample_locations_voxel_space = np.asarray(
-        resampling.coord_transform(
+        coord_transform(
             *np.vstack(sample_locations).T, affine=np.linalg.inv(affine)
         )
     ).T.reshape(sample_locations.shape)
@@ -380,12 +390,12 @@ def _projection_matrix(
         The size (in mm) of the neighbourhood from which samples are drawn
         around each node. Ignored if `inner_mesh` is not `None`.
 
-    n_points : :obj:`int` or None, optional
+    n_points : :obj:`int` or None, default=20
         How many samples are drawn around each vertex and averaged. If `None`,
         use a reasonable default for the chosen sampling strategy (20 for
         'ball' or 10 for lines ie using `line` or an `inner_mesh`).
         For performance reasons, if using kind="ball", choose `n_points` in
-        [10, 20, 40, 80, 160] (default is 20), because cached positions are
+        [10, 20, 40, 80, 160], because cached positions are
         available.
 
     mask : :obj:`numpy.ndarray` of shape img_shape or `None`, optional
@@ -451,6 +461,60 @@ def _projection_matrix(
     return proj
 
 
+def _mask_sample_locations(sample_locations, img_shape, mesh_n_vertices, mask):
+    """Mask sample locations without changing to indices."""
+    sample_locations = np.asarray(np.round(sample_locations), dtype=int)
+    masks = _masked_indices(np.vstack(sample_locations), img_shape, mask=mask)
+    masks = np.split(masks, mesh_n_vertices)
+    # mask sample locations and make a list of masked indices because
+    # masked locations are not necessarily of the same length
+    masked_sample_locations = [
+        sample_locations[idx][~mask] for idx, mask in enumerate(masks)
+    ]
+    return masked_sample_locations
+
+
+def _nearest_most_frequent(
+    images,
+    mesh,
+    affine,
+    kind="auto",
+    radius=3.0,
+    n_points=None,
+    mask=None,
+    inner_mesh=None,
+    depth=None,
+):
+    """Use the most frequent value of 'n_samples' nearest voxels instead of
+    taking the mean value (as in the _nearest_voxel_sampling function).
+
+    This is useful when the image is a deterministic atlas.
+    """
+    data = np.asarray(images)
+    sample_locations = _sample_locations(
+        mesh,
+        affine,
+        kind=kind,
+        radius=radius,
+        n_points=n_points,
+        inner_mesh=inner_mesh,
+        depth=depth,
+    )
+    sample_locations = _mask_sample_locations(
+        sample_locations, images[0].shape, mesh.n_vertices, mask
+    )
+    texture = np.zeros((mesh.n_vertices, images.shape[0]))
+    for img in range(images.shape[0]):
+        for loc, sample_location in enumerate(sample_locations):
+            possible_values = [
+                data[img][coords[0], coords[1], coords[2]]
+                for coords in sample_location
+            ]
+            unique, counts = np.unique(possible_values, return_counts=True)
+            texture[loc, img] = unique[np.argmax(counts)]
+    return texture.T
+
+
 def _nearest_voxel_sampling(
     images,
     mesh,
@@ -470,6 +534,7 @@ def _nearest_voxel_sampling(
     See documentation of vol_to_surf for details.
 
     """
+    data = np.asarray(images).reshape(len(images), -1).T
     proj = _projection_matrix(
         mesh,
         affine,
@@ -481,7 +546,6 @@ def _nearest_voxel_sampling(
         inner_mesh=inner_mesh,
         depth=depth,
     )
-    data = np.asarray(images).reshape(len(images), -1).T
     texture = proj.dot(data)
     # if all samples around a mesh vertex are outside the image,
     # there is no reasonable value to assign to this vertex.
@@ -573,13 +637,31 @@ def vol_to_surf(
         The size (in mm) of the neighbourhood from which samples are drawn
         around each node. Ignored if `inner_mesh` is provided.
 
-    interpolation : {'linear', 'nearest'}, default='linear'
+    interpolation : {'linear', 'nearest', 'nearest_most_frequent'}, \
+                    default='linear'
         How the image intensity is measured at a sample point.
 
         - 'linear':
             Use a trilinear interpolation of neighboring voxels.
         - 'nearest':
             Use the intensity of the nearest voxel.
+
+            .. versionchanged:: 0.12.0
+
+                The 'nearest' interpolation method will be removed in
+                version 0.13.0. It is recommended to use 'linear' for
+                statistical maps and
+                :term:`probabilistic atlases<Probabilistic atlas>` and
+                'nearest_most_frequent' for
+                :term:`deterministic atlases<Deterministic atlas>`.
+
+        - 'nearest_most_frequent':
+            Use the most frequent value in the neighborhood (out of the
+            `n_samples` samples) instead of the mean value. This is useful
+            when the image is a
+            :term:`deterministic atlas<Deterministic atlas>`.
+
+            .. versionadded:: 0.12.0
 
         For one image, the speed difference is small, 'linear' takes about x1.5
         more time. For many images, 'nearest' scales much better, up to x20
@@ -606,19 +688,19 @@ def vol_to_surf(
             Samples are regularly spaced inside a ball centered at the mesh
             vertex.
 
-    n_samples : :obj:`int` or `None`, optional
+    n_samples : :obj:`int` or `None`, default=None
         How many samples are drawn around each :term:`vertex` and averaged.
         If `None`, use a reasonable default for the chosen sampling strategy
         (20 for 'ball' or 10 for 'line').
         For performance reasons, if using `kind` ="ball", choose `n_samples` in
-        [10, 20, 40, 80, 160] (default is 20), because cached positions are
-        available.
+        [10, 20, 40, 80, 160] (defaults to 20 if None is passed),
+        because cached positions are available.
 
-    mask_img : Niimg-like object or `None`, optional
+    mask_img : Niimg-like object or `None`, default=None
         Samples falling out of this mask or out of the image are ignored.
         If `None`, don't apply any mask.
 
-    inner_mesh : :obj:`str` or :obj:`numpy.ndarray`, optional
+    inner_mesh : :obj:`str` or :obj:`numpy.ndarray` or None, default=None
         Either a file containing a surface :term:`mesh` or a pair of ndarrays
         (coordinates, triangles). If provided this is an inner surface that is
         nested inside the one represented by `surf_mesh` -- e.g. `surf_mesh` is
@@ -629,7 +711,7 @@ def vol_to_surf(
         Image values for index i are then sampled along the line
         joining these two points (if `kind` is 'auto' or 'depth').
 
-    depth : sequence of :obj:`float` or `None`, optional
+    depth : sequence of :obj:`float` or `None`, default=None
         The cortical depth of samples. If provided, n_samples is ignored.
         When `inner_mesh` is provided, each element of `depth` is a fraction of
         the distance from `mesh` to `inner_mesh`: 0 is exactly on the outer
@@ -661,22 +743,22 @@ def vol_to_surf(
 
     Three strategies are available to select these positions.
 
-        - with 'depth', data is sampled at various cortical depths between
-          corresponding nodes of `surface_mesh` and `inner_mesh` (which can be,
-          for example, a pial surface and a white matter surface). This is the
-          recommended strategy when both the pial and white matter surfaces are
-          available, which is the case for the fsaverage :term:`meshes<mesh>`.
-        - 'ball' uses points regularly spaced in a ball centered
-          at the :term:`mesh` vertex.
-          The radius of the ball is controlled by the parameter `radius`.
-        - 'line' starts by drawing the normal to the :term:`mesh`
-          passing through this vertex.
-          It then selects a segment of this normal,
-          centered at the vertex, of length 2 * `radius`.
-          Image intensities are measured at points regularly spaced
-          on this normal segment, or at positions determined by `depth`.
-        - ('auto' chooses 'depth' if `inner_mesh` is provided and 'line'
-          otherwise)
+    - with 'depth', data is sampled at various cortical depths between
+        corresponding nodes of `surface_mesh` and `inner_mesh` (which can be,
+        for example, a pial surface and a white matter surface). This is the
+        recommended strategy when both the pial and white matter surfaces are
+        available, which is the case for the fsaverage :term:`meshes<mesh>`.
+    - 'ball' uses points regularly spaced in a ball centered
+        at the :term:`mesh` vertex.
+        The radius of the ball is controlled by the parameter `radius`.
+    - 'line' starts by drawing the normal to the :term:`mesh`
+        passing through this vertex.
+        It then selects a segment of this normal,
+        centered at the vertex, of length 2 * `radius`.
+        Image intensities are measured at points regularly spaced
+        on this normal segment, or at positions determined by `depth`.
+    - ('auto' chooses 'depth' if `inner_mesh` is provided and 'line'
+        otherwise)
 
     You can control how many samples are drawn by setting `n_samples`, or their
     position by setting `depth`.
@@ -700,6 +782,13 @@ def vol_to_surf(
     interpolated values are averaged to produce the value associated to this
     particular :term:`mesh` vertex.
 
+    .. important::
+
+        When using the 'nearest_most_frequent' interpolation, each vertex will
+        be assigned the most frequent value in the neighborhood (out of the
+        `n_samples` samples) instead of the mean value. This option works
+        better if `img` is a :term:`deterministic atlas<Deterministic atlas>`.
+
     Examples
     --------
     When both the pial and white matter surface are available, the recommended
@@ -716,20 +805,40 @@ def vol_to_surf(
      ... )
 
     """
+    # avoid circular import
+    from nilearn.image import get_data as get_vol_data
+    from nilearn.image import load_img
+    from nilearn.image.resampling import resample_to_img
+
     sampling_schemes = {
         "linear": _interpolation_sampling,
         "nearest": _nearest_voxel_sampling,
+        "nearest_most_frequent": _nearest_most_frequent,
     }
     if interpolation not in sampling_schemes:
         raise ValueError(
             "'interpolation' should be one of "
             f"{tuple(sampling_schemes.keys())}"
         )
+
+    # deprecate nearest interpolation in 0.13.0
+    if interpolation == "nearest":
+        warnings.warn(
+            "The 'nearest' interpolation method will be deprecated in 0.13.0. "
+            "To disable this warning, select either 'linear' or "
+            "'nearest_most_frequent'. If your image is a deterministic atlas "
+            "'nearest_most_frequent' is recommended. Otherwise, use 'linear'. "
+            "See the documentation for more information.",
+            FutureWarning,
+            stacklevel=find_stack_level(),
+        )
+
     img = load_img(img)
+
     if mask_img is not None:
         mask_img = _utils.check_niimg(mask_img)
-        mask = get_data(
-            resampling.resample_to_img(
+        mask = get_vol_data(
+            resample_to_img(
                 mask_img,
                 img,
                 interpolation="nearest",
@@ -740,13 +849,20 @@ def vol_to_surf(
         )
     else:
         mask = None
+
     original_dimension = len(img.shape)
+
     img = _utils.check_niimg(img, atleast_4d=True)
-    frames = np.rollaxis(get_data(img), -1)
+
+    frames = np.rollaxis(get_vol_data(img), -1)
+
     mesh = load_surf_mesh(surf_mesh)
+
     if inner_mesh is not None:
         inner_mesh = load_surf_mesh(inner_mesh)
+
     sampling = sampling_schemes[interpolation]
+
     texture = sampling(
         frames,
         mesh,
@@ -758,6 +874,7 @@ def vol_to_surf(
         inner_mesh=inner_mesh,
         depth=depth,
     )
+
     if original_dimension == 3:
         texture = texture[0]
     return texture.T
@@ -832,6 +949,9 @@ def load_surf_data(surf_data):
         An array containing surface data
 
     """
+    # avoid circular import
+    from nilearn.image import get_data as get_vol_data
+
     # if the input is a filename, load it
     surf_data = stringify_path(surf_data)
 
@@ -858,7 +978,7 @@ def load_surf_data(surf_data):
             )
 
             if surf_data.endswith(("nii", "nii.gz", "mgz")):
-                data_part = np.squeeze(get_data(load(surf_data)))
+                data_part = np.squeeze(get_vol_data(load(surf_data)))
             elif surf_data.endswith(("area", "curv", "sulc", "thickness")):
                 data_part = fs.io.read_morph_data(surf_data)
             elif surf_data.endswith("annot"):
@@ -966,13 +1086,48 @@ def _gifti_img_to_mesh(gifti_img):
     return coords, faces
 
 
+def combine_hemispheres_meshes(mesh):
+    """Combine the left and right hemisphere meshes such that both are
+    represented in the same mesh.
+
+    Parameters
+    ----------
+    mesh : :obj:`~nilearn.surface.PolyMesh`
+        The mesh object containing the left and right hemisphere meshes.
+
+    Returns
+    -------
+    combined_mesh : :obj:`~nilearn.surface.InMemoryMesh`
+        The combined mesh object containing both left and right hemisphere
+        meshes.
+    """
+    # calculate how much the right hemisphere should be offset
+    left_max_x = mesh.parts["left"].coordinates[:, 0].max()
+    right_min_x = mesh.parts["right"].coordinates[:, 0].min()
+    offset = (
+        left_max_x - right_min_x + 1
+    )  # add a small buffer to avoid touching
+
+    combined_coords = np.concatenate(
+        (
+            mesh.parts["left"].coordinates,
+            mesh.parts["right"].coordinates + np.asarray([offset, 0, 0]),
+        )
+    )
+    combined_faces = np.concatenate(
+        (
+            mesh.parts["left"].faces,
+            mesh.parts["right"].faces
+            + mesh.parts["left"].coordinates.shape[0],
+        )
+    )
+    return InMemoryMesh(combined_coords, combined_faces)
+
+
 def check_mesh_is_fsaverage(mesh):
     """Check that :term:`mesh` data is either a :obj:`str`, or a :obj:`dict`
     with sufficient entries. Basically ensures that the mesh data is
     Freesurfer-like fsaverage data.
-
-    Used by plotting.surf_plotting.plot_img_on_surf and
-    plotting.html_surface._full_brain_info.
     """
     if isinstance(mesh, str):
         # avoid circular imports
@@ -1029,6 +1184,9 @@ def check_mesh_and_data(mesh, data):
         Checked data.
     """
     mesh = load_surf_mesh(mesh)
+
+    _validate_mesh(mesh)
+
     data = load_surf_data(data)
     # Check that mesh coordinates has a number of nodes
     # equal to the size of the data.
@@ -1038,16 +1196,39 @@ def check_mesh_and_data(mesh, data):
             f"in mesh ({len(mesh.coordinates)}) and "
             f"size of surface data ({len(data)})"
         )
-    # Check that the indices of faces are consistent with the
-    # mesh coordinates. That is, we shouldn't have an index
-    # larger or equal to the length of the coordinates array.
-    if mesh.faces.max() >= len(mesh.coordinates):
-        raise ValueError(
-            "Mismatch between the indices of faces and the number of nodes. "
-            f"Maximum face index is {mesh.faces.max()} "
-            f"while coordinates array has length {len(mesh.coordinates)}."
-        )
+
     return mesh, data
+
+
+def _validate_mesh(mesh):
+    """Check mesh coordinates and faces.
+
+    Mesh coordinates and faces must be numpy arrays.
+
+    Coordinates must be finite values.
+
+    Check that the indices of faces are consistent
+    with the mesh coordinates.
+    That is, we shouldn't have an index
+    - larger or equal to the length of the coordinates array
+    - negative
+    """
+    non_finite_mask = np.logical_not(np.isfinite(mesh.coordinates))
+    if non_finite_mask.any():
+        raise ValueError(
+            "Mesh coordinates must be finite. "
+            "Current coordinates contains NaN or Inf values."
+        )
+
+    msg = (
+        "Mismatch between the indices of faces and the number of nodes.\n"
+        "Indices into the points and must be in the "
+        f"range 0 <= i < {len(mesh.coordinates)} but found value "
+    )
+    if mesh.faces.max() >= len(mesh.coordinates):
+        raise ValueError(f"{msg}{mesh.faces.max()}")
+    if mesh.faces.min() < 0:
+        raise ValueError(f"{msg}{mesh.faces.min()}")
 
 
 # function to figure out datatype and load data
@@ -1119,13 +1300,14 @@ def load_surf_mesh(surf_mesh):
             mesh = InMemoryMesh(coordinates=coords, faces=faces)
         except Exception:
             raise ValueError(
-                "If a list or tuple is given as input, "
-                "it must have two elements, the first is "
-                "a Numpy array containing the x-y-z coordinates "
-                "of the mesh vertices, the second is a Numpy "
-                "array containing  the indices (into coords) of "
-                "the mesh faces. The input was a list with "
-                f"{len(surf_mesh)} elements."
+                "\nIf a list or tuple is given as input, "
+                "it must have two elements,\n"
+                "the first is a Numpy array containing the x-y-z coordinates "
+                "of the mesh vertices,\n"
+                "the second is a Numpy array "
+                "containing the indices (into coords) of the mesh faces.\n"
+                f"The input was a {surf_mesh.__class__.__name__} with "
+                f"{len(surf_mesh)} elements: {[type(x) for x in surf_mesh]}."
             )
     elif hasattr(surf_mesh, "faces") and hasattr(surf_mesh, "coordinates"):
         coords, faces = surf_mesh.coordinates, surf_mesh.faces
@@ -1137,10 +1319,9 @@ def load_surf_mesh(surf_mesh):
             "Valid inputs are one of the following file "
             "formats: .gii, .gii.gz, "
             "Freesurfer specific files such as "
-            f"{_stringify(FREESURFER_MESH_EXTENSIONS)}"
+            f"{_stringify(FREESURFER_MESH_EXTENSIONS)} "
             "or two Numpy arrays organized in a list, tuple or "
-            'a namedtuple with the fields "coordinates" and '
-            '"faces"'
+            'a namedtuple with the fields "coordinates" and "faces"'
         )
 
     return mesh
@@ -1242,6 +1423,44 @@ class PolyData:
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.shape}>"
+
+    def _get_min_max(self):
+        """Get min and max across parts.
+
+        Returns
+        -------
+        vmin : float
+
+        vmax : float
+        """
+        vmin = min(x.min() for x in self.parts.values())
+        vmax = max(x.max() for x in self.parts.values())
+        return vmin, vmax
+
+    def _check_ndims(self, dim, var_name="img"):
+        """Check if the data is of a given dimension.
+
+        Raise error if not.
+
+        Parameters
+        ----------
+        dim : int
+            Dimensions the data should have.
+
+        var_name : str, optional
+            Name of the variable to include in the error message.
+
+        Returns
+        -------
+        raise ValueError if the data of the SurfaceImage is not of the given
+        dimension.
+        """
+        if any(x.ndim != dim for x in self.parts.values()):
+            msg = [f"{v.ndim}D for {k}" for k, v in self.parts.items()]
+            raise ValueError(
+                f"Data for each part of {var_name} should be {dim}D. "
+                f"Found: {', '.join(msg)}."
+            )
 
     def to_filename(self, filename):
         """Save data to gifti.
@@ -1352,9 +1571,17 @@ class InMemoryMesh(SurfaceMesh):
     faces: np.ndarray
 
     def __init__(self, coordinates, faces):
+        if not isinstance(coordinates, np.ndarray) or not isinstance(
+            faces, np.ndarray
+        ):
+            raise TypeError(
+                "Mesh coordinates and faces must be numpy arrays.\n"
+                f"Got {type(coordinates)=} and {type(faces)=}."
+            )
         self.coordinates = coordinates
         self.faces = faces
         self.n_vertices = coordinates.shape[0]
+        _validate_mesh(self)
 
     def __getitem__(self, index):
         if index == 0:
@@ -1397,7 +1624,9 @@ class FileMesh(SurfaceMesh):
         -------
         :obj:`numpy.ndarray`
         """
-        return load_surf_mesh(self.file_path).coordinates
+        mesh = load_surf_mesh(self.file_path)
+        _validate_mesh(mesh)
+        return mesh.coordinates
 
     @property
     def faces(self):
@@ -1407,7 +1636,9 @@ class FileMesh(SurfaceMesh):
         -------
         :obj:`numpy.ndarray`
         """
-        return load_surf_mesh(self.file_path).faces
+        mesh = load_surf_mesh(self.file_path)
+        _validate_mesh(mesh)
+        return mesh.faces
 
     def loaded(self):
         """Load surface mesh into memory.
@@ -1507,8 +1738,7 @@ def _check_data_and_mesh_compat(mesh, data):
     if data_keys != mesh_keys:
         diff = data_keys.symmetric_difference(mesh_keys)
         raise ValueError(
-            "Data and mesh do not have the same keys. "
-            f"Offending keys: {diff}"
+            f"Data and mesh do not have the same keys. Offending keys: {diff}"
         )
     for key in mesh_keys:
         if data.parts[key].shape[0] != mesh.parts[key].n_vertices:
@@ -1658,9 +1888,7 @@ class SurfaceImage:
 
         if not isinstance(data, (PolyData, dict)):
             raise TypeError(
-                "'data' must be one of"
-                "[PolyData, dict].\n"
-                f"Got {type(data)}"
+                f"'data' must be one of[PolyData, dict].\nGot {type(data)}"
             )
 
         if isinstance(data, PolyData):
@@ -1703,7 +1931,7 @@ class SurfaceImage:
              :obj:`pathlib.Path`, default=None
             Inner mesh to pass to :func:`nilearn.surface.vol_to_surf`.
 
-        vol_to_surf_kwargs : dict[str, Any]
+        vol_to_surf_kwargs : :obj:`dict` [ :obj:`str` , Any]
             Dictionary of extra key-words arguments to pass
             to :func:`nilearn.surface.vol_to_surf`.
 
@@ -1753,3 +1981,90 @@ class SurfaceImage:
         data = PolyData(left=texture_left, right=texture_right)
 
         return cls(mesh=mesh, data=data)
+
+
+def check_surf_img(img: Union[SurfaceImage, Iterable[SurfaceImage]]) -> None:
+    """Validate SurfaceImage.
+
+    Equivalent to check_niimg for volumes.
+    """
+    if isinstance(img, SurfaceImage):
+        if get_data(img).size == 0:
+            raise ValueError("The image is empty.")
+        return None
+
+    if hasattr(img, "__iter__"):
+        for x in img:
+            check_surf_img(x)
+
+
+def get_data(img, ensure_finite=False) -> np.ndarray:
+    """Concatenate the data of a SurfaceImage across hemispheres and return
+    as a numpy array.
+
+    Parameters
+    ----------
+    img : :obj:`~surface.SurfaceImage` or :obj:`~surface.PolyData`
+        SurfaceImage whose data to concatenate and extract.
+
+    ensure_finite : bool, Default=False
+        If True, non-finite values such as (NaNs and infs) found in the
+        image will be replaced by zeros.
+
+    Returns
+    -------
+    :obj:`~numpy.ndarray`
+        Concatenated data across hemispheres.
+    """
+    if isinstance(img, SurfaceImage):
+        data = img.data
+    elif isinstance(img, PolyData):
+        data = img
+    else:
+        raise TypeError(
+            f"Expected PolyData or SurfaceImage. Got {img.__class__.__name__}."
+        )
+
+    data = np.concatenate(list(data.parts.values()), axis=0)
+
+    if ensure_finite:
+        non_finite_mask = np.logical_not(np.isfinite(data))
+        if non_finite_mask.any():  # any non_finite_mask values?
+            warnings.warn(
+                "Non-finite values detected. "
+                "These values will be replaced with zeros.",
+                stacklevel=find_stack_level(),
+            )
+            data[non_finite_mask] = 0
+
+    return data
+
+
+def extract_data(img, index):
+    """Extract data of a SurfaceImage a specified indices.
+
+    Parameters
+    ----------
+    img : SurfaceImage object
+
+    index : Any type compatible with numpy array indexing
+        Used for indexing the 2D data array in the 2nd dimension.
+
+    Returns
+    -------
+    a dict where each value contains the data extracted
+    for each part
+    """
+    if not isinstance(img, SurfaceImage):
+        raise TypeError("Input must a be SurfaceImage.")
+    mesh = img.mesh
+    data = img.data
+
+    last_dim = 1 if isinstance(index, int) else len(index)
+
+    return {
+        hemi: data.parts[hemi][:, index]
+        .copy()
+        .reshape(mesh.parts[hemi].n_vertices, last_dim)
+        for hemi in data.parts
+    }

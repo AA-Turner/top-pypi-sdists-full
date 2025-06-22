@@ -23,8 +23,6 @@
 
 Todo:
  * preserve formatting when updating configuration files
- * treat subsection names as case-insensitive for [branch.foo] style
-   subsections
 """
 
 import os
@@ -49,7 +47,11 @@ def lower_key(key):
         return key.lower()
 
     if isinstance(key, Iterable):
-        return type(key)(map(lower_key, key))  # type: ignore
+        # For config sections, only lowercase the section name (first element)
+        # but preserve the case of subsection names (remaining elements)
+        if len(key) > 0:
+            return (key[0].lower(),) + key[1:]
+        return key
 
     return key
 
@@ -95,6 +97,13 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping):
     def __setitem__(self, key, value) -> None:
         self._real.append((key, value))
         self._keyed[lower_key(key)] = value
+
+    def set(self, key, value) -> None:
+        # This method replaces all existing values for the key
+        lower = lower_key(key)
+        self._real = [(k, v) for k, v in self._real if lower_key(k) != lower]
+        self._real.append((key, value))
+        self._keyed[lower] = value
 
     def __delitem__(self, key) -> None:
         key = lower_key(key)
@@ -346,6 +355,27 @@ class ConfigDict(Config, MutableMapping[Section, MutableMapping[Name, Value]]):
         if not isinstance(value, bytes):
             value = value.encode(self.encoding)
 
+        section_dict = self._values.setdefault(section)
+        if hasattr(section_dict, "set"):
+            section_dict.set(name, value)
+        else:
+            section_dict[name] = value
+
+    def add(
+        self,
+        section: SectionLike,
+        name: NameLike,
+        value: Union[ValueLike, bool],
+    ) -> None:
+        """Add a value to a configuration setting, creating a multivar if needed."""
+        section, name = self._check_section_and_name(section, name)
+
+        if isinstance(value, bool):
+            value = b"true" if value else b"false"
+
+        if not isinstance(value, bytes):
+            value = value.encode(self.encoding)
+
         self._values.setdefault(section)[name] = value
 
     def items(  # type: ignore[override]
@@ -389,20 +419,26 @@ def _parse_string(value: bytes) -> bytes:
         c = value[i]
         if c == ord(b"\\"):
             i += 1
-            try:
-                v = _ESCAPE_TABLE[value[i]]
-            except IndexError as exc:
-                raise ValueError(
-                    f"escape character in {value!r} at {i} before end of string"
-                ) from exc
-            except KeyError as exc:
-                raise ValueError(
-                    f"escape character followed by unknown character {value[i]!r} at {i} in {value!r}"
-                ) from exc
-            if whitespace:
-                ret.extend(whitespace)
-                whitespace = bytearray()
-            ret.append(v)
+            if i >= len(value):
+                # Backslash at end of string - treat as literal backslash
+                if whitespace:
+                    ret.extend(whitespace)
+                    whitespace = bytearray()
+                ret.append(ord(b"\\"))
+            else:
+                try:
+                    v = _ESCAPE_TABLE[value[i]]
+                    if whitespace:
+                        ret.extend(whitespace)
+                        whitespace = bytearray()
+                    ret.append(v)
+                except KeyError:
+                    # Unknown escape sequence - treat backslash as literal and process next char normally
+                    if whitespace:
+                        ret.extend(whitespace)
+                        whitespace = bytearray()
+                    ret.append(ord(b"\\"))
+                    i -= 1  # Reprocess the character after the backslash
         elif c == ord(b'"'):
             in_quotes = not in_quotes
         elif c in _COMMENT_CHARS and not in_quotes:
@@ -461,6 +497,44 @@ def _strip_comments(line: bytes) -> bytes:
         elif not string_open and character in comment_bytes:
             return line[:i]
     return line
+
+
+def _is_line_continuation(value: bytes) -> bool:
+    """Check if a value ends with a line continuation backslash.
+
+    A line continuation occurs when a line ends with a backslash that is:
+    1. Not escaped (not preceded by another backslash)
+    2. Not within quotes
+
+    Args:
+        value: The value to check
+
+    Returns:
+        True if the value ends with a line continuation backslash
+    """
+    if not value.endswith((b"\\\n", b"\\\r\n")):
+        return False
+
+    # Remove only the newline characters, keep the content including the backslash
+    if value.endswith(b"\\\r\n"):
+        content = value[:-2]  # Remove \r\n, keep the \
+    else:
+        content = value[:-1]  # Remove \n, keep the \
+
+    if not content.endswith(b"\\"):
+        return False
+
+    # Count consecutive backslashes at the end
+    backslash_count = 0
+    for i in range(len(content) - 1, -1, -1):
+        if content[i : i + 1] == b"\\":
+            backslash_count += 1
+        else:
+            break
+
+    # If we have an odd number of backslashes, the last one is a line continuation
+    # If we have an even number, they are all escaped and there's no continuation
+    return backslash_count % 2 == 1
 
 
 def _parse_section_header_line(line: bytes) -> tuple[Section, bytes]:
@@ -543,10 +617,11 @@ class ConfigFile(ConfigDict):
                 setting = setting.strip()
                 if not _check_variable_name(setting):
                     raise ValueError(f"invalid variable name {setting!r}")
-                if value.endswith(b"\\\n"):
-                    continuation = value[:-2]
-                elif value.endswith(b"\\\r\n"):
-                    continuation = value[:-3]
+                if _is_line_continuation(value):
+                    if value.endswith(b"\\\r\n"):
+                        continuation = value[:-3]
+                    else:
+                        continuation = value[:-2]
                 else:
                     continuation = None
                     value = _parse_string(value)
@@ -554,10 +629,11 @@ class ConfigFile(ConfigDict):
                     setting = None
             else:  # continuation line
                 assert continuation is not None
-                if line.endswith(b"\\\n"):
-                    continuation += line[:-2]
-                elif line.endswith(b"\\\r\n"):
-                    continuation += line[:-3]
+                if _is_line_continuation(line):
+                    if line.endswith(b"\\\r\n"):
+                        continuation += line[:-3]
+                    else:
+                        continuation += line[:-2]
                 else:
                     continuation += line
                     value = _parse_string(continuation)
@@ -567,18 +643,22 @@ class ConfigFile(ConfigDict):
         return ret
 
     @classmethod
-    def from_path(cls, path: str) -> "ConfigFile":
+    def from_path(cls, path: Union[str, os.PathLike]) -> "ConfigFile":
         """Read configuration from a file on disk."""
         with GitFile(path, "rb") as f:
             ret = cls.from_file(f)
-            ret.path = path
+            ret.path = os.fspath(path)
             return ret
 
-    def write_to_path(self, path: Optional[str] = None) -> None:
+    def write_to_path(self, path: Optional[Union[str, os.PathLike]] = None) -> None:
         """Write configuration to a file on disk."""
         if path is None:
-            path = self.path
-        with GitFile(path, "wb") as f:
+            if self.path is None:
+                raise ValueError("No path specified and no default path available")
+            path_to_use: Union[str, os.PathLike] = self.path
+        else:
+            path_to_use = path
+        with GitFile(path_to_use, "wb") as f:
             self.write_to_file(f)
 
     def write_to_file(self, f: BinaryIO) -> None:
@@ -733,7 +813,9 @@ class StackedConfig(Config):
                     yield section
 
 
-def read_submodules(path: str) -> Iterator[tuple[bytes, bytes, bytes]]:
+def read_submodules(
+    path: Union[str, os.PathLike],
+) -> Iterator[tuple[bytes, bytes, bytes]]:
     """Read a .gitmodules file."""
     cfg = ConfigFile.from_path(path)
     return parse_submodules(cfg)

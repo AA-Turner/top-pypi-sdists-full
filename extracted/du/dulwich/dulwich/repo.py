@@ -334,6 +334,9 @@ class ParentsProvider:
         self.grafts = grafts
         self.shallows = set(shallows)
 
+        # Get commit graph once at initialization for performance
+        self.commit_graph = store.get_commit_graph()
+
     def get_parents(self, commit_id, commit=None):
         try:
             return self.grafts[commit_id]
@@ -341,6 +344,14 @@ class ParentsProvider:
             pass
         if commit_id in self.shallows:
             return []
+
+        # Try to use commit graph for faster parent lookup
+        if self.commit_graph:
+            parents = self.commit_graph.get_parents(commit_id)
+            if parents is not None:
+                return parents
+
+        # Fallback to reading the commit object
         if commit is None:
             commit = self.store[commit_id]
         return commit.parents
@@ -390,14 +401,20 @@ class BaseRepo:
         # For now, just mimic the old behaviour
         return sys.platform != "win32"
 
-    def _init_files(self, bare: bool, symlinks: Optional[bool] = None) -> None:
+    def _init_files(
+        self, bare: bool, symlinks: Optional[bool] = None, format: Optional[int] = None
+    ) -> None:
         """Initialize a default set of named files."""
         from .config import ConfigFile
 
         self._put_named_file("description", b"Unnamed repository")
         f = BytesIO()
         cf = ConfigFile()
-        cf.set("core", "repositoryformatversion", "0")
+        if format is None:
+            format = 0
+        if format not in (0, 1):
+            raise ValueError(f"Unsupported repository format version: {format}")
+        cf.set("core", "repositoryformatversion", str(format))
         if self._determine_file_mode():
             cf.set("core", "filemode", True)
         else:
@@ -719,6 +736,13 @@ class BaseRepo:
         """
         raise NotImplementedError(self.set_description)
 
+    def get_rebase_state_manager(self):
+        """Get the appropriate rebase state manager for this repository.
+
+        Returns: RebaseStateManager instance
+        """
+        raise NotImplementedError(self.get_rebase_state_manager)
+
     def get_config_stack(self) -> "StackedConfig":
         """Return a config stack for this repository.
 
@@ -786,6 +810,8 @@ class BaseRepo:
         Args:
           include: Iterable of SHAs of commits to include along with their
             ancestors. Defaults to [HEAD]
+
+        Keyword Args:
           exclude: Iterable of SHAs of commits to exclude along with their
             ancestors, overriding includes.
           order: ORDER_* constant specifying the order of results.
@@ -804,6 +830,7 @@ class BaseRepo:
           queue_cls: A class to use for a queue of commits, supporting the
             iterator protocol. The constructor takes a single argument, the
             Walker.
+
         Returns: A `Walker` object
         """
         from .walk import Walker
@@ -1131,7 +1158,7 @@ class Repo(BaseRepo):
 
     def __init__(
         self,
-        root: str,
+        root: Union[str, bytes, os.PathLike],
         object_store: Optional[PackBasedObjectStore] = None,
         bare: Optional[bool] = None,
     ) -> None:
@@ -1143,6 +1170,9 @@ class Repo(BaseRepo):
             repository's default object store
           bare: True if this is a bare repository.
         """
+        root = os.fspath(root)
+        if isinstance(root, bytes):
+            root = os.fsdecode(root)
         hidden_path = os.path.join(root, CONTROLDIR)
         if bare is None:
             if os.path.isfile(hidden_path) or os.path.isdir(
@@ -1369,7 +1399,31 @@ class Repo(BaseRepo):
 
         if not self.has_index():
             raise NoIndexPresent
-        return Index(self.index_path())
+
+        # Check for manyFiles feature configuration
+        config = self.get_config_stack()
+        many_files = config.get_boolean(b"feature", b"manyFiles", False)
+        skip_hash = False
+        index_version = None
+
+        if many_files:
+            # When feature.manyFiles is enabled, set index.version=4 and index.skipHash=true
+            try:
+                index_version_str = config.get(b"index", b"version")
+                index_version = int(index_version_str)
+            except KeyError:
+                index_version = 4  # Default to version 4 for manyFiles
+            skip_hash = config.get_boolean(b"index", b"skipHash", True)
+        else:
+            # Check for explicit index settings
+            try:
+                index_version_str = config.get(b"index", b"version")
+                index_version = int(index_version_str)
+            except KeyError:
+                index_version = None
+            skip_hash = config.get_boolean(b"index", b"skipHash", False)
+
+        return Index(self.index_path(), skip_hash=skip_hash, version=index_version)
 
     def has_index(self) -> bool:
         """Check if an index is present."""
@@ -1666,6 +1720,18 @@ class Repo(BaseRepo):
             ret.path = path
             return ret
 
+    def get_rebase_state_manager(self):
+        """Get the appropriate rebase state manager for this repository.
+
+        Returns: DiskRebaseStateManager instance
+        """
+        import os
+
+        from .rebase import DiskRebaseStateManager
+
+        path = os.path.join(self.controldir(), "rebase-merge")
+        return DiskRebaseStateManager(path)
+
     def get_description(self):
         """Retrieve the description of this repository.
 
@@ -1692,14 +1758,21 @@ class Repo(BaseRepo):
     @classmethod
     def _init_maybe_bare(
         cls,
-        path,
-        controldir,
+        path: Union[str, bytes, os.PathLike],
+        controldir: Union[str, bytes, os.PathLike],
         bare,
         object_store=None,
         config=None,
         default_branch=None,
         symlinks: Optional[bool] = None,
+        format: Optional[int] = None,
     ):
+        path = os.fspath(path)
+        if isinstance(path, bytes):
+            path = os.fsdecode(path)
+        controldir = os.fspath(controldir)
+        if isinstance(controldir, bytes):
+            controldir = os.fsdecode(controldir)
         for d in BASE_DIRECTORIES:
             os.mkdir(os.path.join(controldir, *d))
         if object_store is None:
@@ -1715,26 +1788,31 @@ class Repo(BaseRepo):
             except KeyError:
                 default_branch = DEFAULT_BRANCH
         ret.refs.set_symbolic_ref(b"HEAD", LOCAL_BRANCH_PREFIX + default_branch)
-        ret._init_files(bare=bare, symlinks=symlinks)
+        ret._init_files(bare=bare, symlinks=symlinks, format=format)
         return ret
 
     @classmethod
     def init(
         cls,
-        path: str,
+        path: Union[str, bytes, os.PathLike],
         *,
         mkdir: bool = False,
         config=None,
         default_branch=None,
         symlinks: Optional[bool] = None,
+        format: Optional[int] = None,
     ) -> "Repo":
         """Create a new repository.
 
         Args:
           path: Path in which to create the repository
           mkdir: Whether to create the directory
+          format: Repository format version (defaults to 0)
         Returns: `Repo` instance
         """
+        path = os.fspath(path)
+        if isinstance(path, bytes):
+            path = os.fsdecode(path)
         if mkdir:
             os.mkdir(path)
         controldir = os.path.join(path, CONTROLDIR)
@@ -1747,10 +1825,17 @@ class Repo(BaseRepo):
             config=config,
             default_branch=default_branch,
             symlinks=symlinks,
+            format=format,
         )
 
     @classmethod
-    def _init_new_working_directory(cls, path, main_repo, identifier=None, mkdir=False):
+    def _init_new_working_directory(
+        cls,
+        path: Union[str, bytes, os.PathLike],
+        main_repo,
+        identifier=None,
+        mkdir=False,
+    ):
         """Create a new working directory linked to a repository.
 
         Args:
@@ -1760,6 +1845,9 @@ class Repo(BaseRepo):
           mkdir: Whether to create the directory
         Returns: `Repo` instance
         """
+        path = os.fspath(path)
+        if isinstance(path, bytes):
+            path = os.fsdecode(path)
         if mkdir:
             os.mkdir(path)
         if identifier is None:
@@ -1789,7 +1877,14 @@ class Repo(BaseRepo):
 
     @classmethod
     def init_bare(
-        cls, path, *, mkdir=False, object_store=None, config=None, default_branch=None
+        cls,
+        path: Union[str, bytes, os.PathLike],
+        *,
+        mkdir=False,
+        object_store=None,
+        config=None,
+        default_branch=None,
+        format: Optional[int] = None,
     ):
         """Create a new bare repository.
 
@@ -1797,8 +1892,12 @@ class Repo(BaseRepo):
 
         Args:
           path: Path to create bare repository in
+          format: Repository format version (defaults to 0)
         Returns: a `Repo` instance
         """
+        path = os.fspath(path)
+        if isinstance(path, bytes):
+            path = os.fsdecode(path)
         if mkdir:
             os.mkdir(path)
         return cls._init_maybe_bare(
@@ -1808,6 +1907,7 @@ class Repo(BaseRepo):
             object_store=object_store,
             config=config,
             default_branch=default_branch,
+            format=format,
         )
 
     create = init_bare
@@ -1993,8 +2093,17 @@ class MemoryRepo(BaseRepo):
         """
         return self._config
 
+    def get_rebase_state_manager(self):
+        """Get the appropriate rebase state manager for this repository.
+
+        Returns: MemoryRebaseStateManager instance
+        """
+        from .rebase import MemoryRebaseStateManager
+
+        return MemoryRebaseStateManager(self)
+
     @classmethod
-    def init_bare(cls, objects, refs):
+    def init_bare(cls, objects, refs, format: Optional[int] = None):
         """Create a new bare repository in memory.
 
         Args:
@@ -2002,11 +2111,12 @@ class MemoryRepo(BaseRepo):
             as iterable
           refs: Refs as dictionary, mapping names
             to object SHA1s
+          format: Repository format version (defaults to 0)
         """
         ret = cls()
         for obj in objects:
             ret.object_store.add_object(obj)
         for refname, sha in refs.items():
             ret.refs.add_if_new(refname, sha)
-        ret._init_files(bare=True)
+        ret._init_files(bare=True, format=format)
         return ret

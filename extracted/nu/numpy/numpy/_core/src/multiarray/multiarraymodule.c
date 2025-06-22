@@ -43,6 +43,7 @@ NPY_NO_EXPORT int NPY_NUMUSERTYPES = 0;
 #include "arraytypes.h"
 #include "arrayobject.h"
 #include "array_converter.h"
+#include "blas_utils.h"
 #include "hashdescr.h"
 #include "descriptor.h"
 #include "dragon4.h"
@@ -670,10 +671,17 @@ PyArray_ConcatenateInto(PyObject *op,
     }
 
     /* Convert the input list into arrays */
-    narrays = PySequence_Size(op);
-    if (narrays < 0) {
+    Py_ssize_t narrays_true = PySequence_Size(op);
+    if (narrays_true < 0) {
         return NULL;
     }
+    else if (narrays_true > NPY_MAX_INT) {
+        PyErr_Format(PyExc_ValueError,
+            "concatenate() only supports up to %d arrays but got %zd.",
+            NPY_MAX_INT, narrays_true);
+        return NULL;
+    }
+    narrays = (int)narrays_true;
     arrays = PyArray_malloc(narrays * sizeof(arrays[0]));
     if (arrays == NULL) {
         PyErr_NoMemory();
@@ -4804,6 +4812,10 @@ PyMODINIT_FUNC PyInit__multiarray_umath(void) {
     if (npy_cpu_dispatch_tracer_init(m) < 0) {
         goto err;
     }
+
+#if NPY_BLAS_CHECK_FPE_SUPPORT
+    npy_blas_init();
+#endif
 
 #if defined(MS_WIN64) && defined(__GNUC__)
   PyErr_WarnEx(PyExc_Warning,

@@ -1,19 +1,11 @@
-
-# projects/release.py
+# file: projects/release.py
 
 import os
-import sys
-import toml
 import inspect
-import importlib
-import subprocess
 from pathlib import Path
 
 from gway import gw
 
-# TODO: Create an extra safeguard for release: If the version we would be pushing
-# is identical to what is already in PyPI, abort and let the user know.
-# Provide a force option (not included by all) to push the release anyways.
 
 def build(
     *,
@@ -37,7 +29,6 @@ def build(
         git (bool): Require a clean git repo and commit/push after release if True.
         vscode (bool): Build the vscode extension.
     """
-    import xmlrpc.client
     from pathlib import Path
     import sys
     import subprocess
@@ -179,17 +170,24 @@ def build(
         if twine:
             # ======= Safeguard: Abort if version already on PyPI unless --force =======
             if not force:
+                releases = []
                 try:
-                    client = xmlrpc.client.ServerProxy("https://pypi.org/pypi")
-                    releases = client.package_releases(project_name, True)
+                    # Use JSON API instead of deprecated XML-RPC
+                    import requests
+                    url = f"https://pypi.org/pypi/{project_name}/json"
+                    resp = requests.get(url, timeout=5)
+                    if resp.ok:
+                        data = resp.json()
+                        releases = list(data.get("releases", {}).keys())
+                    else:
+                        gw.warning(f"Could not fetch releases for {project_name} from PyPI: HTTP {resp.status_code}")
                 except Exception as e:
                     gw.warning(f"Could not verify existing PyPI versions: {e}")
-                else:
-                    if new_version in releases:
-                        gw.abort(
-                            f"Version {new_version} is already on PyPI. "
-                            "Use --force to override."
-                        )
+                if new_version in releases:
+                    gw.abort(
+                        f"Version {new_version} is already on PyPI. "
+                        "Use --force to override."
+                    )
             # ===========================================================================
 
             gw.info("Validating distribution with twine check...")
@@ -200,7 +198,7 @@ def build(
                 text=True
             )
             if check_result.returncode != 0:
-                gw.error("PyPI README rendering check failed, aborting upload:\n{check_result.stdout}")
+                gw.error(f"PyPI README rendering check failed, aborting upload:\n{check_result.stdout}")
                 return
 
             gw.info("Twine check passed. Uploading to PyPI...")
@@ -425,4 +423,3 @@ def changes(*, files=None, staged=False, context=3, max_bytes=200_000, clip=Fals
 
 if __name__ == "__main__":
     build()
-

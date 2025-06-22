@@ -10,6 +10,7 @@ on:
     # required if branches-ignore is supplied (jaraco/skeleton#103)
     - '**'
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,7 +21,6 @@ env:
 
   # Suppress noisy pip warnings
   PIP_DISABLE_PIP_VERSION_CHECK: 'true'
-  PIP_NO_PYTHON_VERSION_WARNING: 'true'
   PIP_NO_WARN_SCRIPT_LOCATION: 'true'
 
   # Ensure tests can sense settings about the environment
@@ -34,27 +34,36 @@ jobs:
       # https://blog.jaraco.com/efficient-use-of-ci-resources/
       matrix:
         python:
-        - "3.8"
-        - "3.12"
+        - "3.9"
+        - "3.13"
         platform:
         - ubuntu-latest
         - macos-latest
         - windows-latest
         include:
-        - python: "3.9"
-          platform: ubuntu-latest
         - python: "3.10"
           platform: ubuntu-latest
         - python: "3.11"
           platform: ubuntu-latest
+        - python: "3.12"
+          platform: ubuntu-latest
+        - python: "3.14"
+          platform: ubuntu-latest
         - python: pypy3.10
           platform: ubuntu-latest
     runs-on: ${{ matrix.platform }}
-    continue-on-error: ${{ matrix.python == '3.13' }}
+    continue-on-error: ${{ matrix.python == '3.14' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install build dependencies
+        # Install dependencies for building packages on pre-release Pythons
+        # jaraco/skeleton#161
+        if: matrix.python == '3.14' && matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y libxml2-dev libxslt-dev
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
           allow-prereleases: true
@@ -76,7 +85,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.x
       - name: Install tox
@@ -110,7 +119,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.x
       - name: Install tox

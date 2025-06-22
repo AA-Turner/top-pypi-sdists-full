@@ -5,14 +5,16 @@ Two ways of defining regions are supported: as labels in a single 3D image,
 or as weights in one image per region (maps).
 """
 
-# Author: Philippe Gervais
 import warnings
 
 import numpy as np
 from nibabel import Nifti1Image
 from scipy import linalg, ndimage
 
-from .. import _utils, masking
+from nilearn import _utils, masking
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.param_validation import check_reduction_strategy
+
 from .._utils.niimg import safe_get_data
 from ..image import new_img_like
 
@@ -174,7 +176,7 @@ def _get_labels_data(
             '"keep_masked_labels" parameter will be removed '
             "in version 0.15.",
             DeprecationWarning,
-            stacklevel=3,
+            stacklevel=find_stack_level(),
         )
 
     # Consider only data within the mask
@@ -198,7 +200,7 @@ def _get_labels_data(
                 "masked labels image only contains "
                 f"{len(labels_after_mask)} labels "
                 "(including background).",
-                stacklevel=3,
+                stacklevel=find_stack_level(),
             )
 
     if not keep_masked_labels:
@@ -208,34 +210,6 @@ def _get_labels_data(
         labels.remove(background_label)
 
     return labels, labels_data
-
-
-def _check_reduction_strategy(strategy: str):
-    """Check that the provided strategy is supported.
-
-    Parameters
-    ----------
-    strategy : :obj:`str`
-        The name of a valid function to reduce the region with.
-        Must be one of: sum, mean, median, minimum, maximum, variance,
-        standard_deviation.
-
-    """
-    available_reduction_strategies = {
-        "mean",
-        "median",
-        "sum",
-        "minimum",
-        "maximum",
-        "standard_deviation",
-        "variance",
-    }
-
-    if strategy not in available_reduction_strategies:
-        raise ValueError(
-            f"Invalid strategy '{strategy}'. "
-            f"Valid strategies are {available_reduction_strategies}."
-        )
 
 
 # FIXME: naming scheme is not really satisfying. Any better idea appreciated.
@@ -267,7 +241,7 @@ def img_to_signals_labels(
         Regions definition as labels. By default, the label zero is used to
         denote an absence of region. Use background_label to change it.
 
-    mask_img : Niimg-like object, optional
+    mask_img : Niimg-like object, default=None
         See :ref:`extracting_data`.
         Mask to apply to labels before extracting signals.
         Every point outside the mask is considered
@@ -276,13 +250,11 @@ def img_to_signals_labels(
     background_label : number, default=0
         Number representing background in labels_img.
 
-    order : :obj:`str`, default="F"
+    order : :obj:`str`, default='F'
         Ordering of output array ("C" or "F").
 
-    strategy : :obj:`str`, default="mean"
-        The name of a valid function to reduce the region with.
-        Must be one of: sum, mean, median, minimum, maximum, variance,
-        standard_deviation.
+    %(strategy)s
+
     %(keep_masked_labels)s
 
     return_masked_atlas : :obj:`bool`, default=False
@@ -316,7 +288,7 @@ def img_to_signals_labels(
     """
     labels_img = _utils.check_niimg_3d(labels_img)
 
-    _check_reduction_strategy(strategy)
+    check_reduction_strategy(strategy)
 
     # TODO: Make a special case for list of strings
     # (load one image at a time).
@@ -360,7 +332,7 @@ def img_to_signals_labels(
             "used to toggle this behavior. In version 0.15, "
             '"return_masked_atlas" parameter will be removed.',
             DeprecationWarning,
-            stacklevel=1,
+            stacklevel=find_stack_level(),
         )
         return signals, labels
 
@@ -391,7 +363,7 @@ def signals_to_img_labels(
         See :ref:`extracting_data`.
         Region definitions using labels.
 
-    mask_img : Niimg-like object, optional
+    mask_img : Niimg-like object, default=None
         See :ref:`extracting_data`.
         Boolean array giving voxels to process. integer arrays also accepted,
         In this array, zero means False, non-zero means True.
@@ -399,7 +371,7 @@ def signals_to_img_labels(
     background_label : number, default=0
         Label to use for "no region".
 
-    order : :obj:`str`, default="F"
+    order : :obj:`str`, default='F'
         Ordering of output array ("C" or "F").
 
     Returns
@@ -419,7 +391,11 @@ def signals_to_img_labels(
     labels_img = _utils.check_niimg_3d(labels_img)
 
     labels, labels_data = _get_labels_data(
-        labels_img, labels_img, mask_img, background_label
+        labels_img,
+        labels_img,
+        mask_img,
+        background_label,
+        keep_masked_labels=False,
     )
 
     signals = np.asarray(signals)
@@ -465,7 +441,7 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, keep_masked_maps=True):
         Regions definition as maps (array of weights).
         shape: imgs.shape + (region number, )
 
-    mask_img : Niimg-like object, optional
+    mask_img : Niimg-like object, default=None
         See :ref:`extracting_data`.
         Mask to apply to regions before extracting signals.
         Every point outside the mask is considered
@@ -520,7 +496,7 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, keep_masked_maps=True):
                 '"keep_masked_maps" parameter will be removed '
                 "in version 0.15.",
                 DeprecationWarning,
-                stacklevel=2,
+                stacklevel=find_stack_level(),
             )
         else:
             labels_after_mask = {int(label) for label in labels}
@@ -534,7 +510,7 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, keep_masked_maps=True):
                     f"Out of {len(labels_before_mask)} maps, the "
                     "masked map image only contains "
                     f"{len(labels_after_mask)} maps.",
-                    stacklevel=2,
+                    stacklevel=find_stack_level(),
                 )
 
     data = safe_get_data(imgs, ensure_finite=True)
@@ -564,7 +540,7 @@ def signals_to_img_maps(region_signals, maps_img, mask_img=None):
         See :ref:`extracting_data`.
         Region definitions using maps.
 
-    mask_img : Niimg-like object, optional
+    mask_img : Niimg-like object, default=None
         See :ref:`extracting_data`.
         Boolean array giving :term:`voxels<voxel>` to process.
         Integer arrays also accepted, zero meaning False.

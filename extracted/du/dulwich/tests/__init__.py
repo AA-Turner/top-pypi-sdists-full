@@ -53,13 +53,13 @@ class TestCase(_TestCase):
         def restore() -> None:
             if oldval is not None:
                 os.environ[name] = oldval
-            else:
+            elif name in os.environ:
                 del os.environ[name]
 
         oldval = os.environ.get(name)
         if value is not None:
             os.environ[name] = value
-        else:
+        elif name in os.environ:
             del os.environ[name]
         self.addCleanup(restore)
 
@@ -118,7 +118,11 @@ def self_test_suite():
         "archive",
         "blackbox",
         "bundle",
+        "cli",
+        "cli_merge",
         "client",
+        "cloud_gcs",
+        "commit_graph",
         "config",
         "credentials",
         "diff_tree",
@@ -132,8 +136,10 @@ def self_test_suite():
         "index",
         "lfs",
         "line_ending",
+        "log_utils",
         "lru_cache",
         "mailmap",
+        "merge",
         "objects",
         "objectspec",
         "object_store",
@@ -141,12 +147,14 @@ def self_test_suite():
         "pack",
         "patch",
         "porcelain",
+        "porcelain_merge",
         "protocol",
         "reflog",
         "refs",
         "repository",
         "server",
         "stash",
+        "submodule",
         "utils",
         "walk",
         "web",
@@ -208,7 +216,7 @@ def nocompat_test_suite():
     result = unittest.TestSuite()
     result.addTests(self_test_suite())
     result.addTests(tutorial_test_suite())
-    from dulwich.contrib import test_suite as contrib_test_suite
+    from .contrib import test_suite as contrib_test_suite
 
     result.addTests(contrib_test_suite())
     return result

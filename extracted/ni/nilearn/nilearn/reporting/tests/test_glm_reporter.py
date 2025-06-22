@@ -1,41 +1,102 @@
 import numpy as np
 import pandas as pd
 import pytest
-from nibabel import load
 
 from nilearn._utils.data_gen import (
     basic_paradigm,
-    write_fake_fmri_data_and_design,
+    generate_fake_fmri_data_and_design,
+    write_fake_bold_img,
 )
-from nilearn.glm.first_level import FirstLevelModel
-from nilearn.glm.first_level.design_matrix import (
-    make_first_level_design_matrix,
+from nilearn.conftest import _img_mask_mni, _make_surface_mask
+from nilearn.datasets import load_fsaverage
+from nilearn.glm.first_level import (
+    FirstLevelModel,
 )
 from nilearn.glm.second_level import SecondLevelModel
 from nilearn.maskers import NiftiMasker
-from nilearn.reporting import glm_reporter as glmr
-from nilearn.reporting import make_glm_report
+from nilearn.reporting import HTMLReport
+from nilearn.surface import SurfaceImage
+
+
+@pytest.fixture
+def rk():
+    return 3
+
+
+@pytest.fixture
+def contrasts(rk):
+    c = np.zeros((1, rk))
+    c[0][0] = 1
+    return c
 
 
 @pytest.fixture()
-def flm(tmp_path):
+def flm(rk):
     """Generate first level model."""
-    shapes, rk = ((7, 7, 7, 5),), 3
-    mask, fmri_data, design_matrices = write_fake_fmri_data_and_design(
-        shapes, rk, file_path=tmp_path
+    shapes = ((7, 7, 7, 5),)
+    mask, fmri_data, design_matrices = generate_fake_fmri_data_and_design(
+        shapes, rk=rk
     )
-    return FirstLevelModel(mask_img=mask).fit(
-        fmri_data, design_matrices=design_matrices
-    )
+    # generate_fake_fmri_data_and_design
+    return FirstLevelModel().fit(fmri_data, design_matrices=design_matrices)
 
 
-@pytest.mark.parametrize("height_control", ["fpr", "fdr", "bonferroni", None])
-def test_flm_reporting(flm, height_control):
-    """Smoke test for first level model reporting."""
-    contrast = np.eye(3)[1]
-    report_flm = glmr.make_glm_report(
-        flm,
-        contrast,
+@pytest.fixture()
+def slm():
+    """Generate a fitted second level model."""
+    shapes = ((7, 7, 7, 1),)
+    _, fmri_data, _ = generate_fake_fmri_data_and_design(shapes)
+    model = SecondLevelModel()
+    Y = [fmri_data[0]] * 2
+    X = pd.DataFrame([[1]] * 2, columns=["intercept"])
+    return model.fit(Y, design_matrix=X)
+
+
+def test_flm_report_no_activation_found(flm, contrasts):
+    """Check presence message of no activation found.
+
+    We use random data, so we should not get activations.
+    """
+    report = flm.generate_report(contrasts=contrasts)
+    assert "No suprathreshold cluster" in report.__str__()
+
+
+@pytest.mark.parametrize("model", [FirstLevelModel, SecondLevelModel])
+@pytest.mark.parametrize("bg_img", [_img_mask_mni(), _make_surface_mask()])
+def test_empty_surface_reports(tmp_path, model, bg_img):
+    """Test that empty reports on unfitted model can be generated."""
+    report = model(smoothing_fwhm=None).generate_report(bg_img=bg_img)
+
+    assert isinstance(report, HTMLReport)
+
+    report.save_as_html(tmp_path / "tmp.html")
+    assert (tmp_path / "tmp.html").exists()
+
+
+def test_flm_reporting_no_contrasts(flm):
+    """Test for model report can be generated with no contrasts."""
+    report = flm.generate_report(
+        plot_type="glass",
+        contrasts=None,
+        min_distance=15,
+        alpha=0.01,
+        threshold=2,
+    )
+    assert "No statistical map was provided." in report.__str__()
+
+
+def test_mask_coverage_in_report(flm):
+    """Check that how much image is included in mask is in the report."""
+    report = flm.generate_report()
+    assert "The mask includes" in report.__str__()
+
+
+@pytest.mark.timeout(0)
+@pytest.mark.parametrize("height_control", ["fdr", "bonferroni", None])
+def test_flm_reporting_height_control(flm, height_control, contrasts):
+    """Test for first level model reporting."""
+    report_flm = flm.generate_report(
+        contrasts=contrasts,
         plot_type="glass",
         height_control=height_control,
         min_distance=15,
@@ -47,248 +108,125 @@ def test_flm_reporting(flm, height_control):
     # like the greek alpha symbol.
     report_flm.get_iframe()
 
+    # glover is the default hrf so it should appear in report
+    assert "glover" in report_flm.__str__()
 
-def test_flm_reporting_method(flm):
-    """Smoke test for the first level generate method."""
-    contrast = np.eye(3)[1]
-    flm.generate_report(
-        contrast,
-        plot_type="glass",
-        min_distance=15,
-        alpha=0.01,
-        threshold=2,
-    )
+    # cosine is the default drift model so it should appear in report
+    assert "cosine" in report_flm.__str__()
 
 
-@pytest.fixture()
-def slm(tmp_path):
-    """Generate a fitted second level model."""
-    shapes = ((7, 7, 7, 1),)
-    _, FUNCFILE, _ = write_fake_fmri_data_and_design(
-        shapes, file_path=tmp_path
-    )
-    FUNCFILE = FUNCFILE[0]
-    func_img = load(FUNCFILE)
-    model = SecondLevelModel()
-    Y = [func_img] * 2
-    X = pd.DataFrame([[1]] * 2, columns=["intercept"])
-    return model.fit(Y, design_matrix=X)
-
-
+@pytest.mark.timeout(0)
 @pytest.mark.parametrize("height_control", ["fpr", "fdr", "bonferroni", None])
 def test_slm_reporting_method(slm, height_control):
-    """Smoke test for the second level reporting."""
+    """Test for the second level reporting."""
     c1 = np.eye(len(slm.design_matrix_.columns))[0]
-    report_slm = glmr.make_glm_report(
-        slm, c1, height_control=height_control, threshold=2, alpha=0.01
+    report_slm = slm.generate_report(
+        c1, height_control=height_control, threshold=2, alpha=0.01
     )
     # catches & raises UnicodeEncodeError in HTMLDocument.get_iframe()
     report_slm.get_iframe()
 
 
-def test_slm_reporting(slm):
-    """Smoke test for the second level model generate method."""
-    c1 = np.eye(len(slm.design_matrix_.columns))[0]
-    slm.generate_report(c1, threshold=2, alpha=0.01)
-
-
-def test_check_report_dims():
-    test_input = (1200, "a")
-    expected_output = (1600, 800)
-    expected_warning_text = (
-        "Report size has invalid values. Using default 1600x800"
-    )
-    with pytest.warns(UserWarning, match=expected_warning_text):
-        actual_output = glmr._check_report_dims(test_input)
-    assert actual_output == expected_output
-
-
-def test_coerce_to_dict_with_string():
-    test_input = "StopSuccess - Go"
-    expected_output = {"StopSuccess - Go": "StopSuccess - Go"}
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert actual_output == expected_output
-
-
-def test_coerce_to_dict_with_list_of_strings():
-    test_input = ["contrast_name_0", "contrast_name_1"]
-    expected_output = {
-        "contrast_name_0": "contrast_name_0",
-        "contrast_name_1": "contrast_name_1",
-    }
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert actual_output == expected_output
-
-
-def test_coerce_to_dict_with_dict():
-    test_input = {"contrast_0": [0, 0, 1], "contrast_1": [0, 1, 1]}
-    expected_output = {"contrast_0": [0, 0, 1], "contrast_1": [0, 1, 1]}
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert actual_output == expected_output
-
-
-def test_coerce_to_dict_with_list_of_lists():
-    test_input = [[0, 0, 1], [0, 1, 0]]
-    expected_output = {"[0, 0, 1]": [0, 0, 1], "[0, 1, 0]": [0, 1, 0]}
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert actual_output == expected_output
-
-
-def test_coerce_to_dict_with_list_of_arrays():
-    test_input = [np.array([0, 0, 1]), np.array([0, 1, 0])]
-    expected_output = {
-        "[0 0 1]": np.array([0, 0, 1]),
-        "[0 1 0]": np.array([0, 1, 0]),
-    }
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert actual_output.keys() == expected_output.keys()
-    for key in actual_output:
-        assert np.array_equal(actual_output[key], expected_output[key])
-
-
-def test_coerce_to_dict_with_list_of_ints():
-    test_input = [1, 0, 1]
-    expected_output = {"[1, 0, 1]": [1, 0, 1]}
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert np.array_equal(
-        actual_output["[1, 0, 1]"], expected_output["[1, 0, 1]"]
-    )
-
-
-def test_coerce_to_dict_with_array_of_ints():
-    test_input = np.array([1, 0, 1])
-    expected_output = {"[1 0 1]": np.array([1, 0, 1])}
-    actual_output = glmr._coerce_to_dict(test_input)
-    assert expected_output.keys() == actual_output.keys()
-    assert np.array_equal(actual_output["[1 0 1]"], expected_output["[1 0 1]"])
-
-
-def test_make_headings_with_contrasts_title_none():
+@pytest.mark.timeout(0)
+def test_slm_with_flm_as_inputs(flm, contrasts):
+    """Test second level reporting when inputs are first level models."""
     model = SecondLevelModel()
-    test_input = (
-        {"contrast_0": [0, 0, 1], "contrast_1": [0, 1, 1]},
-        None,
-        model,
+
+    Y = [flm] * 3
+    X = pd.DataFrame([[1]] * 3, columns=["intercept"])
+    first_level_contrast = contrasts
+
+    model.fit(Y, design_matrix=X)
+
+    c1 = np.eye(len(model.design_matrix_.columns))[0]
+
+    model.generate_report(c1, first_level_contrast=first_level_contrast)
+
+
+def test_slm_with_dataframes_as_input(tmp_path, shape_3d_default):
+    """Test second level reporting when input is a dataframe."""
+    file_path = write_fake_bold_img(
+        file_path=tmp_path / "img.nii.gz", shape=shape_3d_default
     )
-    expected_output = (
-        "Report: Second Level Model for contrast_0, contrast_1",
-        "Statistical Report for contrast_0, contrast_1",
-        "Second Level Model",
-    )
-    actual_output = glmr._make_headings(*test_input)
-    assert actual_output == expected_output
+
+    dfcols = ["subject_label", "map_name", "effects_map_path"]
+    dfrows = [
+        ["01", "a", file_path],
+        ["02", "a", file_path],
+        ["03", "a", file_path],
+    ]
+    niidf = pd.DataFrame(dfrows, columns=dfcols)
+
+    model = SecondLevelModel().fit(niidf)
+
+    c1 = np.eye(len(model.design_matrix_.columns))[0]
+
+    model.generate_report(c1, first_level_contrast="a")
 
 
-def test_make_headings_with_contrasts_title_custom():
-    model = SecondLevelModel()
-    test_input = (
-        {"contrast_0": [0, 0, 1], "contrast_1": [0, 1, 1]},
-        "Custom Title for report",
-        model,
-    )
-    expected_output = (
-        "Custom Title for report",
-        "Custom Title for report",
-        "Second Level Model",
-    )
-    actual_output = glmr._make_headings(*test_input)
-    assert actual_output == expected_output
-
-
-def test_make_headings_with_contrasts_none_title_custom():
-    model = FirstLevelModel()
-    test_input = (None, "Custom Title for report", model)
-    expected_output = (
-        "Custom Title for report",
-        "Custom Title for report",
-        "First Level Model",
-    )
-    actual_output = glmr._make_headings(*test_input)
-    assert actual_output == expected_output
-
-
-@pytest.mark.parametrize("cut_coords", [None, (5, 4, 3)])
-def test_stat_map_to_svg_slice_z(img_3d_mni, cut_coords):
-    table_details = pd.DataFrame.from_dict({"junk": 0}, orient="index")
-    glmr._stat_map_to_svg(
-        stat_img=img_3d_mni,
-        bg_img=None,
-        cut_coords=cut_coords,
-        display_mode="ortho",
-        plot_type="slice",
-        table_details=table_details,
+@pytest.mark.timeout(0)
+@pytest.mark.parametrize("plot_type", ["slice", "glass"])
+def test_report_plot_type(flm, plot_type, contrasts):
+    """Smoke test for valid plot type."""
+    flm.generate_report(
+        contrasts=contrasts,
+        plot_type=plot_type,
         threshold=2.76,
     )
 
 
+@pytest.mark.parametrize("plot_type", ["slice", "glass"])
 @pytest.mark.parametrize("cut_coords", [None, (5, 4, 3)])
-def test_stat_map_to_svg_glass_z(img_3d_mni, cut_coords):
-    table_details = pd.DataFrame.from_dict({"junk": 0}, orient="index")
-    glmr._stat_map_to_svg(
-        stat_img=img_3d_mni,
-        bg_img=None,
+def test_report_cut_coords(flm, plot_type, cut_coords, contrasts):
+    """Smoke test for valid cut_coords."""
+    flm.generate_report(
+        contrasts=contrasts,
         cut_coords=cut_coords,
         display_mode="z",
-        plot_type="glass",
-        table_details=table_details,
+        plot_type=plot_type,
         threshold=2.76,
     )
 
 
-@pytest.mark.parametrize("cut_coords", [None, (5, 4, 3)])
-def test_stat_map_to_svg_invalid_plot_type(img_3d_mni, cut_coords):
+def test_report_invalid_plot_type(matplotlib_pyplot, flm, contrasts):  # noqa: ARG001
+    with pytest.raises(KeyError, match="junk"):
+        flm.generate_report(
+            contrasts=contrasts,
+            plot_type="junk",
+            threshold=2.76,
+        )
+
     expected_error = (
         "Invalid plot type provided. "
         "Acceptable options are 'slice' or 'glass'."
     )
+
     with pytest.raises(ValueError, match=expected_error):
-        glmr._stat_map_to_svg(
-            stat_img=img_3d_mni,
-            bg_img=None,
-            cut_coords=cut_coords,
-            display_mode="z",
+        flm.generate_report(
+            contrasts=contrasts,
+            display_mode="glass",
             plot_type="junk",
-            table_details={"junk": 0},
             threshold=2.76,
         )
 
 
-def _make_dummy_contrasts_dmtx():
-    frame_times = np.linspace(0, 127 * 1.0, 128)
-    dmtx = make_first_level_design_matrix(
-        frame_times,
-        drift_model="polynomial",
-        drift_order=3,
-    )
-    contrast = {"test": np.ones(4)}
-    return contrast, dmtx
-
-
-def test_plot_contrasts():
-    contrast, dmtx = _make_dummy_contrasts_dmtx()
-    glmr._plot_contrasts(
-        contrast,
-        [dmtx],
-    )
-
-
-def test_masking_first_level_model(tmp_path):
+def test_masking_first_level_model(contrasts):
     """Check that using NiftiMasker when instantiating FirstLevelModel \
        doesn't raise Error when calling generate_report().
     """
     shapes, rk = ((7, 7, 7, 5),), 3
-    mask, fmri_data, design_matrices = write_fake_fmri_data_and_design(
-        shapes, rk, file_path=tmp_path
+    mask, fmri_data, design_matrices = generate_fake_fmri_data_and_design(
+        shapes,
+        rk,
     )
     masker = NiftiMasker(mask_img=mask)
     masker.fit(fmri_data)
     flm = FirstLevelModel(mask_img=masker).fit(
         fmri_data, design_matrices=design_matrices
     )
-    contrast = np.eye(3)[1]
 
     report_flm = flm.generate_report(
-        contrast,
+        contrasts=contrasts,
         plot_type="glass",
         height_control=None,
         min_distance=15,
@@ -299,19 +237,117 @@ def test_masking_first_level_model(tmp_path):
     report_flm.get_iframe()
 
 
-# -----------------------surface tests--------------------------------------- #
+def test_fir_delays_in_params(contrasts):
+    """Check that fir_delays is in the report when hrf_model is fir.
+
+    Also check that it's not in the report when using the default 'glover'.
+    """
+    shapes, rk = ((7, 7, 7, 5),), 3
+    _, fmri_data, design_matrices = generate_fake_fmri_data_and_design(
+        shapes, rk
+    )
+    model = FirstLevelModel(hrf_model="fir", fir_delays=[1, 2, 3])
+    model.fit(fmri_data, design_matrices=design_matrices)
+
+    report = model.generate_report(contrasts=contrasts, threshold=0.1)
+
+    assert "fir_delays" in report.__str__()
 
 
-def test_flm_generate_report_error_with_surface_data(
-    surf_mask_1d, surf_img_2d
+@pytest.mark.timeout(0)
+def test_drift_order_in_params(contrasts):
+    """Check that drift_order is in the report when parameter is drift_model is
+    polynomial.
+    """
+    shapes, rk = ((7, 7, 7, 5),), 3
+    _, fmri_data, design_matrices = generate_fake_fmri_data_and_design(
+        shapes, rk
+    )
+    model = FirstLevelModel(drift_model="polynomial", drift_order=3)
+    model.fit(fmri_data, design_matrices=design_matrices)
+
+    report = model.generate_report(contrasts=contrasts)
+
+    assert "drift_order" in report.__str__()
+
+
+def test_flm_generate_report_surface_data(rng):
+    """Generate report from flm fitted surface.
+
+    Need a larger image to avoid issues with colormap.
+    """
+    t_r = 2.0
+    events = basic_paradigm()
+    n_scans = 10
+
+    mesh = load_fsaverage(mesh="fsaverage5")["pial"]
+    data = {}
+    for key, val in mesh.parts.items():
+        data_shape = (val.n_vertices, n_scans)
+        data_part = rng.normal(size=data_shape)
+        data[key] = data_part
+    fmri_data = SurfaceImage(mesh, data)
+
+    # using smoothing_fwhm for coverage
+    model = FirstLevelModel(t_r=t_r, smoothing_fwhm=None)
+
+    model.fit(fmri_data, events=events)
+
+    report = model.generate_report("c0", height_control=None)
+
+    assert isinstance(report, HTMLReport)
+
+    assert "Results table not available for surface data." in report.__str__()
+
+
+def test_flm_generate_report_surface_data_error(
+    surf_mask_1d, surf_img_2d, img_3d_mni
 ):
-    """Raise NotImplementedError when generate report is called on surface."""
-    model = FirstLevelModel(mask_img=surf_mask_1d, t_r=2.0)
+    """Generate report from flm fitted surface."""
+    model = FirstLevelModel(
+        mask_img=surf_mask_1d, t_r=2.0, smoothing_fwhm=None
+    )
     events = basic_paradigm()
     model.fit(surf_img_2d(9), events=events)
 
-    with pytest.raises(NotImplementedError):
-        model.generate_report("c0")
+    with pytest.raises(
+        TypeError, match="'bg_img' must a SurfaceImage instance"
+    ):
+        model.generate_report("c0", bg_img=img_3d_mni, height_control=None)
 
-    with pytest.raises(NotImplementedError):
-        make_glm_report(model, "c0")
+
+@pytest.mark.timeout(0)
+def test_carousel_two_runs(
+    matplotlib_pyplot,  # noqa: ARG001
+    flm,
+    slm,
+    contrasts,
+):
+    """Check that a carousel is present when there is more than 1 run."""
+    # Second level have a single "run" and do not need a carousel
+    report_slm = slm.generate_report()
+
+    assert 'id="carousel-navbar"' not in report_slm.__str__()
+
+    # first level model with one run : no run carousel
+    report_one_run = flm.generate_report(contrasts=contrasts)
+
+    assert 'id="carousel-navbar"' not in report_one_run.__str__()
+
+    # first level model with 2 runs : run carousel
+    rk = 6
+    shapes = ((7, 7, 7, 5), (7, 7, 7, 10))
+    _, fmri_data, design_matrices = generate_fake_fmri_data_and_design(
+        shapes, rk=rk
+    )
+
+    contrasts = np.zeros((1, rk))
+    contrasts[0][1] = 1
+
+    flm_two_runs = FirstLevelModel().fit(
+        fmri_data, design_matrices=design_matrices
+    )
+
+    report = flm_two_runs.generate_report(contrasts=contrasts)
+
+    assert 'id="carousel-navbar"' in report.__str__()

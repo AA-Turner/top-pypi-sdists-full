@@ -5,7 +5,7 @@ authors = [
   {email = "norman.koch@tu-dresden.de"},
   {name = "Norman Koch"}
 ]
-version = "7322"
+version = "7327"
 
 readme = "README.md"
 dynamic = ["dependencies"]

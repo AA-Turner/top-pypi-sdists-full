@@ -11,14 +11,14 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from nilearn.plotting.html_document import (  # noqa: F401
+from nilearn._utils.extmath import fast_abs_percentile
+from nilearn._utils.html_document import (  # noqa: F401
     HTMLDocument,
     set_max_img_views_before_warning,
 )
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.param_validation import check_threshold
 from nilearn.surface import load_surf_mesh
-
-from .._utils.extmath import fast_abs_percentile
-from .._utils.param_validation import check_threshold
 
 MAX_IMG_VIEWS_BEFORE_WARNING = 10
 
@@ -79,12 +79,13 @@ def colorscale(
             "you have specified symmetric_cmap=False "
             "but the map contains negative values; "
             "setting symmetric_cmap to True",
-            stacklevel=3,
+            stacklevel=find_stack_level(),
         )
         symmetric_cmap = True
     if symmetric_cmap and vmin is not None:
         warnings.warn(
-            "vmin cannot be chosen when cmap is symmetric", stacklevel=3
+            "vmin cannot be chosen when cmap is symmetric",
+            stacklevel=find_stack_level(),
         )
         vmin = None
     if vmax is None:

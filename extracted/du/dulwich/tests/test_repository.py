@@ -122,6 +122,56 @@ class CreateRepositoryTests(TestCase):
         self.assertEqual(target_dir, repo._controldir)
         self._check_repo_contents(repo, True)
 
+    def test_create_disk_bare_pathlib(self) -> None:
+        from pathlib import Path
+
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        repo_path = Path(tmp_dir)
+        repo = Repo.init_bare(repo_path)
+        self.assertEqual(tmp_dir, repo._controldir)
+        self._check_repo_contents(repo, True)
+        # Test that refpath works with pathlib
+        ref_path = repo.refs.refpath(b"refs/heads/master")
+        self.assertTrue(isinstance(ref_path, bytes))
+        expected_path = os.path.join(tmp_dir.encode(), b"refs", b"heads", b"master")
+        self.assertEqual(ref_path, expected_path)
+
+    def test_create_disk_non_bare_pathlib(self) -> None:
+        from pathlib import Path
+
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        repo_path = Path(tmp_dir)
+        repo = Repo.init(repo_path)
+        self.assertEqual(os.path.join(tmp_dir, ".git"), repo._controldir)
+        self._check_repo_contents(repo, False)
+
+    def test_open_repo_pathlib(self) -> None:
+        from pathlib import Path
+
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        # First create a repo
+        repo = Repo.init_bare(tmp_dir)
+        repo.close()
+        # Now open it with pathlib
+        repo_path = Path(tmp_dir)
+        repo2 = Repo(repo_path)
+        self.assertEqual(tmp_dir, repo2._controldir)
+        self.assertTrue(repo2.bare)
+        repo2.close()
+
+    def test_create_disk_bare_mkdir_pathlib(self) -> None:
+        from pathlib import Path
+
+        tmp_dir = tempfile.mkdtemp()
+        target_path = Path(tmp_dir) / "target"
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        repo = Repo.init_bare(target_path, mkdir=True)
+        self.assertEqual(str(target_path), repo._controldir)
+        self._check_repo_contents(repo, True)
+
 
 class MemoryRepoTests(TestCase):
     def test_set_description(self) -> None:
@@ -135,6 +185,53 @@ class MemoryRepoTests(TestCase):
         repo = open_repo("a.git")
         self.addCleanup(tear_down_repo, repo)
         repo.fetch(r)
+
+    def test_fetch_from_git_cloned_repo(self) -> None:
+        """Test fetching from a git-cloned repo into MemoryRepo (issue #1179)."""
+        import tempfile
+
+        from dulwich.client import LocalGitClient
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create initial repo using dulwich
+            initial_path = os.path.join(tmpdir, "initial")
+            initial_repo = Repo.init(initial_path, mkdir=True)
+
+            # Create some content
+            test_file = os.path.join(initial_path, "test.txt")
+            with open(test_file, "w") as f:
+                f.write("test content\n")
+
+            # Stage and commit using dulwich
+            initial_repo.stage(["test.txt"])
+            initial_repo.do_commit(
+                b"Initial commit\n",
+                committer=b"Test Committer <test@example.com>",
+                author=b"Test Author <test@example.com>",
+            )
+
+            # Clone using dulwich
+            cloned_path = os.path.join(tmpdir, "cloned")
+            cloned_repo = initial_repo.clone(cloned_path, mkdir=True)
+
+            initial_repo.close()
+            cloned_repo.close()
+
+            # Fetch from the cloned repo into MemoryRepo
+            memory_repo = MemoryRepo()
+            client = LocalGitClient()
+
+            # This should not raise AssertionError
+            result = client.fetch(cloned_path, memory_repo)
+
+            # Verify the fetch worked
+            self.assertIn(b"HEAD", result.refs)
+            self.assertIn(b"refs/heads/master", result.refs)
+
+            # Verify we can read the fetched objects
+            head_sha = result.refs[b"HEAD"]
+            commit = memory_repo[head_sha]
+            self.assertEqual(commit.message, b"Initial commit\n")
 
 
 class RepositoryRootTests(TestCase):
@@ -341,6 +438,42 @@ class RepositoryRootTests(TestCase):
         self.addCleanup(t.close)
         self.assertEqual(os.listdir(repo_dir), [".git"])
         self.assertFilesystemHidden(os.path.join(repo_dir, ".git"))
+
+    def test_init_format(self) -> None:
+        tmp_dir = self.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Test format 0
+        t0 = Repo.init(tmp_dir + "0", mkdir=True, format=0)
+        self.addCleanup(t0.close)
+        self.assertEqual(t0.get_config().get("core", "repositoryformatversion"), b"0")
+
+        # Test format 1
+        t1 = Repo.init(tmp_dir + "1", mkdir=True, format=1)
+        self.addCleanup(t1.close)
+        self.assertEqual(t1.get_config().get("core", "repositoryformatversion"), b"1")
+
+        # Test default format
+        td = Repo.init(tmp_dir + "d", mkdir=True)
+        self.addCleanup(td.close)
+        self.assertEqual(td.get_config().get("core", "repositoryformatversion"), b"0")
+
+        # Test invalid format
+        with self.assertRaises(ValueError):
+            Repo.init(tmp_dir + "bad", mkdir=True, format=99)
+
+    def test_init_bare_format(self) -> None:
+        tmp_dir = self.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Test format 1 for bare repo
+        t = Repo.init_bare(tmp_dir + "bare", mkdir=True, format=1)
+        self.addCleanup(t.close)
+        self.assertEqual(t.get_config().get("core", "repositoryformatversion"), b"1")
+
+        # Test invalid format for bare repo
+        with self.assertRaises(ValueError):
+            Repo.init_bare(tmp_dir + "badbr", mkdir=True, format=2)
 
     @skipIf(sys.platform == "win32", "fails on Windows")
     def test_fetch(self) -> None:

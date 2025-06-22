@@ -1,7 +1,5 @@
 """Mixin for cache with joblib."""
 
-# Author: Gael Varoquaux, Alexandre Abraham, Philippe Gervais
-
 import os
 import warnings
 from pathlib import Path
@@ -9,13 +7,14 @@ from pathlib import Path
 from joblib import Memory
 
 import nilearn
+from nilearn._utils.logger import find_stack_level
 
 from .helpers import stringify_path
 
 MEMORY_CLASSES = (Memory,)
 
 
-def _check_memory(memory, verbose=0):
+def check_memory(memory, verbose=0):
     """Ensure an instance of a joblib.Memory object.
 
     Parameters
@@ -171,7 +170,7 @@ def cache(
                 "but no Memory object or path has been provided"
                 " (parameter memory). Caching deactivated for "
                 f"function {func.__name__}.",
-                stacklevel=2,
+                stacklevel=find_stack_level(),
             )
     else:
         memory = Memory(location=None, verbose=verbose)
@@ -235,7 +234,7 @@ class CacheMixin:
             self.memory_level = 0
         if not hasattr(self, "memory"):
             self.memory = Memory(location=None, verbose=verbose)
-        self.memory = _check_memory(self.memory, verbose=verbose)
+        self.memory = check_memory(self.memory, verbose=verbose)
 
         # If cache level is 0 but a memory object has been provided, set
         # memory_level to 1 with a warning.
@@ -244,7 +243,7 @@ class CacheMixin:
                 "memory_level is currently set to 0 but "
                 "a Memory object has been provided. "
                 "Setting memory_level to 1.",
-                stacklevel=3,
+                stacklevel=find_stack_level(),
             )
             self.memory_level = 1
 

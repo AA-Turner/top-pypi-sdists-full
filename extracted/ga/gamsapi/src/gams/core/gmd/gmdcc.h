@@ -242,8 +242,8 @@ int  GMD_CALLCONV d_gmdGetDomain (gmdHandle_t pgmd, void *symPtr, int aDim, void
 int  GMD_CALLCONV d_gmdCopySymbolIterator (gmdHandle_t pgmd, void *symIterPtrSrc, void **symIterPtrtar);
 void * GMD_CALLCONV d_gmdCopySymbolIteratorPy (gmdHandle_t pgmd, void *symIterPtrSrc, int *status);
 int  GMD_CALLCONV d_gmdFreeSymbolIterator (gmdHandle_t pgmd, void *symIterPtr);
-int  GMD_CALLCONV d_gmdMergeUel (gmdHandle_t pgmd, const char *uel, int *uelNr);
-int  GMD_CALLCONV d_gmdGetUelByIndex (gmdHandle_t pgmd, int uelNr, char *keyStr);
+int  GMD_CALLCONV d_gmdMergeUel (gmdHandle_t pgmd, const char *uelLabel, int *uelNr);
+int  GMD_CALLCONV d_gmdGetUelByIndex (gmdHandle_t pgmd, int uelNr, char *uelLabel);
 int  GMD_CALLCONV d_gmdFindUel (gmdHandle_t pgmd, const char *uelLabel, int *uelNr);
 int  GMD_CALLCONV d_gmdGetSymbolsUels (gmdHandle_t pgmd, void **vDomPtrIn, int lenvDomPtrIn, int uelList[], int sizeUelList);
 int  GMD_CALLCONV d_gmdInfo (gmdHandle_t pgmd, int infoKey, int *ival, double *dval, char *sval);
@@ -353,7 +353,7 @@ typedef int  (GMD_CALLCONV *gmdAddSymbolX_t) (gmdHandle_t pgmd, const char *symN
  * @param userInfo user info integer
  * @param explText explanatory text
  * @param vDomPtrIn vector of domain symbols (input for GMD)
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symPtr Handle to a symbol when reading sequentially
  */
 GMD_FUNCPTR(gmdAddSymbolX);
@@ -368,7 +368,7 @@ typedef void * (GMD_CALLCONV *gmdAddSymbolXPy_t) (gmdHandle_t pgmd, const char *
  * @param userInfo user info integer
  * @param explText explanatory text
  * @param vDomPtrIn vector of domain symbols (input for GMD)
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status Indicator for error free execution (true/1 means OK, false/0 means Error)
  */
 GMD_FUNCPTR(gmdAddSymbolXPy);
@@ -493,7 +493,7 @@ typedef int  (GMD_CALLCONV *gmdFindRecord_t) (gmdHandle_t pgmd, void *symPtr, co
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symIterPtr Handle to a SymbolIterator
  */
 GMD_FUNCPTR(gmdFindRecord);
@@ -503,7 +503,7 @@ typedef void * (GMD_CALLCONV *gmdFindRecordPy_t) (gmdHandle_t pgmd, void *symPtr
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status Indicator for error free execution (true/1 means OK, false/0 means Error)
  */
 GMD_FUNCPTR(gmdFindRecordPy);
@@ -531,7 +531,7 @@ typedef int  (GMD_CALLCONV *gmdFindFirstRecordSlice_t) (gmdHandle_t pgmd, void *
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symIterPtr Handle to a SymbolIterator
  */
 GMD_FUNCPTR(gmdFindFirstRecordSlice);
@@ -541,7 +541,7 @@ typedef void * (GMD_CALLCONV *gmdFindFirstRecordSlicePy_t) (gmdHandle_t pgmd, vo
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status Indicator for error free execution (true/1 means OK, false/0 means Error)
  */
 GMD_FUNCPTR(gmdFindFirstRecordSlicePy);
@@ -569,7 +569,7 @@ typedef int  (GMD_CALLCONV *gmdFindLastRecordSlice_t) (gmdHandle_t pgmd, void *s
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symIterPtr Handle to a SymbolIterator
  */
 GMD_FUNCPTR(gmdFindLastRecordSlice);
@@ -579,7 +579,7 @@ typedef void * (GMD_CALLCONV *gmdFindLastRecordSlicePy_t) (gmdHandle_t pgmd, voi
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status Indicator for error free execution (true/1 means OK, false/0 means Error)
  */
 GMD_FUNCPTR(gmdFindLastRecordSlicePy);
@@ -747,7 +747,7 @@ typedef int  (GMD_CALLCONV *gmdAddRecord_t) (gmdHandle_t pgmd, void *symPtr, con
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symIterPtr Handle to a SymbolIterator
  */
 GMD_FUNCPTR(gmdAddRecord);
@@ -757,7 +757,7 @@ typedef void * (GMD_CALLCONV *gmdAddRecordPy_t) (gmdHandle_t pgmd, void *symPtr,
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status 
  */
 GMD_FUNCPTR(gmdAddRecordPy);
@@ -767,7 +767,7 @@ typedef int  (GMD_CALLCONV *gmdMergeRecord_t) (gmdHandle_t pgmd, void *symPtr, c
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param symIterPtr Handle to a SymbolIterator
  */
 GMD_FUNCPTR(gmdMergeRecord);
@@ -777,7 +777,7 @@ typedef void * (GMD_CALLCONV *gmdMergeRecordPy_t) (gmdHandle_t pgmd, void *symPt
  *
  * @param pgmd gmd object handle
  * @param symPtr Handle to a symbol when reading sequentially
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  * @param status 
  */
 GMD_FUNCPTR(gmdMergeRecordPy);
@@ -872,7 +872,7 @@ typedef int  (GMD_CALLCONV *gmdGetKeys_t) (gmdHandle_t pgmd, void *symIterPtr, i
  * @param pgmd gmd object handle
  * @param symIterPtr Handle to a SymbolIterator
  * @param aDim dimension of the symbol
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  */
 GMD_FUNCPTR(gmdGetKeys);
 
@@ -882,7 +882,7 @@ typedef int  (GMD_CALLCONV *gmdGetKey_t) (gmdHandle_t pgmd, void *symIterPtr, in
  * @param pgmd gmd object handle
  * @param symIterPtr Handle to a SymbolIterator
  * @param idx index of a symbol in the GMD object / of a key from a record
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  */
 GMD_FUNCPTR(gmdGetKey);
 
@@ -893,7 +893,7 @@ typedef int  (GMD_CALLCONV *gmdGetDomain_t) (gmdHandle_t pgmd, void *symPtr, int
  * @param symPtr Handle to a symbol when reading sequentially
  * @param aDim dimension of the symbol
  * @param vDomPtrOut vector of domain symbols (output for GMD)
- * @param keyStr Array of strings containing the unique elements
+ * @param keyStr Array of UEL labels
  */
 GMD_FUNCPTR(gmdGetDomain);
 
@@ -923,35 +923,35 @@ typedef int  (GMD_CALLCONV *gmdFreeSymbolIterator_t) (gmdHandle_t pgmd, void *sy
  */
 GMD_FUNCPTR(gmdFreeSymbolIterator);
 
-typedef int  (GMD_CALLCONV *gmdMergeUel_t) (gmdHandle_t pgmd, const char *uel, int *uelNr);
-/** Add a uel to universe
+typedef int  (GMD_CALLCONV *gmdMergeUel_t) (gmdHandle_t pgmd, const char *uelLabel, int *uelNr);
+/** Add a UEL to universe
  *
  * @param pgmd gmd object handle
- * @param uel 
- * @param uelNr 
+ * @param uelLabel UEL label
+ * @param uelNr UEL number
  */
 GMD_FUNCPTR(gmdMergeUel);
 
-typedef int  (GMD_CALLCONV *gmdGetUelByIndex_t) (gmdHandle_t pgmd, int uelNr, char *keyStr);
-/** Retrieve uel by index
+typedef int  (GMD_CALLCONV *gmdGetUelByIndex_t) (gmdHandle_t pgmd, int uelNr, char *uelLabel);
+/** Retrieve a UEL by index
  *
  * @param pgmd gmd object handle
- * @param uelNr 
- * @param keyStr Array of strings containing the unique elements
+ * @param uelNr UEL number
+ * @param uelLabel UEL label
  */
 GMD_FUNCPTR(gmdGetUelByIndex);
 
 typedef int  (GMD_CALLCONV *gmdFindUel_t) (gmdHandle_t pgmd, const char *uelLabel, int *uelNr);
-/** Retrieve index of uel with label
+/** Retrieve index of UEL with label
  *
  * @param pgmd gmd object handle
- * @param uelLabel 
- * @param uelNr 
+ * @param uelLabel UEL label
+ * @param uelNr UEL number
  */
 GMD_FUNCPTR(gmdFindUel);
 
 typedef int  (GMD_CALLCONV *gmdGetSymbolsUels_t) (gmdHandle_t pgmd, void **vDomPtrIn, int lenvDomPtrIn, int uelList[], int sizeUelList);
-/** Retrieve an array of uel counters. Counts how often uel at position n is used by symbols in vDomPtrIn.
+/** Retrieve an array of UEL counters. Counts how often UEL at position n is used by symbols in vDomPtrIn.
  *
  * @param pgmd gmd object handle
  * @param vDomPtrIn vector of symbol pointers (input for GMD)

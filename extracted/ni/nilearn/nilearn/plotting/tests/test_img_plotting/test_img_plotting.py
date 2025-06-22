@@ -1,5 +1,7 @@
 """Tests common to multiple image plotting functions."""
 
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -60,41 +62,25 @@ def test_mni152template_is_reordered():
     assert np.allclose(reordered_mni.shape, MNI152TEMPLATE.shape)
 
 
-@pytest.mark.parametrize("plot_func", PLOTTING_FUNCS_3D)
-def test_plot_functions_3d_default_params(plot_func, img_3d_mni, tmp_path):
-    """Smoke tests for 3D plotting functions with default parameters."""
+@pytest.mark.parametrize(
+    "plot_func",
+    {
+        plot_img,
+        plot_anat,
+        plot_stat_map,
+        plot_roi,
+        plot_glass_brain,
+        plot_prob_atlas,
+    },
+)
+def test_plot_functions_invalid_threshold(plot_func, img_3d_mni, tmp_path):
+    """Test plot functions for negative threshold value."""
     filename = tmp_path / "temp.png"
-    plot_func(img_3d_mni, output_file=filename)
-    plt.close()
 
-
-@pytest.mark.parametrize("plot_func", PLOTTING_FUNCS_3D)
-@pytest.mark.parametrize("cbar_tick_format", ["%f", "%i"])
-def test_cbar_tick_format(plot_func, img_3d_mni, cbar_tick_format, tmp_path):
-    """Test different colorbar tick format with 3D plotting functions."""
-    filename = tmp_path / "temp.png"
-    plot_func(
-        img_3d_mni,
-        output_file=filename,
-        colorbar=True,
-        cbar_tick_format=cbar_tick_format,
-    )
-    plt.close()
-
-
-def test_plot_carpet_default_params(img_4d_mni, img_3d_ones_mni, tmp_path):
-    """Smoke-test for 4D plot_carpet with default arguments."""
-    plot_carpet(
-        img_4d_mni, mask_img=img_3d_ones_mni, output_file=tmp_path / "temp.png"
-    )
-    plt.close()
-
-
-def test_plot_prob_atlas_default_params(img_3d_mni, img_4d_mni, tmp_path):
-    """Smoke-test for plot_prob_atlas with default arguments."""
-    plot_prob_atlas(
-        img_4d_mni, bg_img=img_3d_mni, output_file=tmp_path / "temp.png"
-    )
+    with pytest.raises(
+        ValueError, match="Threshold should be a non-negative number!"
+    ):
+        plot_func(img_3d_mni, output_file=filename, threshold=-1)
     plt.close()
 
 
@@ -128,7 +114,7 @@ def test_plot_threshold_for_uint8(affine_eye, plot_func):
     else:
         data[0, 0] = 0
     img = Nifti1Image(data, affine_eye)
-    threshold = np.array(5, dtype="uint8")
+    threshold = 5
     kwargs = {"threshold": threshold, "display_mode": "z"}
     if plot_func is plot_stat_map:
         kwargs["bg_img"] = None
@@ -194,9 +180,9 @@ def test_plot_with_nans(plot_func, img_3d_mni):
     "plot_func", [plot_roi, plot_stat_map, plot_glass_brain]
 )
 @pytest.mark.parametrize("cmap", ["Paired", "Set1", "Set2", "Set3", "viridis"])
-def test_plotting_functions_with_cmaps(plot_func, cmap):
+def test_plotting_functions_with_cmaps(plot_func, cmap, img_3d_mni):
     """Some test for plotting functions with different cmaps."""
-    plot_func(load_mni152_template(resolution=2), cmap=cmap, colorbar=True)
+    plot_func(img_3d_mni, cmap=cmap, colorbar=True)
     plt.close()
 
 
@@ -218,24 +204,6 @@ def test_plotting_functions_with_display_mode_tiled(plot_func, img_3d_mni):
         plot_func(display_mode="tiled")
     else:
         plot_func(img_3d_mni, display_mode="tiled")
-    plt.close()
-
-
-@pytest.mark.parametrize(
-    "plotting_func",
-    [
-        plot_img,
-        plot_anat,
-        plot_stat_map,
-        plot_roi,
-        plot_epi,
-        plot_glass_brain,
-    ],
-)
-def test_plotting_functions_radiological_view(img_3d_mni, plotting_func):
-    """Smoke test for radiological view."""
-    result = plotting_func(img_3d_mni, radiological=True)
-    assert result.axes.get("y").radiological is True
     plt.close()
 
 
@@ -267,7 +235,9 @@ def test_plot_symmetric_colorbar_threshold(
 
 
 functions = [plot_stat_map]
-EXPECTED2 = [(0, ["0", "2.5", "5", "7.5", "10"])]
+EXPECTED2: list[tuple[float | int, list[str]]] = [
+    (0, ["0", "2.5", "5", "7.5", "10"])
+]
 EXPECTED2 += [(i, [f"{i}", "2.5", "5", "7.5", "10"]) for i in [0.1, 0.3, 1.2]]
 EXPECTED2 += [
     (i, ["0", f"{i}", "5", "7.5", "10"]) for i in [1.3, 1.9, 2.5, 3, 3.7]

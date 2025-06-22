@@ -79,14 +79,15 @@ NR_STD_STREAMS = 3
 class FakeOsModule:
     """Uses FakeFilesystem to provide a fake os module replacement.
 
-    Do not create os.path separately from os, as there is a necessary circular
-    dependency between os and os.path to replicate the behavior of the standard
-    Python modules.  What you want to do is to just let FakeOsModule take care
+    Do not create `os.path` separately from `os`, as there is a necessary circular
+    dependency between `os` and `os.path` to replicate the behavior of the standard
+    Python modules.  What you want to do is to just let `FakeOsModule` take care
     of `os.path` setup itself.
 
-    # You always want to do this.
-    filesystem = fake_filesystem.FakeFilesystem()
-    my_os_module = fake_os.FakeOsModule(filesystem)
+    If you are creating the fake filesystem manually, you need to do::
+
+        filesystem = fake_filesystem.FakeFilesystem()
+        my_os_module = fake_os.FakeOsModule(filesystem)
     """
 
     use_original = False
@@ -258,13 +259,13 @@ class FakeOsModule:
             and self.filesystem.exists(path)
             and not self.filesystem.isdir(path)
         ):
-            raise OSError(errno.ENOTDIR, "path is not a directory", path)
+            self.filesystem.raise_os_error(errno.ENOTDIR, path)
 
         has_follow_flag = (
             hasattr(os, "O_NOFOLLOW") and flags & os.O_NOFOLLOW == os.O_NOFOLLOW
         )
         if has_follow_flag and self.filesystem.islink(path):
-            raise OSError(errno.ELOOP, "path is a symlink", path)
+            self.filesystem.raise_os_error(errno.ELOOP, path)
 
         has_tmpfile_flag = (
             hasattr(os, "O_TMPFILE") and flags & os.O_TMPFILE == os.O_TMPFILE
@@ -391,7 +392,7 @@ class FakeOsModule:
         if isinstance(file_handle, FakeFileWrapper):
             file_handle.seek(pos, whence)
         else:
-            raise OSError(errno.EBADF, "Bad file descriptor for fseek")
+            self.filesystem.raise_os_error(errno.EBADF)
 
     def pipe(self) -> Tuple[int, int]:
         read_fd, write_fd = os.pipe()
@@ -452,13 +453,13 @@ class FakeOsModule:
             path = self.filesystem.resolve_path(path, allow_fd=True)
         except OSError as exc:
             if self.filesystem.is_macos and exc.errno == errno.EBADF:
-                raise OSError(errno.ENOTDIR, "Not a directory: " + str(path))
+                self.filesystem.raise_os_error(errno.ENOTDIR, str(path))
             elif (
                 self.filesystem.is_windows_fs
                 and exc.errno == errno.ENOENT
                 and path == ""
             ):
-                raise OSError(errno.EINVAL, "Invalid argument:  + str(path)")
+                self.filesystem.raise_os_error(errno.EINVAL, str(path))
             raise
         try:
             self.filesystem.confirmdir(path)
@@ -510,11 +511,11 @@ class FakeOsModule:
         Args:
             path: File path, file descriptor or path-like object.
             attribute: (str or bytes) The attribute name.
-            follow_symlinks: (bool) If True (the default), symlinks in the
+            follow_symlinks: (bool) If `True` (the default), symlinks in the
                 path are traversed.
 
         Returns:
-            The contents of the extended attribute as bytes or None if
+            The contents of the extended attribute as bytes or `None` if
             the attribute does not exist.
 
         Raises:
@@ -527,7 +528,7 @@ class FakeOsModule:
             attribute = attribute.decode(sys.getfilesystemencoding())
         file_obj = self.filesystem.resolve(path, follow_symlinks, allow_fd=True)
         if attribute not in file_obj.xattr:
-            raise OSError(errno.ENODATA, "No data available", path)
+            self.filesystem.raise_os_error(errno.ENODATA, path)
         return file_obj.xattr.get(attribute)
 
     def listxattr(
@@ -537,8 +538,8 @@ class FakeOsModule:
 
         Args:
             path: File path, file descriptor or path-like object.
-               If None, the current directory is used.
-            follow_symlinks: (bool) If True (the default), symlinks in the
+               If `None`, the current directory is used.
+            follow_symlinks: (bool) If `True` (the default), symlinks in the
                 path are traversed.
 
         Returns:
@@ -566,7 +567,7 @@ class FakeOsModule:
         Args:
             path: File path, file descriptor or path-like object
             attribute: (str or bytes) The attribute name.
-            follow_symlinks: (bool) If True (the default), symlinks in the
+            follow_symlinks: (bool) If `True` (the default), symlinks in the
                 path are traversed.
 
         Raises:
@@ -597,7 +598,7 @@ class FakeOsModule:
             path: File path, file descriptor or path-like object.
             attribute: The attribute name (str or bytes).
             value: (byte-like) The value to be set.
-            follow_symlinks: (bool) If True (the default), symlinks in the
+            follow_symlinks: (bool) If `True` (the default), symlinks in the
                 path are traversed.
 
         Raises:
@@ -672,7 +673,7 @@ class FakeOsModule:
             the string representing the path to which the symbolic link points.
 
         Raises:
-            TypeError: if `path` is None
+            TypeError: if `path` is `None`
             OSError: (with errno=ENOENT) if path is not a valid path, or
                      (with errno=EINVAL) if path is valid, but is not a symlink
         """
@@ -933,7 +934,7 @@ class FakeOsModule:
             mode: (int) Mode to create directory (and any necessary parent
                 directories) with. This argument defaults to 0o777.
                 The umask is applied to this mode.
-            exist_ok: (boolean) If exist_ok is False (the default), an OSError
+            exist_ok: (boolean) If exist_ok is `False` (the default), an `OSError`
                 is raised if the target directory already exists.
 
         Raises:
@@ -1025,7 +1026,7 @@ class FakeOsModule:
         if isinstance(file_object, FakeFileWrapper):
             file_object.size = length
         else:
-            raise OSError(errno.EBADF, "Invalid file descriptor")
+            self.filesystem.raise_os_error(errno.EBADF)
 
     def access(
         self,
@@ -1145,10 +1146,10 @@ class FakeOsModule:
             path: (str) Path to the file.
             times: 2-tuple of int or float numbers, of the form (atime, mtime)
                 which is used to set the access and modified times in seconds.
-                If None, both times are set to the current time.
+                If `None`, both times are set to the current time.
             ns: 2-tuple of int numbers, of the form (atime, mtime)  which is
                 used to set the access and modified times in nanoseconds.
-                If None, both times are set to the current time.
+                If `None`, both times are set to the current time.
             dir_fd: If not `None`, the file descriptor of a directory,
                 with `path` being relative to this directory.
             follow_symlinks: (bool) If `False` and `path` points to a symlink,
@@ -1156,9 +1157,9 @@ class FakeOsModule:
 
             Raises:
                 TypeError: If anything other than the expected types is
-                    specified in the passed `times` or `ns` tuple,
+                    specified in the passed ``times`` or ``ns`` tuple,
                     or if the tuple length is not equal to 2.
-                ValueError: If both times and ns are specified.
+                ValueError: If both ``times`` and ``ns`` are specified.
         """
         path = self._path_with_dir_fd(path, self.utime, dir_fd)
         self.filesystem.utime(path, times=times, ns=ns, follow_symlinks=follow_symlinks)
@@ -1291,7 +1292,7 @@ class FakeOsModule:
                 with `src` being relative to this directory.
             dst_dir_fd: If not `None`, the file descriptor of a directory,
                 with `dst` being relative to this directory.
-            follow_symlinks: (bool) If True (the default), symlinks in the
+            follow_symlinks: (bool) If `True` (the default), symlinks in the
                 path are traversed.
 
         Raises:

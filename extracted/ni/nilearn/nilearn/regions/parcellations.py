@@ -8,20 +8,21 @@ from joblib import Memory, Parallel, delayed
 from scipy.sparse import coo_matrix
 from sklearn.base import clone
 from sklearn.feature_extraction import image
+from sklearn.utils.estimator_checks import check_is_fitted
 
+from nilearn._utils import fill_doc, logger, stringify_path
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.niimg import safe_get_data
+from nilearn._utils.niimg_conversions import iter_check_niimg
+from nilearn.decomposition._multi_pca import _MultiPCA
 from nilearn.maskers import NiftiLabelsMasker, SurfaceLabelsMasker
 from nilearn.maskers.surface_labels_masker import signals_to_surf_img_labels
-from nilearn.surface import SurfaceImage
-
-from .._utils import fill_doc, logger, stringify_path
-from .._utils.niimg import safe_get_data
-from .._utils.niimg_conversions import iter_check_niimg
-from ..decomposition._multi_pca import _MultiPCA
-from .hierarchical_kmeans_clustering import HierarchicalKMeans
-from .rena_clustering import (
+from nilearn.regions.hierarchical_kmeans_clustering import HierarchicalKMeans
+from nilearn.regions.rena_clustering import (
     ReNA,
-    _make_edges_surface,
+    make_edges_surface,
 )
+from nilearn.surface import SurfaceImage
 
 
 def _connectivity_surface(mask_img):
@@ -53,7 +54,7 @@ def _connectivity_surface(mask_img):
     for part in mask_img.mesh.parts:
         face_part = mask_img.mesh.parts[part].faces
         mask_part = mask_img.data.parts[part]
-        edges, edge_mask = _make_edges_surface(face_part, mask_part)
+        edges, edge_mask = make_edges_surface(face_part, mask_part)
         # keep only the edges that are in the mask
         edges = edges[:, edge_mask]
         # Reorder the indices of the graph
@@ -438,7 +439,8 @@ class Parcellations(_MultiPCA):
         mask_img_ = self.masker_.mask_img_
 
         logger.log(
-            f"computing {self.method}", verbose=self.verbose, stack_level=3
+            f"computing {self.method}",
+            verbose=self.verbose,
         )
 
         if self.method == "kmeans":
@@ -517,7 +519,9 @@ class Parcellations(_MultiPCA):
                 "match the requested number of parcels."
             )
             warnings.warn(
-                message=n_parcels_warning, category=UserWarning, stacklevel=3
+                message=n_parcels_warning,
+                category=UserWarning,
+                stacklevel=find_stack_level(),
             )
         self.labels_img_ = self.masker_.inverse_transform(
             labels.astype(np.int32)
@@ -525,13 +529,8 @@ class Parcellations(_MultiPCA):
 
         return self
 
-    def _check_fitted(self):
-        """Check whether fit is called or not."""
-        if not hasattr(self, "labels_img_"):
-            raise ValueError(
-                "Object has no labels_img_ attribute. "
-                "Ensure that fit() is called before transform."
-            )
+    def __sklearn_is_fitted__(self):
+        return hasattr(self, "labels_img_")
 
     @fill_doc
     def transform(self, imgs, confounds=None):
@@ -544,7 +543,7 @@ class Parcellations(_MultiPCA):
             Images to process.
 
         confounds : :obj:`list` of CSV files, arrays-like,\
- or :class:`pandas.DataFrame`, optional
+            or :class:`pandas.DataFrame`, default=None
             Each file or numpy array in a list should have shape
             (number of scans, number of confounds)
             Must be of same length as imgs.
@@ -561,7 +560,7 @@ class Parcellations(_MultiPCA):
             (number of scans, number of labels)
 
         """
-        self._check_fitted()
+        check_is_fitted(self)
         imgs, confounds, single_subject = _check_parameters_transform(
             imgs, confounds
         )
@@ -619,7 +618,7 @@ class Parcellations(_MultiPCA):
             Images for process for fit as well for transform to signals.
 
         confounds : :obj:`list` of CSV files, arrays-like or\
- :class:`pandas.DataFrame`, optional
+            :class:`pandas.DataFrame`, default=None
             Each file or numpy array in a list should have shape
             (number of scans, number of confounds).
             Given confounds should have same length as images if
@@ -663,7 +662,7 @@ class Parcellations(_MultiPCA):
         """
         from .signal_extraction import signals_to_img_labels
 
-        self._check_fitted()
+        check_is_fitted(self)
 
         if not isinstance(signals, (list, tuple)) or isinstance(
             signals, np.ndarray

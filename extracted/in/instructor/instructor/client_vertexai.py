@@ -139,19 +139,52 @@ def from_vertexai(
     client: gm.GenerativeModel,
     mode: instructor.Mode = instructor.Mode.VERTEXAI_TOOLS,
     _async: bool = False,
+    use_async: bool | None = None,
     **kwargs: Any,
 ) -> instructor.Instructor:
-    assert mode in {
+    valid_modes = {
         instructor.Mode.VERTEXAI_PARALLEL_TOOLS,
         instructor.Mode.VERTEXAI_TOOLS,
         instructor.Mode.VERTEXAI_JSON,
-    }, "Mode must be instructor.Mode.VERTEXAI_TOOLS"
+    }
 
-    assert isinstance(
-        client, gm.GenerativeModel
-    ), "Client must be an instance of vertexai.generative_models.GenerativeModel"
+    if mode not in valid_modes:
+        from instructor.exceptions import ModeError
 
-    create = client.generate_content_async if _async else client.generate_content
+        raise ModeError(
+            mode=str(mode),
+            provider="VertexAI",
+            valid_modes=[str(m) for m in valid_modes],
+        )
+
+    if not isinstance(client, gm.GenerativeModel):
+        from instructor.exceptions import ClientError
+
+        raise ClientError(
+            f"Client must be an instance of vertexai.generative_models.GenerativeModel. "
+            f"Got: {type(client).__name__}"
+        )
+
+    if use_async is not None and _async != False:
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "Cannot provide both '_async' and 'use_async'. Use 'use_async' instead."
+        )
+
+    if _async and use_async is None:
+        import warnings
+
+        warnings.warn(
+            "'_async' is deprecated. Use 'use_async' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        use_async = _async
+
+    is_async = use_async if use_async is not None else _async
+
+    create = client.generate_content_async if is_async else client.generate_content
 
     return instructor.Instructor(
         client=client,

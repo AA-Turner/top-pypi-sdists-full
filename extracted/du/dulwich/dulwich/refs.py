@@ -26,7 +26,7 @@ import os
 import warnings
 from collections.abc import Iterator
 from contextlib import suppress
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from .errors import PackedRefsException, RefFormatError
 from .file import GitFile, ensure_dir_exists
@@ -437,6 +437,14 @@ class RefsContainer:
                 ret[src] = dst
         return ret
 
+    def pack_refs(self, all: bool = False) -> None:
+        """Pack loose refs into packed-refs file.
+
+        Args:
+            all: If True, pack all refs. If False, only pack tags.
+        """
+        raise NotImplementedError(self.pack_refs)
+
 
 class DictRefsContainer(RefsContainer):
     """RefsContainer backed by a simple dict.
@@ -499,21 +507,20 @@ class DictRefsContainer(RefsContainer):
     ) -> bool:
         if old_ref is not None and self._refs.get(name, ZERO_SHA) != old_ref:
             return False
-        realnames, _ = self.follow(name)
-        for realname in realnames:
-            self._check_refname(realname)
-            old = self._refs.get(realname)
-            self._refs[realname] = new_ref
-            self._notify(realname, new_ref)
-            self._log(
-                realname,
-                old,
-                new_ref,
-                committer=committer,
-                timestamp=timestamp,
-                timezone=timezone,
-                message=message,
-            )
+        # Only update the specific ref requested, not the whole chain
+        self._check_refname(name)
+        old = self._refs.get(name)
+        self._refs[name] = new_ref
+        self._notify(name, new_ref)
+        self._log(
+            name,
+            old,
+            new_ref,
+            committer=committer,
+            timestamp=timestamp,
+            timezone=timezone,
+            message=message,
+        )
         return True
 
     def add_if_new(
@@ -611,16 +618,19 @@ class InfoRefsContainer(RefsContainer):
 class DiskRefsContainer(RefsContainer):
     """Refs container that reads refs from disk."""
 
-    def __init__(self, path, worktree_path=None, logger=None) -> None:
+    def __init__(
+        self,
+        path: Union[str, bytes, os.PathLike],
+        worktree_path: Optional[Union[str, bytes, os.PathLike]] = None,
+        logger=None,
+    ) -> None:
         super().__init__(logger=logger)
-        if getattr(path, "encode", None) is not None:
-            path = os.fsencode(path)
-        self.path = path
+        # Convert path-like objects to strings, then to bytes for Git compatibility
+        self.path = os.fsencode(os.fspath(path))
         if worktree_path is None:
-            worktree_path = path
-        if getattr(worktree_path, "encode", None) is not None:
-            worktree_path = os.fsencode(worktree_path)
-        self.worktree_path = worktree_path
+            self.worktree_path = self.path
+        else:
+            self.worktree_path = os.fsencode(os.fspath(worktree_path))
         self._packed_refs = None
         self._peeled_refs = None
 
@@ -1050,6 +1060,29 @@ class DiskRefsContainer(RefsContainer):
                 break
 
         return True
+
+    def pack_refs(self, all: bool = False) -> None:
+        """Pack loose refs into packed-refs file.
+
+        Args:
+            all: If True, pack all refs. If False, only pack tags.
+        """
+        refs_to_pack: dict[Ref, Optional[ObjectID]] = {}
+        for ref in self.allkeys():
+            if ref == HEADREF:
+                # Never pack HEAD
+                continue
+            if all or ref.startswith(LOCAL_TAG_PREFIX):
+                try:
+                    sha = self[ref]
+                    if sha:
+                        refs_to_pack[ref] = sha
+                except KeyError:
+                    # Broken ref, skip it
+                    pass
+
+        if refs_to_pack:
+            self.add_packed_refs(refs_to_pack)
 
 
 def _split_ref_line(line):

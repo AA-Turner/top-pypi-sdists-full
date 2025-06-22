@@ -156,15 +156,15 @@ def test_threshold_stats_img(data_norm_isf, img_3d_ones_eye, affine_eye):
 
 
 def test_threshold_stats_img_errors():
-    with pytest.raises(ValueError, match="stat_img not to be None"):
+    with pytest.raises(ValueError, match="'stat_img' cannot be None"):
         threshold_stats_img(None, None, alpha=0.05, height_control="fdr")
 
-    with pytest.raises(ValueError, match="stat_img not to be None"):
+    with pytest.raises(ValueError, match="'stat_img' cannot be None"):
         threshold_stats_img(
             None, None, alpha=0.05, height_control="bonferroni"
         )
 
-    with pytest.raises(ValueError, match="height control should be one of"):
+    with pytest.raises(ValueError, match="'height_control' should be one of"):
         threshold_stats_img(None, None, alpha=0.05, height_control="plop")
 
 
@@ -196,6 +196,7 @@ def test_hommel(alpha, expected):
     assert _compute_hommel_value(z, alpha=alpha) == expected
 
 
+@pytest.mark.timeout(0)
 def test_all_resolution_inference(data_norm_isf, affine_eye):
     data = data_norm_isf
     data[2:4, 5:7, 6:8] = 5.0
@@ -311,3 +312,16 @@ def test_all_resolution_inference_height_control(
 
     assert_equal(np.sum(vals > 0), 8)
     assert_equal(np.sum(vals < 0), 0)
+
+
+@pytest.mark.parametrize("height_control", [None, "bonferroni", "fdr", "fpr"])
+def test_threshold_stats_img_surface(surf_img_1d, height_control):
+    """Smoke test threshold_stats_img works on surface."""
+    threshold_stats_img(surf_img_1d, height_control=height_control)
+
+
+def test_threshold_stats_img_surface_with_mask(surf_img_1d, surf_mask_1d):
+    """Smoke test threshold_stats_img works on surface with a mask."""
+    threshold_stats_img(
+        surf_img_1d, height_control="bonferroni", mask_img=surf_mask_1d
+    )

@@ -25,12 +25,15 @@
 
 from abc import ABC, abstractmethod
 import importlib.resources
+import sys
 import yaml
 from gams.connect.connectvalidator import ConnectValidator
 from gams.connect.errors import GamsConnectException
 import pandas as pd
+import numpy as np
 import gams.transfer as gt
 from gams.transfer._internals import generate_unique_labels
+from gams import GamsWorkspace
 
 
 class ConnectAgent(ABC):
@@ -51,12 +54,7 @@ class ConnectAgent(ABC):
     - __init__: Connect agent constructor.
     - execute: Called by the ConnectDatabase after open() and before close().
 
-    Class methods:
-    - cerberus: Returns the cerberus schema as Python data structure.
-
     Non-abstract methods:
-    - close: Called by the ConnectDatabase after execute().
-    - open: Called by the ConnectDatabase before execute().
     - _apply_value_substitutions: Substitutes values in the last column of df as provided in value_subs and returns the modified DataFrame.
     - _connect_error: Raises a GamsConnectException.
     - _describe_container: Logs the status of a gams.transfer.Container.
@@ -67,13 +65,17 @@ class ConnectAgent(ABC):
     - _sym_records_no_none: Returns the records of a symbol or an empty DataFrame with appropriate column names for None records.
     - _transform_sym_none_to_empty: Sets the records of a symbol to an empty DataFrame with appropriate column names if the given records are None.
     - _update_sym_inst: Updates None values in the symbols scope instructions with the corresponding values from the root scope for all keys that exist in both instruction dictionaries.
-    - _check_symbol_exists: Raises a GamsConnectException if a single symbol or at least one symbol of a given list of symbols does exist in the Connect Database.
+    - _symbols_exist_gmd: Raises a GamsConnectException if a single symbol or at least one symbol of a given list of symbols does not exist in the GMD object.
+    - _symbols_exist_gdx: Raises a GamsConnectException if a single symbol or at least one symbol of a given list of symbols does not exist in the GDX file.
+    - _symbols_exist_cdb: Checks the Connect database for existing symbols and raises a GamsConnectException depending on parameter should_exist.
     - _log_instructions_r: Recursive helper method for instruction logging.
     - _replace_no_warn: Helper method for _apply_value_substitutions().
     """
 
     @abstractmethod
-    def __init__(self, cdb, inst):
+    def __init__(self, cdb, inst, agent_index):
+        self._agent_index = agent_index
+        self._agent_name = self.__class__.__name__
         self._col_widths = [30, 30, 30]
         self._no_option_list = [
             "connection",
@@ -89,23 +91,9 @@ class ConnectAgent(ABC):
         ]
         self._system_directory = cdb.system_directory
         self._cdb = cdb
-        self._inst = inst
         self._trace = 0
-
-    @classmethod
-    def cerberus(cls):
-        """
-        Class method that returns the cerberus schema as Python data structure.
-
-        Returns
-        -------
-        dict
-            Python data structure to be used for validation to ensure correct format of instructions given to a Connect agent.
-        """
-        with importlib.resources.as_file(importlib.resources.files("gams.connect.agents") / "schema") as schema_path:
-            schema_file = schema_path / (cls.__name__ + ".yaml")
-            schema = schema_file.read_text()
-        return yaml.safe_load(schema)
+        self._inst_raw = inst
+        self._inst = self._normalize_instructions(inst)
 
     def _normalize_instructions(self, inst):
         """
@@ -121,7 +109,7 @@ class ConnectAgent(ABC):
         dict
             The normalized instructions.
         """
-        v = ConnectValidator(self.cerberus())
+        v = ConnectValidator(self._cdb.load_schema(self))
         inst = v.normalized(inst)
         inst = v.normalize_of_rules(inst)
         return inst
@@ -206,7 +194,8 @@ class ConnectAgent(ABC):
         """
 
         if description is None:
-            description = f"{type(self).__name__}:"
+            agent_info = self._cdb._get_idx_str(self._agent_name, self._agent_index)
+            description = f"{agent_info}:"
 
         header = f"{'Option':<{self._col_widths[0]}}"
         ruler = (
@@ -232,7 +221,7 @@ class ConnectAgent(ABC):
 
         self._cdb.print_log(ruler + "\n")
 
-    def _connect_error(self, msg):
+    def _connect_error(self, msg, agent_info=True):
         """
         Raises a GamsConnectException.
 
@@ -240,12 +229,17 @@ class ConnectAgent(ABC):
         ----------
         msg : str
             Message for the exception.
+        agent_info : bool
+            Add agent name and index to the exception, by default True.
 
         Raises
         ----------
         GamsConnectException
             Always.
         """
+        if agent_info:
+            agent_info = self._cdb._get_idx_str(self._agent_name, self._agent_index)
+            msg = f"{agent_info} failed: " + msg
         raise GamsConnectException(msg, traceback=self._trace > 0)
 
     def _describe_container(self, m, msg):
@@ -565,15 +559,98 @@ class ConnectAgent(ABC):
 
         return df
 
-    def _check_symbol_exists(self, sym_names):
+    def _compile_error_message(self, symbols, suffix, should_exist):
+        plural = len(symbols) > 1
+        symbol_label = "Symbols" if plural else "Symbol"
+        symbol_list = ",".join(symbols)
+        if should_exist:
+            verb = "do not exist" if plural else "does not exist"
+        else:
+            verb = "already exist" if plural else "already exists"
+
+        return f"{symbol_label} >{symbol_list}< {verb} {suffix}"
+
+    def _symbols_exist_gmd(self, gmd, sym_names):
         """
         Raises a GamsConnectException if a single symbol or at least one symbol
+        of a given list of symbols does not exist in the given GMD object.
+
+        Parameters
+        ----------
+        gmd : GMD handle
+        sym_names : str, list[str]
+            A list of symbol names or a single symbol name to be checked.
+
+        Raises
+        ----------
+        GamsConnectException
+            If at least one symbol does not exist.
+        """
+        sym_list = sym_names if isinstance(sym_names, list) else [sym_names]
+        tmp_ws = GamsWorkspace(system_directory=self._cdb._system_directory)
+        db = tmp_ws._add_database_from_gmd(gmd)
+
+        symbols = []
+        for s in sym_list:
+            try:
+                db[s]
+            except:
+                symbols.append(s)
+
+        if not symbols:
+            return
+
+        msg = self._compile_error_message(symbols, "in the GAMS database.", should_exist=True)
+        self._connect_error(msg)
+
+    def _symbols_exist_gdx(self, gdx_file, sym_names):
+        """
+        Raises a GamsConnectException if a single symbol or at least one symbol
+        of a given list of symbols does not exist in the given GDX file.
+
+        Parameters
+        ----------
+        gdx_file : str
+        sym_names : str, list[str]
+            A list of symbol names or a single symbol name to be checked.
+
+        Raises
+        ----------
+        GamsConnectException
+            If at least one symbol does not exist.
+        """
+        sym_list = sym_names if isinstance(sym_names, list) else [sym_names]
+        tmp_ws = GamsWorkspace(system_directory=self._cdb._system_directory)
+        db = tmp_ws.add_database_from_gdx(gdx_file)
+
+        symbols = []
+        for s in sym_list:
+            try:
+                db[s]
+            except:
+                symbols.append(s)
+
+        if not symbols:
+            return
+
+        msg = self._compile_error_message(symbols, f"in the GDX file >{gdx_file}<.", should_exist=True)
+        self._connect_error(msg)
+
+    def _symbols_exist_cdb(self, sym_names, should_exist=False):
+        """
+        Checks the Connect database for existing symbols and raises a GamsConnectException
+        depending on parameter should_exist.
+        For should_exist=False: Raises a GamsConnectException if a single symbol or at least one symbol
         of a given list of symbols does exist in the Connect Database.
+        For should_exist=True: Raises a GamsConnectException if a single symbol or at least one symbol
+        of a given list of symbols does not exist in the Connect Database.
 
         Parameters
         ----------
         sym_names : str, list[str]
             A list of symbol names or a single symbol name to be checked.
+        should_exist : bool
+            If False, raises an exception if any symbol is missing. If True, raises an exception if any symbol already exists.
 
         Raises
         ----------
@@ -581,15 +658,16 @@ class ConnectAgent(ABC):
             If at least one symbol already exists.
         """
         sym_list = sym_names if isinstance(sym_names, list) else [sym_names]
-        existing_symbols = [s for s in sym_list if s in self._cdb.container]
-        if len(existing_symbols) == 1:
-            self._connect_error(
-                f"A symbol with name >{existing_symbols[0]}< already exists in the Connect Database."
-            )
-        elif len(existing_symbols) > 1:
-            self._connect_error(
-                f"Symbols >{existing_symbols}< already exist in the Connect Database."
-            )
+        symbols = (
+            [s for s in sym_list if s not in self._cdb.container]
+            if should_exist
+            else [s for s in sym_list if s in self._cdb.container]
+        )
+
+        if not symbols:
+            return
+        msg = self._compile_error_message(symbols, "in the Connect database.", should_exist)
+        self._connect_error(msg)
 
     def _update_sym_inst(self, sym_inst, root_inst):
         """
@@ -638,18 +716,21 @@ class ConnectAgent(ABC):
         """
         return default if d.get(key) is None else d[key]
 
-    def open(self):
-        """
-        Called by the ConnectDatabase before execute().
-        """
+    def setup_log(self):
+        if self._trace > 3:
+            self._restore_max_rows = pd.get_option("display.max_rows")
+            self._restore_max_columns = pd.get_option("display.max_columns")
+            self._restore_np_threshold = np.get_printoptions()["threshold"]
+            pd.set_option("display.max_rows", None, "display.max_columns", None)
+            np.set_printoptions(threshold=sys.maxsize)
+
+    def restore_log(self):
+        if self._trace > 3:
+            pd.set_option("display.max_rows", self._restore_max_rows, "display.max_columns", self._restore_max_columns)
+            np.set_printoptions(self._restore_np_threshold)
 
     @abstractmethod
     def execute(self):
         """
         Called by the ConnectDatabase after open() and before close(). This abstract method needs to be implemented by a subclass.
-        """
-
-    def close(self):
-        """
-        Called by the ConnectDatabase after execute().
         """

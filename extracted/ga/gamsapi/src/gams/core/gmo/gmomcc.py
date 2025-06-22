@@ -1430,6 +1430,22 @@ def gmoQExtractAlgSet(pgmo, x):
     r"""gmoQExtractAlgSet(pgmo, x)"""
     return _gmomcc.gmoQExtractAlgSet(pgmo, x)
 
+def gmoQExtractDenseSwitchFactor(pgmo):
+    r"""gmoQExtractDenseSwitchFactor(pgmo) -> double"""
+    return _gmomcc.gmoQExtractDenseSwitchFactor(pgmo)
+
+def gmoQExtractDenseSwitchFactorSet(pgmo, x):
+    r"""gmoQExtractDenseSwitchFactorSet(pgmo, x)"""
+    return _gmomcc.gmoQExtractDenseSwitchFactorSet(pgmo, x)
+
+def gmoQExtractDenseSwitchLog(pgmo):
+    r"""gmoQExtractDenseSwitchLog(pgmo) -> int"""
+    return _gmomcc.gmoQExtractDenseSwitchLog(pgmo)
+
+def gmoQExtractDenseSwitchLogSet(pgmo, x):
+    r"""gmoQExtractDenseSwitchLogSet(pgmo, x)"""
+    return _gmomcc.gmoQExtractDenseSwitchLogSet(pgmo, x)
+
 def gmoAltBounds(pgmo):
     r"""gmoAltBounds(pgmo) -> int"""
     return _gmomcc.gmoAltBounds(pgmo)

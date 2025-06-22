@@ -29,7 +29,7 @@ tableOfContents:
         default: false
       emptySymbols:
         type: boolean
-        default: false
+        default: true
 valueSubstitutions:
   type: dict
   default: null

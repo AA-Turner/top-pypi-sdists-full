@@ -32,15 +32,9 @@ import pandas as pd
 
 class Projection(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._aggregation_method = inst["aggregationMethod"]
@@ -84,10 +78,7 @@ class Projection(ConnectAgent):
         symrecords_list = []
         sym_types = []
         for sym_name in self._name:
-            if sym_name not in self._cdb.container:
-                self._connect_error(
-                    f"Symbol '{sym_name}' not found in Connect database."
-                )
+            self._symbols_exist_cdb(sym_name, should_exist=True)
             sym = self._cdb.container[sym_name]
             if sym.dimension != 0:
                 self._connect_error(
@@ -159,8 +150,7 @@ class Projection(ConnectAgent):
 
         # NAME
         ssym_name = ms.group("name")
-        if ssym_name not in self._cdb.container:
-            self._connect_error(f"Symbol '{ssym_name}' not found in Connect database.")
+        self._symbols_exist_cdb(ssym_name, should_exist=True)
         ssym = self._cdb.container[ssym_name]
         tsym_name = mt.group("name")
 
@@ -249,7 +239,7 @@ class Projection(ConnectAgent):
                 "\n"
             )
 
-        self._check_symbol_exists(tsym_name)
+        self._symbols_exist_cdb(tsym_name)
 
         return (
             ssym,
@@ -355,6 +345,7 @@ class Projection(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
 
         # list of scalars into a 1-dim parameter/var/equ

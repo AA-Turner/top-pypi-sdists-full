@@ -25,28 +25,24 @@
 import os
 import sys
 from collections import OrderedDict
-from distutils.command.sdist import sdist
-from distutils.dep_util import newer
+from setuptools.command.sdist import sdist
 
-from pybtex import __version__
 from setuptools import find_packages, setup
 
 progname = 'pybtex'
 
 
 class Sdist(sdist):
-
     def run(self):
+        sys.path.insert(0, os.path.join(ROOT))
         from pybtex.database.convert import convert
         bibtex_yaml = os.path.join('examples', 'xampl.yaml')
         bibtexml = os.path.join('examples', 'xampl.bibtexml')
         bibtex = os.path.join('examples', 'xampl.bib')
-        if not os.path.exists(bibtex_yaml) or newer(bibtex, bibtex_yaml):
-            convert(bibtex, bibtex_yaml)
-        if not os.path.exists(bibtexml) or newer(bibtex, bibtexml):
-            convert(bibtex, bibtexml)
+        convert(bibtex, bibtex_yaml)
+        convert(bibtex, bibtexml)
 
-        sys.path.insert(0, os.path.join(ROOT, 'docs'))
+        sys.path.insert(0, os.path.join(ROOT, 'docs/pybtex_doctools'))
         from pybtex_doctools.man import generate_manpages
         generate_manpages(os.path.join(ROOT, 'docs'))
 
@@ -56,14 +52,18 @@ class Sdist(sdist):
 ROOT = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(ROOT, 'README')).read()
 
-install_requires = ['PyYAML>=3.01', 'latexcodec>=1.0.4', 'six']
+install_requires = [
+    'PyYAML>=3.01',
+    'latexcodec>=1.0.4',
+    'importlib_metadata; python_version < "3.10"'
+]
 extras_require = {
     'test': ['pytest'],
+    'doc': ['sphinx'],
 }
 
 setup(
     name=progname,
-    version=__version__,
     description='A BibTeX-compatible bibliography processor in Python',
     long_description=README,
     author='Andrey Golovizin',
@@ -80,10 +80,8 @@ setup(
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: End Users/Desktop',
-        'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Text Processing :: Markup :: LaTeX',
         'Topic :: Text Processing :: Markup :: XML',
@@ -91,8 +89,8 @@ setup(
     ],
     install_requires=install_requires,
     extras_require=extras_require,
-    python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*',
-    packages=find_packages(exclude=['docs']),
+    python_requires='>=3.6',
+    packages=find_packages(exclude=('tests', 'tests.*')),
     include_package_data=True,
     cmdclass={'sdist': Sdist},
     entry_points={

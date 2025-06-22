@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: attoworld
-Version: 2025.0.29
+Version: 2025.0.30
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,6 +11,7 @@ Requires-Dist: pyyaml
 Requires-Dist: marimo
 Requires-Dist: h5py
 Requires-Dist: pandas
+Requires-Dist: pyyaml
 License-File: LICENSE
 Summary: Tools from the Attosecond science group at the Max Planck Institute of Quantum Optics
 Author-email: Nick Karpowicz <nicholas.karpowicz@mpq.mpg.de>

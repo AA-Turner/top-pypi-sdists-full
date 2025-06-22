@@ -82,11 +82,14 @@ def fake_open(
     newline: Optional[str] = None,
     closefd: bool = True,
     opener: Optional[Callable] = None,
+    is_fake_open_code: bool = False,
 ) -> Union[AnyFileWrapper, IO[Any]]:
     """Redirect the call to FakeFileOpen.
     See FakeFileOpen.call() for description.
     """
-    if is_called_from_skipped_module(
+    # We don't need to check this if we are in an `open_code` call
+    # from a faked file (and this might cause recursions in `linecache`)
+    if not is_fake_open_code and is_called_from_skipped_module(
         skip_names=skip_names,
         case_sensitive=filesystem.is_case_sensitive,
         check_open_code=sys.version_info >= (3, 12),
@@ -110,8 +113,8 @@ def fake_open(
 class FakeFileOpen:
     """Faked `file()` and `open()` function replacements.
 
-    Returns FakeFile objects in a FakeFilesystem in place of the `file()`
-    or `open()` function.
+    Returns :py:class:`FakeDirectory<pyfakefs.fake_file.FakeFile>` objects in a
+        fake filesystem; replaces the `open()` function.
     """
 
     __name__ = "FakeFileOpen"
@@ -157,7 +160,7 @@ class FakeFileOpen:
                 flushed if buffer size is exceeded. The default (-1) uses a
                 system specific default buffer size. Text line mode (e.g.
                 buffering=1 in text mode) is not supported.
-            encoding: The encoding used to encode unicode strings / decode
+            encoding: The encoding used to encode Unicode strings / decode
                 bytes.
             errors: (str) Defines how encoding errors are handled.
             newline: Controls universal newlines, passed to stream object.
@@ -267,9 +270,8 @@ class FakeFileOpen:
         fakefile = FakeFileWrapper(
             file_object,
             file_path,
-            update=open_modes.can_write and can_write,
-            read=open_modes.can_read,
-            append=open_modes.append,
+            open_modes=open_modes,
+            allow_update=open_modes.can_write and can_write,
             delete_on_close=self._delete_on_close,
             filesystem=self.filesystem,
             newline=newline,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymdown-extensions
-Version: 10.15
+Version: 10.16
 Summary: Extension pack for Python Markdown.
 Project-URL: Homepage, https://github.com/facelessuser/pymdown-extensions
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,17 +13,17 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: markdown>=3.6
 Requires-Dist: pyyaml
 Provides-Extra: extra

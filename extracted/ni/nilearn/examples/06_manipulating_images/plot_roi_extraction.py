@@ -17,8 +17,11 @@ libraries. Here we give clear guidelines about these steps, starting with
 pre-image operations to post-image operations. The main point is that
 visualization & results checking be possible at each step.
 
-See also :doc:`plot_extract_rois_smith_atlas` for automatic ROI extraction
-of brain connected networks given in 4D image.
+.. seealso::
+
+    :doc:`plot_extract_rois_smith_atlas`
+    for automatic ROI extraction of brain connected networks
+    given in 4D image.
 
 .. include:: ../../../examples/masker_note.rst
 
@@ -178,7 +181,11 @@ log_p_values_img = new_img_like(fmri_img, log_p_values)
 # with coordinates given manually and colorbar on the right side of plot (by
 # default colorbar=True)
 plot_stat_map(
-    log_p_values_img, mean_img, title="p-values", cut_coords=cut_coords
+    log_p_values_img,
+    mean_img,
+    title="p-values",
+    cut_coords=cut_coords,
+    cmap="inferno",
 )
 
 # %%
@@ -202,15 +209,16 @@ log_p_values[log_p_values < 5] = 0
 # function. As shown above, we first transform data in array to Nifti image.
 log_p_values_img = new_img_like(fmri_img, log_p_values)
 
-# Now, visualizing the created log p-values to image without colorbar and
+# Now, visualizing the created log p-values to image
 # without Left - 'L', Right - 'R' annotation
 plot_stat_map(
     log_p_values_img,
     mean_img,
     title="Thresholded p-values",
     annotate=False,
-    colorbar=False,
+    colorbar=True,
     cut_coords=cut_coords,
+    cmap="inferno",
 )
 
 # %%
@@ -324,14 +332,16 @@ plot_roi(second_roi_img, mean_img, title="Connected components: second ROI")
 
 # %%
 # Use the new ROIs, to extract data maps in both ROIs
-
 # We extract data from ROIs using nilearn's NiftiLabelsMasker
 from nilearn.maskers import NiftiLabelsMasker
 
+# %%
 # Before data extraction, we convert an array labels to Nifti like image. All
 # inputs to NiftiLabelsMasker must be Nifti-like images or filename to Nifti
 # images. We use the same reference image as used above in previous sections
 labels_img = new_img_like(fmri_img, labels)
+
+# %%
 # First, initialize masker with parameters suited for data extraction using
 # labels as input image, resampling_target is None as affine,
 # shape/size is same
@@ -340,9 +350,8 @@ labels_img = new_img_like(fmri_img, labels)
 masker = NiftiLabelsMasker(
     labels_img, resampling_target=None, standardize=False, detrend=False
 )
-# After initialization of masker object, we call fit() for preparing labels_img
-# data according to given parameters
-masker.fit()
+
+# %%
 # Preparing for data extraction: setting number of conditions, size, etc from
 # haxby dataset
 condition_names = haxby_labels.unique()
@@ -350,6 +359,8 @@ n_cond_img = fmri_data[..., haxby_labels == "house"].shape[-1]
 n_conds = len(condition_names)
 
 X1, X2 = np.zeros((n_cond_img, n_conds)), np.zeros((n_cond_img, n_conds))
+
+# %%
 # Gathering data for each condition and then use transformer from masker
 # object transform() on each data. The transformer extracts data in condition
 # maps where the target regions are specified by labels images
@@ -357,7 +368,7 @@ for i, cond in enumerate(condition_names):
     cond_maps = new_img_like(
         fmri_img, fmri_data[..., haxby_labels == cond][..., :n_cond_img]
     )
-    mask_data = masker.transform(cond_maps)
+    mask_data = masker.fit_transform(cond_maps)
     X1[:, i], X2[:, i] = mask_data[:, 0], mask_data[:, 1]
 condition_names[np.where(condition_names == "scrambledpix")] = "scrambled"
 

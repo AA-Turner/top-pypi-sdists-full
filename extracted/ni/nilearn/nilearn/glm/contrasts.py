@@ -1,7 +1,5 @@
 """Contrast computation and operation on contrast to \
 obtain fixed effect results.
-
-Author: Bertrand Thirion, Martin Perez-Guevara, Ana Luisa Pinho 2020
 """
 
 from warnings import warn
@@ -11,6 +9,7 @@ import pandas as pd
 import scipy.stats as sps
 
 from nilearn._utils import logger, rename_parameters
+from nilearn._utils.logger import find_stack_level
 from nilearn.glm._utils import pad_contrast, z_score
 from nilearn.maskers import NiftiMasker, SurfaceMasker
 from nilearn.surface import SurfaceImage
@@ -28,7 +27,7 @@ def expression_to_contrast_vector(expression, design_columns):
     expression : :obj:`str`
         The expression to convert to a vector.
 
-    design_columns : :obj:`list` or array of strings
+    design_columns : :obj:`list` or array of :obj:`str`
         The column names of the design matrix.
 
     """
@@ -160,7 +159,10 @@ def compute_fixed_effect_contrast(labels, results, con_vals, stat_type=None):
     n_contrasts = 0
     for i, (lab, res, con_val) in enumerate(zip(labels, results, con_vals)):
         if np.all(con_val == 0):
-            warn(f"Contrast for run {int(i)} is null.")
+            warn(
+                f"Contrast for run {int(i)} is null.",
+                stacklevel=find_stack_level(),
+            )
             continue
         contrast_ = compute_contrast(lab, res, con_val, stat_type)
         contrast = contrast_ if contrast is None else contrast + contrast_
@@ -270,7 +272,7 @@ class Contrast:
         warn(
             category=DeprecationWarning,
             message=attrib_deprecation_msg,
-            stacklevel=2,
+            stacklevel=find_stack_level(),
         )
         return self.stat_type
 
@@ -390,7 +392,7 @@ class Contrast:
 
         Parameters
         ----------
-        baseline : :obj:`float`, optional, default=0.0
+        baseline : :obj:`float`, default=0.0
             Baseline value for the test statistic.
 
 
@@ -414,7 +416,7 @@ class Contrast:
     def __add__(self, other):
         """Add two contrast, Yields an new Contrast instance.
 
-        This should be used only on indepndent contrasts.
+        This should be used only on independent contrasts.
         """
         if self.stat_type != other.stat_type:
             raise ValueError(
@@ -429,7 +431,7 @@ class Contrast:
             warn(
                 "Running approximate fixed effects on F statistics.",
                 category=UserWarning,
-                stacklevel=2,
+                stacklevel=find_stack_level(),
             )
         effect_ = self.effect + other.effect
         variance_ = self.variance + other.variance
@@ -481,7 +483,7 @@ def compute_fixed_effects(
         The input variance images.
 
     mask : Nifti1Image or NiftiMasker instance or \
-        :obj:`~nilearn.maskers.SurfaceMasker` instance
+        :obj:`~nilearn.maskers.SurfaceMasker` instance \
         or None, default=None
         Mask image. If ``None``, it is recomputed from ``contrast_imgs``.
 
@@ -543,15 +545,14 @@ def compute_fixed_effects(
         [masker.transform(ci).squeeze() for ci in contrast_imgs]
     )
 
-    if dofs is not None:
-        if len(dofs) != n_runs:
-            raise ValueError(
-                f"The number of degrees of freedom ({len(dofs)}) "
-                f"differs from the number of contrast images ({n_runs})."
-            )
-    else:
+    if dofs is None:
         dofs = [100] * n_runs
 
+    elif len(dofs) != n_runs:
+        raise ValueError(
+            f"The number of degrees of freedom ({len(dofs)}) "
+            f"differs from the number of contrast images ({n_runs})."
+        )
     (
         fixed_fx_contrast,
         fixed_fx_variance,
@@ -568,9 +569,10 @@ def compute_fixed_effects(
     warn(
         category=DeprecationWarning,
         message="The behavior of this function will be "
-        "changed in release 0.13 to have an additional"
-        "return value 'fixed_fx_z_score_img'  by default. "
+        "changed in release 0.13 to have an additional "
+        "return value 'fixed_fx_z_score_img' by default. "
         "Please set return_z_score to True.",
+        stacklevel=find_stack_level(),
     )
     if return_z_score:
         return (

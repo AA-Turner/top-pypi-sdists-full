@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-oauthlib
-Version: 3.2.0.20250516
+Version: 3.3.0.20250622
 Summary: Typing stubs for oauthlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -26,7 +26,7 @@ It can be used by type-checking tools like
 [Pyre](https://pyre-check.org/),
 PyCharm, etc. to check code that uses `oauthlib`. This version of
 `types-oauthlib` aims to provide accurate annotations for
-`oauthlib==3.2.*`.
+`oauthlib==3.3.*`.
 
 This stub package is marked as [partial](https://peps.python.org/pep-0561/#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -40,8 +40,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
+mypy 1.16.0,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`126768408a69b7a3a09b7d3992970b289f92937e`](https://github.com/python/typeshed/commit/126768408a69b7a3a09b7d3992970b289f92937e).
+[`707cd57e4935d36e2c812ef6c650b8faa2890162`](https://github.com/python/typeshed/commit/707cd57e4935d36e2c812ef6c650b8faa2890162).

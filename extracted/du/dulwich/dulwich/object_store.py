@@ -35,6 +35,7 @@ from typing import (
     Callable,
     Optional,
     Protocol,
+    Union,
     cast,
 )
 
@@ -364,11 +365,47 @@ class BaseObjectStore:
             if sha.startswith(prefix):
                 yield sha
 
+    def get_commit_graph(self):
+        """Get the commit graph for this object store.
+
+        Returns:
+          CommitGraph object if available, None otherwise
+        """
+        return None
+
+    def write_commit_graph(self, refs=None, reachable=True) -> None:
+        """Write a commit graph file for this object store.
+
+        Args:
+            refs: List of refs to include. If None, includes all refs from object store.
+            reachable: If True, includes all commits reachable from refs.
+                      If False, only includes the direct ref targets.
+
+        Note:
+            Default implementation does nothing. Subclasses should override
+            this method to provide commit graph writing functionality.
+        """
+        raise NotImplementedError(self.write_commit_graph)
+
+    def get_object_mtime(self, sha):
+        """Get the modification time of an object.
+
+        Args:
+          sha: SHA1 of the object
+
+        Returns:
+          Modification time as seconds since epoch, or None if not available
+        """
+        # Default implementation returns None
+        # Subclasses can override to provide actual mtime
+        return None
+
 
 class PackBasedObjectStore(BaseObjectStore):
-    def __init__(self, pack_compression_level=-1) -> None:
+    def __init__(self, pack_compression_level=-1, pack_index_version=None) -> None:
         self._pack_cache: dict[str, Pack] = {}
         self.pack_compression_level = pack_compression_level
+        self.pack_index_version = pack_index_version
 
     def add_pack(self) -> tuple[BytesIO, Callable[[], None], Callable[[], None]]:
         """Add a new pack to this object store."""
@@ -381,7 +418,6 @@ class PackBasedObjectStore(BaseObjectStore):
 
         Args:
           count: Number of items to add
-          pack_data: Iterator over pack data tuples
         """
         if count == 0:
             # Don't bother writing an empty pack file
@@ -496,8 +532,13 @@ class PackBasedObjectStore(BaseObjectStore):
     def _get_loose_object(self, sha) -> Optional[ShaFile]:
         raise NotImplementedError(self._get_loose_object)
 
-    def _remove_loose_object(self, sha) -> None:
-        raise NotImplementedError(self._remove_loose_object)
+    def delete_loose_object(self, sha) -> None:
+        """Delete a loose object.
+
+        This method only handles loose objects. For packed objects,
+        use repack(exclude=...) to exclude them during repacking.
+        """
+        raise NotImplementedError(self.delete_loose_object)
 
     def _remove_pack(self, name) -> None:
         raise NotImplementedError(self._remove_pack)
@@ -512,32 +553,50 @@ class PackBasedObjectStore(BaseObjectStore):
             objects.add((self._get_loose_object(sha), None))
         self.add_objects(list(objects))
         for obj, path in objects:
-            self._remove_loose_object(obj.id)
+            self.delete_loose_object(obj.id)
         return len(objects)
 
-    def repack(self):
+    def repack(self, exclude=None):
         """Repack the packs in this repository.
 
         Note that this implementation is fairly naive and currently keeps all
         objects in memory while it repacks.
+
+        Args:
+          exclude: Optional set of object SHAs to exclude from repacking
         """
+        if exclude is None:
+            exclude = set()
+
         loose_objects = set()
+        excluded_loose_objects = set()
         for sha in self._iter_loose_objects():
-            loose_objects.add(self._get_loose_object(sha))
+            if sha not in exclude:
+                loose_objects.add(self._get_loose_object(sha))
+            else:
+                excluded_loose_objects.add(sha)
+
         objects = {(obj, None) for obj in loose_objects}
         old_packs = {p.name(): p for p in self.packs}
         for name, pack in old_packs.items():
-            objects.update((obj, None) for obj in pack.iterobjects())
+            objects.update(
+                (obj, None) for obj in pack.iterobjects() if obj.id not in exclude
+            )
 
-        # The name of the consolidated pack might match the name of a
-        # pre-existing pack. Take care not to remove the newly created
-        # consolidated pack.
+        # Only create a new pack if there are objects to pack
+        if objects:
+            # The name of the consolidated pack might match the name of a
+            # pre-existing pack. Take care not to remove the newly created
+            # consolidated pack.
+            consolidated = self.add_objects(objects)
+            old_packs.pop(consolidated.name(), None)
 
-        consolidated = self.add_objects(objects)
-        old_packs.pop(consolidated.name(), None)
-
+        # Delete loose objects that were packed
         for obj in loose_objects:
-            self._remove_loose_object(obj.id)
+            self.delete_loose_object(obj.id)
+        # Delete excluded loose objects
+        for sha in excluded_loose_objects:
+            self.delete_loose_object(sha)
         for name, pack in old_packs.items():
             self._remove_pack(pack)
         self._update_pack_cache()
@@ -609,7 +668,7 @@ class PackBasedObjectStore(BaseObjectStore):
         include_comp=False,
         allow_missing: bool = False,
         convert_ofs_delta: bool = True,
-    ) -> Iterator[ShaFile]:
+    ) -> Iterator[UnpackedObject]:
         todo: set[bytes] = set(shas)
         for p in self._iter_cached_packs():
             for unpacked in p.iter_unpacked_subset(
@@ -729,7 +788,11 @@ class DiskObjectStore(PackBasedObjectStore):
     """Git-style object store that exists on disk."""
 
     def __init__(
-        self, path, loose_compression_level=-1, pack_compression_level=-1
+        self,
+        path: Union[str, os.PathLike],
+        loose_compression_level=-1,
+        pack_compression_level=-1,
+        pack_index_version=None,
     ) -> None:
         """Open an object store.
 
@@ -737,19 +800,27 @@ class DiskObjectStore(PackBasedObjectStore):
           path: Path of the object store.
           loose_compression_level: zlib compression level for loose objects
           pack_compression_level: zlib compression level for pack objects
+          pack_index_version: pack index version to use (1, 2, or 3)
         """
-        super().__init__(pack_compression_level=pack_compression_level)
+        super().__init__(
+            pack_compression_level=pack_compression_level,
+            pack_index_version=pack_index_version,
+        )
         self.path = path
         self.pack_dir = os.path.join(self.path, PACKDIR)
         self._alternates = None
         self.loose_compression_level = loose_compression_level
         self.pack_compression_level = pack_compression_level
+        self.pack_index_version = pack_index_version
+
+        # Commit graph support - lazy loaded
+        self._commit_graph = None
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}({self.path!r})>"
 
     @classmethod
-    def from_config(cls, path, config):
+    def from_config(cls, path: Union[str, os.PathLike], config):
         try:
             default_compression_level = int(
                 config.get((b"core",), b"compression").decode()
@@ -768,7 +839,13 @@ class DiskObjectStore(PackBasedObjectStore):
             )
         except KeyError:
             pack_compression_level = default_compression_level
-        return cls(path, loose_compression_level, pack_compression_level)
+        try:
+            pack_index_version = int(config.get((b"pack",), b"indexVersion").decode())
+        except KeyError:
+            pack_index_version = None
+        return cls(
+            path, loose_compression_level, pack_compression_level, pack_index_version
+        )
 
     @property
     def alternates(self):
@@ -865,8 +942,26 @@ class DiskObjectStore(PackBasedObjectStore):
         except FileNotFoundError:
             return None
 
-    def _remove_loose_object(self, sha) -> None:
+    def delete_loose_object(self, sha) -> None:
         os.remove(self._get_shafile_path(sha))
+
+    def get_object_mtime(self, sha):
+        """Get the modification time of a loose object.
+
+        Args:
+          sha: SHA1 of the object
+
+        Returns:
+          Modification time as seconds since epoch, or None if not a loose object
+        """
+        if not self.contains_loose(sha):
+            return None
+
+        path = self._get_shafile_path(sha)
+        try:
+            return os.path.getmtime(path)
+        except (OSError, FileNotFoundError):
+            return None
 
     def _remove_pack(self, pack) -> None:
         try:
@@ -937,7 +1032,9 @@ class DiskObjectStore(PackBasedObjectStore):
 
         # Write the index.
         with GitFile(target_index_path, "wb", mask=PACK_MODE) as index_file:
-            write_pack_index(index_file, entries, pack_sha)
+            write_pack_index(
+                index_file, entries, pack_sha, version=self.pack_index_version
+            )
 
         # Add the pack to the store and return it.
         final_pack = Pack(pack_base_name)
@@ -1022,7 +1119,7 @@ class DiskObjectStore(PackBasedObjectStore):
             )
 
     @classmethod
-    def init(cls, path):
+    def init(cls, path: Union[str, os.PathLike]):
         try:
             os.mkdir(path)
         except FileExistsError:
@@ -1064,6 +1161,88 @@ class DiskObjectStore(PackBasedObjectStore):
                 if sha not in seen:
                     seen.add(sha)
                     yield sha
+
+    def get_commit_graph(self):
+        """Get the commit graph for this object store.
+
+        Returns:
+          CommitGraph object if available, None otherwise
+        """
+        if self._commit_graph is None:
+            from .commit_graph import read_commit_graph
+
+            # Look for commit graph in our objects directory
+            graph_file = os.path.join(self.path, "info", "commit-graph")
+            if os.path.exists(graph_file):
+                self._commit_graph = read_commit_graph(graph_file)
+        return self._commit_graph
+
+    def write_commit_graph(self, refs=None, reachable=True) -> None:
+        """Write a commit graph file for this object store.
+
+        Args:
+            refs: List of refs to include. If None, includes all refs from object store.
+            reachable: If True, includes all commits reachable from refs.
+                      If False, only includes the direct ref targets.
+        """
+        from .commit_graph import get_reachable_commits
+
+        if refs is None:
+            # Get all commit objects from the object store
+            all_refs = []
+            # Iterate through all objects to find commits
+            for sha in self:
+                try:
+                    obj = self[sha]
+                    if obj.type_name == b"commit":
+                        all_refs.append(sha)
+                except KeyError:
+                    continue
+        else:
+            # Use provided refs
+            all_refs = refs
+
+        if not all_refs:
+            return  # No commits to include
+
+        if reachable:
+            # Get all reachable commits
+            commit_ids = get_reachable_commits(self, all_refs)
+        else:
+            # Just use the direct ref targets - ensure they're hex ObjectIDs
+            commit_ids = []
+            for ref in all_refs:
+                if isinstance(ref, bytes) and len(ref) == 40:
+                    # Already hex ObjectID
+                    commit_ids.append(ref)
+                elif isinstance(ref, bytes) and len(ref) == 20:
+                    # Binary SHA, convert to hex ObjectID
+                    from .objects import sha_to_hex
+
+                    commit_ids.append(sha_to_hex(ref))
+                else:
+                    # Assume it's already correct format
+                    commit_ids.append(ref)
+
+        if commit_ids:
+            # Write commit graph directly to our object store path
+            # Generate the commit graph
+            from .commit_graph import generate_commit_graph
+
+            graph = generate_commit_graph(self, commit_ids)
+
+            if graph.entries:
+                # Ensure the info directory exists
+                info_dir = os.path.join(self.path, "info")
+                os.makedirs(info_dir, exist_ok=True)
+
+                # Write using GitFile for atomic operation
+                graph_path = os.path.join(info_dir, "commit-graph")
+                with GitFile(graph_path, "wb") as f:
+                    graph.write_to_file(f)
+
+            # Clear cached commit graph so it gets reloaded
+            self._commit_graph = None
 
 
 class MemoryObjectStore(BaseObjectStore):
@@ -1150,6 +1329,7 @@ class MemoryObjectStore(BaseObjectStore):
                 for obj in PackInflater.for_pack_data(p, self.get_raw):
                     self.add_object(obj)
                 p.close()
+                f.close()
             else:
                 f.close()
 
@@ -1165,10 +1345,26 @@ class MemoryObjectStore(BaseObjectStore):
 
         Args:
           count: Number of items to add
-          pack_data: Iterator over pack data tuples
         """
-        for unpacked_object in unpacked_objects:
-            self.add_object(unpacked_object.sha_file())
+        if count == 0:
+            return
+
+        # Since MemoryObjectStore doesn't support pack files, we need to
+        # extract individual objects. To handle deltas properly, we write
+        # to a temporary pack and then use PackInflater to resolve them.
+        f, commit, abort = self.add_pack()
+        try:
+            write_pack_data(
+                f.write,
+                unpacked_objects,
+                num_records=count,
+                progress=progress,
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
 
     def add_thin_pack(self, read_all, read_some, progress=None) -> None:
         """Add a new thin pack to this object store.
@@ -1290,7 +1486,6 @@ class MissingObjectFinder:
       get_tagged: Function that returns a dict of pointed-to sha -> tag
         sha for including tags.
       get_parents: Optional function for getting the parents of a commit.
-      tagged: dict of pointed-to sha -> tag sha for including tags
     """
 
     def __init__(
@@ -1577,12 +1772,20 @@ class OverlayObjectStore(BaseObjectStore):
         self, shas: Iterable[bytes], *, allow_missing: bool = False
     ) -> Iterator[ShaFile]:
         todo = set(shas)
+        found: set[bytes] = set()
+
         for b in self.bases:
-            for o in b.iterobjects_subset(todo, allow_missing=True):
+            # Create a copy of todo for each base to avoid modifying
+            # the set while iterating through it
+            current_todo = todo - found
+            for o in b.iterobjects_subset(current_todo, allow_missing=True):
                 yield o
-                todo.remove(o.id)
-        if todo and not allow_missing:
-            raise KeyError(o.id)
+                found.add(o.id)
+
+        # Check for any remaining objects not found
+        missing = todo - found
+        if missing and not allow_missing:
+            raise KeyError(next(iter(missing)))
 
     def iter_unpacked_subset(
         self,
@@ -1647,7 +1850,7 @@ class BucketBasedObjectStore(PackBasedObjectStore):
     def _get_loose_object(self, sha) -> None:
         return None
 
-    def _remove_loose_object(self, sha) -> None:
+    def delete_loose_object(self, sha) -> None:
         # Doesn't exist..
         pass
 
@@ -1704,19 +1907,23 @@ class BucketBasedObjectStore(PackBasedObjectStore):
                 max_size=PACK_SPOOL_FILE_MAX_SIZE, prefix="incoming-"
             )
             checksum = p.get_stored_checksum()
-            write_pack_index(idxf, entries, checksum)
+            write_pack_index(idxf, entries, checksum, version=self.pack_index_version)
             idxf.seek(0)
             idx = load_pack_index_file(basename + ".idx", idxf)
             for pack in self.packs:
                 if pack.get_stored_checksum() == p.get_stored_checksum():
                     p.close()
                     idx.close()
+                    pf.close()
+                    idxf.close()
                     return pack
             pf.seek(0)
             idxf.seek(0)
             self._upload_pack(basename, pf, idxf)
             final_pack = Pack.from_objects(p, idx)
             self._add_cached_pack(basename, final_pack)
+            pf.close()
+            idxf.close()
             return final_pack
 
         return pf, commit, pf.close

@@ -28,15 +28,9 @@ from gams.connect.agents.connectagent import ConnectAgent
 
 class PythonCode(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst)
-
-    def __del__(self):
-        pass
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._code = inst["code"]
@@ -44,6 +38,7 @@ class PythonCode(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst)
             self._describe_container(self._cdb.container, "Connect Container (before):")
 
         loc = dict(locals())

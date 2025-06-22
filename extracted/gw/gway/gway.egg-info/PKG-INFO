@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.3.15
+Version: 0.3.23
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -37,7 +37,9 @@ Requires-Dist: plyer
 Requires-Dist: numpy
 Requires-Dist: pygetwindow; platform_system == "Windows"
 Requires-Dist: duckdb
-Requires-Dist: pywin32L; platform_system == "Windows"
+Requires-Dist: pywin32; platform_system == "Windows"
+Requires-Dist: selenium
+Requires-Dist: webdriver-manager
 Dynamic: license-file
 
 GWAY
@@ -381,7 +383,7 @@ If there is *not* only one good way to do it, then you should have **three**.
 
 One way implies clarity. Two implies division. Three implies depth. Five implies confusion, and confusion leads to bugs. When offering choices — in interface, design, or abstraction — ensure there are no more than three strong forms. The third may be unexpected, but it must still be necessary.
 
-Beyond that, you're just multiplying uncertainty.
+Beyond that, you're just multiplying uncertainty. This same principle applies to other aspects of coding. A simple function fits a single IDE screen. A complex one may span three. Five means: refactor this.
 
 
 License

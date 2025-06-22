@@ -45,7 +45,6 @@ import inspect
 import io
 import linecache
 import os
-import shutil
 import sys
 import tempfile
 import tokenize
@@ -86,7 +85,7 @@ from pyfakefs.fake_filesystem import (
     FakeFilesystem,
 )
 from pyfakefs.fake_os import use_original_os
-from pyfakefs.helpers import IS_PYPY
+from pyfakefs.helpers import IS_PYPY, IS_WIN
 from pyfakefs.legacy_packages import pathlib2, scandir
 from pyfakefs.mox3_stubout import StubOutForTesting
 
@@ -153,7 +152,9 @@ class LineCachePatcher:
 
             with use_original_os():
                 # workaround for updatecache problem with pytest under Windows, see #1096
-                if not filename.endswith(r"pytest.exe\__main__.py"):
+                if not IS_WIN or not filename.lower().endswith(
+                    r"pytest.exe\__main__.py"
+                ):
                     return self.linecache_updatecache(filename, module_globals)
                 return []
 
@@ -362,7 +363,7 @@ class TestCaseMixin:
         Invoke this at the beginning of the `setUp()` method in your unit test
         class.
         For the arguments, see the `TestCaseMixin` attribute description.
-        If any of the arguments is not None, it overwrites the settings for
+        If any of the arguments is not `None`, it overwrites the settings for
         the current test case. Settings the arguments here may be a more
         convenient way to adapt the setting than overwriting `__init__()`.
         """
@@ -630,18 +631,18 @@ class Patcher:
             modules_to_patch: A dictionary of fake modules mapped to the
                 fully qualified patched module names. Can be used to add
                 patching of modules not provided by `pyfakefs`.
-            allow_root_user: If True (default), if the test is run as root
+            allow_root_user: If `True` (default), if the test is run as root
                 user, the user in the fake file system is also considered a
                 root user, otherwise it is always considered a regular user.
-            use_known_patches: If True (the default), some patches for commonly
+            use_known_patches: If `True` (the default), some patches for commonly
                 used packages are applied which make them usable with pyfakefs.
-            patch_open_code: If True, `io.open_code` is patched. The default
+            patch_open_code: If `True`, `io.open_code` is patched. The default
                 is not to patch it, as it mostly is used to load compiled
                 modules that are not in the fake file system.
-            patch_default_args: If True, default arguments are checked for
+            patch_default_args: If `True`, default arguments are checked for
                 file system functions, which are patched. This check is
                 expansive, so it is off by default.
-            use_cache: If True (default), patched and non-patched modules are
+            use_cache: If `True` (default), patched and non-patched modules are
                 cached between tests for performance reasons. As this is a new
                 feature, this argument allows to turn it off in case it
                 causes any problems.
@@ -688,6 +689,20 @@ class Patcher:
         self.use_dynamic_patch = use_dynamic_patch
         self.cleanup_handlers: Dict[str, Callable[[str], bool]] = {}
 
+        # Attributes set by _refresh()
+        self._stubs: Optional[StubOutForTesting] = None
+        self.fs: Optional[FakeFilesystem] = None
+        self.fake_modules: Dict[str, Any] = {}
+        self.unfaked_modules: Dict[str, Any] = {}
+
+        # _isStale is set by tearDown(), reset by _refresh()
+        self._isStale = True
+        self._dyn_patcher: Optional[DynamicPatcher] = None
+        self._patching = False
+        self._paused = False
+        self.has_copy_file_range = False
+        self.has_copy_file = False
+
         if use_known_patches:
             from pyfakefs.patched_packages import (
                 get_modules_to_patch,
@@ -725,20 +740,6 @@ class Patcher:
         self._fake_module_functions: Dict[str, Dict] = {}
         self._init_fake_module_functions()
 
-        # Attributes set by _refresh()
-        self._stubs: Optional[StubOutForTesting] = None
-        self.fs: Optional[FakeFilesystem] = None
-        self.fake_modules: Dict[str, Any] = {}
-        self.unfaked_modules: Dict[str, Any] = {}
-
-        # _isStale is set by tearDown(), reset by _refresh()
-        self._isStale = True
-        self._dyn_patcher: Optional[DynamicPatcher] = None
-        self._patching = False
-        self._paused = False
-        self.has_copy_file_range = False
-        self.has_copy_file = False
-
     @classmethod
     def clear_fs_cache(cls) -> None:
         """Clear the module cache."""
@@ -773,17 +774,26 @@ class Patcher:
         # it by adding an attribute in fixtures/module_with_attributes.py
         # and a test in fake_filesystem_unittest_test.py, class
         # TestAttributesWithFakeModuleNames.
+
+        # we instantiate the fake pathlib library with `from_patcher` set
+        # to avoid faking pathlib.os (already faked by the patcher)
+        def fake_pathlib_module(fs: FakeFilesystem):
+            return fake_pathlib.FakePathlibModule(fs, from_patcher=True)
+
+        def fake_path_module(fs: FakeFilesystem):
+            return fake_pathlib.FakePathlibPathModule(fs, from_patcher=True)
+
         self._fake_module_classes = {
             "os": fake_os.FakeOsModule,
             "shutil": fake_filesystem_shutil.FakeShutilModule,
             "io": fake_io.FakeIoModule,
-            "pathlib": fake_pathlib.FakePathlibModule,
+            "pathlib": fake_pathlib_module,
         }
         if sys.version_info >= (3, 13):
             # for Python 3.13, we need both pathlib (path with __init__.py) and
             # pathlib._local (has the actual implementation);
             # depending on how pathlib is imported, either may be used
-            self._fake_module_classes["pathlib._local"] = fake_pathlib.FakePathlibModule
+            self._fake_module_classes["pathlib._local"] = fake_pathlib_module
         if IS_PYPY or sys.version_info >= (3, 12):
             # in PyPy and later cpython versions, the module is referenced as _io
             self._fake_module_classes["_io"] = fake_io.FakeIoModule2
@@ -811,7 +821,7 @@ class Patcher:
             self._unfaked_module_classes["pathlib2"] = fake_pathlib.RealPathlibModule
         if scandir:
             self._fake_module_classes["scandir"] = fake_legacy_modules.FakeScanDirModule
-        self._fake_module_classes["Path"] = fake_pathlib.FakePathlibPathModule
+        self._fake_module_classes["Path"] = fake_path_module
         self._unfaked_module_classes["Path"] = fake_pathlib.RealPathlibPathModule
 
     def _init_fake_module_functions(self) -> None:
@@ -1016,30 +1026,6 @@ class Patcher:
             self.__class__.REF_COUNT += 1
             if self.__class__.REF_COUNT > 1:
                 return
-        self.has_fcopy_file = (
-            sys.platform == "darwin"
-            and hasattr(shutil, "_HAS_FCOPYFILE")
-            and shutil._HAS_FCOPYFILE
-        )
-        if self.has_fcopy_file:
-            shutil._HAS_FCOPYFILE = False  # type: ignore[attr-defined]
-
-        self.has_copy_file_range = (
-            sys.platform == "linux"
-            and hasattr(shutil, "_USE_CP_COPY_FILE_RANGE")
-            and shutil._USE_CP_COPY_FILE_RANGE
-        )
-        if self.has_copy_file_range:
-            shutil._USE_CP_COPY_FILE_RANGE = False  # type: ignore[attr-defined]
-
-        # do not use the fd functions, as they may not be available in the target OS
-        if hasattr(shutil, "_use_fd_functions"):
-            shutil._use_fd_functions = False  # type: ignore[module-attr]
-        # in Python 3.14, _rmtree_impl is set at load time based on _use_fd_functions
-        # the safe version cannot be used at the moment as it used asserts of type
-        # 'assert func is os.rmtree', which do not work with the fake versions
-        if hasattr(shutil, "_rmtree_impl"):
-            shutil._rmtree_impl = shutil._rmtree_unsafe  # type: ignore[attr-defined]
 
         with warnings.catch_warnings():
             # ignore warnings, see #542 and #614
@@ -1158,10 +1144,6 @@ class Patcher:
             if self.__class__.REF_COUNT > 0:
                 return
         self.stop_patching()
-        if self.has_fcopy_file:
-            shutil._HAS_FCOPYFILE = True  # type: ignore[attr-defined]
-        if self.has_copy_file_range:
-            shutil._USE_CP_COPY_FILE_RANGE = True  # type: ignore[attr-defined]
 
         reset_ids()
         if self.is_doc_test:

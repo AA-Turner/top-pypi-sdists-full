@@ -45,16 +45,6 @@ def view_restyle(css=None, next=None):
     response.set_header("Location", next_val)
     return ""
 
-
-# TODO: Improve help display:
-# 1. Put project and function in the same vertical axis to save height.
-# 2. Turn references into links to help topics.
-# 3. Add colorization to python code.
-# 4. Separate signature into a table of positionals and keyword only params.
-# 5. CLI example should be as exhaustive as possible (use all --options?).
-# 6. When getting help for multiple items, wrap them in a div for styling
-#    Suggest CSS we can add to base.css to decorate each help item.
-
 def view_help(topic="", *args, **kwargs):
     """Render dynamic help based on GWAY introspection and search-style links."""
     topic = topic.replace(" ", "/").replace(".", "/").replace("-", "_") if topic else ""
@@ -90,7 +80,6 @@ def view_help(topic="", *args, **kwargs):
             full_name = f"{project_str}.{function}"
             title = f"Help for <code>{full_name}</code>"
         else:
-            # It's a project, not a function
             help_info = gw.help(project_str)
             full_name = f"{project_str}.{maybe_function}"
             title = f"Help Topics for <code>{full_name}</code>"
@@ -98,38 +87,122 @@ def view_help(topic="", *args, **kwargs):
     if help_info is None:
         return "<h2>Not Found</h2><p>No help found for the given input.</p>"
 
+    highlight_js = '''
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded',function(){
+        if(window.hljs){
+          document.querySelectorAll('pre code.python').forEach(el => { hljs.highlightElement(el); });
+        }
+      });
+    </script>
+    '''
+
     if "Matches" in help_info:
-        sections = [_render_help_section(match, use_query_links=True) for match in help_info["Matches"]]
-        return f"<h1>{title}</h1>{''.join(sections)}"
+        # Improvement 3: Clear separation using <hr> and class
+        sections = []
+        for idx, match in enumerate(help_info["Matches"]):
+            section_html = _render_help_section(match, use_query_links=True)
+            if idx < len(help_info["Matches"]) - 1:
+                # Add a separator between but not after last
+                section_html += '<hr class="help-sep">'
+            sections.append(section_html)
+        # Only inject highlight.js if there is code block
+        multi = f"<div class='help-multi'>{''.join(sections)}</div>"
+        if "Full Code" in str(help_info):
+            multi += highlight_js
+        return f"<h1>{title}</h1>{multi}"
 
-    return f"<h1>{title}</h1>{_render_help_section(help_info, use_query_links=True)}"
-
+    body = _render_help_section(help_info, use_query_links=True)
+    # Only inject highlight.js if there is a code block in the output
+    if "Full Code" in str(help_info):
+        body += highlight_js
+    return f"<h1>{title}</h1>{body}"
 
 def _render_help_section(info, use_query_links=False, *args, **kwargs):
-    """Render a help section with clean formatting and route-based query links."""
     import html
-    rows = []
-    for key, value in info.items():
-        if use_query_links:
-            if key == "Project":
-                value = f'<a href="?topic={value}">{value}</a>'
-            elif key == "Function":
-                proj = info.get("Project", "")
-                value = f'<a href="?topic={proj}/{value}">{value}</a>'
 
-        if key == "Full Code":
-            escaped = html.escape(value)
-            value = f"<pre><code>{escaped}</code></pre>"
-        elif key in ("Signature", "Example CLI", "Example Code"):
-            value = f"<pre><code>{value}</code></pre>"
-        elif key in ("Docstring", "TODOs"):
-            value = f"<div class='doc'>{value}</div>"
+    proj = info.get("Project")
+    func = info.get("Function")
+    header = ""
+    if proj and func:
+        if use_query_links:
+            proj_link = f'<a href="?topic={proj}">{proj}</a>'
+            func_link = f'<a href="?topic={proj}/{func}">{func}</a>'
         else:
+            proj_link = html.escape(proj)
+            func_link = html.escape(func)
+        header = f"""
+        <div class="projfunc-row">
+            <span class="project">{proj_link}</span>
+            <span class="dot">·</span>
+            <span class="function">{func_link}</span>
+        </div>
+        """
+
+    rows = []
+    skip_keys = {"Project", "Function"}
+    for key, value in info.items():
+        if key in skip_keys:
+            continue
+
+        # 1. Only autolink References (and plain text fields).
+        # 2. Don't autolink Sample CLI, Signature, Full Code, etc.
+
+        if use_query_links and key == "References" and isinstance(value, (list, tuple)):
+            refs = [
+                f'<a href="?topic={ref}">{html.escape(str(ref))}</a>' for ref in value
+            ]
+            value = ', '.join(refs)
+            value = f"<div class='refs'>{value}</div>"
+
+        # Improvement 4: Copy to clipboard button for Full Code
+        elif key == "Full Code":
+            code_id = f"code_{abs(hash(value))}"
+            value = (
+                f"<div class='full-code-block'>"
+                f"<button class='copy-btn' onclick=\"copyToClipboard('{code_id}')\">Copy to clipboard</button>"
+                f"<pre><code id='{code_id}' class='python'>{html.escape(str(value))}</code></pre>"
+                f"</div>"
+                "<script>"
+                "function copyToClipboard(codeId) {"
+                "  var text = document.getElementById(codeId).innerText;"
+                "  navigator.clipboard.writeText(text).then(()=>{"
+                "    alert('Copied!');"
+                "  });"
+                "}"
+                "</script>"
+            )
+
+        # Code fields: no autolinking, just escape & highlight
+        elif key in ("Signature", "Example CLI", "Example Code", "Sample CLI"):
+            value = f"<pre><code class='python'>{html.escape(str(value))}</code></pre>"
+
+        elif key in ("Docstring", "TODOs"):
+            value = f"<div class='doc'>{html.escape(str(value))}</div>"
+
+        # Only for regular text fields, run _autolink_refs
+        elif use_query_links and isinstance(value, str):
+            value = _autolink_refs(value)
             value = f"<p>{value}</p>"
+
+        else:
+            value = f"<p>{html.escape(str(value))}</p>"
 
         rows.append(f"<section><h3>{key}</h3>{value}</section>")
 
-    return f"<article class='help-entry'>{''.join(rows)}</article>"
+    return f"<article class='help-entry'>{header}{''.join(rows)}</article>"
+
+
+def _autolink_refs(text):
+    # Link "project" or "project.function" references to their help topics
+    import re
+    return re.sub(r'\b([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_]+))?\b', 
+        lambda m: (
+            f'<a href="?topic={m.group(1)}">{m.group(1)}</a>' if not m.group(2) 
+            else f'<a href="?topic={m.group(1)}/{m.group(2)}">{m.group(1)}.{m.group(2)}</a>'
+        ), text)
 
 
 def view_qr_code(*args, value=None, **kwargs):
@@ -151,64 +224,3 @@ def view_qr_code(*args, value=None, **kwargs):
         <p><a href="{back_link}">Generate another</a></p>
     """
 
-
-def view_awg_finder(
-    *args, meters=None, amps="40", volts="220", material="cu", 
-    max_lines="3", phases="1", conduit=None, neutral="0", **kwargs
-):
-    """Page builder for AWG cable finder with HTML form and result."""
-    if not meters:
-        return '''
-            <h1>AWG Cable Finder</h1>
-            <p>Warning: This calculator may not be applicable to your use case. It may be completely wrong.
-              Consult a LOCAL certified electrician before making real-life cable sizing decisions.</p>
-            <form method="post">
-                <label>Meters: <input type="number" name="meters" required min="1" /></label><br/>
-                <label>Amps: <input type="number" name="amps" value="40" /></label><br/>
-                <label>Volts: <input type="number" name="volts" value="220" /></label><br/>
-                <label>Material: 
-                    <select name="material">
-                        <option value="cu">Copper (cu)</option>
-                        <option value="al">Aluminum (al)</option>
-                        <option value="?">Don't know</option>
-                    </select>
-                </label><br/>
-                <label>Max Lines: <input type="number" name="max_lines" value="3" /></label><br/>
-                <label>Phases: 
-                    <select name="phases">
-                        <option value="1">Single Phase (1)</option>
-                        <option value="3">Three Phase (3)</option>
-                    </select>
-                </label><br/>
-                <label>Neutral (0 or 1): <input type="number" name="neutral" value="0" /></label><br/>
-                <label>Conduit (emt/true/blank): <input name="conduit" /></label><br/><br/>
-                <button type="submit" class="submit">Find Cable</button>
-            </form>
-        '''
-    try:
-        result = gw.awg.find_cable(
-            meters=meters, amps=amps, volts=volts,
-            material=material, max_lines=max_lines, 
-            phases=phases, conduit=conduit, neutral=neutral
-        )
-    except Exception as e:
-        return f"<p class='error'>Error: {e}</p><p><a href='/awg-finder'>Try again</a></p>"
-
-    return f"""
-        <h1>Recommended Cable</h1>
-        <ul>
-            <li><strong>AWG Size:</strong> {result['awg']}</li>
-            <li><strong>Lines:</strong> {result['lines']}</li>
-            <li><strong>Total Cables:</strong> {result['cables']}</li>
-            <li><strong>Total Length (m):</strong> {result['cable_m']}</li>
-            <li><strong>Voltage Drop:</strong> {result['vdrop']:.2f} V ({result['vdperc']:.2f}%)</li>
-            <li><strong>Voltage at End:</strong> {result['vend']:.2f} V</li>
-            {f"<li><strong>Conduit:</strong> {result['conduit']} ({result['pipe_in']})</li>" if 'conduit' in result else ""}
-        </ul>
-        <p><a href="/awg-finder">Calculate again</a></p>
-    """
-
-
-
-
-...

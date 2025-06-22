@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: litellm-enterprise
-Version: 0.1.7
+Version: 0.1.8
 Summary: Package for LiteLLM Enterprise features
 Author: BerriAI
 Requires-Python: >=3.8, !=2.7.*, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*

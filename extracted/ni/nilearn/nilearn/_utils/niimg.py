@@ -1,15 +1,15 @@
 """Neuroimaging file input and output."""
 
-# Author: Gael Varoquaux, Alexandre Abraham, Philippe Gervais
-
 import collections.abc
-import copy
 import gc
+from copy import deepcopy
 from pathlib import Path
 from warnings import warn
 
 import numpy as np
 from nibabel import is_proxy, load, spatialimages
+
+from nilearn._utils.logger import find_stack_level
 
 from .helpers import stringify_path
 
@@ -27,7 +27,7 @@ def _get_data(img):
     return data
 
 
-def safe_get_data(img, ensure_finite=False, copy_data=False):
+def safe_get_data(img, ensure_finite=False, copy_data=False) -> np.ndarray:
     """Get the data in the image without having a side effect \
     on the Nifti1Image object.
 
@@ -49,7 +49,7 @@ def safe_get_data(img, ensure_finite=False, copy_data=False):
         nilearn.image.get_data return from Nifti image.
     """
     if copy_data:
-        img = copy.deepcopy(img)
+        img = deepcopy(img)
 
     # typically the line below can double memory usage
     # that's why we invoke a forced call to the garbage collector
@@ -62,7 +62,7 @@ def safe_get_data(img, ensure_finite=False, copy_data=False):
             warn(
                 "Non-finite values detected. "
                 "These values will be replaced with zeros.",
-                stacklevel=2,
+                stacklevel=find_stack_level(),
             )
             data[non_finite_mask] = 0
 
@@ -92,9 +92,7 @@ def _get_target_dtype(dtype, target_dtype):
         return None
     if target_dtype == "auto":
         target_dtype = np.int32 if dtype.kind == "i" else np.float32
-    if target_dtype == dtype:
-        return None
-    return target_dtype
+    return None if target_dtype == dtype else target_dtype
 
 
 def load_niimg(niimg, dtype=None):
@@ -106,10 +104,7 @@ def load_niimg(niimg, dtype=None):
         See :ref:`extracting_data`.
         Image to load.
 
-    dtype : {dtype, "auto"}
-        Data type toward which the data should be converted. If "auto", the
-        data will be converted to int32 if dtype is discrete and float32 if it
-        is continuous.
+    %(dtype)s
 
     Returns
     -------
@@ -129,22 +124,19 @@ def load_niimg(niimg, dtype=None):
             + repr_niimgs(niimg, shorten=True)
         )
 
-    dtype = _get_target_dtype(_get_data(niimg).dtype, dtype)
+    img_data = _get_data(niimg)
+    target_dtype = _get_target_dtype(img_data.dtype, dtype)
 
-    if dtype is not None:
-        # Copyheader and set dtype in header if header exists
-        if niimg.header is not None:
-            niimg = new_img_like(
-                niimg,
-                _get_data(niimg).astype(dtype),
-                niimg.affine,
-                copy_header=True,
-            )
-            niimg.header.set_data_dtype(dtype)
-        else:
-            niimg = new_img_like(
-                niimg, _get_data(niimg).astype(dtype), niimg.affine
-            )
+    if target_dtype is not None:
+        copy_header = niimg.header is not None
+        niimg = new_img_like(
+            niimg,
+            img_data.astype(target_dtype),
+            niimg.affine,
+            copy_header=copy_header,
+        )
+        if copy_header:
+            niimg.header.set_data_dtype(target_dtype)
 
     return niimg
 
@@ -167,9 +159,9 @@ def is_binary_niimg(niimg):
     niimg = load_niimg(niimg)
     data = safe_get_data(niimg, ensure_finite=True)
     unique_values = np.unique(data)
-    if len(unique_values) != 2:
-        return False
-    return sorted(unique_values) == [0, 1]
+    return (
+        False if len(unique_values) != 2 else sorted(unique_values) == [0, 1]
+    )
 
 
 def repr_niimgs(niimgs, shorten=True):
@@ -272,7 +264,6 @@ def img_data_dtype(niimg):
         return np.float64
 
     # ArrayProxy gained the dtype attribute in nibabel 2.2
-    if hasattr(dataobj, "dtype"):
-        return dataobj.dtype
-
-    return niimg.get_data_dtype()
+    return (
+        dataobj.dtype if hasattr(dataobj, "dtype") else niimg.get_data_dtype()
+    )

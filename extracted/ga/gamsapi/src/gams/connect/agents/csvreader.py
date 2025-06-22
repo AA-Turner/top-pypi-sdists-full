@@ -32,29 +32,9 @@ from gams.connect.agents.connectagent import ConnectAgent
 
 
 class CSVReader(ConnectAgent):
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
-
-        self._check_symbol_exists(self._name)
-        self._check_invalid_input()
-        self._read_csv_args.update(self._read_csv_arguments)
-
-        self._index_cols = self._convert_to_valid_pd_cols(self._index_cols)
-        self._value_cols = self._convert_to_valid_pd_cols(self._value_cols)
-        self._check_cols()
-
-        if self._stack == "infer":
-            if len(self._value_cols) > 1 or self._multiheader:
-                self._stack = True
-            else:
-                self._stack = False
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         inst["file"] = os.path.abspath(inst["file"])
@@ -93,6 +73,9 @@ class CSVReader(ConnectAgent):
             "thousands": self._thousands_sep,
             "quoting": self._quoting,
         }
+
+        self._check_invalid_input()
+        self._read_csv_args.update(self._read_csv_arguments)
 
     def _check_invalid_input(self):
         if self._multiheader:
@@ -515,32 +498,45 @@ class CSVReader(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
 
-        usecols = self._index_cols + self._value_cols
+        self._symbols_exist_cdb(self._name)
+
+        self._index_cols = self._convert_to_valid_pd_cols(self._index_cols)
+        self._value_cols = self._convert_to_valid_pd_cols(self._value_cols)
+        self._check_cols()
+
+        if self._stack == "infer":
+            if len(self._value_cols) > 1 or self._multiheader:
+                self._stack = True
+            else:
+                self._stack = False
+
+        self._usecols = self._index_cols + self._value_cols
 
         # no duplicates in usecols, since pd.read_csv ignores duplicates in usecols and the indices in index_col do not match anymore
-        usecols = list(dict.fromkeys(usecols))
+        self._usecols = list(dict.fromkeys(self._usecols))
 
         if self._index_cols:
-            if all(isinstance(i, int) for i in usecols) and not self._multiheader:
-                index_col = [sorted(usecols).index(i) for i in self._index_cols]
+            if all(isinstance(i, int) for i in self._usecols) and not self._multiheader:
+                self._index_col = [sorted(self._usecols).index(i) for i in self._index_cols]
             else:
-                index_col = self._index_cols
+                self._index_col = self._index_cols
         else:
-            index_col = None
+            self._index_col = None
 
         # default dtype of index and text columns should be string
         if "dtype" not in self._read_csv_args.keys():
-            dtypes = self._get_dtypes(index_col, usecols)
+            dtypes = self._get_dtypes(self._index_col, self._usecols)
             self._read_csv_args.update({"dtype": dtypes})
 
-        self._read_csv_args.update({"index_col": index_col})
+        self._read_csv_args.update({"index_col": self._index_col})
 
         # Multi-row header does not support usecols, therefore, we only
         # support reading all columns and not a subset
         if not self._multiheader:
-            self._read_csv_args.update({"usecols": usecols})
+            self._read_csv_args.update({"usecols": self._usecols})
 
         if self._trace > 1:
             self._cdb.print_log(
@@ -555,7 +551,7 @@ class CSVReader(ConnectAgent):
             )
 
         df = self._sort_value_columns(df)
-        df = self._copy_from_index_to_value(df, index_col, usecols)
+        df = self._copy_from_index_to_value(df, self._index_col, self._usecols)
 
         dim = len(self._index_cols)
         # write relaxed domain information

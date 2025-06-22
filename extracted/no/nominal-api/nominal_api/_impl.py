@@ -14518,6 +14518,63 @@ persistent_compute_api_InvalidComputationType.__qualname__ = "InvalidComputation
 persistent_compute_api_InvalidComputationType.__module__ = "nominal_api.persistent_compute_api"
 
 
+class persistent_compute_api_IsEnabledResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+persistent_compute_api_IsEnabledResponse.__name__ = "IsEnabledResponse"
+persistent_compute_api_IsEnabledResponse.__qualname__ = "IsEnabledResponse"
+persistent_compute_api_IsEnabledResponse.__module__ = "nominal_api.persistent_compute_api"
+
+
+class persistent_compute_api_PersistentComputeService(Service):
+    """Exposes a simple endpoints for checking whether or not persistent compute is enabled.
+    """
+
+    def is_enabled(self, auth_header: str) -> "persistent_compute_api_IsEnabledResponse":
+        """Simple "ping" like endpoint to see if the service is enabled (and available).
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = None
+
+        _path = '/persistent-compute/enabled'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), persistent_compute_api_IsEnabledResponse, self._return_none_for_unknown_union_types)
+
+
+persistent_compute_api_PersistentComputeService.__name__ = "PersistentComputeService"
+persistent_compute_api_PersistentComputeService.__qualname__ = "PersistentComputeService"
+persistent_compute_api_PersistentComputeService.__module__ = "nominal_api.persistent_compute_api"
+
+
 class persistent_compute_api_Ping(ConjureBeanType):
     """A ping can be sent by both client and server to keep the connection open and check that it is still working.
 The receiving end should send back a pong immediately.
@@ -23890,28 +23947,34 @@ scout_chartdefinition_api_DefaultFill.__module__ = "nominal_api.scout_chartdefin
 
 class scout_chartdefinition_api_DisconnectedValueVisualization(ConjureUnionType):
     _always_connect: Optional["scout_chartdefinition_api_AlwaysConnectDisconnectedValues"] = None
+    _never: Optional["scout_chartdefinition_api_NeverConnectDisconnectedValues"] = None
     _threshold: Optional["scout_chartdefinition_api_ThresholdDisconnectedValues"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'always_connect': ConjureFieldDefinition('alwaysConnect', scout_chartdefinition_api_AlwaysConnectDisconnectedValues),
+            'never': ConjureFieldDefinition('never', scout_chartdefinition_api_NeverConnectDisconnectedValues),
             'threshold': ConjureFieldDefinition('threshold', scout_chartdefinition_api_ThresholdDisconnectedValues)
         }
 
     def __init__(
             self,
             always_connect: Optional["scout_chartdefinition_api_AlwaysConnectDisconnectedValues"] = None,
+            never: Optional["scout_chartdefinition_api_NeverConnectDisconnectedValues"] = None,
             threshold: Optional["scout_chartdefinition_api_ThresholdDisconnectedValues"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (always_connect is not None) + (threshold is not None) != 1:
+            if (always_connect is not None) + (never is not None) + (threshold is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if always_connect is not None:
                 self._always_connect = always_connect
                 self._type = 'alwaysConnect'
+            if never is not None:
+                self._never = never
+                self._type = 'never'
             if threshold is not None:
                 self._threshold = threshold
                 self._type = 'threshold'
@@ -23921,6 +23984,11 @@ class scout_chartdefinition_api_DisconnectedValueVisualization(ConjureUnionType)
                 raise ValueError('a union value must not be None')
             self._always_connect = always_connect
             self._type = 'alwaysConnect'
+        elif type_of_union == 'never':
+            if never is None:
+                raise ValueError('a union value must not be None')
+            self._never = never
+            self._type = 'never'
         elif type_of_union == 'threshold':
             if threshold is None:
                 raise ValueError('a union value must not be None')
@@ -23932,6 +24000,10 @@ class scout_chartdefinition_api_DisconnectedValueVisualization(ConjureUnionType)
         return self._always_connect
 
     @builtins.property
+    def never(self) -> Optional["scout_chartdefinition_api_NeverConnectDisconnectedValues"]:
+        return self._never
+
+    @builtins.property
     def threshold(self) -> Optional["scout_chartdefinition_api_ThresholdDisconnectedValues"]:
         return self._threshold
 
@@ -23940,6 +24012,8 @@ class scout_chartdefinition_api_DisconnectedValueVisualization(ConjureUnionType)
             raise ValueError('{} is not an instance of scout_chartdefinition_api_DisconnectedValueVisualizationVisitor'.format(visitor.__class__.__name__))
         if self._type == 'alwaysConnect' and self.always_connect is not None:
             return visitor._always_connect(self.always_connect)
+        if self._type == 'never' and self.never is not None:
+            return visitor._never(self.never)
         if self._type == 'threshold' and self.threshold is not None:
             return visitor._threshold(self.threshold)
 
@@ -23953,6 +24027,10 @@ class scout_chartdefinition_api_DisconnectedValueVisualizationVisitor:
 
     @abstractmethod
     def _always_connect(self, always_connect: "scout_chartdefinition_api_AlwaysConnectDisconnectedValues") -> Any:
+        pass
+
+    @abstractmethod
+    def _never(self, never: "scout_chartdefinition_api_NeverConnectDisconnectedValues") -> Any:
         pass
 
     @abstractmethod
@@ -25310,6 +25388,24 @@ scout_chartdefinition_api_LogPanelDefinitionV1.__qualname__ = "LogPanelDefinitio
 scout_chartdefinition_api_LogPanelDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_NeverConnectDisconnectedValues(ConjureBeanType):
+    """This option indicates that disconnected values are never connected with a line.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_NeverConnectDisconnectedValues.__name__ = "NeverConnectDisconnectedValues"
+scout_chartdefinition_api_NeverConnectDisconnectedValues.__qualname__ = "NeverConnectDisconnectedValues"
+scout_chartdefinition_api_NeverConnectDisconnectedValues.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_NumberFormat(ConjureBeanType):
     """Number format for numeric cells, eg 1e4 | 10000 | 10,000.
     """
@@ -26183,7 +26279,8 @@ scout_chartdefinition_api_Threshold.__module__ = "nominal_api.scout_chartdefinit
 
 
 class scout_chartdefinition_api_ThresholdDisconnectedValues(ConjureBeanType):
-    """This option indicates the duration below which disconnected values will always be connected with a line.
+    """NOTE this is deprecated and will be translated to NeverConnectDisconnectedValues by the frontend.
+This option indicates the duration below which disconnected values will always be connected with a line.
     """
 
     @builtins.classmethod
@@ -40022,6 +40119,32 @@ scout_compute_api_ErrorResult.__qualname__ = "ErrorResult"
 scout_compute_api_ErrorResult.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EventsSearchRanges(ConjureBeanType):
+    """Produces a range series with a range for each event matching the query.
+Throws if there are more than 1,000 results.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search_query': ConjureFieldDefinition('searchQuery', event_SearchQuery)
+        }
+
+    __slots__: List[str] = ['_search_query']
+
+    def __init__(self, search_query: "event_SearchQuery") -> None:
+        self._search_query = search_query
+
+    @builtins.property
+    def search_query(self) -> "event_SearchQuery":
+        return self._search_query
+
+
+scout_compute_api_EventsSearchRanges.__name__ = "EventsSearchRanges"
+scout_compute_api_EventsSearchRanges.__qualname__ = "EventsSearchRanges"
+scout_compute_api_EventsSearchRanges.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ExcludeNegativeValues(ConjureBeanType):
 
     @builtins.classmethod
@@ -42183,6 +42306,8 @@ class scout_compute_api_NumericAggregationFunction(ConjureEnumType):
     '''MAX'''
     COUNT = 'COUNT'
     '''COUNT'''
+    STANDARD_DEVIATION = 'STANDARD_DEVIATION'
+    '''STANDARD_DEVIATION'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -44605,6 +44730,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     _duration_filter: Optional["scout_compute_api_DurationFilterRanges"] = None
     _enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None
     _enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None
+    _events_search: Optional["scout_compute_api_EventsSearchRanges"] = None
     _function: Optional["scout_compute_api_RangesFunction"] = None
     _intersect_range: Optional["scout_compute_api_IntersectRanges"] = None
     _literal_ranges: Optional["scout_compute_api_LiteralRanges"] = None
@@ -44628,6 +44754,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             'duration_filter': ConjureFieldDefinition('durationFilter', scout_compute_api_DurationFilterRanges),
             'enum_filter': ConjureFieldDefinition('enumFilter', scout_compute_api_EnumFilterRanges),
             'enum_series_equality_ranges_node': ConjureFieldDefinition('enumSeriesEqualityRangesNode', scout_compute_api_EnumSeriesEqualityRanges),
+            'events_search': ConjureFieldDefinition('eventsSearch', scout_compute_api_EventsSearchRanges),
             'function': ConjureFieldDefinition('function', scout_compute_api_RangesFunction),
             'intersect_range': ConjureFieldDefinition('intersectRange', scout_compute_api_IntersectRanges),
             'literal_ranges': ConjureFieldDefinition('literalRanges', scout_compute_api_LiteralRanges),
@@ -44651,6 +44778,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             duration_filter: Optional["scout_compute_api_DurationFilterRanges"] = None,
             enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None,
             enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None,
+            events_search: Optional["scout_compute_api_EventsSearchRanges"] = None,
             function: Optional["scout_compute_api_RangesFunction"] = None,
             intersect_range: Optional["scout_compute_api_IntersectRanges"] = None,
             literal_ranges: Optional["scout_compute_api_LiteralRanges"] = None,
@@ -44669,7 +44797,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (function is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
+            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (function is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if approximate_threshold is not None:
@@ -44684,6 +44812,9 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             if enum_series_equality_ranges_node is not None:
                 self._enum_series_equality_ranges_node = enum_series_equality_ranges_node
                 self._type = 'enumSeriesEqualityRangesNode'
+            if events_search is not None:
+                self._events_search = events_search
+                self._type = 'eventsSearch'
             if function is not None:
                 self._function = function
                 self._type = 'function'
@@ -44750,6 +44881,11 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._enum_series_equality_ranges_node = enum_series_equality_ranges_node
             self._type = 'enumSeriesEqualityRangesNode'
+        elif type_of_union == 'eventsSearch':
+            if events_search is None:
+                raise ValueError('a union value must not be None')
+            self._events_search = events_search
+            self._type = 'eventsSearch'
         elif type_of_union == 'function':
             if function is None:
                 raise ValueError('a union value must not be None')
@@ -44843,6 +44979,10 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
         return self._enum_series_equality_ranges_node
 
     @builtins.property
+    def events_search(self) -> Optional["scout_compute_api_EventsSearchRanges"]:
+        return self._events_search
+
+    @builtins.property
     def function(self) -> Optional["scout_compute_api_RangesFunction"]:
         return self._function
 
@@ -44917,6 +45057,8 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             return visitor._enum_filter(self.enum_filter)
         if self._type == 'enumSeriesEqualityRangesNode' and self.enum_series_equality_ranges_node is not None:
             return visitor._enum_series_equality_ranges_node(self.enum_series_equality_ranges_node)
+        if self._type == 'eventsSearch' and self.events_search is not None:
+            return visitor._events_search(self.events_search)
         if self._type == 'function' and self.function is not None:
             return visitor._function(self.function)
         if self._type == 'intersectRange' and self.intersect_range is not None:
@@ -44970,6 +45112,10 @@ class scout_compute_api_RangeSeriesVisitor:
 
     @abstractmethod
     def _enum_series_equality_ranges_node(self, enum_series_equality_ranges_node: "scout_compute_api_EnumSeriesEqualityRanges") -> Any:
+        pass
+
+    @abstractmethod
+    def _events_search(self, events_search: "scout_compute_api_EventsSearchRanges") -> Any:
         pass
 
     @abstractmethod

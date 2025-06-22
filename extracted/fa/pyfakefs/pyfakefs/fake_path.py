@@ -63,8 +63,8 @@ def _copy_module(old: ModuleType) -> ModuleType:
 class FakePathModule:
     """Faked os.path module replacement.
 
-    FakePathModule should *only* be instantiated by FakeOsModule.  See the
-    FakeOsModule docstring for details.
+    `FakePathModule` should *only* be instantiated by `FakeOsModule`.  See the
+    :py:class:`FakeDirectory<pyfakefs.fake_os.FakeOsModule>` docstring for details.
     """
 
     _OS_PATH_COPY: Any = _copy_module(os.path)
@@ -139,7 +139,7 @@ class FakePathModule:
         return self.filesystem.exists(path)
 
     def lexists(self, path: AnyStr) -> bool:
-        """Test whether a path exists.  Returns True for broken symbolic links.
+        """Test whether a path exists.  Returns `True` for broken symbolic links.
 
         Args:
           path:  path to the symlink object.
@@ -168,7 +168,7 @@ class FakePathModule:
         return file_obj.st_size
 
     def isabs(self, path: AnyStr) -> bool:
-        """Return True if path is an absolute pathname."""
+        """Return `True` if path is an absolute pathname."""
         empty = matching_string(path, "")
         if self.filesystem.is_windows_fs:
             drive, path = self.splitdrive(path)
@@ -201,14 +201,14 @@ class FakePathModule:
             `True` if path points to a symbolic link.
 
         Raises:
-            TypeError: if path is None.
+            TypeError: if path is `None`.
         """
         return self.filesystem.islink(path)
 
     if sys.version_info >= (3, 12):
 
         def isjunction(self, path: AnyStr) -> bool:
-            """Returns False. Junctions are never faked."""
+            """Returns `False`. Junctions are never faked."""
             return self.filesystem.isjunction(path)
 
         def splitroot(self, path: AnyStr):
@@ -361,9 +361,21 @@ class FakePathModule:
         """
         if strict is not None and sys.version_info < (3, 10):
             raise TypeError("realpath() got an unexpected keyword argument 'strict'")
-        if strict:
-            # raises in strict mode if the file does not exist
+        has_allow_missing = hasattr(os.path, "ALLOW_MISSING")
+        if has_allow_missing and strict == os.path.ALLOW_MISSING:  # type: ignore[attr-defined]
+            # ignores non-existing file, but not other errors
+            ignored_error: Any = FileNotFoundError
+        elif strict:
+            # raises on any errors
+            ignored_error = ()
+        else:
+            # ignores any OSError while resolving the filename
+            ignored_error = OSError
+        try:
             self.filesystem.resolve(filename)
+        except ignored_error:
+            pass
+
         if self.filesystem.is_windows_fs:
             return self.abspath(filename)
         filename = make_string_path(filename)
@@ -473,7 +485,7 @@ class FakePathModule:
 
         Returns:
             `True` if path is a mount point added to the fake file system.
-            Under Windows also returns True for drive and UNC roots
+            Under Windows also returns `True` for drive and UNC roots
             (independent of their existence).
         """
         if not path:

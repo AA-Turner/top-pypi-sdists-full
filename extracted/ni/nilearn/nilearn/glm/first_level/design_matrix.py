@@ -28,9 +28,6 @@ Design matrices contain three different types of regressors:
 3. Drift regressors, that represent low_frequency phenomena of no
    interest in the data; they need to be included to reduce variance
    estimates.
-
-Author: Bertrand Thirion, 2009-2015
-
 """
 
 from warnings import warn
@@ -40,6 +37,8 @@ import pandas as pd
 
 from nilearn._utils import fill_doc
 from nilearn._utils.glm import check_and_load_tables
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.param_validation import check_params
 from nilearn.glm._utils import full_rank
 from nilearn.glm.first_level.experimental_paradigm import (
     check_events,
@@ -111,7 +110,8 @@ def create_cosine_drift(high_pass, frame_times):
             "High-pass filter will span all accessible frequencies "
             "and saturate the design matrix. "
             "You may want to reduce the high_pass value."
-            f"The provided value is {high_pass} Hz"
+            f"The provided value is {high_pass} Hz",
+            stacklevel=find_stack_level(),
         )
     order = np.minimum(
         n_frames - 1, int(np.floor(2 * n_frames * high_pass * dt))
@@ -198,10 +198,7 @@ def _convolve_regressors(
         see nilearn.glm.first_level.experimental_paradigm to check the
         specification for these to be valid paradigm descriptors
 
-    hrf_model : {'spm', 'spm + derivative', 'spm + derivative + dispersion',
-        'glover', 'glover + derivative', 'glover + derivative + dispersion',
-        'fir', None}
-        String that specifies the hemodynamic response function
+    %(hrf_model)s
 
     frame_times : array of shape (n_scans,)
         The targeted timing for the design matrix.
@@ -232,9 +229,10 @@ def _convolve_regressors(
         if 'spm + derivative + dispersion' or
             'glover + derivative + dispersion',
             a third name is used, i.e. '#name_dispersion'
-        if 'fir', the regressos are numbered according to '#name_#delay'
+        if 'fir', the regressors are numbered according to '#name_#delay'
 
     """
+    check_params(locals())
     if fir_delays is None:
         fir_delays = [0]
     regressor_names = []
@@ -376,6 +374,7 @@ def make_first_level_design_matrix(
         and each column a regressor.
 
     """
+    check_params(locals())
     if fir_delays is None:
         fir_delays = [0]
     # check arguments
@@ -530,6 +529,7 @@ def make_second_level_design_matrix(subjects_label, confounds=None):
     if np.linalg.cond(design_matrix.values) > design_matrix.size:
         warn(
             "Attention: Design matrix is singular. Aberrant estimates "
-            "are expected."
+            "are expected.",
+            stacklevel=find_stack_level(),
         )
     return design_matrix

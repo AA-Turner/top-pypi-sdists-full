@@ -334,7 +334,14 @@ class TestSnowflake(Validator):
         )
 
         self.validate_all(
-            "SELECT _u['foo'], bar, baz FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('foo', 'x', 'bars', ['y', 'z'], 'bazs', ['w'])])) AS _t0(seq, key, path, index, _u, this), TABLE(FLATTEN(INPUT => _u['bars'])) AS _t1(seq, key, path, index, bar, this), TABLE(FLATTEN(INPUT => _u['bazs'])) AS _t2(seq, key, path, index, baz, this)",
+            "SELECT * FROM t1 AS t1 CROSS JOIN t2 AS t2 LEFT JOIN t3 AS t3 ON t1.a = t3.i",
+            read={
+                "bigquery": "SELECT * FROM t1 AS t1, t2 AS t2 LEFT JOIN t3 AS t3 ON t1.a = t3.i",
+                "snowflake": "SELECT * FROM t1 AS t1 CROSS JOIN t2 AS t2 LEFT JOIN t3 AS t3 ON t1.a = t3.i",
+            },
+        )
+        self.validate_all(
+            "SELECT _u['foo'], bar, baz FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('foo', 'x', 'bars', ['y', 'z'], 'bazs', ['w'])])) AS _t0(seq, key, path, index, _u, this) CROSS JOIN TABLE(FLATTEN(INPUT => _u['bars'])) AS _t1(seq, key, path, index, bar, this) CROSS JOIN TABLE(FLATTEN(INPUT => _u['bazs'])) AS _t2(seq, key, path, index, baz, this)",
             read={
                 "bigquery": "SELECT _u.foo, bar, baz FROM UNNEST([struct('x' AS foo, ['y', 'z'] AS bars, ['w'] AS bazs)]) AS _u, UNNEST(_u.bars) AS bar, UNNEST(_u.bazs) AS baz",
             },
@@ -617,32 +624,6 @@ class TestSnowflake(Validator):
                         "snowflake": f"SELECT {func}(y, x){suffix}",
                     },
                 )
-        self.validate_all(
-            "TO_CHAR(x, y)",
-            read={
-                "": "TO_CHAR(x, y)",
-                "snowflake": "TO_VARCHAR(x, y)",
-            },
-            write={
-                "": "CAST(x AS TEXT)",
-                "databricks": "TO_CHAR(x, y)",
-                "drill": "TO_CHAR(x, y)",
-                "oracle": "TO_CHAR(x, y)",
-                "postgres": "TO_CHAR(x, y)",
-                "snowflake": "TO_CHAR(x, y)",
-                "teradata": "TO_CHAR(x, y)",
-            },
-        )
-        self.validate_identity(
-            "TO_CHAR(foo::DATE, 'yyyy')", "TO_CHAR(CAST(CAST(foo AS DATE) AS TIMESTAMP), 'yyyy')"
-        )
-        self.validate_all(
-            "TO_CHAR(foo::TIMESTAMP, 'YYYY-MM')",
-            write={
-                "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
-                "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
-            },
-        )
         self.validate_all(
             "SQUARE(x)",
             write={
@@ -2787,3 +2768,43 @@ SINGLE = TRUE""",
         self.validate_identity(
             "CREATE OR REPLACE MATERIALIZED VIEW FOO (A, B) AS SELECT A, B FROM TBL"
         )
+
+    def test_tochar(self):
+        self.validate_all(
+            "TO_CHAR(x, y)",
+            read={
+                "": "TO_CHAR(x, y)",
+                "snowflake": "TO_VARCHAR(x, y)",
+            },
+            write={
+                "": "CAST(x AS TEXT)",
+                "databricks": "TO_CHAR(x, y)",
+                "drill": "TO_CHAR(x, y)",
+                "oracle": "TO_CHAR(x, y)",
+                "postgres": "TO_CHAR(x, y)",
+                "snowflake": "TO_CHAR(x, y)",
+                "teradata": "TO_CHAR(x, y)",
+            },
+        )
+        self.validate_identity(
+            "TO_CHAR(foo::DATE, 'yyyy')", "TO_CHAR(CAST(CAST(foo AS DATE) AS TIMESTAMP), 'yyyy')"
+        )
+        self.validate_all(
+            "TO_CHAR(foo::TIMESTAMP, 'YYYY-MM')",
+            write={
+                "snowflake": "TO_CHAR(CAST(foo AS TIMESTAMP), 'yyyy-mm')",
+                "duckdb": "STRFTIME(CAST(foo AS TIMESTAMP), '%Y-%m')",
+            },
+        )
+
+        for snowflake_fmt, python_fmt in (("DY", "%a"), ("mmmm", "%B")):
+            with self.subTest(
+                f"Testing Snowflake TO_CHAR({snowflake_fmt}) -> DuckDB STRFTIME({python_fmt})"
+            ):
+                self.validate_all(
+                    f"SELECT TO_CHAR(foo, '{snowflake_fmt}')",
+                    write={
+                        "snowflake": f"SELECT TO_CHAR(CAST(foo AS TIMESTAMP), '{snowflake_fmt}')",
+                        "duckdb": f"SELECT STRFTIME(foo, '{python_fmt}')",
+                    },
+                )

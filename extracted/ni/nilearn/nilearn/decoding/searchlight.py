@@ -4,13 +4,9 @@ in which multivariate statistical relationships are iteratively tested \
 in the neighborhood of each location of a domain.
 """
 
-# Authors : Vincent Michel (vm.michel@gmail.com)
-#           Alexandre Gramfort (alexandre.gramfort@inria.fr)
-#           Philippe Gervais (philippe.gervais@inria.fr)
-#
-
 import time
 import warnings
+from copy import deepcopy
 
 import numpy as np
 from joblib import Parallel, cpu_count, delayed
@@ -18,13 +14,16 @@ from sklearn import svm
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.model_selection import KFold, cross_val_score
+from sklearn.utils import check_array
+from sklearn.utils.estimator_checks import check_is_fitted
 
+from nilearn._utils import check_niimg_3d, check_niimg_4d, fill_doc, logger
+from nilearn._utils.param_validation import check_params
 from nilearn._utils.tags import SKLEARN_LT_1_6
 from nilearn.image import new_img_like
-from nilearn.maskers.nifti_spheres_masker import _apply_mask_and_get_affinity
+from nilearn.maskers.nifti_spheres_masker import apply_mask_and_get_affinity
 
 from .. import masking
-from .._utils import check_niimg_4d, fill_doc, logger
 from ..image.resampling import coord_transform
 
 ESTIMATOR_CATALOG = {"svc": svm.LinearSVC, "svr": svm.SVR}
@@ -56,20 +55,20 @@ def search_light(
         object to use to fit the data
 
     A : scipy sparse matrix.
-        adjacency matrix. Defines for each feature the neigbhoring features
+        adjacency matrix. Defines for each feature the neighboring features
         following a given structure of the data.
 
-    groups : array-like, optional, (default None)
+    groups : array-like, default=None
         group label for each sample for cross validation.
 
-    scoring : string or callable, optional
+    scoring : :obj:`str` or callable or None, default=None
         The scoring strategy to use. See the scikit-learn documentation
         for possible values.
         If callable, it takes as arguments the fitted estimator, the
         test data (X_test) and the test target (y_test) if y is
         not None.
 
-    cv : cross-validation generator, optional
+    cv : cross-validation generator, default=None
         A cross-validation generator. If None, a 3-fold cross
         validation is used or 3-fold stratified cross-validation
         when y is supplied.
@@ -84,23 +83,21 @@ def search_light(
         search_light scores
     """
     group_iter = GroupIterator(A.shape[0], n_jobs)
-    with warnings.catch_warnings():  # might not converge
-        warnings.simplefilter("ignore", ConvergenceWarning)
-        scores = Parallel(n_jobs=n_jobs, verbose=verbose)(
-            delayed(_group_iter_search_light)(
-                A.rows[list_i],
-                estimator,
-                X,
-                y,
-                groups,
-                scoring,
-                cv,
-                thread_id + 1,
-                A.shape[0],
-                verbose,
-            )
-            for thread_id, list_i in enumerate(group_iter)
+    scores = Parallel(n_jobs=n_jobs, verbose=verbose)(
+        delayed(_group_iter_search_light)(
+            A.rows[list_i],
+            estimator,
+            X,
+            y,
+            groups,
+            scoring,
+            cv,
+            thread_id + 1,
+            A.shape[0],
+            verbose,
         )
+        for thread_id, list_i in enumerate(group_iter)
+    )
     return np.concatenate(scores)
 
 
@@ -113,7 +110,7 @@ class GroupIterator:
 
     Parameters
     ----------
-    n_features : int
+    n_features : :obj:`int`
         Total number of features
     %(n_jobs)s
 
@@ -124,6 +121,7 @@ class GroupIterator:
         if n_jobs == -1:
             n_jobs = cpu_count()
         self.n_jobs = n_jobs
+        check_params(self.__dict__)
 
     def __iter__(self):
         yield from np.array_split(np.arange(self.n_features), self.n_jobs)
@@ -184,8 +182,7 @@ def _group_iter_search_light(
     total : int
         Total number of voxels, used for display
 
-    verbose : int, default=0
-        The verbosity level.
+    %(verbose0)s
 
     Returns
     -------
@@ -199,20 +196,22 @@ def _group_iter_search_light(
         if isinstance(cv, KFold):
             kwargs = {"scoring": scoring}
 
-        if y is None:
-            y_dummy = np.array(
-                [0] * (X.shape[0] // 2) + [1] * (X.shape[0] // 2)
-            )
-            estimator.fit(
-                X[:, row], y_dummy[: X.shape[0]]
-            )  # Ensure the size matches X
-            par_scores[i] = np.mean(estimator.decision_function(X[:, row]))
-        else:
-            par_scores[i] = np.mean(
-                cross_val_score(
-                    estimator, X[:, row], y, cv=cv, n_jobs=1, **kwargs
+        with warnings.catch_warnings():  # might not converge
+            warnings.simplefilter("ignore", ConvergenceWarning)
+            if y is None:
+                y_dummy = np.array(
+                    [0] * (X.shape[0] // 2) + [1] * (X.shape[0] // 2)
                 )
-            )
+                estimator.fit(
+                    X[:, row], y_dummy[: X.shape[0]]
+                )  # Ensure the size matches X
+                par_scores[i] = np.mean(estimator.decision_function(X[:, row]))
+            else:
+                par_scores[i] = np.mean(
+                    cross_val_score(
+                        estimator, X[:, row], y, cv=cv, n_jobs=1, **kwargs
+                    )
+                )
 
         if verbose > 0:
             # One can't print less than each 10 iterations
@@ -229,7 +228,6 @@ def _group_iter_search_light(
                     f"Job #{thread_id}, processed {i}/{len(list_rows)} steps "
                     f"({percent:0.2f}%, "
                     f"{remaining:0.1f} seconds remaining){crlf}",
-                    stack_level=6,
                 )
     return par_scores
 
@@ -243,7 +241,7 @@ class SearchLight(TransformerMixin, BaseEstimator):
 
     Parameters
     ----------
-    mask_img : Niimg-like object
+    mask_img : Niimg-like object or None,
         See :ref:`extracting_data`.
         Boolean image giving location of voxels containing usable signals.
 
@@ -252,13 +250,15 @@ class SearchLight(TransformerMixin, BaseEstimator):
         Boolean image giving voxels on which searchlight should be
         computed.
 
-    radius : float, default=2.
+    radius : :obj:`float`, default=2.
         radius of the searchlight ball, in millimeters.
 
     estimator : 'svr', 'svc', or an estimator object implementing 'fit'
         The object to use to fit the data
+
     %(n_jobs)s
-    scoring : string or callable, optional
+
+    scoring : :obj:`str` or callable, optional
         The scoring strategy to use. See the scikit-learn documentation
         If callable, takes as arguments the fitted estimator, the
         test data (X_test) and the test target (y_test) if y is
@@ -268,6 +268,7 @@ class SearchLight(TransformerMixin, BaseEstimator):
         A cross-validation generator. If None, a 3-fold cross
         validation is used or 3-fold stratified cross-validation
         when y is supplied.
+
     %(verbose0)s
 
     Attributes
@@ -311,7 +312,7 @@ class SearchLight(TransformerMixin, BaseEstimator):
 
     def __init__(
         self,
-        mask_img,
+        mask_img=None,
         process_mask_img=None,
         radius=2.0,
         estimator="svc",
@@ -351,11 +352,36 @@ class SearchLight(TransformerMixin, BaseEstimator):
 
             return tags()
 
+        from sklearn.utils import ClassifierTags, RegressorTags
+
         from nilearn._utils.tags import InputTags
 
         tags = super().__sklearn_tags__()
-        tags.input_tags = InputTags()
+        tags.input_tags = InputTags(surf_img=True)
+
+        if self.estimator == "svr":
+            if SKLEARN_LT_1_6:
+                tags["multioutput"] = True
+                return tags
+            tags.estimator_type = "regressor"
+            tags.regressor_tags = RegressorTags()
+
+        elif self.estimator == "svc":
+            if SKLEARN_LT_1_6:
+                return tags
+            tags.estimator_type = "classifier"
+            tags.classifier_tags = ClassifierTags()
+
         return tags
+
+    @property
+    def _estimator_type(self):
+        # TODO rm sklearn>=1.6
+        if self.estimator == "svr":
+            return "regressor"
+        elif self.estimator == "svc":
+            return "classifier"
+        return ""
 
     def fit(self, imgs, y, groups=None):
         """Fit the searchlight.
@@ -370,15 +396,22 @@ class SearchLight(TransformerMixin, BaseEstimator):
             Target variable to predict. Must have exactly as many elements as
             3D images in img.
 
-        groups : array-like, optional
+        groups : array-like, default=None
             group label for each sample for cross validation. Must have
-            exactly as many elements as 3D images in img. default None
+            exactly as many elements as 3D images in img.
         """
+        check_params(self.__dict__)
+
         # check if image is 4D
         imgs = check_niimg_4d(imgs)
 
+        check_array(y, ensure_2d=False, dtype=None)
+
         # Get the seeds
-        process_mask_img = self.process_mask_img or self.mask_img
+        self.mask_img_ = deepcopy(self.mask_img)
+        if self.mask_img_ is not None:
+            self.mask_img_ = check_niimg_3d(self.mask_img_)
+        process_mask_img = self.process_mask_img or self.mask_img_
 
         # Compute world coordinates of the seeds
         process_mask, process_mask_affine = masking.load_mask_img(
@@ -395,12 +428,12 @@ class SearchLight(TransformerMixin, BaseEstimator):
         )
         process_mask_coords = np.asarray(process_mask_coords).T
 
-        X, A = _apply_mask_and_get_affinity(
+        X, A = apply_mask_and_get_affinity(
             process_mask_coords,
             imgs,
             self.radius,
             True,
-            mask_img=self.mask_img,
+            mask_img=self.mask_img_,
         )
 
         estimator = self.estimator
@@ -429,32 +462,29 @@ class SearchLight(TransformerMixin, BaseEstimator):
         return (
             hasattr(self, "scores_")
             and hasattr(self, "process_mask_")
+            and hasattr(self, "mask_img_")
             and self.scores_ is not None
             and self.process_mask_ is not None
         )
 
-    def _check_fitted(self):
-        if not self.__sklearn_is_fitted__():
-            raise ValueError("The model has not been fitted yet.")
-
     @property
     def scores_img_(self):
         """Convert the 3D scores array into a NIfTI image."""
-        self._check_fitted()
-        return new_img_like(self.mask_img, self.scores_)
+        check_is_fitted(self)
+        return new_img_like(self.mask_img_, self.scores_)
 
     def transform(self, imgs):
         """Apply the fitted searchlight on new images."""
-        self._check_fitted()
+        check_is_fitted(self)
 
         imgs = check_niimg_4d(imgs)
 
-        X, A = _apply_mask_and_get_affinity(
+        X, A = apply_mask_and_get_affinity(
             np.asarray(np.where(self.process_mask_)).T,
             imgs,
             self.radius,
             True,
-            mask_img=self.mask_img,
+            mask_img=self.mask_img_,
         )
 
         estimator = self.estimator
@@ -479,3 +509,12 @@ class SearchLight(TransformerMixin, BaseEstimator):
         reshaped_result = np.abs(reshaped_result)
 
         return reshaped_result
+
+    def set_output(self, *, transform=None):
+        """Set the output container when ``"transform"`` is called.
+
+        .. warning::
+
+            This has not been implemented yet.
+        """
+        raise NotImplementedError()

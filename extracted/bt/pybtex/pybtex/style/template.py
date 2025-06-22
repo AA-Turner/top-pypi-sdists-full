@@ -36,19 +36,18 @@ Inspired by Brevé -- http://breve.twisty-industries.com/
 >>> book_format = sentence(capfirst=True, sep=', ') [
 ...     field('title'), field('year'), optional [field('sdf')]
 ... ]
->>> print(six.text_type(book_format.format_data({'entry': e})))
+>>> print(str(book_format.format_data({'entry': e})))
 The Book, 2000.
->>> print(six.text_type(words ['one', 'two', words ['three', 'four']].format_data(e)))
+>>> print(str(words ['one', 'two', words ['three', 'four']].format_data(e)))
 one two three four
 """
 
 from __future__ import unicode_literals
 
-import  six
+import warnings
 
 from pybtex import richtext
 from pybtex.exceptions import PybtexError
-from pybtex.py3compat import fix_unicode_literals_in_doctest
 
 __test__ = {}  # for doctest
 
@@ -82,23 +81,22 @@ class Node(object):
             result.children.append(children)
         return result
 
-    @fix_unicode_literals_in_doctest
     def __repr__(self):
         """
         >>> join(', ')
-        join(u', ')
+        join(', ')
         >>> join
         join
         >>> join ['a']
-        join [u'a']
+        join ['a']
         >>> join ['a', 'b', 'c']
-        join [u'a', u'b', u'c']
-        >>> join(' ') [u'a', u'b', u'c']
-        join(u' ') [u'a', u'b', u'c']
-        >>> join(sep=' ') [u'a', u'b', u'c']
-        join(sep=u' ') [u'a', u'b', u'c']
-        >>> join(sep=u' ') [tag('em') [u'a', u'b', u'c']]
-        join(sep=u' ') [tag(u'em') [u'a', u'b', u'c']]
+        join ['a', 'b', 'c']
+        >>> join(' ') ['a', 'b', 'c']
+        join(' ') ['a', 'b', 'c']
+        >>> join(sep=' ') ['a', 'b', 'c']
+        join(sep=' ') ['a', 'b', 'c']
+        >>> join(sep=' ') [tag('em') ['a', 'b', 'c']]
+        join(sep=' ') [tag('em') ['a', 'b', 'c']]
 
         """
         params = []
@@ -159,13 +157,13 @@ def node(f):
 @node
 def join(children, data, sep='', sep2=None, last_sep=None):
     """Join text fragments together.
-    >>> print(six.text_type(join.format()))
+    >>> print(str(join.format()))
     <BLANKLINE>
-    >>> print(six.text_type(join ['a', 'b', 'c', 'd', 'e'].format()))
+    >>> print(str(join ['a', 'b', 'c', 'd', 'e'].format()))
     abcde
-    >>> print(six.text_type(join(sep=', ', sep2=' and ', last_sep=', and ') ['Tom', 'Jerry'].format()))
+    >>> print(str(join(sep=', ', sep2=' and ', last_sep=', and ') ['Tom', 'Jerry'].format()))
     Tom and Jerry
-    >>> print(six.text_type(join(sep=', ', sep2=' and ', last_sep=', and ') ['Billy', 'Willy', 'Dilly'].format()))
+    >>> print(str(join(sep=', ', sep2=' and ', last_sep=', and ') ['Billy', 'Willy', 'Dilly'].format()))
     Billy, Willy, and Dilly
     """
 
@@ -194,15 +192,15 @@ def together(children, data, last_tie=False):
     """
     Try to keep words together, like BibTeX does.
 
-    >>> print(six.text_type(together ['very', 'long', 'road'].format()))
+    >>> print(str(together ['very', 'long', 'road'].format()))
     very long road
-    >>> print(six.text_type(together(last_tie=True) ['very', 'long', 'road'].format()))
+    >>> print(str(together(last_tie=True) ['very', 'long', 'road'].format()))
     very long<nbsp>road
-    >>> print(six.text_type(together ['a', 'very', 'long', 'road'].format()))
+    >>> print(str(together ['a', 'very', 'long', 'road'].format()))
     a<nbsp>very long road
-    >>> print(six.text_type(together ['chapter', '8'].format()))
+    >>> print(str(together ['chapter', '8'].format()))
     chapter<nbsp>8
-    >>> print(six.text_type(together ['chapter', '666'].format()))
+    >>> print(str(together ['chapter', '666'].format()))
     chapter 666
     """
     from pybtex.textutils import tie_or_space
@@ -226,11 +224,11 @@ def together(children, data, last_tie=False):
 def sentence(children, data, capfirst=False, capitalize=False, add_period=True, sep=', '):
     """Join text fragments, capitalyze the first letter, add a period to the end.
 
-    >>> print(six.text_type(sentence.format()))
+    >>> print(str(sentence.format()))
     <BLANKLINE>
-    >>> print(six.text_type(sentence(capitalize=True, sep=' ') ['mary', 'had', 'a', 'little', 'lamb'].format()))
+    >>> print(str(sentence(capitalize=True, sep=' ') ['mary', 'had', 'a', 'little', 'lamb'].format()))
     Mary had a little lamb.
-    >>> print(six.text_type(sentence(capitalize=False, add_period=False) ['uno', 'dos', 'tres'].format()))
+    >>> print(str(sentence(capitalize=False, add_period=False) ['uno', 'dos', 'tres'].format()))
     uno, dos, tres
     """
 
@@ -248,7 +246,7 @@ class FieldIsMissing(PybtexError):
     def __init__(self, field_name, entry):
         self.field_name = field_name
         super(FieldIsMissing, self).__init__(
-            u'missing {0} in {1}'.format(field_name, getattr(entry, 'key', '<unnamed>'))
+            'missing {0} in {1}'.format(field_name, getattr(entry, 'key', '<unnamed>'))
         )
 
 @node
@@ -326,16 +324,27 @@ def tag(children, data, name):
 
 
 @node
-def href(children, data):
+def href(children, data, url=None, external=False):
     """Wrap text into a href.
 
-    >>> print(href ['www.test.org', 'important'].format().render_as('html'))
+    >>> print(href('www.test.org') ['important'].format().render_as('html'))
     <a href="www.test.org">important</a>
-    >>> print(sentence ['ready', 'set', href ['www.test.org', 'go']].format().render_as('html'))
+    >>> print(sentence ['ready', 'set', href('www.test.org') ['go']].format().render_as('html'))
     ready, set, <a href="www.test.org">go</a>.
+    >>> print(href('www.test.org', external=True) ['important'].format().render_as('html'))
+    <a href="www.test.org" target="_blank">important</a>
+    >>> print(href('www.test.org', external=True) ['important'].format().render_as('latex'))
+    \\href[pdfnewwindow]{www.test.org}{important}
     """
     parts = _format_list(children, data)
-    return richtext.HRef(*parts)
+    if url is None:
+        warnings.warn(
+            'href [url, text] is deprecated since 0.24: use href(url) [text] instead',
+            DeprecationWarning,
+            stacklevel=2
+        )
+        url, *parts = parts
+    return richtext.HRef(_format_data(url, data), *parts, external=external)
 
 
 @node

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pdm
-Version: 2.25.2
+Version: 2.25.3
 Summary: A modern Python package and dependency manager supporting the latest PEP standards
 Keywords: packaging,dependency,workflow
 Author-Email: Frost Ming <mianghong@gmail.com>

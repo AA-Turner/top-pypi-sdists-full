@@ -31,16 +31,9 @@ import pandas as pd
 
 class SQLWriter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         # global options
@@ -69,7 +62,7 @@ class SQLWriter(ConnectAgent):
             "__globalCommit__", False
         )
 
-    def open(self):
+    def _open(self):
         if self._cnctn_type == "sqlalchemy":
             if self._insertMethod == "default":
                 import sqlalchemy
@@ -658,7 +651,11 @@ class SQLWriter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container:")
+
+        self._open()
+
         try:
 
             if self._fast:
@@ -674,7 +671,7 @@ class SQLWriter(ConnectAgent):
 
             if self._write_all:
                 self._symbols = []
-                sym_schema = self.cerberus()["symbols"]["oneof"][1]["schema"]["schema"]
+                sym_schema = self._cdb.load_schema(self)["symbols"]["oneof"][1]["schema"]["schema"]
                 v = ConnectValidator(sym_schema)
                 for name, sym in self._cdb.container.data.items():
                     if type(sym) in [gt.Set, gt.Parameter]:
@@ -686,19 +683,15 @@ class SQLWriter(ConnectAgent):
                         sym_inst = v.normalize_of_rules(sym_inst)
                         self._symbols.append(sym_inst)
 
-            write_container = self._cdb.container
             symbols_raw = self._symbols.copy()
             sym_list = []
             for s in self._symbols:
                 sym_name = s["name"]
-                if sym_name not in write_container:
-                    self._connect_error(
-                        f"Symbol >{sym_name}< not found in Connect database."
-                    )
-                else:
-                    self._update_sym_inst(s, self._inst)
-                    sym_list.append(s["name"])
+                self._symbols_exist_cdb(sym_name, should_exist=True)
+                self._update_sym_inst(s, self._inst)
+                sym_list.append(s["name"])
 
+            write_container = self._cdb.container
             if self._small:  # Currently only True if cnct_type = "sqlite"
                 write_container = gt.Container(system_directory=self._system_directory)
                 write_container.read(self._cdb.container, symbols=sym_list)
@@ -852,12 +845,12 @@ class SQLWriter(ConnectAgent):
                 # Commit all symbols at once. If failure, nothing gets committed.
                 # ATM, ONLY FOR SQLITEWRITE TOOL
 
-        except Exception as e:
+        except Exception:
             if self._cnctn_type == "sqlalchemy":
                 self._conn.rollback()
             else:
                 self._engine.rollback()
-            self._connect_error(f"{e}")
+            raise
 
         finally:
             if self._cnctn_type == "sqlalchemy":

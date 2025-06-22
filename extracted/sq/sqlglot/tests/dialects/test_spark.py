@@ -273,6 +273,10 @@ TBLPROPERTIES (
         self.validate_identity("TRIM(TRAILING 'SL' FROM 'SSparkSQLS')")
         self.validate_identity("SPLIT(str, pattern, lim)")
         self.validate_identity(
+            "SELECT * FROM t1, t2",
+            "SELECT * FROM t1 CROSS JOIN t2",
+        )
+        self.validate_identity(
             "SELECT 1 limit",
             "SELECT 1 AS limit",
         )
@@ -816,6 +820,26 @@ TBLPROPERTIES (
                 "spark": "SELECT CAST(col AS TIMESTAMP)",
                 "databricks": "SELECT TRY_CAST(col AS TIMESTAMP)",
                 "duckdb": "SELECT TRY_CAST(col AS TIMESTAMPTZ)",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM {df}",
+            read={
+                "databricks": "SELECT * FROM {df}",
+            },
+            write={
+                "spark": "SELECT * FROM {df}",
+                "databricks": "SELECT * FROM {df}",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM {df} WHERE id > :foo",
+            read={
+                "databricks": "SELECT * FROM {df} WHERE id > :foo",
+            },
+            write={
+                "spark": "SELECT * FROM {df} WHERE id > :foo",
+                "databricks": "SELECT * FROM {df} WHERE id > :foo",
             },
         )
 

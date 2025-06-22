@@ -17963,6 +17963,138 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_gmoQExtractDenseSwitchFactor(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gmoHandle_t arg1 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  double result;
+  
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gmoHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gmoQExtractDenseSwitchFactor" "', argument " "1"" of type '" "gmoHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gmoQExtractDenseSwitchFactor" "', argument " "1"" of type '" "gmoHandle_t""'");
+    } else {
+      arg1 = *((gmoHandle_t *)(argp1));
+    }
+  }
+  result = (double)gmoQExtractDenseSwitchFactor(arg1);
+  resultobj = SWIG_From_double((double)(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_gmoQExtractDenseSwitchFactorSet(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gmoHandle_t arg1 ;
+  double arg2 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  double val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "gmoQExtractDenseSwitchFactorSet", 2, 2, swig_obj)) SWIG_fail;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gmoHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gmoQExtractDenseSwitchFactorSet" "', argument " "1"" of type '" "gmoHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gmoQExtractDenseSwitchFactorSet" "', argument " "1"" of type '" "gmoHandle_t""'");
+    } else {
+      arg1 = *((gmoHandle_t *)(argp1));
+    }
+  }
+  ecode2 = SWIG_AsVal_double(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "gmoQExtractDenseSwitchFactorSet" "', argument " "2"" of type '" "double""'");
+  } 
+  arg2 = (double)(val2);
+  gmoQExtractDenseSwitchFactorSet(arg1,arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_gmoQExtractDenseSwitchLog(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gmoHandle_t arg1 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[1] ;
+  int result;
+  
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gmoHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gmoQExtractDenseSwitchLog" "', argument " "1"" of type '" "gmoHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gmoQExtractDenseSwitchLog" "', argument " "1"" of type '" "gmoHandle_t""'");
+    } else {
+      arg1 = *((gmoHandle_t *)(argp1));
+    }
+  }
+  result = (int)gmoQExtractDenseSwitchLog(arg1);
+  resultobj = SWIG_From_int((int)(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_gmoQExtractDenseSwitchLogSet(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gmoHandle_t arg1 ;
+  int arg2 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject *swig_obj[2] ;
+  
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "gmoQExtractDenseSwitchLogSet", 2, 2, swig_obj)) SWIG_fail;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gmoHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gmoQExtractDenseSwitchLogSet" "', argument " "1"" of type '" "gmoHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gmoQExtractDenseSwitchLogSet" "', argument " "1"" of type '" "gmoHandle_t""'");
+    } else {
+      arg1 = *((gmoHandle_t *)(argp1));
+    }
+  }
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "gmoQExtractDenseSwitchLogSet" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = (int)(val2);
+  gmoQExtractDenseSwitchLogSet(arg1,arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_gmoAltBounds(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   gmoHandle_t arg1 ;
@@ -21771,6 +21903,10 @@ static PyMethodDef SwigMethods[] = {
 	 { "gmoUseQSet", _wrap_gmoUseQSet, METH_VARARGS, "gmoUseQSet(pgmo, x)"},
 	 { "gmoQExtractAlg", _wrap_gmoQExtractAlg, METH_O, "gmoQExtractAlg(pgmo) -> int"},
 	 { "gmoQExtractAlgSet", _wrap_gmoQExtractAlgSet, METH_VARARGS, "gmoQExtractAlgSet(pgmo, x)"},
+	 { "gmoQExtractDenseSwitchFactor", _wrap_gmoQExtractDenseSwitchFactor, METH_O, "gmoQExtractDenseSwitchFactor(pgmo) -> double"},
+	 { "gmoQExtractDenseSwitchFactorSet", _wrap_gmoQExtractDenseSwitchFactorSet, METH_VARARGS, "gmoQExtractDenseSwitchFactorSet(pgmo, x)"},
+	 { "gmoQExtractDenseSwitchLog", _wrap_gmoQExtractDenseSwitchLog, METH_O, "gmoQExtractDenseSwitchLog(pgmo) -> int"},
+	 { "gmoQExtractDenseSwitchLogSet", _wrap_gmoQExtractDenseSwitchLogSet, METH_VARARGS, "gmoQExtractDenseSwitchLogSet(pgmo, x)"},
 	 { "gmoAltBounds", _wrap_gmoAltBounds, METH_O, "gmoAltBounds(pgmo) -> int"},
 	 { "gmoAltBoundsSet", _wrap_gmoAltBoundsSet, METH_VARARGS, "gmoAltBoundsSet(pgmo, x)"},
 	 { "gmoAltRHS", _wrap_gmoAltRHS, METH_O, "gmoAltRHS(pgmo) -> int"},

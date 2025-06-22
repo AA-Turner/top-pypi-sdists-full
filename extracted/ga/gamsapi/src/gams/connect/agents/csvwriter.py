@@ -31,15 +31,9 @@ import pandas as pd
 
 class CSVWriter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         inst["file"] = os.path.abspath(inst["file"])
@@ -61,11 +55,10 @@ class CSVWriter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
-            self._describe_container(self._cdb.container, "Connect Container:")
+            self._log_instructions(self._inst, self._inst_raw)
+            self._describe_container(self._cdb.container, "Connect Container:")          
 
-        if self._name not in self._cdb.container:
-            self._connect_error(f"Symbol '{self._name}' not found in Connect database.")
-
+        self._symbols_exist_cdb(self._name, should_exist=True)
         gt_sym = self._cdb.container[self._name]
 
         if self._trace > 2:

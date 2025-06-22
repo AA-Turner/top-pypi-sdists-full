@@ -32,16 +32,10 @@ import numpy as np
 
 
 class Concatenate(ConnectAgent):
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
         self.__gt2pytypemap__ = {gt.Set: "set", gt.Parameter: "parameter"}
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
 
     def _parse_options(self, inst):
         # root options
@@ -79,11 +73,7 @@ class Concatenate(ConnectAgent):
                 self._connect_error(f"Invalid symbol name {sym_opt['name']}.")
             sym_opt["sname"] = ms.group("name")
 
-            if sym_opt["sname"] not in self._cdb.container:
-                self._connect_error(
-                    f"Symbol '{sym_opt['sname']}' not found in Connect database."
-                )
-
+            self._symbols_exist_cdb(sym_opt["sname"], should_exist=True)
             sym = self._cdb.container[sym_opt["sname"]]
 
             if not isinstance(sym, (gt.Set, gt.Parameter)):
@@ -336,7 +326,8 @@ class Concatenate(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
-            self._describe_container(self._cdb.container, "Connect Container (before):")
+            self._log_instructions(self._inst, self._inst_raw)
+            self._describe_container(self._cdb.container, "Connect Container (before):")          
 
         self._create_symbols_list()
         if not self._symbols:
@@ -409,7 +400,7 @@ class Concatenate(ConnectAgent):
         output_types = sorted(output_types, reverse=True)
 
         for ot in output_types:
-            self._check_symbol_exists(self._output_name[ot])
+            self._symbols_exist_cdb(self._output_name[ot])
 
         # save categories that might be lost after pandas.concat
         # TODO: remove when fixed by pandas: https://github.com/pandas-dev/pandas/issues/51362

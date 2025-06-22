@@ -129,7 +129,7 @@ from .refs import (
     read_info_refs,
     split_peeled_refs,
 )
-from .repo import Repo
+from .repo import BaseRepo, Repo
 
 # Default ref prefix, used if none is specified.
 # GitHub defaults to just sending HEAD if no ref-prefix is
@@ -922,7 +922,7 @@ class GitClient:
     def fetch(
         self,
         path: str,
-        target: Repo,
+        target: BaseRepo,
         determine_wants: Optional[
             Callable[[dict[bytes, bytes], Optional[int]], list[bytes]]
         ] = None,
@@ -1415,6 +1415,8 @@ class TraditionalGitClient(GitClient):
             if self.protocol_version == 2:
                 proto.write_pkt_line(b"command=fetch\n")
                 proto.write(b"0001")  # delim-pkt
+                if CAPABILITY_THIN_PACK in self._fetch_capabilities:
+                    proto.write(pkt_line(b"thin-pack\n"))
                 if (
                     find_capability(
                         negotiated_capabilities, CAPABILITY_FETCH, CAPABILITY_FILTER
@@ -1659,12 +1661,19 @@ class SubprocessWrapper:
         else:
             return _fileno_can_read(self.proc.stdout.fileno())
 
-    def close(self) -> None:
+    def close(self, timeout: Optional[int] = 60) -> None:
         self.proc.stdin.close()
         self.proc.stdout.close()
         if self.proc.stderr:
             self.proc.stderr.close()
-        self.proc.wait()
+        try:
+            self.proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as e:
+            self.proc.kill()
+            self.proc.wait()
+            raise GitProtocolError(
+                f"Git subprocess did not terminate within {timeout} seconds; killed it."
+            ) from e
 
 
 def find_git_command() -> list[str]:
@@ -1822,7 +1831,7 @@ class LocalGitClient(GitClient):
     def fetch(
         self,
         path: str,
-        target: Repo,
+        target: BaseRepo,
         determine_wants: Optional[
             Callable[[dict[bytes, bytes], Optional[int]], list[bytes]]
         ] = None,
@@ -2102,7 +2111,7 @@ def ParamikoSSHVendor(**kwargs):
 
 
 # Can be overridden by users
-get_ssh_vendor = SubprocessSSHVendor
+get_ssh_vendor: Callable[[], SSHVendor] = SubprocessSSHVendor
 
 
 class SSHGitClient(TraditionalGitClient):
@@ -2123,9 +2132,21 @@ class SSHGitClient(TraditionalGitClient):
         self.username = username
         self.password = password
         self.key_filename = key_filename
-        self.ssh_command = ssh_command or os.environ.get(
-            "GIT_SSH_COMMAND", os.environ.get("GIT_SSH")
-        )
+        # Priority: ssh_command parameter, then env vars, then core.sshCommand config
+        if ssh_command:
+            self.ssh_command = ssh_command
+        else:
+            # Check environment variables first
+            self.ssh_command = os.environ.get(
+                "GIT_SSH_COMMAND", os.environ.get("GIT_SSH")
+            )
+
+            # Fall back to config if no environment variable set
+            if not self.ssh_command and config is not None:
+                config_ssh_command = config.get((b"core",), b"sshCommand")
+                self.ssh_command = (
+                    config_ssh_command.decode() if config_ssh_command else None
+                )
         super().__init__(**kwargs)
         self.alternative_paths: dict[bytes, bytes] = {}
         if vendor is not None:
@@ -2693,6 +2714,8 @@ class AbstractHttpGitClient(GitClient):
         )
         if self.protocol_version == 2:
             data = pkt_line(b"command=fetch\n") + b"0001"
+            if CAPABILITY_THIN_PACK in self._fetch_capabilities:
+                data += pkt_line(b"thin-pack\n")
             if (
                 find_capability(
                     negotiated_capabilities, CAPABILITY_FETCH, CAPABILITY_FILTER
@@ -2895,6 +2918,8 @@ def get_transport_and_path_from_url(
       url: URL to open (a unicode string)
       config: Optional config object
       operation: Kind of operation that'll be performed; "pull" or "push"
+
+    Keyword Args:
       thin_packs: Whether or not thin packs should be retrieved
       report_activity: Optional callback for reporting transport
         activity.
@@ -2916,7 +2941,7 @@ def _get_transport_and_path_from_url(url, config, operation, **kwargs):
     if parsed.scheme == "git":
         return (TCPGitClient.from_parsedurl(parsed, **kwargs), parsed.path)
     elif parsed.scheme in ("git+ssh", "ssh"):
-        return SSHGitClient.from_parsedurl(parsed, **kwargs), parsed.path
+        return SSHGitClient.from_parsedurl(parsed, config=config, **kwargs), parsed.path
     elif parsed.scheme in ("http", "https"):
         return (
             HttpGitClient.from_parsedurl(parsed, config=config, **kwargs),
@@ -2964,6 +2989,8 @@ def get_transport_and_path(
       location: URL or path (a string)
       config: Optional config object
       operation: Kind of operation that'll be performed; "pull" or "push"
+
+    Keyword Args:
       thin_packs: Whether or not thin packs should be retrieved
       report_activity: Optional callback for reporting transport
         activity.
@@ -2993,7 +3020,7 @@ def get_transport_and_path(
         # Otherwise, assume it's a local path.
         return default_local_git_client_cls(**kwargs), location
     else:
-        return SSHGitClient(hostname, username=username, **kwargs), path
+        return SSHGitClient(hostname, username=username, config=config, **kwargs), path
 
 
 DEFAULT_GIT_CREDENTIALS_PATHS = [

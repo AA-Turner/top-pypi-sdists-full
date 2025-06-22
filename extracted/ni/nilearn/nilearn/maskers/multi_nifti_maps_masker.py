@@ -2,11 +2,15 @@
 
 import itertools
 
-from joblib import Memory, Parallel, delayed
+from joblib import Parallel, delayed
+from sklearn.utils.estimator_checks import check_is_fitted
 
-from .._utils import fill_doc
-from .._utils.niimg_conversions import iter_check_niimg
-from .nifti_maps_masker import NiftiMapsMasker
+from nilearn._utils import fill_doc
+from nilearn._utils.niimg_conversions import iter_check_niimg
+from nilearn._utils.tags import SKLEARN_LT_1_6
+from nilearn.maskers.base_masker import prepare_confounds_multimaskers
+from nilearn.maskers.nifti_maps_masker import NiftiMapsMasker
+from nilearn.typing import NiimgLike
 
 
 @fill_doc
@@ -31,7 +35,7 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
 
     Parameters
     ----------
-    maps_img : 4D niimg-like object
+    maps_img : 4D niimg-like object or None, default=None
         See :ref:`extracting_data`.
         Set of continuous maps. One representative time course per map is
         extracted using least square regression.
@@ -54,10 +58,8 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
     %(low_pass)s
     %(high_pass)s
     %(t_r)s
-    dtype : {dtype, "auto"}, optional
-        Data type toward which the data should be converted. If "auto", the
-        data will be converted to int32 if dtype is discrete and float32 if it
-        is continuous.
+
+    %(dtype)s
 
     resampling_target : {"data", "mask", "maps", None}, default="data"
         Gives which image gives the final shape/size:
@@ -73,17 +75,30 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
 
 
     %(memory)s
+
     %(memory_level)s
+
     %(n_jobs)s
+
     %(verbose0)s
+
     reports : :obj:`bool`, default=True
         If set to True, data is saved in order to produce a report.
+
+    %(cmap)s
+        default="CMRmap_r"
+        Only relevant for the report figures.
+
+    %(clean_args)s
+
     %(masker_kwargs)s
 
     Attributes
     ----------
     maps_img_ : :obj:`nibabel.nifti1.Nifti1Image`
         The maps mask of the data.
+
+    %(nifti_mask_img_)s
 
     n_elements_ : :obj:`int`
         The number of overlapping maps in the mask.
@@ -109,7 +124,7 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
 
     def __init__(
         self,
-        maps_img,
+        maps_img=None,
         mask_img=None,
         allow_overlap=True,
         smoothing_fwhm=None,
@@ -126,11 +141,11 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
         memory_level=0,
         verbose=0,
         reports=True,
+        cmap="CMRmap_r",
         n_jobs=1,
+        clean_args=None,
         **kwargs,
     ):
-        if memory is None:
-            memory = Memory(location=None, verbose=0)
         self.n_jobs = n_jobs
         super().__init__(
             maps_img,
@@ -150,8 +165,30 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
             memory_level=memory_level,
             verbose=verbose,
             reports=reports,
+            cmap=cmap,
+            clean_args=clean_args,
             **kwargs,
         )
+
+    def __sklearn_tags__(self):
+        """Return estimator tags.
+
+        See the sklearn documentation for more details on tags
+        https://scikit-learn.org/1.6/developers/develop.html#estimator-tags
+        """
+        # TODO
+        # get rid of if block
+        # bumping sklearn_version > 1.5
+        if SKLEARN_LT_1_6:
+            from nilearn._utils.tags import tags
+
+            return tags(masker=True, multi_masker=True)
+
+        from nilearn._utils.tags import InputTags
+
+        tags = super().__sklearn_tags__()
+        tags.input_tags = InputTags(masker=True, multi_masker=True)
+        return tags
 
     @fill_doc
     def transform_imgs(
@@ -162,22 +199,24 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
         Parameters
         ----------
         %(imgs)s
-            Images to process. Each element of the list is a 4D image.
-        %(confounds)s
-        %(sample_mask)s
+            Images to process.
+
+        %(confounds_multi)s
+
+        %(n_jobs)s
+
+        %(sample_mask_multi)s
 
         Returns
         -------
-        region_signals : list of 2D :obj:`numpy.ndarray`
-            List of signals for each map per subject.
-            shape: list of (number of scans, number of maps)
+        %(signals_transform_imgs_multi_nifti)s
 
         """
         # We handle the resampling of maps and mask separately because the
         # affine of the maps and mask images should not impact the extraction
         # of the signal.
 
-        self._check_fitted()
+        check_is_fitted(self)
 
         niimg_iter = iter_check_niimg(
             imgs_list,
@@ -187,11 +226,15 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
             memory_level=self.memory_level,
         )
 
-        if confounds is None:
-            confounds = itertools.repeat(None, len(imgs_list))
+        confounds = prepare_confounds_multimaskers(self, imgs_list, confounds)
 
         if sample_mask is None:
             sample_mask = itertools.repeat(None, len(imgs_list))
+        elif len(sample_mask) != len(imgs_list):
+            raise ValueError(
+                f"number of sample_mask ({len(sample_mask)}) unequal to "
+                f"number of images ({len(imgs_list)})."
+            )
 
         func = self._cache(self.transform_single_imgs)
 
@@ -207,21 +250,72 @@ class MultiNiftiMapsMasker(NiftiMapsMasker):
 
         Parameters
         ----------
-        %(imgs)s
-            Images to process. Each element of the list is a 4D image.
-        %(confounds)s
-        %(sample_mask)s
+        imgs : Niimg-like object, or a :obj:`list` of Niimg-like objects
+            See :ref:`extracting_data`.
+            Data to be preprocessed
+
+        %(confounds_multi)s
+
+        %(sample_mask_multi)s
 
         Returns
         -------
-        region_signals : list of 2D :obj:`numpy.ndarray`
-            List of signals for each map per subject.
-            shape: list of (number of scans, number of maps)
+        %(signals_transform_multi_nifti)s
 
         """
-        self._check_fitted()
-        if not hasattr(imgs, "__iter__") or isinstance(imgs, str):
-            return self.transform_single_imgs(imgs)
+        check_is_fitted(self)
+
+        if not (confounds is None or isinstance(confounds, list)):
+            raise TypeError(
+                "'confounds' must be a None or a list. "
+                f"Got {confounds.__class__.__name__}."
+            )
+        if not (sample_mask is None or isinstance(sample_mask, list)):
+            raise TypeError(
+                "'sample_mask' must be a None or a list. "
+                f"Got {sample_mask.__class__.__name__}."
+            )
+        if isinstance(imgs, NiimgLike):
+            if isinstance(confounds, list):
+                confounds = confounds[0]
+            if isinstance(sample_mask, list):
+                sample_mask = sample_mask[0]
+            return super().transform(
+                imgs, confounds=confounds, sample_mask=sample_mask
+            )
+
         return self.transform_imgs(
-            imgs, confounds, n_jobs=self.n_jobs, sample_mask=sample_mask
+            imgs,
+            confounds=confounds,
+            sample_mask=sample_mask,
+            n_jobs=self.n_jobs,
+        )
+
+    @fill_doc
+    def fit_transform(self, imgs, y=None, confounds=None, sample_mask=None):
+        """
+        Fit to data, then transform it.
+
+        Parameters
+        ----------
+        imgs : Niimg-like object, or a :obj:`list` of Niimg-like objects
+            See :ref:`extracting_data`.
+            Data to be preprocessed
+
+        y : None
+            This parameter is unused. It is solely included for scikit-learn
+            compatibility.
+
+        %(confounds_multi)s
+
+        %(sample_mask_multi)s
+
+            .. versionadded:: 0.8.0
+
+        Returns
+        -------
+        %(signals_transform_multi_nifti)s
+        """
+        return self.fit(imgs, y=y).transform(
+            imgs, confounds=confounds, sample_mask=sample_mask
         )

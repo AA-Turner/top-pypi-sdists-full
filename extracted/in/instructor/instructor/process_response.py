@@ -38,6 +38,7 @@ from instructor.utils import (
     extract_system_messages,
     map_to_gemini_function_schema,
     merge_consecutive_messages,
+    update_genai_kwargs,
 )
 
 logger = logging.getLogger("instructor")
@@ -204,9 +205,12 @@ def is_typed_dict(cls) -> bool:
 def handle_parallel_tools(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
-    assert new_kwargs.get("stream", False) is False, (
-        "stream=True is not supported when using PARALLEL_TOOLS mode"
-    )
+    if new_kwargs.get("stream", False):
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "stream=True is not supported when using PARALLEL_TOOLS mode"
+        )
     new_kwargs["tools"] = handle_parallel_model(response_model)
     new_kwargs["tool_choice"] = "auto"
     return ParallelModel(typehint=response_model), new_kwargs
@@ -557,9 +561,12 @@ def handle_fireworks_json(
 def handle_gemini_json(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
-    assert "model" not in new_kwargs, (
-        "Gemini `model` must be set while patching the client, not passed as a parameter to the create method"
-    )
+    if "model" in new_kwargs:
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "Gemini `model` must be set while patching the client, not passed as a parameter to the create method"
+        )
 
     from .utils import update_gemini_kwargs
 
@@ -590,9 +597,12 @@ def handle_gemini_json(
 def handle_gemini_tools(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
-    assert "model" not in new_kwargs, (
-        "Gemini `model` must be set while patching the client, not passed as a parameter to the create method"
-    )
+    if "model" in new_kwargs:
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "Gemini `model` must be set while patching the client, not passed as a parameter to the create method"
+        )
 
     from .utils import update_gemini_kwargs
 
@@ -622,16 +632,22 @@ def handle_genai_structured_outputs(
 
     new_kwargs["contents"] = convert_to_genai_messages(new_kwargs["messages"])
 
-    # We validate that the schema doesn't contain any optional fields
+    # We validate that the schema doesn't contain any Union fields
     map_to_gemini_function_schema(response_model.model_json_schema())
 
-    new_kwargs["config"] = types.GenerateContentConfig(
-        system_instruction=system_message,
-        response_mime_type="application/json",
-        response_schema=response_model,
-    )
+    base_config = {
+        "system_instruction": system_message,
+        "response_mime_type": "application/json",
+        "response_schema": response_model,
+    }
+
+    generation_config = update_genai_kwargs(new_kwargs, base_config)
+
+    new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
     new_kwargs.pop("response_model", None)
     new_kwargs.pop("messages", None)
+    new_kwargs.pop("generation_config", None)
+    new_kwargs.pop("safety_settings", None)
 
     return response_model, new_kwargs
 
@@ -656,20 +672,25 @@ def handle_genai_tools(
     else:
         system_message = None
 
-    new_kwargs["config"] = types.GenerateContentConfig(
-        system_instruction=system_message,
-        tools=[types.Tool(function_declarations=[function_definition])],
-        tool_config=types.ToolConfig(
+    base_config = {
+        "system_instruction": system_message,
+        "tools": [types.Tool(function_declarations=[function_definition])],
+        "tool_config": types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(
                 mode="ANY", allowed_function_names=[response_model.__name__]
             ),
         ),
-    )
+    }
 
+    generation_config = update_genai_kwargs(new_kwargs, base_config)
+
+    new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
     new_kwargs["contents"] = convert_to_genai_messages(new_kwargs["messages"])
 
     new_kwargs.pop("response_model", None)
     new_kwargs.pop("messages", None)
+    new_kwargs.pop("generation_config", None)
+    new_kwargs.pop("safety_settings", None)
 
     return response_model, new_kwargs
 
@@ -677,9 +698,12 @@ def handle_genai_tools(
 def handle_vertexai_parallel_tools(
     response_model: type[Iterable[T]], new_kwargs: dict[str, Any]
 ) -> tuple[VertexAIParallelBase, dict[str, Any]]:
-    assert new_kwargs.get("stream", False) is False, (
-        "stream=True is not supported when using PARALLEL_TOOLS mode"
-    )
+    if new_kwargs.get("stream", False):
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "stream=True is not supported when using VERTEXAI_PARALLEL_TOOLS mode"
+        )
 
     from instructor.client_vertexai import vertexai_process_response
 
@@ -956,6 +980,17 @@ def handle_writer_tools(
     return response_model, new_kwargs
 
 
+def handle_writer_json(
+    response_model: type[T], new_kwargs: dict[str, Any]
+) -> tuple[type[T], dict[str, Any]]:
+    new_kwargs["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {"schema": response_model.model_json_schema()},
+    }
+
+    return response_model, new_kwargs
+
+
 def handle_perplexity_json(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
@@ -1115,6 +1150,7 @@ def handle_response_model(
         Mode.FIREWORKS_JSON: handle_fireworks_json,
         Mode.FIREWORKS_TOOLS: handle_fireworks_tools,
         Mode.WRITER_TOOLS: handle_writer_tools,
+        Mode.WRITER_JSON: handle_writer_json,
         Mode.BEDROCK_JSON: handle_bedrock_json,
         Mode.BEDROCK_TOOLS: handle_bedrock_tools,
         Mode.PERPLEXITY_JSON: handle_perplexity_json,

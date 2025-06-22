@@ -45,20 +45,9 @@ class ExcelWriter(ExcelAgent):
     _EXCEL_ROW_LIMIT = 1048576
     _EXCEL_COL_LIMIT = 16384
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        self._check_openpyxl()
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        self._toc_symbols = []
-
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
-
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
         if os.path.splitext(self._file)[1] != ".xlsx":
             self._connect_error("The ExcelWriter does support .xlsx files only.")
 
@@ -89,7 +78,7 @@ class ExcelWriter(ExcelAgent):
         self._toc = inst["tableOfContents"]
         if self._toc and not isinstance(self._toc, dict):
             v = ConnectValidator(
-                {"tableOfContents": self.cerberus()["tableOfContents"]}
+                {"tableOfContents": self._cdb.load_schema(self)["tableOfContents"]}
             )
             self._toc = {"tableOfContents": {}}
             self._toc = v.normalized(self._toc)
@@ -97,7 +86,7 @@ class ExcelWriter(ExcelAgent):
             self._toc = self._toc["tableOfContents"]
             inst["tableOfContents"] = self._toc
 
-    def open(self):
+    def _open(self):
         if os.path.exists(self._file):
             try:
                 self._wb = openpyxl.load_workbook(
@@ -266,8 +255,6 @@ class ExcelWriter(ExcelAgent):
                 self._connect_error(f"Data exceeds range for symbol >{sym_name}<.")
 
     def _write_toc(self):
-        if not self._toc["emptySymbols"]:
-            self._toc_symbols = [s for s in self._toc_symbols if s[1] is not None]
         if self._toc["sort"]:
             self._toc_symbols.sort(key=lambda x: x[0].name)
         sheet = self.sheet_by_name(self._toc["sheetName"], self._wb, True, True)
@@ -282,9 +269,8 @@ class ExcelWriter(ExcelAgent):
         row = 2
         for sym, rng in self._toc_symbols:
             sheet.cell(row, 1).value = sym.name
-            if rng is not None:
-                sheet.cell(row, 1).hyperlink = f"#{rng}"
-                sheet.cell(row, 1).font = Font(underline="single", color="0563C1")
+            sheet.cell(row, 1).hyperlink = f"#{rng}"
+            sheet.cell(row, 1).font = Font(underline="single", color="0563C1")
             sheet.cell(row, 2).value = (
                 "Parameter" if isinstance(sym, gt.Parameter) else "Set"
             )
@@ -295,7 +281,7 @@ class ExcelWriter(ExcelAgent):
 
     def _write_symbols(self, symbols, validate=False):
         if validate:
-            sym_schema = self.cerberus()["symbols"]["oneof"][1]["schema"]["schema"]
+            sym_schema = self._cdb.load_schema(self)["symbols"]["oneof"][1]["schema"]["schema"]
             v = ConnectValidator(sym_schema)
         for i, sym in enumerate(symbols):
             if validate:
@@ -320,10 +306,7 @@ class ExcelWriter(ExcelAgent):
                 )
             if len(sym_type) > 0:
                 sym_name = inst["name"]
-                if sym_name not in self._cdb.container:
-                    self._connect_error(
-                        f"Symbol >{sym_name}< not found in Connect database."
-                    )
+                self._symbols_exist_cdb(sym_name, should_exist=True)
                 symbol = self._cdb.container[sym_name]
                 if sym_type == "par":
                     if not isinstance(symbol, gt.Parameter):
@@ -353,8 +336,7 @@ class ExcelWriter(ExcelAgent):
         sym["range"] = self.normalize_range(sym["range"])
 
         sym_name = sym["name"]
-        if sym_name not in self._cdb.container:
-            self._connect_error(f"Symbol >{sym_name}< not found in Connect database.")
+        self._symbols_exist_cdb(sym_name, should_exist=True)
         gt_sym = self._cdb.container[sym_name]
         dim = gt_sym.dimension
         if sym["columnDimension"] == "infer":
@@ -381,11 +363,6 @@ class ExcelWriter(ExcelAgent):
                 f"Symbol type >{type(gt_sym)}< of symbol >{sym_name}< is not supported. Supported symbol types are set and parameter."
             )
         sym_type = "par" if isinstance(gt_sym, gt.Parameter) else "set"
-
-        if gt_sym.records is None or gt_sym.number_records == 0:
-            self._cdb.print_log(f"No data for symbol >{sym_name}<. Skipping.")
-            self._toc_symbols.append((gt_sym, None))
-            return
 
         df = gt_sym.records.copy(deep=True)
 
@@ -430,7 +407,13 @@ class ExcelWriter(ExcelAgent):
 
         self._validate_range(sym_name, df, rdim, cdim, nw_col, nw_row, se_col, se_row)
 
+        if gt_sym.records is None or gt_sym.number_records == 0:
+            if self._toc and self._toc["emptySymbols"]:
+                self._toc_symbols.append((gt_sym, toc_range))
+            return
+
         self._toc_symbols.append((gt_sym, toc_range))
+
         self._write(
             df,
             rdim,
@@ -443,7 +426,17 @@ class ExcelWriter(ExcelAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container:")
+
+        toc = self._inst_raw.get("tableOfContents")
+        if isinstance(toc, dict) and "emptySymbols" in toc:
+            warnings.warn("Option 'emptySymbols' is deprecated and will be removed in a future release. Empty symbols will always be contained in the table of contents.", category=Warning)
+
+        self._open()
+
+        self._check_openpyxl()
+        self._toc_symbols = []
         try:
             if self._index:
                 self._write_from_index()
@@ -460,8 +453,9 @@ class ExcelWriter(ExcelAgent):
                 self._write_toc()
         finally:
             self._wb.close()
+        self._close()
 
-    def close(self):
+    def _close(self):
         if len(self._wb.sheetnames) == 0:
             self._cdb.print_log(f"No sheets in Excel file >{self._file}<. Skipping.")
         else:

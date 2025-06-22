@@ -44,6 +44,14 @@ class TestAWSSecretsManagerSettingsSource:
     """Test AWSSecretsManagerSettingsSource."""
 
     @mock_aws
+    def test_repr(self) -> None:
+        client = boto3.client('secretsmanager')
+        client.create_secret(Name='test-secret', SecretString='{}')
+
+        source = AWSSecretsManagerSettingsSource(BaseSettings, 'test-secret')
+        assert repr(source) == "AWSSecretsManagerSettingsSource(secret_id='test-secret', env_nested_delimiter='--')"
+
+    @mock_aws
     def test___init__(self) -> None:
         """Test __init__."""
 
@@ -79,6 +87,43 @@ class TestAWSSecretsManagerSettingsSource:
 
         assert settings['SqlServerUser'] == 'test-user'
         assert settings['SqlServer']['Password'] == 'test-password'
+
+    @mock_aws
+    def test_secret_manager_case_insensitive_success(self) -> None:
+        """Test secret manager getitem case insensitive success."""
+
+        class SqlServer(BaseModel):
+            password: str = Field(..., alias='Password')
+
+        class AWSSecretsManagerSettings(BaseSettings):
+            """AWSSecretsManager settings."""
+
+            sql_server_user: str
+            sql_server: SqlServer
+
+            @classmethod
+            def settings_customise_sources(
+                cls,
+                settings_cls: type[BaseSettings],
+                init_settings: PydanticBaseSettingsSource,
+                env_settings: PydanticBaseSettingsSource,
+                dotenv_settings: PydanticBaseSettingsSource,
+                file_secret_settings: PydanticBaseSettingsSource,
+            ) -> tuple[PydanticBaseSettingsSource, ...]:
+                return (AWSSecretsManagerSettingsSource(settings_cls, 'test-secret', case_sensitive=False),)
+
+        secret_data = {
+            'SQL_SERVER_USER': 'test-user',
+            'SQL_SERVER--PASSWORD': 'test-password',
+        }
+
+        client = boto3.client('secretsmanager')
+        client.create_secret(Name='test-secret', SecretString=json.dumps(secret_data))
+
+        settings = AWSSecretsManagerSettings()  # type: ignore
+
+        assert settings.sql_server_user == 'test-user'
+        assert settings.sql_server.password == 'test-password'
 
     @mock_aws
     def test_aws_secrets_manager_settings_source(self) -> None:

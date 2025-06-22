@@ -32,7 +32,7 @@ img_file_error = {
 }
 
 
-def check_params(confounds_raw, params):
+def check_params_confounds(confounds_raw, params):
     """Check that specified parameters can be found in the confounds.
 
     Used for motion, wm_csf, global_signal, and compcor regressors.
@@ -42,12 +42,12 @@ def check_params(confounds_raw, params):
     confounds_raw : pandas.DataFrame
         Raw confounds loaded from the confounds file.
 
-    params : list of str
+    params : :obj:`list` of :obj:`str`
         List of parameters constructed based on users choices.
 
     Returns
     -------
-    bool or list of str
+    bool or :obj:`list` of :obj:`str`
         True if all parameters are found in the confounds.
         False if none of the parameters are found in the confounds.
         List of parameters that are not found in the confounds
@@ -74,12 +74,12 @@ def find_confounds(confounds_raw, keywords):
     confounds_raw : pandas.DataFrame
         Raw confounds loaded from the confounds file.
 
-    keywords : list of str
+    keywords : :obj:`list` of :obj:`str`
         List of keywords to search for in the confounds.
 
     Returns
     -------
-    list of str
+    list of :obj:`str`
         List of confounds that contain the keywords.
     """
     list_confounds = []
@@ -95,15 +95,15 @@ def sanitize_confounds(img_files):
 
     Parameters
     ----------
-    img_files : str or list of str
+    img_files : :obj:`str` or :obj:`list` of :obj:`str`
         Path to the functional image file(s).
 
     Returns
     -------
-    img_files : list of str
+    img_files : :obj:`list` of :obj:`str`
         List of functional image file(s).
     flag_single : bool
-        True if the input is a single file, False if it is a list of
+        True if the input is a single file, False if it is a :obj:`list` of
         files.
     """
     # we want to support loading a single set of confounds, instead of a list
@@ -127,15 +127,15 @@ def add_suffix(params, model):
 
     Parameters
     ----------
-    params : list of str
+    params : :obj:`list` of :obj:`str`
         List of parameters to add suffixes to.
-    model : str
+    model : :obj:`str`
         Model to use. Options are "basic", "derivatives", "power2", or
         "full".
 
     Returns
     -------
-    params_full : list of str
+    params_full : :obj:`list` of :obj:`str`
         List of parameters with suffixes added.
     """
     params_full = params.copy()
@@ -167,16 +167,13 @@ def _generate_confounds_file_candidates(nii_file):
     filenames : list of str
         List of potential confounds filenames.
     """
-    entities = parse_bids_filename(nii_file)
-    file_fields = entities["file_fields"]
-    entities = {k: v for k, v in entities.items() if k in file_fields}
+    parsed_file = parse_bids_filename(nii_file, legacy=False)
+    entities = parsed_file["entities"]
     entities["desc"] = "confounds"
-    if "desc" not in file_fields:
-        file_fields.append("desc")
 
     all_subsets = [
-        list(itertools.combinations(file_fields, n_entities))
-        for n_entities in range(1, len(file_fields) + 1)
+        list(itertools.combinations(entities.keys(), n_entities))
+        for n_entities in range(1, len(entities.keys()) + 1)
     ]
 
     # Flatten the list of lists
@@ -252,15 +249,15 @@ def get_confounds_file(image_file, flag_full_aroma):
 
     Parameters
     ----------
-    image_file : str
+    image_file : :obj:`str`
         Path to the functional image file.
 
-    flag_full_aroma : bool
+    flag_full_aroma : :obj:`bool`
         True if the input is a full ICA-AROMA output, False otherwise.
 
     Returns
     -------
-    confounds_raw_path : str
+    confounds_raw_path : :obj:`str`
         Path to the associated confounds file.
     """
     _check_images(image_file, flag_full_aroma)
@@ -279,10 +276,10 @@ def load_confounds_json(confounds_json, flag_acompcor):
 
     Parameters
     ----------
-    confounds_json : str
+    confounds_json : :obj:`str`
         Path to the json file.
 
-    flag_acompcor : bool
+    flag_acompcor : :obj:`bool`
         True if user selected anatomical compcor for denoising strategy,
         False otherwise.
 
@@ -318,7 +315,7 @@ def load_confounds_file_as_dataframe(confounds_raw_path):
 
     Parameters
     ----------
-    confounds_raw_path : str
+    confounds_raw_path : :obj:`str`
         Path to the confounds file.
 
     Returns
@@ -423,13 +420,13 @@ def prepare_output(confounds, demean):
     confounds : pandas.DataFrame
         Confound regressors loaded based on user's choice.
 
-    demean : bool
+    demean : :obj:`bool`
         True if the confounds should be demeaned, False otherwise.
 
     Returns
     -------
     sample_mask : None or numpy.ndarray
-        When no volumns require removal, the value is None.
+        When no volume removal is required, the value is None.
         Otherwise, the shape is \
             (number of scans - number of volumes removed, )
         The index of the niimgs along time/fourth dimension for valid
@@ -461,7 +458,7 @@ def _demean_confounds(confounds, sample_mask):
         Confound regressors loaded based on user's choice.
 
     sample_mask : None or numpy.ndarray
-        When no volumns require removal, the value is None.
+        When no volume removal is required, the value is None.
         Otherwise, the shape is \
             (number of scans - number of volumes removed, )
         The index of the niimgs along time/fourth dimension for valid
@@ -487,9 +484,9 @@ class MissingConfoundError(Exception):
 
     Parameters
     ----------
-    params : list of missing params, default=[]
+    params : :obj:`list` of missing params, default=[]
 
-    keywords : list of missing keywords, default=[]
+    keywords : :obj:`list` of missing keywords, default=[]
     """
 
     def __init__(self, params=None, keywords=None):

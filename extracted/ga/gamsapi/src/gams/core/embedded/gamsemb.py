@@ -408,6 +408,7 @@ class ECGAMSDatabase(object):
         gmdGetReady(GMS_SSSIZE)
         self._system_directory = system_directory
         self._gmd = new_gmdHandle_tp()
+        self._gmdud = new_gmdHandle_tp()
         self._modSymList = {}
         self._rc = 0
         self._eMsg = ""
@@ -503,7 +504,7 @@ class ECGAMSDatabase(object):
 
     def printLog(self, msg, end="\n"):
         if self._printLog and self._capsule_EMBCODE_DATA != None:
-            rc = self._printLog(self._capsule_EMBCODE_DATA, msg, end)
+            rc = self._printLog(self._capsule_EMBCODE_DATA, str(msg), end)
             if not rc:
                 raise Exception()
         else:
@@ -550,9 +551,11 @@ class ECGAMSDatabase(object):
         else:
             raise Exception(f"Unhandled case for os.name={os.name}")
 
-    def _check_for_gmd_error(self, rc):
+    def _check_for_gmd_error(self, rc, gmd=None):
         if not rc:
-            msg = gmdGetLastError(self._gmd)[1]
+            if gmd is None:
+                gmd = self._gmd
+            msg = gmdGetLastError(gmd)[1]
             raise Exception(msg)
 
     def getUel(self, idx):
@@ -628,12 +631,7 @@ class ECGAMSDatabase(object):
 
             if len(parseKeys(firstRec)) != ecSymbol._dim:
                 raise Exception(
-                    "Error writing set '"
-                    + ecSymbol._name()
-                    + "': Number of keys ("
-                    + str(len(parseKeys(firstRec)))
-                    + ") doesn't match the symbol dimension ("
-                    + str(ecSymbol._dim)
+                    f"Error writing set '{ecSymbol._name()}': Number of keys ({len(parseKeys(firstRec))}) doesn't match the symbol dimension ({ecSymbol._dim})"
                 )
 
         sawInt = False
@@ -722,12 +720,7 @@ class ECGAMSDatabase(object):
 
             if len(parseKeys(firstRec)) != ecSymbol._dim:
                 raise Exception(
-                    "Error writing parameter '"
-                    + ecSymbol._name()
-                    + "': Number of keys ("
-                    + str(len(parseKeys(firstRec)))
-                    + ") doesn't match the symbol dimension ("
-                    + str(ecSymbol._dim)
+                    f"Error writing parameter '{ecSymbol._name()}': Number of keys ({len(parseKeys(firstRec))}) doesn't match the symbol dimension ({ecSymbol._dim})"
                 )
 
             if isinstance(firstRec[valueIdx], tuple):
@@ -893,6 +886,47 @@ class ECGAMSDatabase(object):
 
         ecSymbol._writeVarEqu(parseKeys, parseValues, data, keyType)
 
+    def _inferDimension(self, sym_type, data):
+        if isinstance(data, _GamsSymbol):
+            return data.dimension
+        elif len(data) == 0:
+            if sym_type == dt_set:
+                return 1
+            else:
+                return 0
+        else:
+            firstRec = next(iter(data))
+            if sym_type == dt_par:
+                if self._isNumeric(firstRec):
+                    return 0
+                elif isinstance(firstRec, tuple):
+                    if isinstance(firstRec[0], tuple):
+                        return len(firstRec[0])
+                    else:
+                        return len(firstRec) - 1
+                else:
+                    raise Exception("Unable to infer symbol dimension from data.")
+            elif sym_type == dt_set:
+                if isinstance(firstRec, tuple):
+                    if isinstance(firstRec[0], tuple):
+                        return len(firstRec[0])
+                    elif isinstance(firstRec[-1], tuple):
+                        return len(firstRec) - 1
+                    else:
+                        return len(firstRec)
+                else:
+                    return 1
+            elif sym_type in [dt_var, dt_equ]:
+                if isinstance(firstRec, tuple):
+                    if isinstance(firstRec[0], tuple):
+                        return len(firstRec[0])
+                    elif isinstance(firstRec[-1], tuple):
+                        return len(firstRec) - 1
+                    else:
+                        return len(firstRec) - GMS_VAL_MAX
+                else:
+                    raise Exception("Unable to infer symbol dimension from data.")
+
     def set(
         self,
         symbolName,
@@ -900,6 +934,7 @@ class ECGAMSDatabase(object):
         mergeType=MergeType.DEFAULT,
         domCheck=DomainCheckType.DEFAULT,
         mapKeys=lambda x: x,
+        dimension=None,
     ):
         if (
             not isinstance(data, list)
@@ -907,8 +942,42 @@ class ECGAMSDatabase(object):
             and not isinstance(data, _GamsSymbol)
         ):
             raise Exception("Data needs to be a list or a set")
+        if dimension is not None and dimension not in range(GMS_MAX_INDEX_DIM + 1):
+            raise Exception(f"Invalid value for parameter 'dimension'. Must be an integer between 0 and 20 (inclusive) but was '{dimension}'")
 
-        ecSymbol = self.get(symbolName)
+        try:
+            ecSymbol = self.get(symbolName)
+        except Exception:
+            if gmdHandleToPtr(self._gmdud) is not None:
+                rc = new_intp()
+                symPtr = gmdFindSymbolPy(self._gmdud, symbolName, rc)
+                if not _intValueAndFree(rc):
+                    raise
+                rc, sym_type = gmdSymbolType(self._gmdud, symPtr)
+                self._check_for_gmd_error(rc, self._gmdud)
+                if dimension is None:
+                    dimension = self._inferDimension(sym_type, data)
+                    if dimension not in range(GMS_MAX_INDEX_DIM + 1):
+                        raise Exception("Unable to infer symbol dimension from data.")
+
+                rc, user_info, _, _ = gmdSymbolInfo(self._gmdud, symPtr, GMD_USERINFO)
+                self._check_for_gmd_error(rc, self._gmdud)
+                rc, _, _, sym_text = gmdSymbolInfo(self._gmdud, symPtr, GMD_EXPLTEXT)
+                self._check_for_gmd_error(rc, self._gmdud)
+
+                rc = new_intp()
+                gmdAddSymbolPy(
+                    self._gmd,
+                    symbolName,
+                    dimension,
+                    sym_type,
+                    user_info,
+                    sym_text,
+                    rc,
+                )
+                self._check_for_gmd_error(_intValueAndFree(rc))
+            ecSymbol = self.get(symbolName)
+
         ecSymbol._mergeType = mergeType
         ecSymbol._domCheck = domCheck
         ecSymbol._mapKeys = mapKeys

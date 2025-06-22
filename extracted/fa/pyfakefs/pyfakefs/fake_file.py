@@ -236,7 +236,7 @@ class FakeFile:
         self.stat_result.st_mtime = val
 
     def set_large_file_size(self, st_size: int) -> None:
-        """Sets the self.st_size attribute and replaces self.content with None.
+        """Sets the self.st_size attribute and replaces self.content with `None`.
 
         Provided specifically to simulate very large files without regards
         to their content (which wouldn't fit in memory).
@@ -247,8 +247,8 @@ class FakeFile:
           st_size: (int) The desired file size
 
         Raises:
-          OSError: if the st_size is not a non-negative integer,
-                   or if st_size exceeds the available file system space
+          OSError: if ``st_size`` is not a non-negative integer,
+                   or if ``st_size`` exceeds the available file system space
         """
         self._check_positive_int(st_size)
         if self.st_size:
@@ -286,11 +286,11 @@ class FakeFile:
             contents: string, new content of file.
 
         Returns:
-            True if the contents have been changed.
+            `True` if the contents have been changed.
 
         Raises:
-              OSError: if the st_size is not a non-negative integer,
-                   or if st_size exceeds the available file system space
+              OSError: if the `st_size` is not a non-negative integer,
+                   or if `st_size` exceeds the available file system space
         """
         byte_contents = self._encode_contents(contents)
         changed = self._byte_contents != byte_contents
@@ -312,11 +312,11 @@ class FakeFile:
         Args:
           contents: (str, bytes) new content of file.
           encoding: (str) the encoding to be used for writing the contents
-                    if they are a unicode string.
+                    if they are a Unicode string.
                     If not given, the locale preferred encoding is used.
 
         Returns:
-            True if the contents have been changed.
+            `True` if the contents have been changed.
 
         Raises:
           OSError: if `st_size` is not a non-negative integer,
@@ -408,7 +408,7 @@ class FakeFile:
             permission_bits: The permission bits as set for the user.
 
         Returns:
-            True if the permissions are set in the correct class (user/group/other).
+            `True` if the permissions are set in the correct class (user/group/other).
         """
         if helpers.get_uid() == self.stat_result.st_uid:
             return self.st_mode & permission_bits == permission_bits
@@ -531,7 +531,7 @@ class FakeDirectory(FakeFile):
             and not self.filesystem.is_windows_fs
             and not self.has_permission(helpers.PERM_WRITE)
         ):
-            raise OSError(errno.EACCES, "Permission Denied", self.path)
+            self.filesystem.raise_os_error(errno.EACCES, self.path)
 
         path_object_name: str = to_string(path_object.name)
         if path_object_name in self.entries:
@@ -579,7 +579,7 @@ class FakeDirectory(FakeFile):
 
         Args:
             pathname_name: Basename of the child object to remove.
-            recursive: If True (default), the entries in contained directories
+            recursive: If `True` (default), the entries in contained directories
                 are deleted first. Used to propagate removal errors
                 (e.g. permission problems) from contained entries.
 
@@ -751,9 +751,8 @@ class FakeFileWrapper:
         self,
         file_object: FakeFile,
         file_path: AnyStr,
-        update: bool,
-        read: bool,
-        append: bool,
+        open_modes: _OpenModes,
+        allow_update: bool,
         delete_on_close: bool,
         filesystem: "FakeFilesystem",
         newline: Optional[str],
@@ -768,9 +767,8 @@ class FakeFileWrapper:
     ):
         self.file_object = file_object
         self.file_path = file_path  # type: ignore[var-annotated]
-        self._append = append
-        self._read = read
-        self.allow_update = update
+        self.open_modes = open_modes
+        self.allow_update = allow_update
         self._closefd = closefd
         self._file_epoch = file_object.epoch
         self.raw_io = raw_io
@@ -801,8 +799,8 @@ class FakeFileWrapper:
         self._flush_pos = 0
         if contents:
             self._flush_pos = len(contents)
-            if update:
-                if not append:
+            if self.allow_update:
+                if not self.open_modes.append:
                     self._io.seek(0)
                 else:
                     self._io.seek(self._flush_pos)
@@ -845,7 +843,7 @@ class FakeFileWrapper:
         """Return the file descriptor of the file object."""
         if self.filedes is not None:
             return self.filedes
-        raise OSError(errno.EBADF, "Invalid file descriptor")
+        self._filesystem.raise_os_error(errno.EBADF)
 
     def close(self) -> None:
         """Close the file."""
@@ -890,6 +888,21 @@ class FakeFileWrapper:
         """Simulate the `closed` attribute on file."""
         return not self._is_open()
 
+    @property
+    def mode(self) -> str:
+        if self.open_modes.append:
+            m = "ab" if self._binary else "a"
+            return m + "+" if self.open_modes.can_read else m
+        if self.open_modes.truncate:
+            if self._binary:
+                return "rb+" if self.open_modes.can_read else "wb"
+            return "w+" if self.open_modes.can_read else "w"
+        if self.open_modes.must_not_exist:
+            m = "xb" if self._binary else "x"
+            return m + "+" if self.open_modes.can_read else m
+        m = "rb" if self._binary else "r"
+        return m + "+" if self.open_modes.can_write else m
+
     def _try_flush(self, old_pos: int) -> None:
         """Try to flush and reset the position if it fails."""
         flush_pos = self._flush_pos
@@ -910,7 +923,7 @@ class FakeFileWrapper:
         self._check_open_file()
 
         if self.allow_update:
-            if self._append:
+            if self.open_modes.append:
                 contents = self._io.getvalue()
                 self._sync_io()
                 old_contents = self.file_object.byte_contents
@@ -951,14 +964,14 @@ class FakeFileWrapper:
                         open_file is not self
                         and isinstance(open_file, FakeFileWrapper)
                         and self.file_object == open_file.file_object
-                        and not open_file._append
+                        and not open_file.open_modes.append
                     ):
                         open_file._sync_io()
 
     def seek(self, offset: int, whence: int = 0) -> None:
         """Move read/write pointer in 'file'."""
         self._check_open_file()
-        if not self._append:
+        if not self.open_modes.append:
             self._io.seek(offset, whence)
         else:
             self._read_seek = offset
@@ -976,7 +989,7 @@ class FakeFileWrapper:
         if not self.is_stream:
             self.flush()
 
-        if not self._append:
+        if not self.open_modes.append:
             return self._io.tell()
         if self._read_whence:
             write_seek = self._io.tell()
@@ -1001,7 +1014,7 @@ class FakeFileWrapper:
         self._io.seek(0)
         self._io.truncate()
         self._io.putvalue(contents)
-        if not self._append:
+        if not self.open_modes.append:
             self._io.seek(whence)
 
     def _read_wrappers(self, name: str) -> Callable:
@@ -1117,7 +1130,7 @@ class FakeFileWrapper:
                 self._try_flush(old_pos)
                 if not flush_all:
                     ret_value = io_attr(*args, **kwargs)
-            if self._append:
+            if self.open_modes.append:
                 self._read_seek = self._io.tell()
                 self._read_whence = 0
             return ret_value
@@ -1132,7 +1145,7 @@ class FakeFileWrapper:
                         open_file is not self
                         and isinstance(open_file, FakeFileWrapper)
                         and self.file_object == open_file.file_object
-                        and cast(FakeFileWrapper, open_file)._append
+                        and cast(FakeFileWrapper, open_file).open_modes.append
                     ):
                         open_file._read_seek += size
 
@@ -1146,7 +1159,7 @@ class FakeFileWrapper:
 
         def truncate_wrapper(*args, **kwargs):
             """Wrap truncate call to call flush after truncate."""
-            if self._append:
+            if self.open_modes.append:
                 self._io.seek(self._read_seek, self._read_whence)
             size = io_attr(*args, **kwargs)
             self.flush()
@@ -1179,7 +1192,7 @@ class FakeFileWrapper:
 
         if reading or writing:
             self._check_open_file()
-        if not self._read and reading:
+        if not self.open_modes.can_read and reading:
             return self._read_error()
         if not self.opened_as_fd and not self.allow_update and writing:
             return self._write_error()
@@ -1192,7 +1205,7 @@ class FakeFileWrapper:
                 self.file_object.st_atime = helpers.now()
         if truncate:
             return self._truncate_wrapper()
-        if self._append:
+        if self.open_modes.append:
             if reading:
                 return self._read_wrappers(name)
             elif not writing:
@@ -1234,12 +1247,12 @@ class FakeFileWrapper:
             raise ValueError("I/O operation on closed file")
 
     def __iter__(self) -> Union[Iterator[str], Iterator[bytes]]:
-        if not self._read:
+        if not self.open_modes.can_read:
             self._raise("File is not open for reading")
         return self._io.__iter__()
 
     def __next__(self):
-        if not self._read:
+        if not self.open_modes.can_read:
             self._raise("File is not open for reading")
         return next(self._io)
 
@@ -1258,7 +1271,7 @@ class StandardStreamWrapper:
         """Return the file descriptor of the wrapped standard stream."""
         if self.filedes is not None:
             return self.filedes
-        raise OSError(errno.EBADF, "Invalid file descriptor")
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
 
     def read(self, n: int = -1) -> bytes:
         return cast(bytes, self._stream_object.read())
@@ -1313,7 +1326,7 @@ class FakeDirWrapper:
         """Return the file descriptor of the file object."""
         if self.filedes is not None:
             return self.filedes
-        raise OSError(errno.EBADF, "Invalid file descriptor")
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
 
     def close(self) -> None:
         """Close the directory."""
@@ -1388,7 +1401,7 @@ class FakePipeWrapper:
         """Return the fake file descriptor of the pipe object."""
         if self.filedes is not None:
             return self.filedes
-        raise OSError(errno.EBADF, "Invalid file descriptor")
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
 
     def read(self, numBytes: int = -1) -> bytes:
         """Read from the real pipe."""

@@ -9,7 +9,6 @@ import logging
 import threading
 import importlib
 import functools
-import pkg_resources
 
 from regex import W
 from pathlib import Path
@@ -19,18 +18,6 @@ from .sigils import Resolver
 from .structs import Results, Project, Null
 from .runner import Runner
 
-
-# TODO: Improve the way Gateway handles nested projects. Projects are NOT packages. 
-# This means they have no __init__.py and are expected to work as plain python modules.
-# However, by being in the projects/ path, they get hooked up into the gw structure. 
-# Unfortunately, this means that if there are only two posibilities:
-# a) The project is a single module (one file.) Its name is the same as the filename.
-# b) The project is a directory of subprojects. Each subproject has its own name. ie. web.app, web.server, etc.
-# However, there is no inbetween -- once you go from web.py to web/, you can no longer place
-# functions directly at the root of the web project, you can only put them in the sub-projects.
-# To fix this, we propose allowing a file with the same name as the directory to signify the  
-# contents of that file are at the root of the parent. However, a subproject could override this.
-# (If possible, warn when the override happens.)
 
 class Gateway(Resolver, Runner):
     _builtins = None  # Class-level: stores all discovered builtins only once
@@ -101,10 +88,6 @@ class Gateway(Resolver, Runner):
             }
 
     def _projects_path(self):
-        """
-        Find the projects directory in source, install, or user-specified locations.
-        Returns the path to the projects directory if found, else raises FileNotFoundError.
-        """
         # 1. User explicitly passed a project_path
         if self.project_path:
             candidate = Path(self.project_path)
@@ -118,23 +101,17 @@ class Gateway(Resolver, Runner):
         env_path = os.environ.get('GWAY_PROJECT_PATH')
         if env_path and Path(env_path).is_dir():
             return env_path
-        # 4. Try site-packages data (pip install, wheel)
+        # 4. Try importlib.resources (Python 3.9+)
         try:
-            res_path = pkg_resources.resource_filename('gway', '../projects')
-            if os.path.isdir(res_path):
-                return res_path
-        except Exception:
-            pass
-        # 5. Try as data file (if installed via data_files entry)
-        try:
-            res_path = pkg_resources.resource_filename('gway_projects', '')
-            if os.path.isdir(res_path):
-                return res_path
+            import importlib.resources as resources
+            with resources.as_file(resources.files('gway').joinpath('projects')) as res_path:
+                if res_path.is_dir():
+                    return str(res_path)
         except Exception:
             pass
         raise FileNotFoundError(
             "Could not locate 'projects' directory. "
-            "Tried base_path, GWAY_PROJECT_PATH, site-packages, and user data dirs."
+            "Tried base_path, GWAY_PROJECT_PATH, and package resources."
         )
 
     def projects(self):

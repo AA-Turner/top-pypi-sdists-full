@@ -42,6 +42,7 @@ from dulwich.pack import (
     MemoryPackIndex,
     Pack,
     PackData,
+    PackIndex3,
     PackStreamReader,
     UnpackedObject,
     UnresolvedDeltas,
@@ -58,6 +59,7 @@ from dulwich.pack import (
     write_pack_header,
     write_pack_index_v1,
     write_pack_index_v2,
+    write_pack_index_v3,
     write_pack_object,
 )
 from dulwich.tests.utils import build_pack, make_object
@@ -220,6 +222,35 @@ class TestPackDeltas(TestCase):
             ApplyDeltaError, apply_delta, b"", b"\x00\x80\x02\xb0\x11\x11"
         )
 
+    def test_apply_delta_invalid_opcode(self) -> None:
+        """Test apply_delta with an invalid opcode."""
+        # Create a delta with an invalid opcode (0xff is not valid)
+        invalid_delta = [b"\xff\x01\x02"]
+        base = b"test base"
+
+        # Should raise ApplyDeltaError
+        self.assertRaises(ApplyDeltaError, apply_delta, base, invalid_delta)
+
+    def test_create_delta_insert_only(self) -> None:
+        """Test create_delta when only insertions are required."""
+        base = b""
+        target = b"brand new content"
+        delta = list(create_delta(base, target))
+
+        # Apply the delta to verify it works correctly
+        result = apply_delta(base, delta)
+        self.assertEqual(target, b"".join(result))
+
+    def test_create_delta_copy_only(self) -> None:
+        """Test create_delta when only copy operations are required."""
+        base = b"content to be copied"
+        target = b"content to be copied"  # Identical to base
+        delta = list(create_delta(base, target))
+
+        # Apply the delta to verify
+        result = apply_delta(base, delta)
+        self.assertEqual(target, b"".join(result))
+
     def test_pypy_issue(self) -> None:
         # Test for https://github.com/jelmer/dulwich/issues/509 /
         # https://bitbucket.org/pypy/pypy/issues/2499/cpyext-pystring_asstring-doesnt-work
@@ -280,6 +311,23 @@ class TestPackData(PackTests):
     def test_index_check(self) -> None:
         with self.get_pack_data(pack1_sha) as p:
             self.assertSucceeds(p.check)
+
+    def test_get_stored_checksum(self) -> None:
+        """Test getting the stored checksum of the pack data."""
+        with self.get_pack_data(pack1_sha) as p:
+            checksum = p.get_stored_checksum()
+            self.assertEqual(20, len(checksum))
+            # Verify it's a valid SHA1 hash (20 bytes)
+            self.assertIsInstance(checksum, bytes)
+
+    # Removed test_check_pack_data_size as it was accessing private attributes
+
+    def test_close_twice(self) -> None:
+        """Test that calling close multiple times is safe."""
+        p = self.get_pack_data(pack1_sha)
+        p.close()
+        # Second close should not raise an exception
+        p.close()
 
     def test_iter_unpacked(self) -> None:
         with self.get_pack_data(pack1_sha) as p:
@@ -361,6 +409,25 @@ class TestPackData(PackTests):
             self.assertEqual(oct(os.stat(filename).st_mode), indexmode)
             self.assertEqual(idx1, idx2)
 
+    def test_create_index_v3(self) -> None:
+        with self.get_pack_data(pack1_sha) as p:
+            filename = os.path.join(self.tempdir, "v3test.idx")
+            p.create_index_v3(filename)
+            idx1 = load_pack_index(filename)
+            idx2 = self.get_pack_index(pack1_sha)
+            self.assertEqual(oct(os.stat(filename).st_mode), indexmode)
+            self.assertEqual(idx1, idx2)
+            self.assertIsInstance(idx1, PackIndex3)
+            self.assertEqual(idx1.version, 3)
+
+    def test_create_index_version3(self) -> None:
+        with self.get_pack_data(pack1_sha) as p:
+            filename = os.path.join(self.tempdir, "version3test.idx")
+            p.create_index(filename, version=3)
+            idx = load_pack_index(filename)
+            self.assertIsInstance(idx, PackIndex3)
+            self.assertEqual(idx.version, 3)
+
     def test_compute_file_sha(self) -> None:
         f = BytesIO(b"abcd1234wxyz")
         self.assertEqual(
@@ -421,6 +488,8 @@ class TestPack(PackTests):
             self.assertEqual(expected, set(list(tuples)))
             self.assertEqual(expected, set(list(tuples)))
             self.assertEqual(3, len(tuples))
+
+    # Removed test_pack_tuples_with_progress as it was using parameters not supported by the API
 
     def test_get_object_at(self) -> None:
         """Tests random access for non-delta objects."""
@@ -541,6 +610,32 @@ class TestPack(PackTests):
             objs = {o.id: o for o in p.iterobjects_subset([commit_sha])}
             self.assertEqual(1, len(objs))
             self.assertIsInstance(objs[commit_sha], Commit)
+
+    def test_iterobjects_subset_empty(self) -> None:
+        """Test iterobjects_subset with an empty subset."""
+        with self.get_pack(pack1_sha) as p:
+            objs = list(p.iterobjects_subset([]))
+            self.assertEqual(0, len(objs))
+
+    def test_iterobjects_subset_nonexistent(self) -> None:
+        """Test iterobjects_subset with non-existent object IDs."""
+        with self.get_pack(pack1_sha) as p:
+            # Create a fake SHA that doesn't exist in the pack
+            fake_sha = b"1" * 40
+
+            # KeyError is expected when trying to access a non-existent object
+            # We'll use a try-except block to test the behavior
+            try:
+                list(p.iterobjects_subset([fake_sha]))
+                self.fail("Expected KeyError when accessing non-existent object")
+            except KeyError:
+                pass  # This is the expected behavior
+
+    def test_check_length_and_checksum(self) -> None:
+        """Test that check_length_and_checksum works correctly."""
+        with self.get_pack(pack1_sha) as p:
+            # This should not raise an exception
+            p.check_length_and_checksum()
 
 
 class TestThinPack(PackTests):
@@ -802,6 +897,181 @@ class TestPackIndexWritingv2(TestCase, BaseTestFilePackIndexWriting):
     def tearDown(self) -> None:
         TestCase.tearDown(self)
         BaseTestFilePackIndexWriting.tearDown(self)
+
+
+class TestPackIndexWritingv3(TestCase, BaseTestFilePackIndexWriting):
+    def setUp(self) -> None:
+        TestCase.setUp(self)
+        BaseTestFilePackIndexWriting.setUp(self)
+        self._has_crc32_checksum = True
+        self._supports_large = True
+        self._expected_version = 3
+        self._write_fn = write_pack_index_v3
+
+    def tearDown(self) -> None:
+        TestCase.tearDown(self)
+        BaseTestFilePackIndexWriting.tearDown(self)
+
+    def test_load_v3_index_returns_packindex3(self) -> None:
+        """Test that loading a v3 index file returns a PackIndex3 instance."""
+        entries = [(b"abcd" * 5, 0, zlib.crc32(b""))]
+        filename = os.path.join(self.tempdir, "test.idx")
+        self.writeIndex(filename, entries, b"1234567890" * 2)
+        idx = load_pack_index(filename)
+        self.assertIsInstance(idx, PackIndex3)
+        self.assertEqual(idx.version, 3)
+        self.assertEqual(idx.hash_algorithm, 1)  # SHA-1
+        self.assertEqual(idx.hash_size, 20)
+        self.assertEqual(idx.shortened_oid_len, 20)
+
+    def test_v3_hash_algorithm(self) -> None:
+        """Test v3 index correctly handles hash algorithm field."""
+        entries = [(b"a" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(self.tempdir, "test_hash.idx")
+        # Write v3 index with SHA-1 (algorithm=1)
+        with GitFile(filename, "wb") as f:
+            write_pack_index_v3(f, entries, b"1" * 20, hash_algorithm=1)
+        idx = load_pack_index(filename)
+        self.assertEqual(idx.hash_algorithm, 1)
+        self.assertEqual(idx.hash_size, 20)
+
+    def test_v3_sha256_length(self) -> None:
+        """Test v3 index with SHA-256 hash length."""
+        # For now, test that SHA-256 is not yet implemented
+        entries = [(b"a" * 32, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(self.tempdir, "test_sha256.idx")
+        # SHA-256 should raise NotImplementedError
+        with self.assertRaises(NotImplementedError) as cm:
+            with GitFile(filename, "wb") as f:
+                write_pack_index_v3(f, entries, b"1" * 32, hash_algorithm=2)
+        self.assertIn("SHA-256", str(cm.exception))
+
+    def test_v3_invalid_hash_algorithm(self) -> None:
+        """Test v3 index with invalid hash algorithm."""
+        entries = [(b"a" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(self.tempdir, "test_invalid.idx")
+        # Invalid hash algorithm should raise ValueError
+        with self.assertRaises(ValueError) as cm:
+            with GitFile(filename, "wb") as f:
+                write_pack_index_v3(f, entries, b"1" * 20, hash_algorithm=99)
+        self.assertIn("Unknown hash algorithm", str(cm.exception))
+
+    def test_v3_wrong_hash_length(self) -> None:
+        """Test v3 index with mismatched hash length."""
+        # Entry with wrong hash length for SHA-1
+        entries = [(b"a" * 15, 42, zlib.crc32(b"data"))]  # Too short
+        filename = os.path.join(self.tempdir, "test_wrong_len.idx")
+        with self.assertRaises(ValueError) as cm:
+            with GitFile(filename, "wb") as f:
+                write_pack_index_v3(f, entries, b"1" * 20, hash_algorithm=1)
+        self.assertIn("wrong length", str(cm.exception))
+
+
+class WritePackIndexTests(TestCase):
+    """Tests for the configurable write_pack_index function."""
+
+    def test_default_pack_index_version_constant(self) -> None:
+        from dulwich.pack import DEFAULT_PACK_INDEX_VERSION
+
+        # Ensure the constant is set to version 2 (current Git default)
+        self.assertEqual(2, DEFAULT_PACK_INDEX_VERSION)
+
+    def test_write_pack_index_defaults_to_v2(self) -> None:
+        import tempfile
+
+        from dulwich.pack import (
+            DEFAULT_PACK_INDEX_VERSION,
+            load_pack_index,
+            write_pack_index,
+        )
+
+        tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tempdir)
+
+        entries = [(b"1" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(tempdir, "test_default.idx")
+
+        with GitFile(filename, "wb") as f:
+            write_pack_index(f, entries, b"P" * 20)
+
+        idx = load_pack_index(filename)
+        self.assertEqual(DEFAULT_PACK_INDEX_VERSION, idx.version)
+
+    def test_write_pack_index_version_1(self) -> None:
+        import tempfile
+
+        from dulwich.pack import load_pack_index, write_pack_index
+
+        tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tempdir)
+
+        entries = [(b"1" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(tempdir, "test_v1.idx")
+
+        with GitFile(filename, "wb") as f:
+            write_pack_index(f, entries, b"P" * 20, version=1)
+
+        idx = load_pack_index(filename)
+        self.assertEqual(1, idx.version)
+
+    def test_write_pack_index_version_3(self) -> None:
+        import tempfile
+
+        from dulwich.pack import load_pack_index, write_pack_index
+
+        tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tempdir)
+
+        entries = [(b"1" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(tempdir, "test_v3.idx")
+
+        with GitFile(filename, "wb") as f:
+            write_pack_index(f, entries, b"P" * 20, version=3)
+
+        idx = load_pack_index(filename)
+        self.assertEqual(3, idx.version)
+
+    def test_write_pack_index_invalid_version(self) -> None:
+        import tempfile
+
+        from dulwich.pack import write_pack_index
+
+        tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tempdir)
+
+        entries = [(b"1" * 20, 42, zlib.crc32(b"data"))]
+        filename = os.path.join(tempdir, "test_invalid.idx")
+
+        with self.assertRaises(ValueError) as cm:
+            with GitFile(filename, "wb") as f:
+                write_pack_index(f, entries, b"P" * 20, version=99)
+        self.assertIn("Unsupported pack index version: 99", str(cm.exception))
+
+
+class MockFileWithoutFileno:
+    """Mock file-like object without fileno method."""
+
+    def __init__(self, content):
+        self.content = content
+        self.position = 0
+
+    def read(self, size=None):
+        if size is None:
+            result = self.content[self.position :]
+            self.position = len(self.content)
+        else:
+            result = self.content[self.position : self.position + size]
+            self.position += size
+        return result
+
+    def seek(self, position):
+        self.position = position
+
+    def tell(self):
+        return self.position
+
+
+# Removed the PackWithoutMmapTests class since it was using private methods
 
 
 class ReadZlibTests(TestCase):

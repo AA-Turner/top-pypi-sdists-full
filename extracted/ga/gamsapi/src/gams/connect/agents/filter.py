@@ -31,16 +31,16 @@ from gams.connect.agents.connectagent import ConnectAgent
 
 class Filter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
+    def _parse_options(self, inst):
+        self._name = inst["name"]
+        self._new_name = inst["newName"]
+        self._value_filters = self._dict_get(inst, "valueFilters", [])
+        self._label_filters = self._dict_get(inst, "labelFilters", [])
+        self._trace = inst["trace"]
         self._label_filters_dict = {}
         for f in self._label_filters:
             c = f["dimension"]
@@ -49,13 +49,6 @@ class Filter(ConnectAgent):
             if c in self._label_filters_dict:
                 self._connect_error(f"More than one filter for dimension {c+1}.")
             self._label_filters_dict[c] = f
-
-    def _parse_options(self, inst):
-        self._name = inst["name"]
-        self._new_name = inst["newName"]
-        self._value_filters = self._dict_get(inst, "valueFilters", [])
-        self._label_filters = self._dict_get(inst, "labelFilters", [])
-        self._trace = inst["trace"]
 
     def _filter_labels(self, df, f, c):
         if c == "all":
@@ -137,9 +130,10 @@ class Filter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
-        if self._name not in self._cdb.container:
-            self._connect_error(f"Symbol '{self._name}' not found in Connect database.")
+            
+        self._symbols_exist_cdb(self._name, should_exist=True)
         self._sym = self._cdb.container[self._name]
 
         if self._new_name.casefold() == self._name.casefold():
@@ -147,7 +141,7 @@ class Filter(ConnectAgent):
                 f"newName >{self._new_name}< must be different from name >{self._name}<. Hint: The names are case-insensitive."
             )
 
-        self._check_symbol_exists(self._new_name)
+        self._symbols_exist_cdb(self._new_name)
 
         if isinstance(self._sym, gt.Set):
             tsym = gt.Set(self._cdb.container, self._new_name, self._sym.domain)

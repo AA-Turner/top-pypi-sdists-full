@@ -569,9 +569,9 @@ def gmdFreeSymbolIterator(pgmd, symIterPtr):
     r"""gmdFreeSymbolIterator(pgmd, symIterPtr) -> int"""
     return _gmdcc.gmdFreeSymbolIterator(pgmd, symIterPtr)
 
-def gmdMergeUel(pgmd, uel):
-    r"""gmdMergeUel(pgmd, uel) -> int"""
-    return _gmdcc.gmdMergeUel(pgmd, uel)
+def gmdMergeUel(pgmd, uelLabel):
+    r"""gmdMergeUel(pgmd, uelLabel) -> int"""
+    return _gmdcc.gmdMergeUel(pgmd, uelLabel)
 
 def gmdGetUelByIndex(pgmd, uelNr):
     r"""gmdGetUelByIndex(pgmd, uelNr) -> int"""

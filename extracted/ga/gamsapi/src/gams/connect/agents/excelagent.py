@@ -31,8 +31,8 @@ from openpyxl.utils.cell import column_index_from_string, coordinate_from_string
 
 class ExcelAgent(ConnectAgent):
     @abstractmethod
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
 
     @abstractmethod
     def _create_symbol_instructions(self, rec): ...

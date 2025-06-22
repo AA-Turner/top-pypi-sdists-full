@@ -31,15 +31,9 @@ import pandas as pd
 
 
 class GDXReader(ConnectAgent):
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._symbols = inst["symbols"]
@@ -48,7 +42,9 @@ class GDXReader(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
+            
         cdb_empty = len(self._cdb.container) == 0
         if cdb_empty:
             gdx = self._cdb.container
@@ -58,6 +54,7 @@ class GDXReader(ConnectAgent):
             gdx.read(self._gdx_file)
         else:
             sym_names = [sym["name"] for sym in self._symbols]
+            self._symbols_exist_gdx(self._gdx_file, sym_names)
             gdx.read(self._gdx_file, symbols=sym_names)
             if self._trace > 1:
                 self._cdb.print_log(f"GDX symbols: {gdx.listSymbols()}\n")
@@ -82,7 +79,7 @@ class GDXReader(ConnectAgent):
 
         if not cdb_empty:
             # Copy from gdx to container
-            self._check_symbol_exists(gdx.listSymbols())
+            self._symbols_exist_cdb(gdx.listSymbols())
             self._cdb.container.read(gdx)
 
             # Change order of '*' categories to GDX UEL order

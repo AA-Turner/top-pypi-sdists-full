@@ -23,6 +23,7 @@ supported_providers = [
     "fireworks",
     "vertexai",
     "generative-ai",
+    "ollama",
 ]
 
 
@@ -82,17 +83,19 @@ def from_provider(
         >>> # Sync clients
         >>> client = instructor.from_provider("openai/gpt-4")
         >>> client = instructor.from_provider("anthropic/claude-3-sonnet")
+        >>> client = instructor.from_provider("ollama/llama2")
         >>> # Async clients
         >>> async_client = instructor.from_provider("openai/gpt-4", async_client=True)
     """
     try:
         provider, model_name = model.split("/", 1)
     except ValueError:
-        format_err = ValueError(
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
             'Model string must be in format "provider/model-name" '
             '(e.g. "openai/gpt-4" or "anthropic/claude-3-sonnet")'
-        )
-        raise format_err from None
+        ) from None
 
     if provider == "openai":
         try:
@@ -107,11 +110,12 @@ def from_provider(
                 **kwargs,
             )
         except ImportError:
-            import_err = ImportError(
+            from instructor.exceptions import ConfigurationError
+
+            raise ConfigurationError(
                 "The openai package is required to use the OpenAI provider. "
                 "Install it with `pip install openai`."
-            )
-            raise import_err from None
+            ) from None
 
     elif provider == "anthropic":
         try:
@@ -254,7 +258,7 @@ def from_provider(
         except ImportError:
             import_err = ImportError(
                 "The writerai package is required to use the Writer provider. "
-                "Install it with `pip install writerai`."
+                "Install it with `pip install writer-sdk`."
             )
             raise import_err from None
 
@@ -306,7 +310,7 @@ def from_provider(
             from instructor import from_vertexai
 
             client = gm.GenerativeModel(model_name=model_name)
-            return from_vertexai(client, _async=async_client, **kwargs)
+            return from_vertexai(client, use_async=async_client, **kwargs)
         except ImportError:
             import_err = ImportError(
                 "The google-cloud-aiplatform package is required to use the VertexAI provider. "
@@ -331,8 +335,63 @@ def from_provider(
             )
             raise import_err from None
 
+    elif provider == "ollama":
+        try:
+            import openai
+            from instructor import from_openai
+
+            # Get base_url from kwargs or use default
+            base_url = kwargs.pop("base_url", "http://localhost:11434/v1")
+            api_key = kwargs.pop("api_key", "ollama")  # required but unused
+
+            client = (
+                openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
+                if async_client
+                else openai.OpenAI(base_url=base_url, api_key=api_key)
+            )
+
+            # Models that support function calling (tools mode)
+            tool_capable_models = {
+                "llama3.1",
+                "llama3.2",
+                "llama4",
+                "mistral-nemo",
+                "firefunction-v2",
+                "command-r-plus",
+                "qwen2.5",
+                "qwen2.5-coder",
+                "qwen3",
+                "devstral",
+            }
+
+            # Check if model supports tools by looking at model name
+            supports_tools = any(
+                capable_model in model_name.lower()
+                for capable_model in tool_capable_models
+            )
+
+            default_mode = (
+                instructor.Mode.TOOLS if supports_tools else instructor.Mode.JSON
+            )
+
+            return from_openai(
+                client,
+                model=model_name,
+                mode=mode if mode else default_mode,
+                **kwargs,
+            )
+        except ImportError:
+            from instructor.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "The openai package is required to use the Ollama provider. "
+                "Install it with `pip install openai`."
+            ) from None
+
     else:
-        raise ValueError(
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
             f"Unsupported provider: {provider}. "
             f"Supported providers are: {supported_providers}"
         )

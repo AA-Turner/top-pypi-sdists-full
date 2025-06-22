@@ -32,22 +32,11 @@ import pandas as pd
 
 class GAMSWriter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
         if not (self._cdb.ecdb and isinstance(self._cdb.ecdb, ECGAMSDatabase)):
             self._connect_error("GAMSWriter is running without GAMS context.")
-        elif self._cdb.ecdb.arguments.startswith(
-            "@connectOut"
-        ):  # we run with GAMS cmd parameter connectOut
-            self._connect_error("GAMSWriter not available for connectOut scripts.")
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._symbols = inst["symbols"]
@@ -59,12 +48,79 @@ class GAMSWriter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container:")
+
+        elif self._cdb.ecdb.arguments.startswith(
+            "@connectOut"
+        ):  # we run with GAMS cmd parameter connectOut
+            self._connect_error("GAMSWriter not available for connectOut scripts.")
+
         drmap = {"none": False, "first": "first", "last": "last"}
         write_container = self._cdb.container
+
+
+        # collect target symbol names
+        sym_map = {}  # newName->sym
+        if self._write_all:
+            sym_map = {s: {"name": s} for s in write_container.listSymbols()}
+        else:
+            for sym in self._symbols:
+                sym_map[self._dict_get(sym, "newName", sym["name"])] = sym
+
+        # check that target symbols exist in GAMS database
+        target_sym_names = list(sym_map.keys())
+        for sym_t in target_sym_names.copy():
+            try:
+                self._symbols_exist_gmd(self._cdb.ecdb.db._gmd, sym_t)
+            except:
+                missing = True
+            else:  # if no exception was raised, we have a symbol in the GAMS database and can continue with the next symbol
+                continue
+
+            # the symbol was not found in the GAMS database and we need to check the GMD object containing symbols with unknown dimension
+            if gmdHandleToPtr(self._cdb.ecdb._gmdud) is not None:
+                rc = new_intp()
+                symPtr = gmdFindSymbolPy(self._cdb.ecdb._gmdud, sym_t, rc)
+                rc_val = intp_value(rc)
+                delete_intp(rc)
+                if rc_val:
+                    missing = False
+                    sym_type = self._cdb.container[sym_map[sym_t]["name"]]._gams_type
+                    dimension = self._cdb.container[sym_map[sym_t]["name"]].dimension
+
+                    rc, user_info, _, _ = gmdSymbolInfo(self._cdb.ecdb._gmdud, symPtr, GMD_USERINFO)
+                    self._cdb._ecdb._check_for_gmd_error(rc, self._cdb.ecdb._gmdud)
+                    rc, _, _, sym_text = gmdSymbolInfo(self._cdb.ecdb._gmdud, symPtr, GMD_EXPLTEXT)
+                    self._cdb._ecdb._check_for_gmd_error(rc, self._cdb.ecdb._gmdud)
+
+                    rc = new_intp()
+                    gmdAddSymbolPy(
+                        self._cdb.ecdb._gmd,
+                        sym_t,
+                        dimension,
+                        sym_type,
+                        user_info,
+                        sym_text,
+                        rc,
+                    )
+                    rc_val = intp_value(rc)
+                    delete_intp(rc)
+                    self._cdb._ecdb._check_for_gmd_error(rc_val)
+            if missing:
+                if self._write_all:
+                    target_sym_names.remove(sym_t)
+                    if self._trace > 0:
+                        self._cdb.print_log(
+                            f"Skipping symbol '{sym_t}' since it does not exist in the GAMS database."
+                        )
+                else:
+                    self._symbols_exist_gmd(self._cdb.ecdb.db._gmd, sym_t)
+
         if self._write_all:
             if self._trace > 2:
-                for name, sym in write_container.data.items():
+                for name in target_sym_names:
+                    sym = write_container[name]
                     self._cdb.print_log(
                         f"Connect Container symbol={name}:\n {sym.records}\n"
                     )
@@ -74,16 +130,17 @@ class GAMSWriter(ConnectAgent):
                     self._cdb.container, system_directory=self._system_directory
                 )
                 write_container.dropDuplicateRecords(
+                    symbols=target_sym_names,
                     keep=drmap[self._duplicate_records]
                 )
-            if not write_container.hasDuplicateRecords():
-                write_container.write(self._cdb.ecdb.db._gmd, eps_to_zero=False)
-                gmd_list = write_container.listSymbols()
+            if not write_container.hasDuplicateRecords(symbols=target_sym_names):
+                write_container.write(self._cdb.ecdb.db._gmd, symbols=target_sym_names, eps_to_zero=False)
+                gmd_list = target_sym_names
             else:
                 dup_name_list = [
                     name
-                    for name, sym in write_container.data.items()
-                    if sym.hasDuplicateRecords()
+                    for name in target_sym_names
+                    if write_container[name].hasDuplicateRecords()
                 ]
                 self._connect_error(
                     f"Following symbols have duplicate records: {dup_name_list}. Consider setting 'duplicateRecords' to 'first', 'last', or 'none'."
@@ -109,10 +166,7 @@ class GAMSWriter(ConnectAgent):
                     )
 
                 sym_name = sym["name"]
-                if sym_name not in self._cdb.container:
-                    self._connect_error(
-                        f"Symbol '{sym_name}' not found in Connect database."
-                    )
+                self._symbols_exist_cdb(sym_name, should_exist=True)
 
                 if sym["duplicateRecords"] != "all":
                     write_container[sym_name].dropDuplicateRecords(
@@ -147,13 +201,9 @@ class GAMSWriter(ConnectAgent):
             # Renaming
             if self._trace > 1:
                 self._cdb.print_log(f"GAMS symbols: {gms.listSymbols()}\n")
-            sym_map = {}
             for sym in self._symbols:
                 if sym["newName"] is not None:
                     gms.renameSymbol(sym["name"], sym["newName"])
-                    sym_map[sym["newName"]] = sym
-                else:
-                    sym_map[sym["name"]] = sym
 
             if self._trace > 0:
                 self._describe_container(gms, "GAMS Container:")

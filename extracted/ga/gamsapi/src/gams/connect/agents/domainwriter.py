@@ -31,16 +31,9 @@ import pandas as pd
 
 class DomainWriter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._symbols = inst["symbols"]
@@ -50,7 +43,9 @@ class DomainWriter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
+            
         if self._trace > 2:
             for name, sym in self._cdb.container.data.items():
                 self._cdb.print_log(
@@ -86,10 +81,7 @@ class DomainWriter(ConnectAgent):
 
                 sname = ms.group("name")
 
-                if sname not in self._cdb.container:
-                    self._connect_error(
-                        f"Symbol '{sname}' not found in Connect database."
-                    )
+                self._symbols_exist_cdb(sname, should_exist=True)
                 ssym = self._cdb.container[sname]
 
                 if (
@@ -127,7 +119,7 @@ class DomainWriter(ConnectAgent):
                         else:
                             if d not in self._cdb.container:
                                 self._connect_error(
-                                    f"Domain set '{d}' not found in Connect database."
+                                    f"Domain set '{d}' does not exist in the Connect database."
                                 )
                             dsym = self._cdb.container[d]
                             assert (

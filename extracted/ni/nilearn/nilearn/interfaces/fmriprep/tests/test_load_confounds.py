@@ -243,6 +243,7 @@ def test_nilearn_standardize_false(tmp_path):
     assert np.mean(tseries_std > 0.9)
 
 
+@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("standardize_signal", ["zscore", "psc"])
 @pytest.mark.parametrize(
@@ -354,6 +355,7 @@ SUFFIXES = np.array(["", "_derivative1", "_power2", "_derivative1_power2"])
 
 @pytest.fixture
 def expected_suffixes(motion):
+    """Return expected suffix."""
     expectation = {
         "basic": slice(1),
         "derivatives": slice(2),
@@ -369,6 +371,7 @@ def expected_suffixes(motion):
     "param", ["trans_x", "trans_y", "trans_z", "rot_x", "rot_y", "rot_z"]
 )
 def test_motion(tmp_path, motion, param, expected_suffixes, fmriprep_version):
+    """Check that the expected motion confounds are loaded."""
     img_nii, _ = create_tmp_filepath(
         tmp_path, copy_confounds=True, fmriprep_version=fmriprep_version
     )
@@ -396,6 +399,7 @@ def test_motion(tmp_path, motion, param, expected_suffixes, fmriprep_version):
 def test_n_compcor(
     tmp_path, compcor, n_compcor, test_keyword, test_n, fmriprep_version
 ):
+    """Check that the expected number of confounds are loaded."""
     img_nii, _ = create_tmp_filepath(
         tmp_path,
         copy_confounds=True,
@@ -632,7 +636,7 @@ def test_ica_aroma(tmp_path, fmriprep_version):
     )
     for col_name in conf.columns:
         # only aroma and non-steady state columns will be present
-        assert re.match("(?:aroma_motion_+|non_steady_state+)", col_name)
+        assert re.match(r"(?:aroma_motion_+|non_steady_state+)", col_name)
 
     # Non-aggressive strategy
     conf, _ = load_confounds(

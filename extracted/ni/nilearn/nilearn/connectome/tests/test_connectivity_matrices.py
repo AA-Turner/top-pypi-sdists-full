@@ -8,12 +8,15 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from pandas import DataFrame
 from scipy import linalg
 from sklearn.covariance import EmpiricalCovariance, LedoitWolf
-from sklearn.utils.estimator_checks import (
-    check_estimator as sklearn_check_estimator,
-)
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
-from nilearn._utils.class_inspect import check_estimator
+from nilearn._utils.estimator_checks import (
+    check_estimator,
+    nilearn_check_estimator,
+    return_expected_failed_checks,
+)
 from nilearn._utils.extmath import is_spd
+from nilearn._utils.tags import SKLEARN_LT_1_6
 from nilearn.connectome.connectivity_matrices import (
     ConnectivityMeasure,
     _check_spd,
@@ -40,61 +43,59 @@ N_FEATURES = 49
 N_SUBJECTS = 5
 
 
-@pytest.mark.parametrize(
-    "estimator",
-    [EmpiricalCovariance(), LedoitWolf()],
-)
-def test_check_estimator_cov_estimator(estimator):
-    """Check compliance with sklearn estimators."""
-    sklearn_check_estimator(estimator)
-
-
-extra_valid_checks = [
-    "check_parameters_default_constructible",
-    "check_no_attributes_set_in_init",
-    "check_estimators_unfitted",
-    "check_do_not_raise_errors_in_init_or_set_params",
-    "check_transformers_unfitted",
-    "check_fit1d",
-    "check_transformer_n_iter",
+ESTIMATORS_TO_CHECK = [
+    ConnectivityMeasure(cov_estimator=EmpiricalCovariance())
 ]
 
+if SKLEARN_LT_1_6:
 
-@pytest.mark.parametrize(
-    "estimator, check, name",
-    (
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        (check_estimator(estimators=ESTIMATORS_TO_CHECK)),
+    )
+    def test_check_estimator_sklearn_valid(estimator, check, name):
+        """Check compliance with sklearn estimators."""
+        if name == "check_estimators_fit_returns_self":
+            # "check_estimators_fit_returns_self" fails with sklearn 1.4
+            # whether passed as a valid or invalid check
+            # so we are skipping it.
+            # Note it passes fine with later sklearn versions
+            pytest.skip("ignored for older sklearn")
+        check(estimator)
+
+    @pytest.mark.xfail(reason="invalid checks should fail")
+    @pytest.mark.parametrize(
+        "estimator, check, name",
         check_estimator(
-            estimator=[
-                ConnectivityMeasure(cov_estimator=EmpiricalCovariance())
-            ],
-            extra_valid_checks=extra_valid_checks,
-        )
-    ),
-)
-def test_check_estimator_group_sparse_covariance(
-    estimator,
-    check,
-    name,  # noqa: ARG001
-):
-    """Check compliance with sklearn estimators."""
-    check(estimator)
+            estimators=ESTIMATORS_TO_CHECK,
+            valid=False,
+        ),
+    )
+    def test_check_estimator_sklearn_invalid(
+        estimator,
+        check,
+        name,  # noqa: ARG001
+    ):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+else:
+
+    @parametrize_with_checks(
+        estimators=ESTIMATORS_TO_CHECK,
+        expected_failed_checks=return_expected_failed_checks,
+    )
+    def test_check_estimator_sklearn_2(estimator, check):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
 
 
-@pytest.mark.xfail(reason="invalid checks should fail")
 @pytest.mark.parametrize(
     "estimator, check, name",
-    check_estimator(
-        estimator=[ConnectivityMeasure(cov_estimator=EmpiricalCovariance())],
-        valid=False,
-        extra_valid_checks=extra_valid_checks,
-    ),
+    nilearn_check_estimator(estimators=ESTIMATORS_TO_CHECK),
 )
-def test_check_estimator_invalid_group_sparse_covariance(
-    estimator,
-    check,
-    name,  # noqa: ARG001
-):
-    """Check compliance with sklearn estimators."""
+def test_check_estimator_nilearn(estimator, check, name):  # noqa: ARG001
+    """Check compliance with nilearn estimators rules."""
     check(estimator)
 
 
@@ -112,8 +113,8 @@ def random_diagonal(p, v_min=1.0, v_max=2.0, random_state=0):
     v_max : float, optional (default to 2.)
         Maximal element.
 
-    random_state : int or numpy.random.RandomState instance, optional
-        random number generator, or seed.
+    %(random_state)s
+        default=0
 
     Returns
     -------
@@ -143,8 +144,8 @@ def random_spd(p, eig_min, cond, random_state=0):
         Condition number, defined as the ratio of the maximum eigenvalue to the
         minimum one.
 
-    random_state : int or numpy.random.RandomState instance, optional
-        random number generator, or seed.
+    %(random_state)s
+        default=0
 
     Returns
     -------
@@ -326,8 +327,8 @@ def random_non_singular(p, sing_min=1.0, sing_max=2.0, random_state=0):
     sing_max : float, optional (default to 2.)
         Maximal singular value.
 
-    random_state : int or numpy.random.RandomState instance, optional
-        random number generator, or seed.
+    %(random_state)s
+        default=0
 
     Returns
     -------
@@ -620,11 +621,6 @@ def test_connectivity_measure_errors():
     # Raising error for input subjects not iterable
     conn_measure = ConnectivityMeasure()
 
-    with pytest.raises(
-        ValueError, match="'subjects' input argument must be an iterable"
-    ):
-        conn_measure.fit(1.0)
-
     # input subjects not 2D numpy.ndarrays
     with pytest.raises(
         ValueError, match="Each subject must be 2D numpy.ndarray."
@@ -669,6 +665,30 @@ def test_connectivity_measure_generic(
         assert_array_equal(input_covs[k], covs[k])
 
         assert is_spd(covs[k], decimal=7)
+
+
+@pytest.mark.parametrize(
+    "cov_estimator", [EmpiricalCovariance(), LedoitWolf()]
+)
+@pytest.mark.parametrize("kind", CONNECTIVITY_KINDS)
+def test_connectivity_measure_generic_3d_array(kind, cov_estimator, signals):
+    """Ensure ConnectivityMeasure accepts 3D arrays or tuple of 2D arrays."""
+    conn_measure = ConnectivityMeasure(kind=kind, cov_estimator=cov_estimator)
+
+    signals_as_array = np.asarray(
+        [_signals(n_subjects=1)[0] for _ in range(5)]
+    ).squeeze()
+    assert signals_as_array.ndim == 3
+
+    connectivities = conn_measure.fit_transform(signals_as_array)
+
+    assert isinstance(connectivities, np.ndarray)
+
+    signals_as_tuple = tuple(x for x in signals)
+
+    connectivities = conn_measure.fit_transform(signals_as_tuple)
+
+    assert isinstance(connectivities, np.ndarray)
 
 
 def _assert_connectivity_tangent(connectivities, conn_measure, covs):
@@ -837,10 +857,6 @@ def test_connectivity_measure_check_vectorization_option(kind, signals):
         vectorized_connectivities, sym_matrix_to_vec(connectivities)
     )
 
-    # Check not fitted error
-    with pytest.raises(ValueError, match="has not been fitted. "):
-        ConnectivityMeasure().inverse_transform(vectorized_connectivities)
-
 
 @pytest.mark.parametrize(
     "kind",
@@ -970,6 +986,14 @@ def test_confounds_connectome_measure():
 
 
 def test_confounds_connectome_measure_errors(signals):
+    """Check proper errors raised for wrong inputs."""
+    # Raising error for input signals are not iterable
+    conn_measure = ConnectivityMeasure(vectorize=True)
+    msg = "is not iterable"
+
+    with pytest.raises(TypeError, match=msg):
+        conn_measure._check_input(X=1.0)
+
     # Generate signals and compute covariances and apply confounds while
     # computing covariances
     signals, confounds = _signals()
@@ -978,15 +1002,15 @@ def test_confounds_connectome_measure_errors(signals):
     conn_measure = ConnectivityMeasure(vectorize=True)
     msg = "'confounds' input argument must be an iterable"
 
-    with pytest.raises(ValueError, match=msg):
+    with pytest.raises(TypeError, match=msg):
         conn_measure._check_input(X=signals, confounds=1.0)
 
-    with pytest.raises(ValueError, match=msg):
+    with pytest.raises(TypeError, match=msg):
         conn_measure._fit_transform(
             X=signals, do_fit=True, do_transform=True, confounds=1.0
         )
 
-    with pytest.raises(ValueError, match=msg):
+    with pytest.raises(TypeError, match=msg):
         conn_measure.fit_transform(X=signals, y=None, confounds=1.0)
 
     # Raising error for input confounds are given but not vectorize=True

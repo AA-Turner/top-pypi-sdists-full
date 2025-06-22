@@ -30,15 +30,9 @@ import pandas as pd
 
 
 class LabelManipulator(ConnectAgent):
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._map = inst["map"]
@@ -106,6 +100,7 @@ class LabelManipulator(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
 
         sym_names = []
@@ -127,7 +122,7 @@ class LabelManipulator(ConnectAgent):
                     # Creating a new symbol in the Connect database if newName is provided
 
                     # If newName already exists
-                    self._check_symbol_exists(sym["newName"])
+                    self._symbols_exist_cdb(sym["newName"])
 
                     gt_symbol = self._cdb.container[sym["name"]]
                     if isinstance(gt_symbol, gt.Set):

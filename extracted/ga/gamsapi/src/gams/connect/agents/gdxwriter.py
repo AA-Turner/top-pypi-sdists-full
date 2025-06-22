@@ -31,16 +31,9 @@ import pandas as pd
 
 class GDXWriter(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        self._inst = inst
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         self._symbols = inst["symbols"]
@@ -52,7 +45,9 @@ class GDXWriter(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container:")
+
         drmap = {"none": False, "first": "first", "last": "last"}
         write_container = self._cdb.container
         if self._write_all:
@@ -101,10 +96,7 @@ class GDXWriter(ConnectAgent):
                     )
 
                 sym_name = sym["name"]
-                if sym_name not in self._cdb.container:
-                    self._connect_error(
-                        f"Symbol >{sym_name}< not found in Connect database."
-                    )
+                self._symbols_exist_cdb(sym_name, should_exist=True)
 
                 if sym["duplicateRecords"] != "all":
                     write_container[sym_name].dropDuplicateRecords(

@@ -2,8 +2,6 @@
 on Neurovault (https://neurovault.org).
 """
 
-# Author: Jerome Dockes
-
 import json
 import os
 import re
@@ -22,7 +20,11 @@ import requests
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.utils import Bunch
 
-from ..image import resample_img
+from nilearn._utils import fill_doc
+from nilearn._utils.logger import find_stack_level
+from nilearn._utils.param_validation import check_params
+from nilearn.image import resample_img
+
 from ._utils import (
     fetch_single_file,
     get_dataset_descr,
@@ -59,6 +61,8 @@ _MAX_CONSECUTIVE_FAILS = 100
 # collection, we consider this collection is garbage and we move on to the
 # next collection.
 _MAX_FAILS_IN_COLLECTION = 30
+
+_DEFAULT_TIME_OUT = 10.0
 
 _DEBUG = 3
 _INFO = 2
@@ -635,7 +639,7 @@ class Pattern(_SpecialValue):
     pattern : str
         The pattern to try to match to candidates.
 
-    flags : int, optional (default=0)
+    flags : int, default=0
         Value for ``re.match`` `flags` parameter,
         e.g. ``re.IGNORECASE``. The default (0), is the default value
         used by ``re.match``.
@@ -731,7 +735,7 @@ class ResultFilter:
 
     Attributes
     ----------
-    query_terms_ : dict
+    query_terms_ : :obj:`dict`
         In order to pass through the filter, metadata must verify
         ``metadata[key] == value`` for each ``key``, ``value`` pair in
         `query_terms_`.
@@ -927,7 +931,7 @@ def _append_filters_to_query(query, filters):
     return new_query
 
 
-def _get_batch(query, prefix_msg="", timeout=10.0, verbose=3):
+def _get_batch(query, prefix_msg="", timeout=_DEFAULT_TIME_OUT, verbose=3):
     """Given an URL, get the HTTP response and transform it to python dict.
 
     The URL is used to send an HTTP GET request and the response is
@@ -941,7 +945,7 @@ def _get_batch(query, prefix_msg="", timeout=10.0, verbose=3):
     prefix_msg : str, default=''
         Prefix for all log messages.
 
-    timeout : float, default=10
+    timeout : float, default=_DEFAULT_TIME_OUT
         Timeout in seconds.
 
     verbose : int, default=3
@@ -968,22 +972,32 @@ def _get_batch(query, prefix_msg="", timeout=10.0, verbose=3):
     )
     prepped = session.prepare_request(req)
     logger.log(
-        f"{prefix_msg}getting new batch: {query}",
+        f"{prefix_msg}getting new batch:\n\t{query}",
         verbose=verbose,
         msg_level=_DEBUG,
-        stack_level=7,
     )
     try:
         resp = session.send(prepped, timeout=timeout)
         resp.raise_for_status()
         batch = resp.json()
+    except requests.exceptions.ReadTimeout:
+        logger.log(
+            (
+                f"Could not get batch from {query}.\n\t"
+                f"Timeout error with {timeout=} seconds.\n\t"
+                f"Try increasing 'timeout' value."
+            ),
+            msg_level=_ERROR,
+            verbose=verbose,
+            with_traceback=False,
+        )
+        raise
     except Exception:
         logger.log(
             f"Could not get batch from {query}",
             msg_level=_ERROR,
             verbose=verbose,
             with_traceback=True,
-            stack_level=4,
         )
         raise
     if "id" in batch:
@@ -994,7 +1008,7 @@ def _get_batch(query, prefix_msg="", timeout=10.0, verbose=3):
                 f'Could not find required key "{key}" '
                 f"in batch retrieved from {query}."
             )
-            logger.log(msg, msg_level=_ERROR, verbose=verbose, stack_level=4)
+            logger.log(msg, msg_level=_ERROR, verbose=verbose)
             raise ValueError(msg)
 
     return batch
@@ -1007,6 +1021,7 @@ def _scroll_server_results(
     max_results=None,
     batch_size=None,
     prefix_msg="",
+    timeout=_DEFAULT_TIME_OUT,
     verbose=3,
 ):
     """Download list of metadata from Neurovault.
@@ -1037,7 +1052,10 @@ def _scroll_server_results(
     prefix_msg : str, default=''
         Prefix for all log messages.
 
-    verbose : int, optional (default=3)
+    timeout : float, default=_DEFAULT_TIME_OUT
+        Timeout in seconds.
+
+    verbose : int, default=3
         An integer in [0, 1, 2, 3] to control the verbosity level.
 
     Yields
@@ -1061,7 +1079,9 @@ def _scroll_server_results(
     while max_results is None or downloaded < max_results:
         new_query = query.format(downloaded)
         try:
-            batch = _get_batch(new_query, prefix_msg, verbose=verbose)
+            batch = _get_batch(
+                new_query, prefix_msg, verbose=verbose, timeout=timeout
+            )
         except Exception:
             yield None
             batch = None
@@ -1072,7 +1092,6 @@ def _scroll_server_results(
                 f"{prefix_msg}batch size: {batch_size}",
                 msg_level=_DEBUG,
                 verbose=verbose,
-                stack_level=6,
             )
             if n_available is None:
                 n_available = batch["count"]
@@ -1086,7 +1105,7 @@ def _scroll_server_results(
                     yield result
 
 
-def _yield_from_url_list(url_list, verbose=3):
+def _yield_from_url_list(url_list, timeout=_DEFAULT_TIME_OUT, verbose=3):
     """Get metadata coming from an explicit list of URLs.
 
     This is different from ``_scroll_server_results``, which is used
@@ -1096,6 +1115,9 @@ def _yield_from_url_list(url_list, verbose=3):
     ----------
     url_list : Container of str
         URLs from which to get data
+
+    timeout : float, default=_DEFAULT_TIME_OUT
+        Timeout in seconds.
 
     verbose : int, default=3
         An integer in [0, 1, 2, 3] to control the verbosity level.
@@ -1111,7 +1133,7 @@ def _yield_from_url_list(url_list, verbose=3):
     """
     for url in url_list:
         try:
-            batch = _get_batch(url, verbose=verbose)
+            batch = _get_batch(url, verbose=verbose, timeout=timeout)
         except Exception:
             yield None
             batch = None
@@ -1157,7 +1179,6 @@ def _simple_download(url, target_file, temp_dir, verbose=3):
         f"Downloading file: {url}",
         msg_level=_DEBUG,
         verbose=verbose,
-        stack_level=8,
     )
     try:
         downloaded = fetch_single_file(
@@ -1168,7 +1189,6 @@ def _simple_download(url, target_file, temp_dir, verbose=3):
             f"Problem downloading file from {url}",
             msg_level=_ERROR,
             verbose=verbose,
-            stack_level=9,
         )
         raise
     shutil.move(downloaded, target_file)
@@ -1176,7 +1196,6 @@ def _simple_download(url, target_file, temp_dir, verbose=3):
         f"Download succeeded, downloaded to: {target_file}",
         msg_level=_DEBUG,
         verbose=verbose,
-        stack_level=8,
     )
     return target_file
 
@@ -1195,7 +1214,7 @@ def neurosynth_words_vectorized(word_files, verbose=3, **kwargs):
         is supposed to contain the Neurosynth response for a
         particular image).
 
-    verbose : int, default=3
+    verbose : :obj:`int`, default=3
         An integer in [0, 1, 2, 3] to control the verbosity level.
 
     Keyword arguments are passed on to
@@ -1242,7 +1261,8 @@ def neurosynth_words_vectorized(word_files, verbose=3, **kwargs):
     if voc_empty:
         warnings.warn(
             "No word weight could be loaded, "
-            "vectorizing Neurosynth words failed."
+            "vectorizing Neurosynth words failed.",
+            stacklevel=find_stack_level(),
         )
         return None, None
     vectorizer = DictVectorizer(**kwargs)
@@ -1540,7 +1560,9 @@ def _download_image_nii_file(image_info, collection, download_params):
         )
 
         # Resample here
-        logger.log("Resampling...", stack_level=8)
+        logger.log(
+            "Resampling...",
+        )
         # TODO switch to force_resample=True
         # when bumping to version > 0.13
         im_resampled = resample_img(
@@ -1638,7 +1660,6 @@ def _download_image_terms(image_info, collection, download_params):
             msg_level=_ERROR,
             verbose=download_params["verbose"],
             with_traceback=True,
-            stack_level=2,
         )
 
     return image_info, collection
@@ -1723,7 +1744,8 @@ def _update_image(image_info, download_params):
         warnings.warn(
             f"Could not update metadata for image {image_info['id']}, "
             "most likely because you do not have "
-            "write permissions to its metadata file."
+            "write permissions to its metadata file.",
+            stacklevel=find_stack_level(),
         )
     return image_info
 
@@ -1757,7 +1779,6 @@ def _scroll_local(download_params):
         "Reading local neurovault data.",
         msg_level=_DEBUG,
         verbose=download_params["verbose"],
-        stack_level=4,
     )
 
     collections = Path(download_params["nv_data_dir"]).rglob(
@@ -1839,6 +1860,7 @@ def _scroll_collection(collection, download_params):
         local_filter=download_params["image_filter"],
         prefix_msg=f"Scroll images from collection {collection['id']}: ",
         batch_size=download_params["batch_size"],
+        timeout=download_params["timeout"],
         verbose=download_params["verbose"],
     )
 
@@ -1857,7 +1879,6 @@ def _scroll_collection(collection, download_params):
                 msg_level=_ERROR,
                 verbose=download_params["verbose"],
                 with_traceback=True,
-                stack_level=4,
             )
             yield None
         if fails_in_collection == download_params["max_fails_in_collection"]:
@@ -1866,7 +1887,6 @@ def _scroll_collection(collection, download_params):
                 f"{fails_in_collection} bad images.",
                 msg_level=_ERROR,
                 verbose=download_params["verbose"],
-                stack_level=4,
             )
             return
     logger.log(
@@ -1876,7 +1896,6 @@ def _scroll_collection(collection, download_params):
         f"matched query in collection {collection['id']}",
         msg_level=_INFO,
         verbose=download_params["verbose"],
-        stack_level=5,
     )
 
 
@@ -1911,7 +1930,6 @@ def _scroll_filtered(download_params):
         "Reading server neurovault data.",
         msg_level=_DEBUG,
         verbose=download_params["verbose"],
-        stack_level=7,
     )
 
     download_params["collection_filter"] = ResultFilter(
@@ -1928,6 +1946,7 @@ def _scroll_filtered(download_params):
         local_filter=download_params["collection_filter"],
         prefix_msg="Scroll collections: ",
         batch_size=download_params["batch_size"],
+        timeout=download_params["timeout"],
         verbose=download_params["verbose"],
     )
 
@@ -1972,14 +1991,15 @@ def _scroll_collection_ids(download_params):
 
     if collection_urls:
         logger.log(
-            "Reading server neurovault data.",
+            "Reading collections from server neurovault data.",
             msg_level=_DEBUG,
             verbose=download_params["verbose"],
-            stack_level=5,
         )
 
     collections = _yield_from_url_list(
-        collection_urls, verbose=download_params["verbose"]
+        collection_urls,
+        verbose=download_params["verbose"],
+        timeout=download_params["timeout"],
     )
     for collection in collections:
         collection = _download_collection(collection, download_params)
@@ -2070,8 +2090,7 @@ def _scroll_explicit(download_params):
         download_params["wanted_image_ids"]
     ).difference(download_params["visited_images"])
 
-    for image, collection in _scroll_image_ids(download_params):
-        yield image, collection
+    yield from _scroll_image_ids(download_params)
 
 
 def _print_progress(found, download_params, level=_INFO):
@@ -2080,7 +2099,6 @@ def _print_progress(found, download_params, level=_INFO):
         f"Already fetched {found} image{'s' if found > 1 else ''}",
         msg_level=level,
         verbose=download_params["verbose"],
-        stack_level=4,
     )
 
 
@@ -2132,7 +2150,6 @@ def _scroll(download_params):
             "found on local disk.",
             msg_level=_INFO,
             verbose=download_params["verbose"],
-            stack_level=3,
         )
 
     if download_params["download_mode"] == "offline":
@@ -2153,7 +2170,8 @@ def _scroll(download_params):
         if n_consecutive_fails >= download_params["max_consecutive_fails"]:
             warnings.warn(
                 "Neurovault download stopped early: "
-                f"too many downloads failed in a row ({n_consecutive_fails})"
+                f"too many downloads failed in a row ({n_consecutive_fails})",
+                stacklevel=find_stack_level(),
             )
             return
         if found == download_params["max_images"]:
@@ -2234,7 +2252,8 @@ def _move_col_id(im_terms, col_terms):
         warnings.warn(
             "You specified contradictory collection ids, "
             "one in the image filters and one in the "
-            "collection filters"
+            "collection filters",
+            stacklevel=find_stack_level(),
         )
     return im_terms, col_terms
 
@@ -2254,6 +2273,7 @@ def _read_download_params(
     resample=False,
     interpolation="linear",
     batch_size=None,
+    timeout=_DEFAULT_TIME_OUT,
     verbose=3,
     fetch_neurosynth_words=False,
     vectorize_words=True,
@@ -2293,6 +2313,7 @@ def _read_download_params(
         download_params["nv_data_dir"], os.W_OK
     )
     download_params["vectorize_words"] = vectorize_words
+    download_params["timeout"] = timeout
     return download_params
 
 
@@ -2446,6 +2467,7 @@ def _fetch_neurovault_implementation(
     resample=False,
     interpolation="continuous",
     vectorize_words=True,
+    timeout=_DEFAULT_TIME_OUT,
     verbose=3,
     **kwarg_image_filters,
 ):
@@ -2460,7 +2482,8 @@ def _fetch_neurovault_implementation(
         warnings.warn(
             "You don't have write access to neurovault dir: "
             f"{neurovault_data_dir}. "
-            "fetch_neurovault is working offline."
+            "fetch_neurovault is working offline.",
+            stacklevel=find_stack_level(),
         )
         mode = "offline"
 
@@ -2476,6 +2499,7 @@ def _fetch_neurovault_implementation(
         max_images=max_images,
         resample=resample,
         interpolation=interpolation,
+        timeout=timeout,
         verbose=verbose,
         fetch_neurosynth_words=fetch_neurosynth_words,
         vectorize_words=vectorize_words,
@@ -2489,6 +2513,7 @@ def _fetch_neurovault_implementation(
     return _result_list_to_bunch(scroller, download_params)
 
 
+@fill_doc
 def fetch_neurovault(
     max_images=_DEFAULT_MAX_IMAGES,
     collection_terms=None,
@@ -2500,6 +2525,7 @@ def fetch_neurovault(
     fetch_neurosynth_words=False,
     resample=False,
     vectorize_words=True,
+    timeout=_DEFAULT_TIME_OUT,
     verbose=3,
     **kwarg_image_filters,
 ):
@@ -2519,10 +2545,10 @@ def fetch_neurovault(
 
     Parameters
     ----------
-    max_images : int, default=100
+    max_images : :obj:`int`, default=100
         Maximum number of images to fetch.
 
-    collection_terms : dict, default=None
+    collection_terms : :obj:`dict` or None, default=None
         Key, value pairs used to filter collection
         metadata. Collections for which
         ``collection_metadata['key'] == value`` is not ``True`` for
@@ -2535,7 +2561,7 @@ def fetch_neurovault(
         Collections for which `collection_filter(collection_metadata)`
         is ``False`` will be discarded.
 
-    image_terms : dict, default=None
+    image_terms : :obj:`dict` or None, default=None
         Key, value pairs used to filter image metadata. Images for
         which ``image_metadata['key'] == value`` is not ``True`` for
         if image_filter != _empty_filter and image_terms =
@@ -2548,7 +2574,7 @@ def fetch_neurovault(
         Images for which `image_filter(image_metadata)` is ``False``
         will be discarded.
 
-    mode : {'download_new', 'overwrite', 'offline'}
+    mode : {'download_new', 'overwrite', 'offline'}, default="download_new"
         When to fetch an image from the server rather than the local
         disk.
 
@@ -2557,19 +2583,17 @@ def fetch_neurovault(
         - 'overwrite' means ignore files on disk and overwrite them.
         - 'offline' means load only data from disk; don't query server.
 
-    data_dir : str, optional
-        The directory we want to use for nilearn data. A subdirectory
-        named "neurovault" will contain :term:`Neurovault` data.
+    %(data_dir)s
 
-    fetch_neurosynth_words : bool, default=False
+    fetch_neurosynth_words : :obj:`bool`, default=False
         whether to collect words from Neurosynth.
 
-    vectorize_words : bool, default=True
+    vectorize_words : :obj:`bool`, default=True
         If neurosynth words are downloaded, create a matrix of word
         counts and add it to the result. Also add to the result a
         vocabulary list. See ``sklearn.CountVectorizer`` for more info.
 
-    resample : bool, optional (default=False)
+    resample : :obj:`bool`, default=False
         Resamples downloaded images to a 3x3x3 grid before saving them,
         to save disk space.
 
@@ -2578,7 +2602,10 @@ def fetch_neurovault(
         method.
         Argument passed to nilearn.image.resample_img.
 
-    verbose : int, default=3
+    timeout : float, default=_DEFAULT_TIME_OUT
+        Timeout in seconds.
+
+    verbose : :obj:`int`, default=3
         An integer in [0, 1, 2, 3] to control the verbosity level.
 
     kwarg_image_filters
@@ -2677,6 +2704,8 @@ def fetch_neurovault(
         )
 
     """
+    check_params(locals())
+
     if collection_terms is None:
         collection_terms = basic_collection_terms()
     if image_terms is None:
@@ -2702,7 +2731,8 @@ def fetch_neurovault(
         warnings.warn(
             "You specified a value for `image_filter` but the "
             "default filters in `image_terms` still apply. "
-            "If you want to disable them, pass `image_terms={}`"
+            "If you want to disable them, pass `image_terms={}`",
+            stacklevel=find_stack_level(),
         )
     if (
         collection_filter is not _empty_filter
@@ -2711,7 +2741,8 @@ def fetch_neurovault(
         warnings.warn(
             "You specified a value for `collection_filter` but the "
             "default filters in `collection_terms` still apply. "
-            "If you want to disable them, pass `collection_terms={}`"
+            "If you want to disable them, pass `collection_terms={}`",
+            stacklevel=find_stack_level(),
         )
 
     return _fetch_neurovault_implementation(
@@ -2725,11 +2756,13 @@ def fetch_neurovault(
         fetch_neurosynth_words=fetch_neurosynth_words,
         resample=resample,
         vectorize_words=vectorize_words,
+        timeout=timeout,
         verbose=verbose,
         **kwarg_image_filters,
     )
 
 
+@fill_doc
 def fetch_neurovault_ids(
     collection_ids=(),
     image_ids=(),
@@ -2738,6 +2771,7 @@ def fetch_neurovault_ids(
     fetch_neurosynth_words=False,
     resample=False,
     vectorize_words=True,
+    timeout=_DEFAULT_TIME_OUT,
     verbose=3,
 ):
     """Download specific images and collections from neurovault.org.
@@ -2770,23 +2804,24 @@ def fetch_neurovault_ids(
         - 'overwrite' means ignore files on disk and overwrite them.
         - 'offline' means load only data from disk; don't query server.
 
-    data_dir : str, optional
-        The directory we want to use for nilearn data. A subdirectory
-        named "neurovault" will contain :term:`Neurovault` data.
+    %(data_dir)s
 
-    fetch_neurosynth_words : bool, default=False
+    fetch_neurosynth_words : :obj:`bool`, default=False
         Whether to collect words from Neurosynth.
 
-    resample : bool, optional (default=False)
+    resample : :obj:`bool`, default=False
         Resamples downloaded images to a 3x3x3 grid before saving them,
         to save disk space.
 
-    vectorize_words : bool, default=True
+    vectorize_words : :obj:`bool`, default=True
         If neurosynth words are downloaded, create a matrix of word
         counts and add it to the result. Also add to the result a
         vocabulary list. See ``sklearn.CountVectorizer`` for more info.
 
-    verbose : int, default=3
+    timeout : float, default=_DEFAULT_TIME_OUT
+        Timeout in seconds.
+
+    verbose : :obj:`int`, default=3
         An integer in [0, 1, 2, 3] to control the verbosity level.
 
     Returns
@@ -2832,6 +2867,8 @@ def fetch_neurovault_ids(
     .. footbibliography::
 
     """
+    check_params(locals())
+
     return _fetch_neurovault_implementation(
         mode=mode,
         collection_ids=collection_ids,
@@ -2840,22 +2877,33 @@ def fetch_neurovault_ids(
         fetch_neurosynth_words=fetch_neurosynth_words,
         resample=resample,
         vectorize_words=vectorize_words,
+        timeout=timeout,
         verbose=verbose,
     )
 
 
-def fetch_neurovault_motor_task(data_dir=None, verbose=1):
+@fill_doc
+def fetch_neurovault_motor_task(
+    data_dir=None, timeout=_DEFAULT_TIME_OUT, verbose=1
+):
     """Fetch left vs right button press \
        group :term:`contrast` map from :term:`Neurovault`.
 
+    .. deprecated:: 0.12.0
+
+        This fetcher function will be removed in version>0.13.1
+        as it returns the same data
+        as :func:`nilearn.datasets.load_sample_motor_activation_image`.
+
+        Please use
+        :func:`nilearn.datasets.load_sample_motor_activation_image`
+        instead.
+
     Parameters
     ----------
-    data_dir : string, optional
-        Path of the data directory. Used to force data storage in a specified
-        location.
+    %(data_dir)s
 
-    verbose : int, default=1
-        Verbosity level (0 means no message).
+    %(verbose)s
 
     Returns
     -------
@@ -2881,24 +2929,37 @@ def fetch_neurovault_motor_task(data_dir=None, verbose=1):
     nilearn.datasets.fetch_neurovault_auditory_computation_task
 
     """
+    check_params(locals())
+
+    warnings.warn(
+        (
+            "The 'fetch_neurovault_motor_task' function will be removed "
+            "in version>0.13.1 as it returns the same data "
+            "as 'load_sample_motor_activation_image'.\n"
+            "Please use 'load_sample_motor_activation_image' instead.'"
+        ),
+        DeprecationWarning,
+        stacklevel=find_stack_level(),
+    )
+
     data = fetch_neurovault_ids(
-        image_ids=[10426], data_dir=data_dir, verbose=verbose
+        image_ids=[10426], data_dir=data_dir, verbose=verbose, timeout=timeout
     )
     return data
 
 
-def fetch_neurovault_auditory_computation_task(data_dir=None, verbose=1):
+@fill_doc
+def fetch_neurovault_auditory_computation_task(
+    data_dir=None, verbose=1, timeout=_DEFAULT_TIME_OUT
+):
     """Fetch a :term:`contrast` map from :term:`Neurovault` showing \
     the effect of mental subtraction upon auditory instructions.
 
     Parameters
     ----------
-    data_dir : string, optional
-        Path of the data directory. Used to force data storage in a specified
-        location.
+    %(data_dir)s
 
-    verbose : int, default=1
-        Verbosity level (0 means no message).
+    %(verbose)s
 
     Returns
     -------
@@ -2921,10 +2982,11 @@ def fetch_neurovault_auditory_computation_task(data_dir=None, verbose=1):
     --------
     nilearn.datasets.fetch_neurovault_ids
     nilearn.datasets.fetch_neurovault
-    nilearn.datasets.fetch_neurovault_motor_task
 
     """
+    check_params(locals())
+
     data = fetch_neurovault_ids(
-        image_ids=[32980], data_dir=data_dir, verbose=verbose
+        image_ids=[32980], data_dir=data_dir, verbose=verbose, timeout=timeout
     )
     return data

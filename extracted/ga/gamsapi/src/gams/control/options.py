@@ -155,6 +155,13 @@ class ECImplicitLoad(object):
     ## @brief Allow implicit loading from embedded code
     OnECImplicitLoad = "on"
 
+## @brief Show log line about embedded code initialization and execution or not
+class ECLogLine(object):
+    ## @brief Do not show log line about embedded code initialization and execution
+    OffECLogLine = "off"
+    ## @brief Show log line about embedded code initialization and execution
+    OnECLogLine = "on"
+
 ## @brief Switch default for "$on/offEmpty"
 class Empty(object):
     ## @brief Activate $offEmpty
@@ -332,6 +339,13 @@ class LstTitleLeftAligned(object):
     Off = 0
     ## @brief Write LST title completely left aligned
     On = 1
+
+## @brief Allows to try an experimental memory manager
+class MemoryManager(object):
+    ## @brief Established default memory manager
+    Default = 0
+    ## @brief Experimental memory manager
+    Experimental = 1
 
 ## @brief Model Instance Mode
 class MIIMode(object):
@@ -949,6 +963,14 @@ class GamsOptions(object):
         optSetStrStr(self._opt, "ECImplicitLoad", value)
     ## @brief Allow implicit loading of symbols from embedded code or not
     ecimplicitload = property(get_ecimplicitload, set_ecimplicitload)
+
+    def get_eclogline(self):
+        return optGetStrStr(self._opt, "ECLogLine")
+
+    def set_eclogline(self, value):
+        optSetStrStr(self._opt, "ECLogLine", value)
+    ## @brief Show log line about embedded code initialization and execution or not
+    eclogline = property(get_eclogline, set_eclogline)
 
     def get_empty(self):
         return optGetStrStr(self._opt, "Empty")
@@ -1770,6 +1792,14 @@ class GamsOptions(object):
         optSetIntStr(self._opt, "MCPRHoldfx", value)
     _mcprholdfx = property(_get_mcprholdfx, _set_mcprholdfx)
 
+    def get_memorymanager(self):
+        return optGetIntStr(self._opt, "MemoryManager")
+
+    def set_memorymanager(self, value):
+        optSetIntStr(self._opt, "MemoryManager", value)
+    ## @brief Allows to try an experimental memory manager
+    memorymanager = property(get_memorymanager, set_memorymanager)
+
     def get_miimode(self):
         return optGetStrStr(self._opt, "MIIMode")
 
@@ -1971,6 +2001,13 @@ class GamsOptions(object):
         optSetStrStr(self._opt, "ProfileFile", value)
     ## @brief Write profile information to this file
     profilefile = property(get_profilefile, set_profilefile)
+
+    def _get_comport(self):
+        return optGetIntStr(self._opt, "ComPort")
+
+    def _set_comport(self, value):
+        optSetIntStr(self._opt, "ComPort", value)
+    _comport = property(_get_comport, _set_comport)
 
     def get_profiletol(self):
         return optGetDblStr(self._opt, "ProfileTol")

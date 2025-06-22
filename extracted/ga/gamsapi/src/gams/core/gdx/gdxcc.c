@@ -1180,7 +1180,7 @@ int  GDX_CALLCONV d_gdxSymbolGetComment (gdxHandle_t pgdx, int SyNr, int N, char
 
 /** Retrieve the domain of a symbol. Returns zero if the operation is not possible.
  * @param pgdx gdx object handle
- * @param SyNr The index number of the symbol (range 1..NrSymbols); SyNr = 0 reads universe.
+ * @param SyNr The index number of the symbol (must be in range 1..NrSymbols).
  * @param DomainSyNrs Array (length=symbol dim) returning the set identifiers or "*"; DomainSyNrs[D] will contain the index number of the one dimensional set or alias used as the domain for index position D. A value of zero represents the universe "*".
  */
 int  GDX_CALLCONV d_gdxSymbolGetDomain (gdxHandle_t pgdx, int SyNr, int DomainSyNrs[])
@@ -1194,7 +1194,7 @@ int  GDX_CALLCONV d_gdxSymbolGetDomain (gdxHandle_t pgdx, int SyNr, int DomainSy
 
 /** Retrieve the domain of a symbol (using relaxed or domain information). Returns zero if the operation is not possible.
  * @param pgdx gdx object handle
- * @param SyNr The index number of the symbol (range 1..NrSymbols); SyNr = 0 reads universe.
+ * @param SyNr The index number of the symbol (must be in range 1..NrSymbols).
  * @param DomainIDs DomainIDs[D] will contain the strings as they were stored with the call gdxSymbolSetDomainX. If gdxSymbolSetDomainX was never called, but gdxSymbolSetDomain was called, that information will be used instead. Length of this array should by dimensionality of the symbol. The special domain name "*" denotes the universe domain (all known UELs).
  */
 int  GDX_CALLCONV d_gdxSymbolGetDomainX (gdxHandle_t pgdx, int SyNr, char *DomainIDs[])

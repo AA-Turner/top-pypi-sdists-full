@@ -2,19 +2,16 @@
 on multi subject MRI data.
 """
 
-# Author: Gael Varoquaux, Alexandre Abraham
-
 import collections.abc
 import itertools
 import warnings
 from functools import partial
 
+import numpy as np
 from joblib import Parallel, delayed
+from sklearn.utils.estimator_checks import check_is_fitted
 
-from nilearn import image, masking
 from nilearn._utils import (
-    CacheMixin,
-    check_niimg_3d,
     fill_doc,
     logger,
     repr_niimgs,
@@ -23,33 +20,44 @@ from nilearn._utils import (
 from nilearn._utils.class_inspect import (
     get_params,
 )
+from nilearn._utils.logger import find_stack_level
 from nilearn._utils.niimg_conversions import iter_check_niimg
+from nilearn._utils.param_validation import check_params
+from nilearn._utils.tags import SKLEARN_LT_1_6
+from nilearn.image import (
+    resample_img,
+)
 from nilearn.maskers._utils import compute_middle_image
-from nilearn.maskers.nifti_masker import NiftiMasker, _filter_and_mask
+from nilearn.maskers.base_masker import prepare_confounds_multimaskers
+from nilearn.maskers.nifti_masker import NiftiMasker, filter_and_mask
+from nilearn.masking import (
+    compute_multi_background_mask,
+    compute_multi_brain_mask,
+    compute_multi_epi_mask,
+    load_mask_img,
+)
+from nilearn.typing import NiimgLike
 
 
 def _get_mask_strategy(strategy):
     """Return the mask computing method based on a provided strategy."""
     if strategy == "background":
-        return masking.compute_multi_background_mask
+        return compute_multi_background_mask
     elif strategy == "epi":
-        return masking.compute_multi_epi_mask
+        return compute_multi_epi_mask
     elif strategy == "whole-brain-template":
-        return partial(
-            masking.compute_multi_brain_mask, mask_type="whole-brain"
-        )
+        return partial(compute_multi_brain_mask, mask_type="whole-brain")
     elif strategy == "gm-template":
-        return partial(masking.compute_multi_brain_mask, mask_type="gm")
+        return partial(compute_multi_brain_mask, mask_type="gm")
     elif strategy == "wm-template":
-        return partial(masking.compute_multi_brain_mask, mask_type="wm")
+        return partial(compute_multi_brain_mask, mask_type="wm")
     elif strategy == "template":
         warnings.warn(
             "Masking strategy 'template' is deprecated. "
-            "Please use 'whole-brain-template' instead."
+            "Please use 'whole-brain-template' instead.",
+            stacklevel=find_stack_level(),
         )
-        return partial(
-            masking.compute_multi_brain_mask, mask_type="whole-brain"
-        )
+        return partial(compute_multi_brain_mask, mask_type="whole-brain")
     else:
         raise ValueError(
             f"Unknown value of mask_strategy '{strategy}'. "
@@ -60,7 +68,7 @@ def _get_mask_strategy(strategy):
 
 
 @fill_doc
-class MultiNiftiMasker(NiftiMasker, CacheMixin):
+class MultiNiftiMasker(NiftiMasker):
     """Applying a mask to extract time-series from multiple Niimg-like objects.
 
     MultiNiftiMasker is useful when dealing with image sets from multiple
@@ -97,13 +105,15 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
 
     %(t_r)s
 
-    target_affine : 3x3 or 4x4 :obj:`numpy.ndarray`, optional
-        This parameter is passed to image.resample_img. Please see the
-        related documentation for details.
+    %(target_affine)s
 
-    target_shape : 3-:obj:`tuple` of :obj:`int`, optional
-        This parameter is passed to image.resample_img. Please see the
-        related documentation for details.
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
+
+    %(target_shape)s
+
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
 
     %(mask_strategy)s
 
@@ -122,10 +132,7 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
         to fine-tune mask computation.
         Please see the related documentation for details.
 
-    dtype : {dtype, "auto"}, optional
-        Data type toward which the data should be converted. If "auto", the
-        data will be converted to int32 if dtype is discrete and float32 if it
-        is continuous.
+    %(dtype)s
 
     %(memory)s
 
@@ -135,12 +142,18 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
 
     %(verbose0)s
 
+    %(clean_args)s
+
     %(masker_kwargs)s
 
     Attributes
     ----------
-    mask_img_ : :obj:`nibabel.nifti1.Nifti1Image`
-        The mask of the data.
+    mask_img_ : A 3D binary :obj:`nibabel.nifti1.Nifti1Image`
+        The mask of the data, or the one computed from ``imgs`` passed to fit.
+        If a ``mask_img`` is passed at masker construction,
+        then ``mask_img_`` is the resulting binarized version of it
+        where each voxel is ``True`` if all values across samples
+        (for example across timepoints) is finite value different from 0.
 
     affine_ : 4x4 :obj:`numpy.ndarray`
         Affine of the transformed image.
@@ -180,7 +193,8 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
         n_jobs=1,
         verbose=0,
         cmap="CMRmap_r",
-        **kwargs,
+        clean_args=None,
+        **kwargs,  # TODO remove when bumping to nilearn >0.13
     ):
         super().__init__(
             # Mask is provided or computed
@@ -202,29 +216,53 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
             memory_level=memory_level,
             verbose=verbose,
             cmap=cmap,
+            clean_args=clean_args,
+            # TODO remove when bumping to nilearn >0.13
             **kwargs,
         )
         self.n_jobs = n_jobs
 
+    def __sklearn_tags__(self):
+        """Return estimator tags.
+
+        See the sklearn documentation for more details on tags
+        https://scikit-learn.org/1.6/developers/develop.html#estimator-tags
+        """
+        # TODO
+        # get rid of if block
+        # bumping sklearn_version > 1.5
+        if SKLEARN_LT_1_6:
+            from nilearn._utils.tags import tags
+
+            return tags(masker=True, multi_masker=True)
+
+        from nilearn._utils.tags import InputTags
+
+        tags = super().__sklearn_tags__()
+        tags.input_tags = InputTags(masker=True, multi_masker=True)
+        return tags
+
+    @fill_doc
     def fit(
         self,
         imgs=None,
-        y=None,  # noqa: ARG002
+        y=None,
     ):
         """Compute the mask corresponding to the data.
 
         Parameters
         ----------
-        imgs : :obj:`list` of Niimg-like objects
+        imgs : Niimg-like objects, :obj:`list` of Niimg-like objects or None, \
+            default=None
             See :ref:`extracting_data`.
-            Data on which the mask must be calculated. If this is a list,
-            the affine is considered the same for all.
+            Data on which the mask must be calculated.
+            If this is a list, the affine is considered the same for all.
 
-        y : None
-            This parameter is unused. It is solely included for scikit-learn
-            compatibility.
+        %(y_dummy)s
 
         """
+        del y
+        check_params(self.__dict__)
         if getattr(self, "_shelving", None) is None:
             self._shelving = False
 
@@ -236,32 +274,41 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
                 "between the mask and its input image. "
             ),
             "warning_message": None,
+            "n_elements": 0,
+            "coverage": 0,
         }
         self._overlay_text = (
             "\n To see the input Nifti image before resampling, "
             "hover over the displayed image."
         )
 
-        # Load data (if filenames are given, load them)
-        logger.log(
-            f"Loading data from {repr_niimgs(imgs, shorten=False)}.",
-            self.verbose,
-        )
+        self._sanitize_cleaning_parameters()
+        self.clean_args_ = {} if self.clean_args is None else self.clean_args
+
+        self.mask_img_ = self._load_mask(imgs)
+
+        if imgs is not None:
+            logger.log(
+                f"Loading data from {repr_niimgs(imgs, shorten=False)}.",
+                self.verbose,
+            )
 
         # Compute the mask if not given by the user
-        if self.mask_img is None:
+        if self.mask_img_ is None:
+            if imgs is None:
+                raise ValueError(
+                    "Parameter 'imgs' must be provided to "
+                    f"{self.__class__.__name__}.fit() "
+                    "if no mask is passed to mask_img."
+                )
+
             logger.log("Computing mask", self.verbose)
 
             imgs = stringify_path(imgs)
             if not isinstance(imgs, collections.abc.Iterable) or isinstance(
                 imgs, str
             ):
-                raise ValueError(
-                    f"[{self.__class__.__name__}.fit] "
-                    "For multiple processing, you should  provide a list of "
-                    "data (e.g. Nifti1Image objects or filenames). "
-                    f"{imgs} is an invalid input."
-                )
+                imgs = [imgs]
 
             mask_args = self.mask_args if self.mask_args is not None else {}
             compute_mask = _get_mask_strategy(self.mask_strategy)
@@ -277,17 +324,14 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
                 verbose=max(0, self.verbose - 1),
                 **mask_args,
             )
-        else:
-            if imgs is not None:
-                warnings.warn(
-                    f"[{self.__class__.__name__}.fit] "
-                    "Generation of a mask has been requested (imgs != None) "
-                    "while a mask has been provided at masker creation. "
-                    "Given mask will be used.",
-                    stacklevel=2,
-                )
-
-            self.mask_img_ = check_niimg_3d(self.mask_img)
+        elif imgs is not None:
+            warnings.warn(
+                f"[{self.__class__.__name__}.fit] "
+                "Generation of a mask has been requested (imgs != None) "
+                "while a mask was given at masker creation. "
+                "Given mask will be used.",
+                stacklevel=find_stack_level(),
+            )
 
         self._reporting_data = None
         if self.reports:  # save inputs for reporting
@@ -307,7 +351,7 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
 
         # TODO switch to force_resample=True
         # when bumping to version > 0.13
-        self.mask_img_ = self._cache(image.resample_img)(
+        self.mask_img_ = self._cache(resample_img)(
             self.mask_img_,
             target_affine=self.target_affine,
             target_shape=self.target_shape,
@@ -323,10 +367,14 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
             self.affine_ = self.mask_img_.affine
 
         # Load data in memory, while also checking that mask is binary/valid
-        data, _ = masking.load_mask_img(self.mask_img_, allow_empty=True)
+        data, _ = load_mask_img(self.mask_img_, allow_empty=True)
 
         # Infer the number of elements (voxels) in the mask
         self.n_elements_ = int(data.sum())
+        self._report_content["n_elements"] = self.n_elements_
+        self._report_content["coverage"] = (
+            self.n_elements_ / np.prod(data.shape) * 100
+        )
 
         if (self.target_shape is not None) or (
             (self.target_affine is not None) and self.reports
@@ -335,7 +383,7 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
             if imgs is not None:
                 # TODO switch to force_resample=True
                 # when bumping to version > 0.13
-                resampl_imgs = self._cache(image.resample_img)(
+                resampl_imgs = self._cache(resample_img)(
                     imgs,
                     target_affine=self.affine_,
                     copy=False,
@@ -348,6 +396,7 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
 
         return self
 
+    @fill_doc
     def transform_imgs(
         self, imgs_list, confounds=None, sample_mask=None, copy=True, n_jobs=1
     ):
@@ -355,17 +404,12 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
 
         Parameters
         ----------
-        imgs_list : :obj:`list` of Niimg-like objects
-            See :ref:`extracting_data`.
-            List of imgs file to prepare. One item per subject.
+        %(imgs)s
+            Images to process.
 
-        confounds : :obj:`list` of confounds, optional
-            List of confounds (2D arrays or filenames pointing to CSV
-            files or pandas DataFrames). Must be of same length than imgs_list.
+        %(confounds_multi)s
 
-        sample_mask : :obj:`list` of sample_mask, optional
-            List of sample_mask (1D arrays) if scrubbing motion outliers.
-            Must be of same length than imgs_list.
+        %(sample_mask_multi)s
 
                 .. versionadded:: 0.8.0
 
@@ -373,36 +417,16 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
             If True, guarantees that output array has no memory in common with
             input array.
 
-        n_jobs : :obj:`int`, default=1
-            The number of cpus to use to do the computation. -1 means
-            'all cpus'.
+        %(n_jobs)s
 
         Returns
         -------
-        region_signals : :obj:`list` of 2D :obj:`numpy.ndarray`
-            List of signal for each element per subject.
-            shape: list of (number of scans, number of elements)
-
-        Warns
-        -----
-        DeprecationWarning
-            If a 3D niimg input is provided, the current behavior
-            (adding a singleton dimension to produce a 2D array) is deprecated.
-            Starting in version 0.12, a 1D array will be returned for 3D
-            inputs.
+        %(signals_transform_imgs_multi_nifti)s
 
         """
-        if not hasattr(self, "mask_img_"):
-            raise ValueError(
-                f"It seems that {self.__class__.__name__} has not been "
-                "fitted. "
-                "You must call fit() before calling transform()."
-            )
-        target_fov = None
-        if self.target_affine is None:
-            # Force resampling on first image
-            target_fov = "first"
+        check_is_fitted(self)
 
+        target_fov = "first" if self.target_affine is None else None
         niimg_iter = iter_check_niimg(
             imgs_list,
             ensure_ndim=None,
@@ -412,11 +436,15 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
             memory_level=self.memory_level,
         )
 
-        if confounds is None:
-            confounds = itertools.repeat(None, len(imgs_list))
+        confounds = prepare_confounds_multimaskers(self, imgs_list, confounds)
 
         if sample_mask is None:
             sample_mask = itertools.repeat(None, len(imgs_list))
+        elif len(sample_mask) != len(imgs_list):
+            raise ValueError(
+                f"number of sample_mask ({len(sample_mask)}) unequal to "
+                f"number of images ({len(imgs_list)})."
+            )
 
         # Ignore the mask-computing params: they are not useful and will
         # just invalidate the cache for no good reason
@@ -431,10 +459,13 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
                 "copy",
             ],
         )
-        params["clean_kwargs"] = self.clean_kwargs
+        params["clean_kwargs"] = self.clean_args_
+        # TODO remove in 0.13.0
+        if self.clean_kwargs:
+            params["clean_kwargs"] = self.clean_kwargs_
 
         func = self._cache(
-            _filter_and_mask,
+            filter_and_mask,
             ignore=[
                 "verbose",
                 "memory",
@@ -460,47 +491,80 @@ class MultiNiftiMasker(NiftiMasker, CacheMixin):
         )
         return data
 
+    @fill_doc
     def transform(self, imgs, confounds=None, sample_mask=None):
         """Apply mask, spatial and temporal preprocessing.
 
         Parameters
         ----------
-        imgs : :obj:`list` of Niimg-like objects
+        imgs : Niimg-like object, or a :obj:`list` of Niimg-like objects
             See :ref:`extracting_data`.
             Data to be preprocessed
 
-        confounds : CSV file or 2D :obj:`numpy.ndarray` or \
-                :obj:`pandas.DataFrame`, optional
-            This parameter is passed to signal.clean. Please see the
-            corresponding documentation for details.
+        %(confounds_multi)s
 
-        sample_mask : :obj:`list` of 1D :obj:`numpy.ndarray`, optional
-            List of sample_mask (1D arrays) if scrubbing motion outliers.
-            Must be of same length than imgs_list.
+        %(sample_mask_multi)s
 
-                .. versionadded:: 0.8.0
+            .. versionadded:: 0.8.0
 
         Returns
         -------
-        data : :obj:`list` of :obj:`numpy.ndarray`
-            preprocessed images
-
-        Warns
-        -----
-        DeprecationWarning
-            If 3D niimg inputs are provided, the current behavior
-            (adding a singleton dimension to produce 2D arrays) is deprecated.
-            Starting in version 0.12, 1D arrays will be returned for 3D
-            inputs.
+        %(signals_transform_multi_nifti)s
 
         """
-        self._check_fitted()
-        if not hasattr(imgs, "__iter__") or isinstance(imgs, str):
-            return self.transform_single_imgs(imgs)
+        check_is_fitted(self)
+
+        if not (confounds is None or isinstance(confounds, list)):
+            raise TypeError(
+                "'confounds' must be a None or a list. "
+                f"Got {confounds.__class__.__name__}."
+            )
+        if not (sample_mask is None or isinstance(sample_mask, list)):
+            raise TypeError(
+                "'sample_mask' must be a None or a list. "
+                f"Got {sample_mask.__class__.__name__}."
+            )
+        if isinstance(imgs, NiimgLike):
+            if isinstance(confounds, list):
+                confounds = confounds[0]
+            if isinstance(sample_mask, list):
+                sample_mask = sample_mask[0]
+            return super().transform(
+                imgs, confounds=confounds, sample_mask=sample_mask
+            )
 
         return self.transform_imgs(
             imgs,
             confounds=confounds,
             sample_mask=sample_mask,
             n_jobs=self.n_jobs,
+        )
+
+    @fill_doc
+    def fit_transform(self, imgs, y=None, confounds=None, sample_mask=None):
+        """
+        Fit to data, then transform it.
+
+        Parameters
+        ----------
+        imgs : Niimg-like object, or a :obj:`list` of Niimg-like objects
+            See :ref:`extracting_data`.
+            Data to be preprocessed
+
+        y : None
+            This parameter is unused. It is solely included for scikit-learn
+            compatibility.
+
+        %(confounds_multi)s
+
+        %(sample_mask_multi)s
+
+            .. versionadded:: 0.8.0
+
+        Returns
+        -------
+        %(signals_transform_multi_nifti)s
+        """
+        return self.fit(imgs, y=y).transform(
+            imgs, confounds=confounds, sample_mask=sample_mask
         )

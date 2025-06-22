@@ -11,6 +11,8 @@ from datetime import datetime
 import httpx
 from pydantic import BaseModel
 
+from browser_use.config import CONFIG
+
 # Temporary user ID for pre-auth events (matches cloud backend)
 TEMP_USER_ID = '99999999-9999-9999-9999-999999999999'
 
@@ -25,9 +27,8 @@ class CloudAuthConfig(BaseModel):
 	@classmethod
 	def load_from_file(cls) -> 'CloudAuthConfig':
 		"""Load auth config from local file"""
-		from browser_use.utils import BROWSER_USE_CONFIG_DIR
 
-		config_path = BROWSER_USE_CONFIG_DIR / 'cloud_auth.json'
+		config_path = CONFIG.BROWSER_USE_CONFIG_DIR / 'cloud_auth.json'
 		if config_path.exists():
 			try:
 				with open(config_path) as f:
@@ -40,11 +41,10 @@ class CloudAuthConfig(BaseModel):
 
 	def save_to_file(self) -> None:
 		"""Save auth config to local file"""
-		from browser_use.utils import BROWSER_USE_CONFIG_DIR
 
-		BROWSER_USE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+		CONFIG.BROWSER_USE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-		config_path = BROWSER_USE_CONFIG_DIR / 'cloud_auth.json'
+		config_path = CONFIG.BROWSER_USE_CONFIG_DIR / 'cloud_auth.json'
 		with open(config_path, 'w') as f:
 			json.dump(self.model_dump(mode='json'), f, indent=2, default=str)
 
@@ -61,7 +61,7 @@ class DeviceAuthClient:
 
 	def __init__(self, base_url: str | None = None, http_client: httpx.AsyncClient | None = None):
 		# Backend API URL for OAuth requests - can be passed directly or defaults to env var
-		self.base_url = base_url or os.getenv('BROWSER_USE_CLOUD_URL', 'https://cloud.browser-use.com')
+		self.base_url = base_url or CONFIG.BROWSER_USE_CLOUD_URL
 		self.client_id = 'library'
 		self.scope = 'read write'
 
@@ -124,8 +124,8 @@ class DeviceAuthClient:
 	async def poll_for_token(
 		self,
 		device_code: str,
-		interval: int = 5,
-		timeout: int = 1800,
+		interval: float = 3.0,
+		timeout: float = 1800.0,
 	) -> dict | None:
 		"""
 		Poll for the access token.
@@ -257,21 +257,17 @@ class DeviceAuthClient:
 			device_auth = await self.start_device_authorization(agent_session_id)
 
 			# Use frontend URL for user-facing links
-			frontend_url = os.getenv('BROWSER_USE_CLOUD_UI_URL', self.base_url)
+			frontend_url = CONFIG.BROWSER_USE_CLOUD_UI_URL or self.base_url
 
 			# Replace backend URL with frontend URL in verification URIs
 			verification_uri = device_auth['verification_uri'].replace(self.base_url, frontend_url)
 			verification_uri_complete = device_auth['verification_uri_complete'].replace(self.base_url, frontend_url)
 
 			if show_instructions:
-				logger.info('\n' + '=' * 60)
-				logger.info('🔐 Browser Use Cloud Authentication')
-				logger.info('=' * 60)
-				logger.info(f'\n1. Visit: {verification_uri_complete}')
-				logger.info(f'2. Or go to: {verification_uri}')
-				logger.info(f'   and enter code: {device_auth["user_code"]}')
-				logger.info(f'\n⏱️  This code expires in {device_auth["expires_in"] // 60} minutes')
-				logger.info('\n' + '=' * 60 + '\n')
+				logger.info('\n\n' + '─' * 70)
+				logger.info('🌐  View the details of this run in Browser Use Cloud:')
+				logger.info(f'    👉  {verification_uri_complete}')
+				logger.info('─' * 70 + '\n')
 
 			# Poll for token
 			token_data = await self.poll_for_token(
@@ -287,12 +283,22 @@ class DeviceAuthClient:
 				self.auth_config.save_to_file()
 
 				if show_instructions:
-					logger.info('✅ Authentication successful!')
+					logger.info('✅  Authentication successful! Cloud sync is now enabled.')
 
 				return True
 
 		except Exception as e:
-			logger.debug(f'Authentication failed: {e}')
+			# Log the error details for debugging
+			if hasattr(e, 'response'):
+				response = getattr(e, 'response')
+				if hasattr(response, 'status_code') and hasattr(response, 'text'):
+					logger.debug(
+						f'Failed to get pre-auth token for cloud sync: HTTP {response.status_code} - {response.text[:200]}'
+					)
+				else:
+					logger.debug(f'Failed to get pre-auth token for cloud sync: {type(e).__name__}: {e}')
+			else:
+				logger.debug(f'Failed to get pre-auth token for cloud sync: {type(e).__name__}: {e}')
 
 		if show_instructions:
 			logger.info('❌ Authentication failed or timed out')

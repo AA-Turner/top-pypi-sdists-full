@@ -33,56 +33,9 @@ import pandas as pd
 
 class RawCSVReader(ConnectAgent):
 
-    def __init__(self, cdb, inst):
-        super().__init__(cdb, inst)
-        inst_raw = inst
-        inst = self._normalize_instructions(inst)
-        self._parse_options(inst)
-        if self._trace > 0:
-            self._log_instructions(inst, inst_raw)
-        if self._trace > 3:
-            pd.set_option("display.max_rows", None, "display.max_columns", None)
-
-        self._check_symbol_exists(self._r_name)
-        self._R = cdb._container.addSet(self._r_name, "*", description="Rows")
-
-        self._check_symbol_exists(self._c_name)
-        self._C = cdb._container.addSet(self._c_name, "*", description="Columns")
-
-        self._check_symbol_exists(self._vs_name)
-        self._VS = cdb._container.addSet(
-            self._vs_name,
-            [self._R, self._C],
-            description="Cells with explanatory text",
-        )
-
-        self._check_symbol_exists(self._vu_name)
-        self._VU = cdb._container.addSet(
-            self._vu_name,
-            [self._R, self._C, "*"],
-            description="Cells with potential GAMS label",
-        )
-
-        self._check_symbol_exists(self._vf_name)
-        self._VF = cdb._container.addParameter(
-            self._vf_name,
-            [self._R, self._C],
-            description="Cells with numerical value",
-        )
-        self._read_csv_args = {
-            "skipinitialspace": True,
-            "keep_default_na": False,
-            "na_values": "",
-        }
-        self._read_csv_args.update(self._read_csv_arguments)
-        self._read_csv_args.update({"header": None})
-        if self._read_as_string:
-            self._read_csv_args.update({"dtype": str})
-
-        self._trunc_org = {}
-        self._trunc_issued = {}
-        self._uel_list = []
-        self._vu = []
+    def __init__(self, cdb, inst, agent_index):
+        super().__init__(cdb, inst, agent_index)
+        self._parse_options(self._inst)
 
     def _parse_options(self, inst):
         inst["file"] = os.path.abspath(inst["file"])
@@ -159,7 +112,49 @@ class RawCSVReader(ConnectAgent):
 
     def execute(self):
         if self._trace > 0:
+            self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
+
+        self._symbols_exist_cdb(self._r_name)
+        self._R = self._cdb._container.addSet(self._r_name, "*", description="Rows")
+
+        self._symbols_exist_cdb(self._c_name)
+        self._C = self._cdb._container.addSet(self._c_name, "*", description="Columns")
+
+        self._symbols_exist_cdb(self._vs_name)
+        self._VS = self._cdb._container.addSet(
+            self._vs_name,
+            [self._R, self._C],
+            description="Cells with explanatory text",
+        )
+
+        self._symbols_exist_cdb(self._vu_name)
+        self._VU = self._cdb._container.addSet(
+            self._vu_name,
+            [self._R, self._C, "*"],
+            description="Cells with potential GAMS label",
+        )
+
+        self._symbols_exist_cdb(self._vf_name)
+        self._VF = self._cdb._container.addParameter(
+            self._vf_name,
+            [self._R, self._C],
+            description="Cells with numerical value",
+        )
+        self._read_csv_args = {
+            "skipinitialspace": True,
+            "keep_default_na": False,
+            "na_values": "",
+        }
+        self._read_csv_args.update(self._read_csv_arguments)
+        self._read_csv_args.update({"header": None})
+        if self._read_as_string:
+            self._read_csv_args.update({"dtype": str})
+
+        self._trunc_org = {}
+        self._trunc_issued = {}
+        self._uel_list = []
+        self._vu = []
         if self._trace > 1:
             self._cdb.print_log(
                 f"Arguments for reading the CSV file:\n{self._read_csv_args}"

@@ -1,4 +1,5 @@
 import numbers
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,8 +9,10 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
-from nilearn._utils.docs import fill_doc
+from nilearn._utils import fill_doc
+from nilearn._utils.logger import find_stack_level
 from nilearn.image import coord_transform
+from nilearn.plotting.displays._utils import coords_3d_to_2d
 from nilearn.plotting.glass_brain import plot_brain_schematics
 
 
@@ -52,10 +55,27 @@ class BaseAxes:
             self.ax.axis(self.get_object_bounds())
 
     def draw_2d(
-        self, data_2d, data_bounds, bounding_box, type="imshow", **kwargs
+        self,
+        data_2d,
+        data_bounds,
+        bounding_box,
+        type="imshow",
+        transparency=None,
+        **kwargs,
     ):
         """Draw 2D."""
         kwargs["origin"] = "upper"
+
+        if "alpha" in kwargs:
+            warnings.warn(
+                f"{kwargs['alpha']=} detected in parameters.\n"
+                f"Overriding with {transparency=}.\n"
+                "To suppress this warning pass "
+                "your 'alpha' value "
+                "via the 'transparency' parameter.",
+                stacklevel=find_stack_level(),
+            )
+        kwargs["alpha"] = transparency
 
         if self.direction == "y":
             (xmin, xmax), (_, _), (zmin, zmax) = data_bounds
@@ -345,31 +365,6 @@ class CutAxes(BaseAxes):
         )
 
 
-def _get_index_from_direction(direction):
-    """Return numerical index from direction."""
-    directions = ["x", "y", "z"]
-    try:
-        # l and r are subcases of x
-        index = 0 if direction in "lr" else directions.index(direction)
-    except ValueError:
-        message = (
-            f"{direction} is not a valid direction. "
-            "Allowed values are 'l', 'r', 'x', 'y' and 'z'"
-        )
-        raise ValueError(message)
-    return index
-
-
-def coords_3d_to_2d(coords_3d, direction, return_direction=False):
-    """Project 3d coordinates into 2d ones given the direction of a cut."""
-    index = _get_index_from_direction(direction)
-    dimensions = [0, 1, 2]
-    dimensions.pop(index)
-    if return_direction:
-        return coords_3d[:, dimensions], coords_3d[:, index]
-    return coords_3d[:, dimensions]
-
-
 @fill_doc
 class GlassBrainAxes(BaseAxes):
     """An MPL axis-like object that displays a 2D projection of 3D \
@@ -484,7 +479,7 @@ class GlassBrainAxes(BaseAxes):
             ):
                 marker_color = np.asarray(marker_color)
             relevant_coords = []
-            xcoords, ycoords, zcoords = marker_coords.T
+            xcoords, _, _ = marker_coords.T
             relevant_coords.extend(
                 cidx
                 for cidx, xc in enumerate(xcoords)
@@ -530,7 +525,7 @@ class GlassBrainAxes(BaseAxes):
         line_values : array_like
             Values of the lines.
 
-        cmap : :class:`~matplotlib.colors.Colormap`
+        %(cmap)s
             Colormap used to map ``line_values`` to a color.
 
         vmin, vmax : :obj:`float`, optional

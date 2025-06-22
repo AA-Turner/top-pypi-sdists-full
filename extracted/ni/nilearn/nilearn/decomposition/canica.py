@@ -1,7 +1,5 @@
 """Canonical Independent Component Analysis."""
 
-# Author: Alexandre Abraham, Gael Varoquaux,
-
 import warnings as _warnings
 from operator import itemgetter
 
@@ -12,8 +10,8 @@ from sklearn.decomposition import fastica
 from sklearn.utils import check_random_state
 
 from nilearn._utils import fill_doc
-
-from ._multi_pca import _MultiPCA
+from nilearn._utils.logger import find_stack_level
+from nilearn.decomposition._multi_pca import _MultiPCA
 
 
 @fill_doc
@@ -24,34 +22,37 @@ class CanICA(_MultiPCA):
 
     Parameters
     ----------
-    mask : Niimg-like object or MultiNiftiMasker instance, optional
+    mask : Niimg-like object, :obj:`~nilearn.maskers.MultiNiftiMasker` or \
+           :obj:`~nilearn.surface.SurfaceImage` or \
+           :obj:`~nilearn.maskers.SurfaceMasker` object, optional
         Mask to be used on data. If an instance of masker is passed,
-        then its mask will be used. If no mask is given,
+        then its mask will be used. If no mask is given, for Nifti images,
         it will be computed automatically by a MultiNiftiMasker with default
-        parameters.
+        parameters; for surface images, all the vertices will be used.
 
-    n_components : int, default=20
+    n_components : :obj:`int`, default=20
         Number of components to extract.
+
     %(smoothing_fwhm)s
         Default=6mm.
 
-    do_cca : boolean, default=True
+    do_cca : :obj:`bool`, default=True
         Indicate if a Canonical Correlation Analysis must be run after the
         PCA.
 
-    standardize : boolean, default=True
+    standardize : :obj:`bool`, default=True
         If standardize is True, the time-series are centered and normed:
         their mean is put to 0 and their variance to 1 in the time dimension.
 
-    standardize_confounds : boolean, default=True
+    standardize_confounds : :obj:`bool`, default=True
         If standardize_confounds is True, the confounds are zscored:
         their mean is put to 0 and their variance to 1 in the time dimension.
 
-    detrend : boolean, default=True
+    detrend : :obj:`bool`, default=True
         If detrend is True, the time-series will be detrended before
         components extraction.
 
-    threshold : None, 'auto' or float, default='auto'
+    threshold : None, 'auto' or :obj:`float`, default='auto'
         If None, no thresholding is applied. If 'auto',
         then we apply a thresholding that will keep the n_voxels,
         more intense voxels across all the maps, n_voxels being the number
@@ -60,92 +61,62 @@ class CanICA(_MultiPCA):
         have 2 x n_voxels non-zero voxels ). The float value
         must be bounded by [0. and n_components].
 
-    n_init : int, default=10
+    n_init : :obj:`int`, default=10
         The number of times the fastICA algorithm is restarted
 
-    random_state : int or RandomState, optional
-        Pseudo number generator state used for random sampling.
+    %(random_state)s
 
-    target_affine : 3x3 or 4x4 matrix, optional
-        This parameter is passed to image.resample_img. Please see the
-        related documentation for details.
+    %(target_affine)s
 
-    target_shape : 3-tuple of integers, optional
-        This parameter is passed to image.resample_img. Please see the
-        related documentation for details.
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
 
-    low_pass : None or float, optional
-        This parameter is passed to signal.clean. Please see the related
-        documentation for details
+    %(target_shape)s
 
-    high_pass : None or float, optional
-        This parameter is passed to signal.clean. Please see the related
-        documentation for details
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
 
-    t_r : float, optional
-        This parameter is passed to signal.clean. Please see the related
-        documentation for details
+    %(low_pass)s
+
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
+
+    %(high_pass)s
+
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
+
+    %(t_r)s
+
+        .. note::
+            This parameter is passed to :func:`nilearn.image.resample_img`.
 
     %(mask_strategy)s
 
-        .. note::
-             Depending on this value, the mask will be computed from
-             :func:`nilearn.masking.compute_background_mask`,
-             :func:`nilearn.masking.compute_epi_mask`, or
-             :func:`nilearn.masking.compute_brain_mask`.
-
         Default='epi'.
 
-    mask_args : dict, optional
+        .. note::
+            These strategies are only relevant for Nifti images and the
+            parameter is ignored for SurfaceImage objects.
+
+    mask_args : :obj:`dict`, optional
         If mask is None, these are additional parameters passed to
         :func:`nilearn.masking.compute_background_mask`,
         or :func:`nilearn.masking.compute_epi_mask`
         to fine-tune mask computation.
         Please see the related documentation for details.
 
-    memory : instance of joblib.Memory or string, default=None
-        Used to cache the masking process.
-        By default, no caching is done.
-        If a string is given, it is the path to the caching directory.
-        If ``None`` is passed will default to ``Memory(location=None)``.
+    %(memory)s
 
-    memory_level : integer, default=0
-        Rough estimator of the amount of memory used by caching. Higher value
-        means more memory for caching.
+    %(memory_level)s
 
-    n_jobs : integer, default=1
-        The number of CPUs to use to do the computation. -1 means
-        'all CPUs', -2 'all CPUs but one', and so on.
+    %(n_jobs)s
 
-    verbose : integer, default=0
-        Indicate the level of verbosity. By default, nothing is printed
+    %(verbose0)s
 
-    Attributes
-    ----------
-    components_ : 2D numpy array (n_components x n-voxels)
-        Masked ICA components extracted from the input images.
+    %(base_decomposition_attributes)s
 
-        .. note::
-
-            Use attribute ``components_img_`` rather than manually unmasking
-            ``components_`` with ``masker_`` attribute.
-
-    components_img_ : 4D Nifti image
-        4D image giving the extracted ICA components. Each 3D image is a
-        component.
-
-        .. versionadded:: 0.4.1
-
-    masker_ : instance of MultiNiftiMasker
-        Masker used to filter and mask data as first step. If an instance of
-        MultiNiftiMasker is given in ``mask`` parameter,
-        this is a copy of it. Otherwise, a masker is created using the value
-        of ``mask`` and other NiftiMasker related parameters as initialization.
-
-    mask_img_ : Niimg-like object
-        See :ref:`extracting_data`.
-        The mask of the data. If no mask was given at masker creation, contains
-        the automatically computed mask.
+    %(multi_pca_attributes)s
 
     References
     ----------
@@ -250,7 +221,7 @@ class CanICA(_MultiPCA):
                     "Threshold should be decreased or "
                     "number of components should be adjusted.",
                     UserWarning,
-                    stacklevel=4,
+                    stacklevel=find_stack_level(),
                 )
             else:
                 threshold = scoreatpercentile(abs_ica_maps, percentile)
@@ -290,5 +261,6 @@ class CanICA(_MultiPCA):
                 f"and you provided threshold={self.threshold}."
             )
         components = _MultiPCA._raw_fit(self, data)
+
         self._unmix_components(components)
         return self

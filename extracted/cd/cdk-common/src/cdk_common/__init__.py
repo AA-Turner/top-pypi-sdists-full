@@ -5548,6 +5548,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    KEYSPACES_CDC_SERVICE_ROLE_POLICY = "KEYSPACES_CDC_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

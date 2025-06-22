@@ -1,53 +1,69 @@
 """Test the searchlight module."""
 
-# Author: Alexandre Abraham
-
 import numpy as np
 import pytest
 from nibabel import Nifti1Image
-from sklearn import __version__ as sklearn_version
-from sklearn.model_selection import KFold, LeaveOneGroupOut
+from sklearn.model_selection import (
+    KFold,
+    LeaveOneGroupOut,
+)
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
-from nilearn._utils import compare_version
-from nilearn._utils.class_inspect import check_estimator
-from nilearn.conftest import _img_3d_ones, _rng
+from nilearn._utils.estimator_checks import (
+    check_estimator,
+    nilearn_check_estimator,
+    return_expected_failed_checks,
+)
+from nilearn._utils.tags import SKLEARN_LT_1_6
+from nilearn.conftest import _rng
 from nilearn.decoding import searchlight
 
-extra_valid_checks = [
-    "check_estimators_unfitted",
-    "check_do_not_raise_errors_in_init_or_set_params",
-    "check_get_params_invariance",
-    "check_no_attributes_set_in_init",
-    "check_transformer_n_iter",
-    "check_transformers_unfitted",
-]
-if compare_version(sklearn_version, ">", "1.5.2"):
-    extra_valid_checks.append("check_parameters_default_constructible")
+ESTIMATOR_TO_CHECK = [searchlight.SearchLight()]
+
+if SKLEARN_LT_1_6:
+
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        check_estimator(estimators=ESTIMATOR_TO_CHECK),
+    )
+    def test_check_estimator_sklearn_valid(estimator, check, name):  # noqa: ARG001
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+    @pytest.mark.xfail(reason="invalid checks should fail")
+    @pytest.mark.parametrize(
+        "estimator, check, name",
+        check_estimator(estimators=ESTIMATOR_TO_CHECK, valid=False),
+    )
+    def test_check_estimator_sklearn_invalid(estimator, check, name):  # noqa: ARG001
+        """Check compliance with sklearn estimators."""
+        check(estimator)
+
+else:
+
+    @parametrize_with_checks(
+        estimators=ESTIMATOR_TO_CHECK,
+        expected_failed_checks=return_expected_failed_checks,
+    )
+    def test_check_estimator_sklearn(estimator, check):
+        """Check compliance with sklearn estimators."""
+        check(estimator)
 
 
 @pytest.mark.parametrize(
     "estimator, check, name",
-    check_estimator(
-        estimator=[searchlight.SearchLight(mask_img=_img_3d_ones)],
-        extra_valid_checks=extra_valid_checks,
+    nilearn_check_estimator(
+        estimators=[
+            searchlight.SearchLight(
+                mask_img=Nifti1Image(
+                    np.ones((5, 5, 5), dtype=bool).astype("uint8"), np.eye(4)
+                )
+            )
+        ]
     ),
 )
-def test_check_estimator(estimator, check, name):  # noqa: ARG001
-    """Check compliance with sklearn estimators."""
-    check(estimator)
-
-
-@pytest.mark.xfail(reason="invalid checks should fail")
-@pytest.mark.parametrize(
-    "estimator, check, name",
-    check_estimator(
-        estimator=[searchlight.SearchLight(mask_img=_img_3d_ones)],
-        valid=False,
-        extra_valid_checks=extra_valid_checks,
-    ),
-)
-def test_check_estimator_invalid(estimator, check, name):  # noqa: ARG001
-    """Check compliance with sklearn estimators."""
+def test_check_estimator_nilearn(estimator, check, name):  # noqa: ARG001
+    """Check compliance with nilearn estimators rules."""
     check(estimator)
 
 
@@ -70,6 +86,19 @@ def define_cross_validation():
     cv = KFold(n_splits=4)
     n_jobs = 1
     return cv, n_jobs
+
+
+def test_searchlight_no_mask():
+    """Check validation type mask."""
+    sl = searchlight.SearchLight(mask_img=1)
+
+    frames = 30
+    data_img, cond, _ = _make_searchlight_test_data(frames)
+    with pytest.raises(
+        TypeError,
+        match="input should be a NiftiLike object",
+    ):
+        sl.fit(data_img, y=cond)
 
 
 def test_searchlight_small_radius():
@@ -215,37 +244,6 @@ def test_searchlight_group_cross_validation_with_extra_group_variable(
     sl.fit(imgs, y)
 
 
-def test_searchlight_attributes_exist_after_fit():
-    """Test if attributes `process_mask_` and `masked_scores_`
-    exist after fitting using mock data.
-    """
-    # Use the existing helper function to generate data
-    frames = 20
-    data_img, cond, mask_img = _make_searchlight_test_data(frames)
-
-    # Instantiate and fit the SearchLight with mock data
-    sl = searchlight.SearchLight(mask_img, radius=1.0)
-    sl.fit(data_img, y=cond)
-
-    # Check if attributes exist after fitting
-    assert hasattr(sl, "process_mask_")
-    assert hasattr(sl, "masked_scores_")
-
-
-def test_searchlight_scores_img_error_before_fit():
-    """Test if accessing `scores_img_` raises an error before fitting."""
-    # Create mock mask
-    frames = 20
-    data_img, cond, mask_img = _make_searchlight_test_data(frames)
-
-    # Instantiate SearchLight without fitting
-    sl = searchlight.SearchLight(mask_img, radius=5.0)
-
-    # Check if accessing `scores_img_` raises a ValueError
-    with pytest.raises(ValueError, match="The model has not been fitted yet."):
-        sl.scores_img_()
-
-
 def test_mask_img_dimension_mismatch():
     """Test if SearchLight handles mismatched mask and
     image dimensions gracefully.
@@ -266,16 +264,6 @@ def test_mask_img_dimension_mismatch():
     # Ensure scores_ exists and is the correct shape
     assert sl.scores_ is not None
     assert sl.scores_.shape == invalid_mask_img.shape
-
-
-def test_transform_without_fit():
-    """Test if calling `transform()` raises ValueError before fitting."""
-    frames = 20
-    data_img, cond, mask_img = _make_searchlight_test_data(frames)
-    sl = searchlight.SearchLight(mask_img, radius=1.0)
-
-    with pytest.raises(ValueError, match="The model has not been fitted yet."):
-        sl.transform(data_img)
 
 
 def test_transform_applies_mask_correctly():

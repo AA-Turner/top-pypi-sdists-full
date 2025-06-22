@@ -5,8 +5,6 @@ which we historically used,
 ignores modules whose name starts with an underscore.
 """
 
-# Author: Gael Varoquaux, Alexandre Abraham
-
 import os
 import re
 from pathlib import Path
@@ -104,7 +102,7 @@ def test_check_same_fov(affine_eye):
 
 def test_check_niimg_3d(affine_eye, img_3d_zeros_eye, tmp_path):
     # check error for non-forced but necessary resampling
-    with pytest.raises(TypeError, match="nibabel format"):
+    with pytest.raises(TypeError, match="input should be a NiftiLike object"):
         check_niimg(0)
 
     # check error for non-forced but necessary resampling
@@ -138,7 +136,7 @@ def test_check_niimg_3d(affine_eye, img_3d_zeros_eye, tmp_path):
 
 
 def test_check_niimg_4d_errors(affine_eye, img_3d_zeros_eye, shape_3d_default):
-    with pytest.raises(TypeError, match="nibabel format"):
+    with pytest.raises(TypeError, match="input should be a NiftiLike object"):
         check_niimg_4d(0)
 
     with pytest.raises(TypeError, match="empty object"):
@@ -480,9 +478,7 @@ def test_repr_niimgs():
     ]
     # Explicit shortening, all 3 names are displayed, but shortened
     shortened_rep_list_of_size_3 = (
-        "[this-is-a-very-lon...,"
-        " this-is-another-ve...,"
-        " this-is-again-anot...]"
+        "[this-is-a-very-lon..., this-is-another-ve..., this-is-again-anot...]"
     )
 
     assert (

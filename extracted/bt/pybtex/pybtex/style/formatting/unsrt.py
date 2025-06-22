@@ -220,6 +220,9 @@ class Style(BaseStyle):
         ]
         return template
 
+    def get_dataset_template(self, e):
+        return self.get_misc_template(e)
+
     def get_inbook_template(self, e):
         template = toplevel [
             self.format_author_or_editor(e),
@@ -331,6 +334,9 @@ class Style(BaseStyle):
     def get_online_template(self, e):
         return self.get_misc_template(e)
 
+    def get_patent_template(self, e):
+        return self.get_misc_template(e)
+
     def get_phdthesis_template(self, e):
         template = toplevel [
             sentence [self.format_names('author')],
@@ -377,6 +383,9 @@ class Style(BaseStyle):
         ]
         return template
 
+    def get_software_template(self, e):
+        return self.get_misc_template(e)
+
     def get_techreport_template(self, e):
         template = toplevel [
             sentence [self.format_names('author')],
@@ -422,21 +431,16 @@ class Style(BaseStyle):
 
     def format_url(self, e):
         # based on urlbst format.url
+        url = field('url', raw=True)
         return words [
             'URL:',
-            href [
-                field('url', raw=True),
-                field('url', raw=True)
-                ]
+            href(url) [ url ]
         ]
 
     def format_pubmed(self, e):
         # based on urlbst format.pubmed
-        return href [
-            join [
-                'https://www.ncbi.nlm.nih.gov/pubmed/',
-                field('pubmed', raw=True)
-                ],
+        url = join [ 'https://www.ncbi.nlm.nih.gov/pubmed/', field('pubmed', raw=True) ]
+        return href(url) [
             join [
                 'PMID:',
                 field('pubmed', raw=True)
@@ -445,11 +449,8 @@ class Style(BaseStyle):
 
     def format_doi(self, e):
         # based on urlbst format.doi
-        return href [
-            join [
-                'https://doi.org/',
-                field('doi', raw=True)
-                ],
+        url = join [ 'https://doi.org/', field('doi', raw=True) ]
+        return href(url) [
             join [
                 'doi:',
                 field('doi', raw=True)
@@ -458,11 +459,8 @@ class Style(BaseStyle):
 
     def format_eprint(self, e):
         # based on urlbst format.eprint
-        return href [
-            join [
-                'https://arxiv.org/abs/',
-                field('eprint', raw=True)
-                ],
+        url = join [ 'https://arxiv.org/abs/', field('eprint', raw=True) ]
+        return href(url) [
             join [
                 'arXiv:',
                 field('eprint', raw=True)

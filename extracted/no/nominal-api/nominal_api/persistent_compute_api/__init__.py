@@ -11,7 +11,9 @@ from .._impl import (
     persistent_compute_api_HealthMessage as HealthMessage,
     persistent_compute_api_HealthMessageVisitor as HealthMessageVisitor,
     persistent_compute_api_InvalidComputationType as InvalidComputationType,
+    persistent_compute_api_IsEnabledResponse as IsEnabledResponse,
     persistent_compute_api_Milliseconds as Milliseconds,
+    persistent_compute_api_PersistentComputeService as PersistentComputeService,
     persistent_compute_api_Ping as Ping,
     persistent_compute_api_Pong as Pong,
     persistent_compute_api_ServerMessage as ServerMessage,
@@ -44,6 +46,7 @@ __all__ = [
     'HealthMessage',
     'HealthMessageVisitor',
     'InvalidComputationType',
+    'IsEnabledResponse',
     'Milliseconds',
     'Ping',
     'Pong',
@@ -63,5 +66,6 @@ __all__ = [
     'SubscriptionUpdateVisitor',
     'SubscriptionUpdateError',
     'SubscriptionUpdateMessage',
+    'PersistentComputeService',
 ]
 

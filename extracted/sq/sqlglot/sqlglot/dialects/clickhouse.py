@@ -297,6 +297,7 @@ class ClickHouse(Dialect):
         MODIFIERS_ATTACHED_TO_SET_OP = False
         INTERVAL_SPANS = False
         OPTIONAL_ALIAS_TOKEN_CTE = False
+        JOINS_HAVE_EQUAL_PRECEDENCE = True
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
@@ -691,6 +692,7 @@ class ClickHouse(Dialect):
             parse_bracket: bool = False,
             is_db_reference: bool = False,
             parse_partition: bool = False,
+            consume_pipe: bool = False,
         ) -> t.Optional[exp.Expression]:
             this = super()._parse_table(
                 schema=schema,

@@ -11269,7 +11269,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "gmdGetDomain", _wrap_gmdGetDomain, METH_VARARGS, "gmdGetDomain(pgmd, symPtr, aDim) -> int"},
 	 { "gmdCopySymbolIteratorPy", _wrap_gmdCopySymbolIteratorPy, METH_VARARGS, "gmdCopySymbolIteratorPy(pgmd, symIterPtrSrc, status) -> void *"},
 	 { "gmdFreeSymbolIterator", _wrap_gmdFreeSymbolIterator, METH_VARARGS, "gmdFreeSymbolIterator(pgmd, symIterPtr) -> int"},
-	 { "gmdMergeUel", _wrap_gmdMergeUel, METH_VARARGS, "gmdMergeUel(pgmd, uel) -> int"},
+	 { "gmdMergeUel", _wrap_gmdMergeUel, METH_VARARGS, "gmdMergeUel(pgmd, uelLabel) -> int"},
 	 { "gmdGetUelByIndex", _wrap_gmdGetUelByIndex, METH_VARARGS, "gmdGetUelByIndex(pgmd, uelNr) -> int"},
 	 { "gmdFindUel", _wrap_gmdFindUel, METH_VARARGS, "gmdFindUel(pgmd, uelLabel) -> int"},
 	 { "gmdGetSymbolsUels", _wrap_gmdGetSymbolsUels, METH_VARARGS, "gmdGetSymbolsUels(pgmd, vDomPtrIn, lenvDomPtrIn, uelList, sizeUelList) -> int"},

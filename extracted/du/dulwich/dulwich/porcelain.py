@@ -25,37 +25,40 @@ Currently implemented:
  * archive
  * add
  * branch{_create,_delete,_list}
- * check-ignore
+ * check_ignore
+ * checkout
  * checkout_branch
  * clone
  * cone mode{_init, _set, _add}
  * commit
- * commit-tree
+ * commit_tree
  * daemon
  * describe
- * diff-tree
+ * diff_tree
  * fetch
- * for-each-ref
+ * for_each_ref
  * init
- * ls-files
- * ls-remote
- * ls-tree
+ * ls_files
+ * ls_remote
+ * ls_tree
+ * merge
+ * merge_tree
  * pull
  * push
  * rm
  * remote{_add}
- * receive-pack
+ * receive_pack
  * reset
  * sparse_checkout
  * submodule_add
  * submodule_init
  * submodule_list
- * rev-list
+ * rev_list
  * tag{_create,_delete,_list}
- * upload-pack
- * update-server-info
+ * upload_pack
+ * update_server_info
  * status
- * symbolic-ref
+ * symbolic_ref
 
 These functions are meant to behave similarly to the git subcommands.
 Differences in behaviour are considered bugs.
@@ -76,10 +79,12 @@ import sys
 import time
 from collections import namedtuple
 from contextlib import closing, contextmanager
+from dataclasses import dataclass
 from io import BytesIO, RawIOBase
 from pathlib import Path
 from typing import Optional, Union
 
+from . import replace_me
 from .archive import tar_stream
 from .client import get_transport_and_path
 from .config import Config, ConfigFile, StackedConfig, read_submodules
@@ -92,7 +97,6 @@ from .diff_tree import (
     RENAME_CHANGE_TYPES,
 )
 from .errors import SendPackError
-from .file import ensure_dir_exists
 from .graph import can_fast_forward
 from .ignore import IgnoreFilterManager
 from .index import (
@@ -100,9 +104,9 @@ from .index import (
     blob_from_path_and_stat,
     build_file_from_blob,
     get_unstaged_changes,
-    index_entry_from_stat,
+    update_working_tree,
 )
-from .object_store import iter_tree_contents, tree_lookup_path
+from .object_store import tree_lookup_path
 from .objects import (
     Commit,
     Tag,
@@ -116,14 +120,12 @@ from .objectspec import (
     parse_ref,
     parse_reftuples,
     parse_tree,
-    to_bytes,
 )
 from .pack import write_pack_from_container, write_pack_index
 from .patch import write_tree_diff
 from .protocol import ZERO_SHA, Protocol
 from .refs import (
     LOCAL_BRANCH_PREFIX,
-    LOCAL_REMOTE_PREFIX,
     LOCAL_TAG_PREFIX,
     Ref,
     _import_remote_refs,
@@ -144,6 +146,25 @@ from .sparse_patterns import (
 
 # Module level tuple definition for status output
 GitStatus = namedtuple("GitStatus", "staged unstaged untracked")
+
+
+@dataclass
+class CountObjectsResult:
+    """Result of counting objects in a repository.
+
+    Attributes:
+      count: Number of loose objects
+      size: Total size of loose objects in bytes
+      in_pack: Number of objects in pack files
+      packs: Number of pack files
+      size_pack: Total size of pack files in bytes
+    """
+
+    count: int
+    size: int
+    in_pack: Optional[int] = None
+    packs: Optional[int] = None
+    size_pack: Optional[int] = None
 
 
 class NoneStream(RawIOBase):
@@ -262,7 +283,7 @@ def get_user_timezones():
     return author_timezone, commit_timezone
 
 
-def open_repo(path_or_repo):
+def open_repo(path_or_repo: Union[str, os.PathLike, BaseRepo]):
     """Open an argument that can be a repository or a path for a repository."""
     if isinstance(path_or_repo, BaseRepo):
         return path_or_repo
@@ -275,7 +296,7 @@ def _noop_context_manager(obj):
     yield obj
 
 
-def open_repo_closing(path_or_repo):
+def open_repo_closing(path_or_repo: Union[str, os.PathLike, BaseRepo]):
     """Open an argument that can be a repository or a path for a repository.
     returns a context manager that will close the repo on exit if the argument
     is a path, else does nothing if the argument is a repo.
@@ -401,14 +422,7 @@ def symbolic_ref(repo, ref_name, force=False) -> None:
 
 def pack_refs(repo, all=False) -> None:
     with open_repo_closing(repo) as repo_obj:
-        refs = repo_obj.refs
-        packed_refs = {
-            ref: refs[ref]
-            for ref in refs
-            if (all or ref.startswith(LOCAL_TAG_PREFIX)) and ref != b"HEAD"
-        }
-
-        refs.add_packed_refs(packed_refs)
+        repo_obj.refs.pack_refs(all=all)
 
 
 def commit(
@@ -477,7 +491,9 @@ def commit_tree(repo, tree, message=None, author=None, committer=None):
         )
 
 
-def init(path=".", *, bare=False, symlinks: Optional[bool] = None):
+def init(
+    path: Union[str, os.PathLike] = ".", *, bare=False, symlinks: Optional[bool] = None
+):
     """Create a new git repository.
 
     Args:
@@ -497,7 +513,7 @@ def init(path=".", *, bare=False, symlinks: Optional[bool] = None):
 
 def clone(
     source,
-    target=None,
+    target: Optional[Union[str, os.PathLike]] = None,
     bare=False,
     checkout=None,
     errstream=default_bytes_err_stream,
@@ -524,13 +540,16 @@ def clone(
       branch: Optional branch or tag to be used as HEAD in the new repository
         instead of the cloned repository's HEAD.
       config: Configuration to use
-      refspecs: refspecs to fetch. Can be a bytestring, a string, or a list of
-        bytestring/string.
       filter_spec: A git-rev-list-style object filter spec, as an ASCII string.
         Only used if the server supports the Git protocol-v2 'filter'
         feature, and ignored otherwise.
       protocol_version: desired Git protocol version. By default the highest
         mutually supported protocol version will be used.
+
+    Keyword Args:
+      refspecs: refspecs to fetch. Can be a bytestring, a string, or a list of
+        bytestring/string.
+
     Returns: The new repository
     """
     if outstream is not None:
@@ -579,39 +598,107 @@ def clone(
     )
 
 
-def add(repo=".", paths=None):
+def add(repo: Union[str, os.PathLike, BaseRepo] = ".", paths=None):
     """Add files to the staging area.
 
     Args:
       repo: Repository for the files
-      paths: Paths to add.  No value passed stages all modified files.
+      paths: Paths to add. If None, stages all untracked and modified files from the
+        current working directory (mimicking 'git add .' behavior).
     Returns: Tuple with set of added files and ignored files
 
     If the repository contains ignored directories, the returned set will
     contain the path to an ignored directory (with trailing slash). Individual
     files within ignored directories will not be returned.
+
+    Note: When paths=None, this function adds all untracked and modified files
+    from the entire repository, mimicking 'git add -A' behavior.
     """
     ignored = set()
     with open_repo_closing(repo) as r:
         repo_path = Path(r.path).resolve()
         ignore_manager = IgnoreFilterManager.from_repo(r)
+
+        # Get unstaged changes once for the entire operation
+        index = r.open_index()
+        normalizer = r.get_blob_normalizer()
+        filter_callback = normalizer.checkin_normalize
+        all_unstaged_paths = list(get_unstaged_changes(index, r.path, filter_callback))
+
         if not paths:
-            paths = list(
-                get_untracked_paths(
-                    str(Path(os.getcwd()).resolve()),
-                    str(repo_path),
-                    r.open_index(),
-                )
-            )
+            # When no paths specified, add all untracked and modified files from repo root
+            paths = [str(repo_path)]
         relpaths = []
         if not isinstance(paths, list):
             paths = [paths]
         for p in paths:
             path = Path(p)
-            relpath = str(path.resolve().relative_to(repo_path))
+            if not path.is_absolute():
+                # Make relative paths relative to the repo directory
+                path = repo_path / path
+
+            # Don't resolve symlinks completely - only resolve the parent directory
+            # to avoid issues when symlinks point outside the repository
+            if path.is_symlink():
+                # For symlinks, resolve only the parent directory
+                parent_resolved = path.parent.resolve()
+                resolved_path = parent_resolved / path.name
+            else:
+                # For regular files/dirs, resolve normally
+                resolved_path = path.resolve()
+
+            try:
+                relpath = str(resolved_path.relative_to(repo_path)).replace(os.sep, "/")
+            except ValueError:
+                # Path is not within the repository
+                raise ValueError(f"Path {p} is not within repository {repo_path}")
+
+            # Handle directories by scanning their contents
+            if resolved_path.is_dir():
+                # Check if the directory itself is ignored
+                dir_relpath = posixpath.join(relpath, "") if relpath != "." else ""
+                if dir_relpath and ignore_manager.is_ignored(dir_relpath):
+                    ignored.add(dir_relpath)
+                    continue
+
+                # When adding a directory, add all untracked files within it
+                current_untracked = list(
+                    get_untracked_paths(
+                        str(resolved_path),
+                        str(repo_path),
+                        index,
+                    )
+                )
+                for untracked_path in current_untracked:
+                    # If we're scanning a subdirectory, adjust the path
+                    if relpath != ".":
+                        untracked_path = posixpath.join(relpath, untracked_path)
+
+                    if not ignore_manager.is_ignored(untracked_path):
+                        relpaths.append(untracked_path)
+                    else:
+                        ignored.add(untracked_path)
+
+                # Also add unstaged (modified) files within this directory
+                for unstaged_path in all_unstaged_paths:
+                    if isinstance(unstaged_path, bytes):
+                        unstaged_path = unstaged_path.decode("utf-8")
+
+                    # Check if this unstaged file is within the directory we're processing
+                    unstaged_full_path = repo_path / unstaged_path
+                    try:
+                        unstaged_full_path.relative_to(resolved_path)
+                        # File is within this directory, add it
+                        if not ignore_manager.is_ignored(unstaged_path):
+                            relpaths.append(unstaged_path)
+                        else:
+                            ignored.add(unstaged_path)
+                    except ValueError:
+                        # File is not within this directory, skip it
+                        continue
+                continue
+
             # FIXME: Support patterns
-            if path.is_dir():
-                relpath = os.path.join(relpath, "")
             if ignore_manager.is_ignored(relpath):
                 ignored.add(relpath)
                 continue
@@ -768,9 +855,10 @@ def print_commit(commit, decode, outstream=sys.stdout) -> None:
     time_str = time.strftime("%a %b %d %Y %H:%M:%S", time_tuple)
     timezone_str = format_timezone(commit.author_timezone).decode("ascii")
     outstream.write("Date:   " + time_str + " " + timezone_str + "\n")
-    outstream.write("\n")
-    outstream.write(decode(commit.message) + "\n")
-    outstream.write("\n")
+    if commit.message:
+        outstream.write("\n")
+        outstream.write(decode(commit.message) + "\n")
+        outstream.write("\n")
 
 
 def print_tag(tag, decode, outstream=sys.stdout) -> None:
@@ -907,7 +995,13 @@ def log(
       max_entries: Optional maximum number of entries to display
     """
     with open_repo_closing(repo) as r:
-        walker = r.get_walker(max_entries=max_entries, paths=paths, reverse=reverse)
+        try:
+            include = [r.head()]
+        except KeyError:
+            include = []
+        walker = r.get_walker(
+            include=include, max_entries=max_entries, paths=paths, reverse=reverse
+        )
         for entry in walker:
 
             def decode(x):
@@ -1157,7 +1251,50 @@ def reset(repo, mode, treeish="HEAD") -> None:
 
     with open_repo_closing(repo) as r:
         tree = parse_tree(r, treeish)
-        r.reset_index(tree.id)
+
+        # Get current HEAD tree for comparison
+        try:
+            current_head = r.refs[b"HEAD"]
+            current_tree = r[current_head].tree
+        except KeyError:
+            current_tree = None
+
+        # Get configuration for working directory update
+        config = r.get_config()
+        honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
+
+        # Import validation functions
+        from .index import validate_path_element_default, validate_path_element_ntfs
+
+        if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
+            validate_path_element = validate_path_element_ntfs
+        else:
+            validate_path_element = validate_path_element_default
+
+        if config.get_boolean(b"core", b"symlinks", True):
+            # Import symlink function
+            from .index import symlink
+
+            symlink_fn = symlink
+        else:
+
+            def symlink_fn(  # type: ignore
+                source, target, target_is_directory=False, *, dir_fd=None
+            ) -> None:
+                mode = "w" + ("b" if isinstance(source, bytes) else "")
+                with open(target, mode) as f:
+                    f.write(source)
+
+        # Update working tree and index
+        update_working_tree(
+            r,
+            current_tree,
+            tree.id,
+            honor_filemode=honor_filemode,
+            validate_path_element=validate_path_element,
+            symlink_fn=symlink_fn,
+            force_remove_untracked=True,
+        )
 
 
 def get_remote_repo(
@@ -1273,6 +1410,7 @@ def pull(
     outstream=default_bytes_out_stream,
     errstream=default_bytes_err_stream,
     fast_forward=True,
+    ff_only=False,
     force=False,
     filter_spec=None,
     protocol_version=None,
@@ -1287,6 +1425,9 @@ def pull(
         bytestring/string.
       outstream: A stream file to write to output
       errstream: A stream file to write to errors
+      fast_forward: If True, raise an exception when fast-forward is not possible
+      ff_only: If True, only allow fast-forward merges. Raises DivergedBranches
+        when branches have diverged rather than performing a merge.
       filter_spec: A git-rev-list-style object filter spec, as an ASCII string.
         Only used if the server supports the Git protocol-v2 'filter'
         feature, and ignored otherwise.
@@ -1325,22 +1466,43 @@ def pull(
             filter_spec=filter_spec,
             protocol_version=protocol_version,
         )
+
+        # Store the old HEAD tree before making changes
+        try:
+            old_head = r.refs[b"HEAD"]
+            old_tree_id = r[old_head].tree
+        except KeyError:
+            old_tree_id = None
+
+        merged = False
         for lh, rh, force_ref in selected_refs:
             if not force_ref and rh in r.refs:
                 try:
                     check_diverged(r, r.refs.follow(rh)[1], fetch_result.refs[lh])
                 except DivergedBranches as exc:
-                    if fast_forward:
+                    if ff_only or fast_forward:
                         raise
                     else:
-                        raise NotImplementedError("merge is not yet supported") from exc
+                        # Perform merge
+                        merge_result, conflicts = _do_merge(r, fetch_result.refs[lh])
+                        if conflicts:
+                            raise Error(
+                                f"Merge conflicts occurred: {conflicts}"
+                            ) from exc
+                        merged = True
+                        # Skip updating ref since merge already updated HEAD
+                        continue
             r.refs[rh] = fetch_result.refs[lh]
-        if selected_refs:
+
+        # Only update HEAD if we didn't perform a merge
+        if selected_refs and not merged:
             r[b"HEAD"] = fetch_result.refs[selected_refs[0][1]]
 
-        # Perform 'git checkout .' - syncs staged changes
-        tree = r[b"HEAD"].tree
-        r.reset_index(tree=tree)
+        # Update working tree to match the new HEAD
+        # Skip if merge was performed as merge already updates the working tree
+        if not merged and old_tree_id is not None:
+            new_tree_id = r[b"HEAD"].tree
+            update_working_tree(r, old_tree_id, new_tree_id)
         if remote_name is not None:
             _import_remote_refs(r.refs, remote_name, fetch_result.refs)
 
@@ -1750,6 +1912,7 @@ def fetch(
                 prune=prune,
                 prune_tags=prune_tags,
             )
+
     return fetch_result
 
 
@@ -1762,8 +1925,7 @@ def for_each_ref(
     Args:
       repo: Path to the repository
       pattern: Optional glob (7) patterns to filter the refs with
-    Returns:
-      List of bytes tuples with: (sha, object_type, ref_name)
+    Returns: List of bytes tuples with: (sha, object_type, ref_name)
     """
     if isinstance(pattern, str):
         pattern = os.fsencode(pattern)
@@ -1842,6 +2004,7 @@ def pack_objects(
     delta_window_size=None,
     deltify=None,
     reuse_deltas=True,
+    pack_index_version=None,
 ) -> None:
     """Pack objects into a file.
 
@@ -1854,6 +2017,7 @@ def pack_objects(
                          Set to None for default window size.
       deltify: Whether to deltify objects
       reuse_deltas: Allow reuse of existing deltas while deltifying
+      pack_index_version: Pack index version to use (1, 2, or 3). If None, uses default version.
     """
     with open_repo_closing(repo) as r:
         entries, data_sum = write_pack_from_container(
@@ -1866,7 +2030,7 @@ def pack_objects(
         )
     if idxf is not None:
         entries = sorted([(k, v[0], v[1]) for (k, v) in entries.items()])
-        write_pack_index(idxf, entries, data_sum)
+        write_pack_index(idxf, entries, data_sum, version=pack_index_version)
 
 
 def ls_tree(
@@ -1939,25 +2103,85 @@ def remote_remove(repo: Repo, name: Union[bytes, str]) -> None:
         c.write_to_path()
 
 
-def check_ignore(repo, paths, no_index=False):
-    """Debug gitignore files.
+def _quote_path(path: str) -> str:
+    """Quote a path using C-style quoting similar to git's core.quotePath.
+
+    Args:
+        path: Path to quote
+
+    Returns:
+        Quoted path string
+    """
+    # Check if path needs quoting (non-ASCII or special characters)
+    needs_quoting = False
+    for char in path:
+        if ord(char) > 127 or char in '"\\':
+            needs_quoting = True
+            break
+
+    if not needs_quoting:
+        return path
+
+    # Apply C-style quoting
+    quoted = '"'
+    for char in path:
+        if ord(char) > 127:
+            # Non-ASCII character, encode as octal escape
+            utf8_bytes = char.encode("utf-8")
+            for byte in utf8_bytes:
+                quoted += f"\\{byte:03o}"
+        elif char == '"':
+            quoted += '\\"'
+        elif char == "\\":
+            quoted += "\\\\"
+        else:
+            quoted += char
+    quoted += '"'
+    return quoted
+
+
+def check_ignore(repo, paths, no_index=False, quote_path=True):
+    r"""Debug gitignore files.
 
     Args:
       repo: Path to the repository
       paths: List of paths to check for
       no_index: Don't check index
+      quote_path: If True, quote non-ASCII characters in returned paths using
+                  C-style octal escapes (e.g. "тест.txt" becomes "\\321\\202\\320\\265\\321\\201\\321\\202.txt").
+                  If False, return raw unicode paths.
     Returns: List of ignored files
     """
     with open_repo_closing(repo) as r:
         index = r.open_index()
         ignore_manager = IgnoreFilterManager.from_repo(r)
-        for path in paths:
-            if not no_index and path_to_tree_path(r.path, path) in index:
+        for original_path in paths:
+            if not no_index and path_to_tree_path(r.path, original_path) in index:
                 continue
-            if os.path.isabs(path):
-                path = os.path.relpath(path, r.path)
-            if ignore_manager.is_ignored(path):
-                yield path
+
+            # Preserve whether the original path had a trailing slash
+            had_trailing_slash = original_path.endswith("/")
+
+            if os.path.isabs(original_path):
+                path = os.path.relpath(original_path, r.path)
+            else:
+                path = original_path
+
+            # Restore trailing slash if it was in the original
+            if had_trailing_slash and not path.endswith("/"):
+                path = path + "/"
+
+            # For directories, check with trailing slash to get correct ignore behavior
+            test_path = path
+            path_without_slash = path.rstrip("/")
+            is_directory = os.path.isdir(os.path.join(r.path, path_without_slash))
+
+            # If this is a directory path, ensure we test it correctly
+            if is_directory and not path.endswith("/"):
+                test_path = path + "/"
+
+            if ignore_manager.is_ignored(test_path):
+                yield _quote_path(path) if quote_path else path
 
 
 def update_head(repo, target, detached=False, new_branch=None) -> None:
@@ -1988,6 +2212,135 @@ def update_head(repo, target, detached=False, new_branch=None) -> None:
             r.refs.set_symbolic_ref(b"HEAD", to_set)
 
 
+def checkout(
+    repo,
+    target: Union[bytes, str],
+    force: bool = False,
+    new_branch: Optional[Union[bytes, str]] = None,
+) -> None:
+    """Switch to a branch or commit, updating both HEAD and the working tree.
+
+    This is similar to 'git checkout', allowing you to switch to a branch,
+    tag, or specific commit. Unlike update_head, this function also updates
+    the working tree to match the target.
+
+    Args:
+      repo: Path to repository or repository object
+      target: Branch name, tag, or commit SHA to checkout
+      force: Force checkout even if there are local changes
+      new_branch: Create a new branch at target (like git checkout -b)
+
+    Raises:
+      CheckoutError: If checkout cannot be performed due to conflicts
+      KeyError: If the target reference cannot be found
+    """
+    with open_repo_closing(repo) as r:
+        if isinstance(target, str):
+            target = target.encode(DEFAULT_ENCODING)
+        if isinstance(new_branch, str):
+            new_branch = new_branch.encode(DEFAULT_ENCODING)
+
+        # Parse the target to get the commit
+        target_commit = parse_commit(r, target)
+        target_tree_id = target_commit.tree
+
+        # Get current HEAD tree for comparison
+        try:
+            current_head = r.refs[b"HEAD"]
+            current_tree_id = r[current_head].tree
+        except KeyError:
+            # No HEAD yet (empty repo)
+            current_tree_id = None
+
+        # Check for uncommitted changes if not forcing
+        if not force and current_tree_id is not None:
+            status_report = status(r)
+            changes = []
+            # staged is a dict with 'add', 'delete', 'modify' keys
+            if isinstance(status_report.staged, dict):
+                changes.extend(status_report.staged.get("add", []))
+                changes.extend(status_report.staged.get("delete", []))
+                changes.extend(status_report.staged.get("modify", []))
+            # unstaged is a list
+            changes.extend(status_report.unstaged)
+            if changes:
+                # Check if any changes would conflict with checkout
+                target_tree = r[target_tree_id]
+                for change in changes:
+                    if isinstance(change, str):
+                        change = change.encode(DEFAULT_ENCODING)
+
+                    try:
+                        target_tree.lookup_path(r.object_store.__getitem__, change)
+                        # File exists in target tree - would overwrite local changes
+                        raise CheckoutError(
+                            f"Your local changes to '{change.decode()}' would be "
+                            "overwritten by checkout. Please commit or stash before switching."
+                        )
+                    except KeyError:
+                        # File doesn't exist in target tree - change can be preserved
+                        pass
+
+        # Get configuration for working directory update
+        config = r.get_config()
+        honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
+
+        # Import validation functions
+        from .index import validate_path_element_default, validate_path_element_ntfs
+
+        if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
+            validate_path_element = validate_path_element_ntfs
+        else:
+            validate_path_element = validate_path_element_default
+
+        if config.get_boolean(b"core", b"symlinks", True):
+            # Import symlink function
+            from .index import symlink
+
+            symlink_fn = symlink
+        else:
+
+            def symlink_fn(source, target) -> None:  # type: ignore
+                mode = "w" + ("b" if isinstance(source, bytes) else "")
+                with open(target, mode) as f:
+                    f.write(source)
+
+        # Update working tree
+        update_working_tree(
+            r,
+            current_tree_id,
+            target_tree_id,
+            honor_filemode=honor_filemode,
+            validate_path_element=validate_path_element,
+            symlink_fn=symlink_fn,
+            force_remove_untracked=force,
+        )
+
+        # Update HEAD
+        if new_branch:
+            # Create new branch and switch to it
+            branch_create(r, new_branch, objectish=target_commit.id.decode("ascii"))
+            update_head(r, new_branch)
+        else:
+            # Check if target is a branch name (with or without refs/heads/ prefix)
+            branch_ref = None
+            if target in r.refs.keys():
+                if target.startswith(LOCAL_BRANCH_PREFIX):
+                    branch_ref = target
+            else:
+                # Try adding refs/heads/ prefix
+                potential_branch = _make_branch_ref(target)
+                if potential_branch in r.refs.keys():
+                    branch_ref = potential_branch
+
+            if branch_ref:
+                # It's a branch - update HEAD symbolically
+                update_head(r, branch_ref)
+            else:
+                # It's a tag, other ref, or commit SHA - detached HEAD
+                update_head(r, target_commit.id.decode("ascii"), detached=True)
+
+
 def reset_file(repo, file_path: str, target: bytes = b"HEAD", symlink_fn=None) -> None:
     """Reset the file to specific commit or branch.
 
@@ -2006,117 +2359,20 @@ def reset_file(repo, file_path: str, target: bytes = b"HEAD", symlink_fn=None) -
     build_file_from_blob(blob, mode, full_path, symlink_fn=symlink_fn)
 
 
-def _update_head_during_checkout_branch(repo, target):
-    checkout_target = None
-    if target == b"HEAD":  # Do not update head while trying to checkout to HEAD.
-        pass
-    elif target in repo.refs.keys(base=LOCAL_BRANCH_PREFIX):
-        update_head(repo, target)
-    else:
-        # If checking out a remote branch, create a local one without the remote name prefix.
-        config = repo.get_config()
-        name = target.split(b"/")[0]
-        section = (b"remote", name)
-        if config.has_section(section):
-            checkout_target = target.replace(name + b"/", b"")
-            try:
-                branch_create(
-                    repo, checkout_target, (LOCAL_REMOTE_PREFIX + target).decode()
-                )
-            except Error:
-                pass
-            update_head(repo, LOCAL_BRANCH_PREFIX + checkout_target)
-        else:
-            update_head(repo, target, detached=True)
-
-    return checkout_target
-
-
+@replace_me(since="0.22.9", remove_in="0.24.0")
 def checkout_branch(repo, target: Union[bytes, str], force: bool = False) -> None:
     """Switch branches or restore working tree files.
 
-    The implementation of this function will probably not scale well
-    for branches with lots of local changes.
-    This is due to the analysis of a diff between branches before any
-    changes are applied.
+    This is now a wrapper around the general checkout() function.
+    Preserved for backward compatibility.
 
     Args:
       repo: dulwich Repo object
       target: branch name or commit sha to checkout
       force: true or not to force checkout
     """
-    target = to_bytes(target)
-
-    current_tree = parse_tree(repo, repo.head())
-    target_tree = parse_tree(repo, target)
-
-    if force:
-        repo.reset_index(target_tree.id)
-        _update_head_during_checkout_branch(repo, target)
-    else:
-        status_report = status(repo)
-        changes = list(
-            set(
-                status_report[0]["add"]
-                + status_report[0]["delete"]
-                + status_report[0]["modify"]
-                + status_report[1]
-            )
-        )
-        index = 0
-        while index < len(changes):
-            change = changes[index]
-            try:
-                current_tree.lookup_path(repo.object_store.__getitem__, change)
-                try:
-                    target_tree.lookup_path(repo.object_store.__getitem__, change)
-                    index += 1
-                except KeyError:
-                    raise CheckoutError(
-                        "Your local changes to the following files would be overwritten by checkout: "
-                        + change.decode()
-                    )
-            except KeyError:
-                changes.pop(index)
-
-        # Update head.
-        checkout_target = _update_head_during_checkout_branch(repo, target)
-        if checkout_target is not None:
-            target_tree = parse_tree(repo, checkout_target)
-
-        dealt_with = set()
-        repo_index = repo.open_index()
-        for entry in iter_tree_contents(repo.object_store, target_tree.id):
-            dealt_with.add(entry.path)
-            if entry.path in changes:
-                continue
-            full_path = os.path.join(os.fsencode(repo.path), entry.path)
-            blob = repo.object_store[entry.sha]
-            ensure_dir_exists(os.path.dirname(full_path))
-            st = build_file_from_blob(blob, entry.mode, full_path)
-            repo_index[entry.path] = index_entry_from_stat(st, entry.sha)
-
-        repo_index.write()
-
-        for entry in iter_tree_contents(repo.object_store, current_tree.id):
-            if entry.path not in dealt_with:
-                repo.unstage([entry.path])
-
-    # Remove the untracked files which are in the current_file_set.
-    repo_index = repo.open_index()
-    for change in repo_index.changes_from_tree(repo.object_store, current_tree.id):
-        path_change = change[0]
-        if path_change[1] is None:
-            file_name = path_change[0]
-            full_path = os.path.join(repo.path, file_name.decode())
-            if os.path.isfile(full_path):
-                os.remove(full_path)
-            dir_path = os.path.dirname(full_path)
-            while dir_path != repo.path:
-                is_empty = len(os.listdir(dir_path)) == 0
-                if is_empty:
-                    os.rmdir(dir_path)
-                dir_path = os.path.dirname(dir_path)
+    # Simply delegate to the new checkout function
+    return checkout(repo, target, force=force)
 
 
 def sparse_checkout(
@@ -2309,7 +2565,7 @@ def stash_pop(repo) -> None:
         from .stash import Stash
 
         stash = Stash.from_repo(r)
-        stash.pop()
+        stash.pop(0)
 
 
 def stash_drop(repo, index) -> None:
@@ -2359,11 +2615,12 @@ def describe(repo, abbrev=None):
             _, tag = key.rsplit("/", 1)
 
             try:
+                # Annotated tag case
                 commit = obj.object
-            except AttributeError:
-                continue
-            else:
                 commit = r.get_object(commit[1])
+            except AttributeError:
+                # Lightweight tag case - obj is already the commit
+                commit = obj
             tags[tag] = [
                 datetime.datetime(*time.gmtime(commit.commit_time)[:6]),
                 commit.id.decode("ascii"),
@@ -2437,3 +2694,398 @@ def write_tree(repo):
     """
     with open_repo_closing(repo) as r:
         return r.open_index().commit(r.object_store)
+
+
+def _do_merge(
+    r,
+    merge_commit_id,
+    no_commit=False,
+    no_ff=False,
+    message=None,
+    author=None,
+    committer=None,
+):
+    """Internal merge implementation that operates on an open repository.
+
+    Args:
+      r: Open repository object
+      merge_commit_id: SHA of commit to merge
+      no_commit: If True, do not create a merge commit
+      no_ff: If True, force creation of a merge commit
+      message: Optional merge commit message
+      author: Optional author for merge commit
+      committer: Optional committer for merge commit
+
+    Returns:
+      Tuple of (merge_commit_sha, conflicts) where merge_commit_sha is None
+      if no_commit=True or there were conflicts
+    """
+    from .graph import find_merge_base
+    from .merge import three_way_merge
+
+    # Get HEAD commit
+    try:
+        head_commit_id = r.refs[b"HEAD"]
+    except KeyError:
+        raise Error("No HEAD reference found")
+
+    head_commit = r[head_commit_id]
+    merge_commit = r[merge_commit_id]
+
+    # Check if fast-forward is possible
+    merge_bases = find_merge_base(r, [head_commit_id, merge_commit_id])
+
+    if not merge_bases:
+        raise Error("No common ancestor found")
+
+    # Use the first merge base
+    base_commit_id = merge_bases[0]
+
+    # Check if we're trying to merge the same commit
+    if head_commit_id == merge_commit_id:
+        # Already up to date
+        return (None, [])
+
+    # Check for fast-forward
+    if base_commit_id == head_commit_id and not no_ff:
+        # Fast-forward merge
+        r.refs[b"HEAD"] = merge_commit_id
+        # Update the working directory
+        update_working_tree(r, head_commit.tree, merge_commit.tree)
+        return (merge_commit_id, [])
+
+    if base_commit_id == merge_commit_id:
+        # Already up to date
+        return (None, [])
+
+    # Perform three-way merge
+    base_commit = r[base_commit_id]
+    merged_tree, conflicts = three_way_merge(
+        r.object_store, base_commit, head_commit, merge_commit
+    )
+
+    # Add merged tree to object store
+    r.object_store.add_object(merged_tree)
+
+    # Update index and working directory
+    update_working_tree(r, head_commit.tree, merged_tree.id)
+
+    if conflicts or no_commit:
+        # Don't create a commit if there are conflicts or no_commit is True
+        return (None, conflicts)
+
+    # Create merge commit
+    merge_commit_obj = Commit()
+    merge_commit_obj.tree = merged_tree.id
+    merge_commit_obj.parents = [head_commit_id, merge_commit_id]
+
+    # Set author/committer
+    if author is None:
+        author = get_user_identity(r.get_config_stack())
+    if committer is None:
+        committer = author
+
+    merge_commit_obj.author = author
+    merge_commit_obj.committer = committer
+
+    # Set timestamps
+    timestamp = int(time.time())
+    timezone = 0  # UTC
+    merge_commit_obj.author_time = timestamp
+    merge_commit_obj.author_timezone = timezone
+    merge_commit_obj.commit_time = timestamp
+    merge_commit_obj.commit_timezone = timezone
+
+    # Set commit message
+    if message is None:
+        message = f"Merge commit '{merge_commit_id.decode()[:7]}'\n"
+    merge_commit_obj.message = message.encode() if isinstance(message, str) else message
+
+    # Add commit to object store
+    r.object_store.add_object(merge_commit_obj)
+
+    # Update HEAD
+    r.refs[b"HEAD"] = merge_commit_obj.id
+
+    return (merge_commit_obj.id, [])
+
+
+def merge(
+    repo,
+    committish,
+    no_commit=False,
+    no_ff=False,
+    message=None,
+    author=None,
+    committer=None,
+):
+    """Merge a commit into the current branch.
+
+    Args:
+      repo: Repository to merge into
+      committish: Commit to merge
+      no_commit: If True, do not create a merge commit
+      no_ff: If True, force creation of a merge commit
+      message: Optional merge commit message
+      author: Optional author for merge commit
+      committer: Optional committer for merge commit
+
+    Returns:
+      Tuple of (merge_commit_sha, conflicts) where merge_commit_sha is None
+      if no_commit=True or there were conflicts
+
+    Raises:
+      Error: If there is no HEAD reference or commit cannot be found
+    """
+    with open_repo_closing(repo) as r:
+        # Parse the commit to merge
+        try:
+            merge_commit_id = parse_commit(r, committish).id
+        except KeyError:
+            raise Error(f"Cannot find commit '{committish}'")
+
+        return _do_merge(
+            r, merge_commit_id, no_commit, no_ff, message, author, committer
+        )
+
+
+def unpack_objects(pack_path, target="."):
+    """Unpack objects from a pack file into the repository.
+
+    Args:
+      pack_path: Path to the pack file to unpack
+      target: Path to the repository to unpack into
+
+    Returns:
+      Number of objects unpacked
+    """
+    from .pack import Pack
+
+    with open_repo_closing(target) as r:
+        pack_basename = os.path.splitext(pack_path)[0]
+        with Pack(pack_basename) as pack:
+            count = 0
+            for unpacked in pack.iter_unpacked():
+                obj = unpacked.sha_file()
+                r.object_store.add_object(obj)
+                count += 1
+            return count
+
+
+def merge_tree(repo, base_tree, our_tree, their_tree):
+    """Perform a three-way tree merge without touching the working directory.
+
+    This is similar to git merge-tree, performing a merge at the tree level
+    without creating commits or updating any references.
+
+    Args:
+      repo: Repository containing the trees
+      base_tree: Tree-ish of the common ancestor (or None for no common ancestor)
+      our_tree: Tree-ish of our side of the merge
+      their_tree: Tree-ish of their side of the merge
+
+    Returns:
+      Tuple of (merged_tree_id, conflicts) where:
+        - merged_tree_id is the SHA-1 of the merged tree
+        - conflicts is a list of paths (as bytes) that had conflicts
+
+    Raises:
+      KeyError: If any of the tree-ish arguments cannot be resolved
+    """
+    from .merge import Merger
+
+    with open_repo_closing(repo) as r:
+        # Resolve tree-ish arguments to actual trees
+        base = parse_tree(r, base_tree) if base_tree else None
+        ours = parse_tree(r, our_tree)
+        theirs = parse_tree(r, their_tree)
+
+        # Perform the merge
+        merger = Merger(r.object_store)
+        merged_tree, conflicts = merger.merge_trees(base, ours, theirs)
+
+        # Add the merged tree to the object store
+        r.object_store.add_object(merged_tree)
+
+        return merged_tree.id, conflicts
+
+
+def gc(
+    repo,
+    auto: bool = False,
+    aggressive: bool = False,
+    prune: bool = True,
+    grace_period: Optional[int] = 1209600,  # 2 weeks default
+    dry_run: bool = False,
+    progress=None,
+):
+    """Run garbage collection on a repository.
+
+    Args:
+      repo: Path to the repository or a Repo object
+      auto: If True, only run gc if needed
+      aggressive: If True, use more aggressive settings
+      prune: If True, prune unreachable objects
+      grace_period: Grace period in seconds for pruning (default 2 weeks)
+      dry_run: If True, only report what would be done
+      progress: Optional progress callback
+
+    Returns:
+      GCStats object with garbage collection statistics
+    """
+    from .gc import garbage_collect
+
+    with open_repo_closing(repo) as r:
+        return garbage_collect(
+            r,
+            auto=auto,
+            aggressive=aggressive,
+            prune=prune,
+            grace_period=grace_period,
+            dry_run=dry_run,
+            progress=progress,
+        )
+
+
+def count_objects(repo=".", verbose=False) -> CountObjectsResult:
+    """Count unpacked objects and their disk usage.
+
+    Args:
+      repo: Path to repository or repository object
+      verbose: Whether to return verbose information
+
+    Returns:
+      CountObjectsResult object with detailed statistics
+    """
+    with open_repo_closing(repo) as r:
+        object_store = r.object_store
+
+        # Count loose objects
+        loose_count = 0
+        loose_size = 0
+        for sha in object_store._iter_loose_objects():
+            loose_count += 1
+            path = object_store._get_shafile_path(sha)
+            try:
+                stat_info = os.stat(path)
+                # Git uses disk usage, not file size. st_blocks is always in
+                # 512-byte blocks per POSIX standard
+                if hasattr(stat_info, "st_blocks"):
+                    # Available on Linux and macOS
+                    loose_size += stat_info.st_blocks * 512  # type: ignore
+                else:
+                    # Fallback for Windows
+                    loose_size += stat_info.st_size
+            except FileNotFoundError:
+                # Object may have been removed between iteration and stat
+                pass
+
+        if not verbose:
+            return CountObjectsResult(count=loose_count, size=loose_size)
+
+        # Count pack information
+        pack_count = len(object_store.packs)
+        in_pack_count = 0
+        pack_size = 0
+
+        for pack in object_store.packs:
+            in_pack_count += len(pack)
+            # Get pack file size
+            pack_path = pack._data_path
+            try:
+                pack_size += os.path.getsize(pack_path)
+            except FileNotFoundError:
+                pass
+            # Get index file size
+            idx_path = pack._idx_path
+            try:
+                pack_size += os.path.getsize(idx_path)
+            except FileNotFoundError:
+                pass
+
+        return CountObjectsResult(
+            count=loose_count,
+            size=loose_size,
+            in_pack=in_pack_count,
+            packs=pack_count,
+            size_pack=pack_size,
+        )
+
+
+def rebase(
+    repo: Union[Repo, str],
+    upstream: Union[bytes, str],
+    onto: Optional[Union[bytes, str]] = None,
+    branch: Optional[Union[bytes, str]] = None,
+    abort: bool = False,
+    continue_rebase: bool = False,
+    skip: bool = False,
+) -> list[bytes]:
+    """Rebase commits onto another branch.
+
+    Args:
+      repo: Repository to rebase in
+      upstream: Upstream branch/commit to rebase onto
+      onto: Specific commit to rebase onto (defaults to upstream)
+      branch: Branch to rebase (defaults to current branch)
+      abort: Abort an in-progress rebase
+      continue_rebase: Continue an in-progress rebase
+      skip: Skip current commit and continue rebase
+
+    Returns:
+      List of new commit SHAs created by rebase
+
+    Raises:
+      Error: If rebase fails or conflicts occur
+    """
+    from .rebase import RebaseConflict, RebaseError, Rebaser
+
+    with open_repo_closing(repo) as r:
+        rebaser = Rebaser(r)
+
+        if abort:
+            try:
+                rebaser.abort()
+                return []
+            except RebaseError as e:
+                raise Error(str(e))
+
+        if continue_rebase:
+            try:
+                result = rebaser.continue_()
+                if result is None:
+                    # Rebase complete
+                    return []
+                elif isinstance(result, tuple) and result[1]:
+                    # Still have conflicts
+                    raise Error(
+                        f"Conflicts in: {', '.join(f.decode('utf-8', 'replace') for f in result[1])}"
+                    )
+            except RebaseError as e:
+                raise Error(str(e))
+
+        # Convert string refs to bytes
+        if isinstance(upstream, str):
+            upstream = upstream.encode("utf-8")
+        if isinstance(onto, str):
+            onto = onto.encode("utf-8") if onto else None
+        if isinstance(branch, str):
+            branch = branch.encode("utf-8") if branch else None
+
+        try:
+            # Start rebase
+            rebaser.start(upstream, onto, branch)
+
+            # Continue rebase automatically
+            result = rebaser.continue_()
+            if result is not None:
+                # Conflicts
+                raise RebaseConflict(result[1])
+
+            # Return the SHAs of the rebased commits
+            return [c.id for c in rebaser._done]
+
+        except RebaseConflict as e:
+            raise Error(str(e))
+        except RebaseError as e:
+            raise Error(str(e))

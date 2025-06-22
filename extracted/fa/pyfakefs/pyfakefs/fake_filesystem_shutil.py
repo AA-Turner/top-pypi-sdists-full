@@ -22,20 +22,39 @@ work fine with the fake file system if `os`/`os.path` are patched.
     shutil module.
 
 :Usage:
-  The fake implementation is automatically involved if using
-  `fake_filesystem_unittest.TestCase`, pytest fs fixture,
-  or directly `Patcher`.
+
+The fake implementation is automatically involved if using
+`fake_filesystem_unittest.TestCase`, pytest fs fixture,
+or directly `Patcher`.
 """
 
+import functools
 import os
 import shutil
 import sys
+from threading import Lock
+from typing import Callable
 
 
 class FakeShutilModule:
     """Uses a FakeFilesystem to provide a fake replacement
     for shutil module.
+
+    Automatically created if using `fake_filesystem_unittest.TestCase`,
+    the `fs` fixture, the `patchfs` decorator, or directly the `Patcher`.
     """
+
+    module_lock = Lock()
+
+    use_copy_file_range = (
+        hasattr(shutil, "_USE_CP_COPY_FILE_RANGE") and shutil._USE_CP_COPY_FILE_RANGE  # type: ignore[attr-defined]
+    )
+    has_fcopy_file = hasattr(shutil, "_HAS_FCOPYFILE") and shutil._HAS_FCOPYFILE  # type: ignore[attr-defined]
+    use_sendfile = hasattr(shutil, "_USE_CP_SENDFILE") and shutil._USE_CP_SENDFILE  # type: ignore[attr-defined]
+    use_fd_functions = shutil._use_fd_functions  # type: ignore[attr-defined]
+    functions_to_patch = ["copy", "copyfile", "rmtree"]
+    if sys.version_info < (3, 12) or sys.platform != "win32":
+        functions_to_patch.extend(["copy2", "copytree", "move"])
 
     @staticmethod
     def dir():
@@ -51,7 +70,54 @@ class FakeShutilModule:
           filesystem:  FakeFilesystem used to provide file system information
         """
         self.filesystem = filesystem
-        self._shutil_module = shutil
+        self.shutil_module = shutil
+        self._in_get_attribute = False
+
+    def _start_patching_global_vars(self):
+        if self.has_fcopy_file:
+            self.shutil_module._HAS_FCOPYFILE = False
+        if self.use_copy_file_range:
+            self.shutil_module._USE_CP_COPY_FILE_RANGE = False
+        if self.use_sendfile:
+            self.shutil_module._USE_CP_SENDFILE = False
+        if self.use_fd_functions:
+            if sys.version_info >= (3, 14):
+                self.shutil_module._rmtree_impl = (
+                    self.shutil_module._rmtree_unsafe  # type: ignore[attr-defined]
+                )
+            else:
+                self.shutil_module._use_fd_functions = False
+
+    def _stop_patching_global_vars(self):
+        if self.has_fcopy_file:
+            self.shutil_module._HAS_FCOPYFILE = True
+        if self.use_copy_file_range:
+            self.shutil_module._USE_CP_COPY_FILE_RANGE = True
+        if self.use_sendfile:
+            self.shutil_module._USE_CP_SENDFILE = True
+        if self.use_fd_functions:
+            if sys.version_info >= (3, 14):
+                self.shutil_module._rmtree_impl = (
+                    self.shutil_module._rmtree_safe_fd  # type: ignore[attr-defined]
+                )
+            else:
+                self.shutil_module._use_fd_functions = True
+
+    def with_patched_globals(self, f: Callable) -> Callable:
+        """Function wrapper that patches global variables during function execution.
+        Can be used in multi-threading code.
+        """
+
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            with self.module_lock:
+                self._start_patching_global_vars()
+                try:
+                    return f(*args, **kwargs)
+                finally:
+                    self._stop_patching_global_vars()
+
+        return wrapped
 
     def disk_usage(self, path):
         """Return the total, used and free disk space in bytes as named tuple
@@ -89,7 +155,7 @@ class FakeShutilModule:
             """Make sure the default argument is patched."""
             if copy_function == shutil.copy2:
                 copy_function = self.copy2
-            return self._shutil_module.copytree(
+            return self.shutil_module.copytree(
                 src,
                 dst,
                 symlinks,
@@ -103,8 +169,10 @@ class FakeShutilModule:
             """Make sure the default argument is patched."""
             if copy_function == shutil.copy2:
                 copy_function = self.copy2
-            return self._shutil_module.move(src, dst, copy_function)
+            return self.shutil_module.move(src, dst, copy_function)
 
     def __getattr__(self, name):
         """Forwards any non-faked calls to the standard shutil module."""
-        return getattr(self._shutil_module, name)
+        if name in self.functions_to_patch:
+            return self.with_patched_globals(getattr(self.shutil_module, name))
+        return getattr(self.shutil_module, name)

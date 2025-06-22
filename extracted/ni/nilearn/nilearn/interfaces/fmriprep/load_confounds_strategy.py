@@ -1,11 +1,9 @@
-"""Predefined denoising strategies.
-
-Authors: Hao-Ting Wang, Pierre Bellec
-"""
+"""Predefined denoising strategies."""
 
 import warnings
 
-from . import load_confounds
+from nilearn._utils.logger import find_stack_level
+from nilearn.interfaces.fmriprep import load_confounds
 
 # defining a preset strategy with python dictionary:
 # key:
@@ -115,6 +113,12 @@ def load_confounds_strategy(img_files, denoise_strategy="simple", **kwargs):
           benchmarks (:footcite:t:`Ciric2017`, :footcite:t:`Parker2018`).
           See Notes for more details about this option.
 
+          .. attention::
+            The `--use-aroma` option is deprecated in :term:`fMRIPrep`
+            version 23.2.3 and no longer works since version 24.0.0.
+            See `fmripost-aroma docs <https://fmripost-aroma.readthedocs.io/latest/usage.html>`_
+            for the new ICA-AROMA implementation.
+
     Other keyword arguments:
         See additional parameters associated with `denoise_strategy` in
         Notes and refer to the documentation of
@@ -148,46 +152,53 @@ def load_confounds_strategy(img_files, denoise_strategy="simple", **kwargs):
        strategies. Parameters with `*` denote customizable parameters. Please
        see :func:`nilearn.interfaces.fmriprep.load_confounds`.
 
-        ========= ========= ====== ====== ============= ===== ============ \
-        =================== ============== ========= ========= ======
-        strategy  high_pass motion wm_csf global_signal scrub fd_threshold \
-        std_dvars_threshold compcor        n_compcor ica_aroma demean
-        ========= ========= ====== ====== ============= ===== ============ \
-        =================== ============== ========= ========= ======
-        simple    True      full*  basic* None*         N/A   N/A          \
-        N/A                 N/A            N/A       N/A       True*
-        scrubbing True      full*  full   None*         5*    0.2*         \
-        3*                  N/A            N/A       N/A       True*
-        compcor   True      full*  N/A    None*         N/A   N/A          \
-        N/A                 anat_combined* all*      N/A       True*
-        ica_aroma True      N/A    basic* None*         N/A   N/A          \
-        N/A                 N/A            N/A       full      True*
-        ========= ========= ====== ====== ============= ===== ============ \
-        =================== ============== ========= ========= ======
+       ========= ========= ====== ====== ============= ===== ============ \
+       =================== ============== ========= ========= ======
+       strategy  high_pass motion wm_csf global_signal scrub fd_threshold \
+       std_dvars_threshold compcor        n_compcor ica_aroma demean
+       ========= ========= ====== ====== ============= ===== ============ \
+       =================== ============== ========= ========= ======
+       simple    True      full*  basic* None*         N/A   N/A          \
+       N/A                 N/A            N/A       N/A       True*
+       scrubbing True      full*  full   None*         5*    0.2*         \
+       3*                  N/A            N/A       N/A       True*
+       compcor   True      full*  N/A    None*         N/A   N/A          \
+       N/A                 anat_combined* all*      N/A       True*
+       ica_aroma True      N/A    basic* None*         N/A   N/A          \
+       N/A                 N/A            N/A       full      True*
+       ========= ========= ====== ====== ============= ===== ============ \
+       =================== ============== ========= ========= ======
 
     2. ICA-AROMA is implemented in two steps in :footcite:t:`Pruim2015`:
 
-        i. A non-aggressive denoising immediately after :term:`ICA`
-        classification.
-        A linear regression estimates signals with all independent
-        components as predictors. A partial regression is then applied to
-        remove variance associated with noise independent components.
-        :term:`fMRIPrep` performs this step and generates files in
-        `MNI152NLin6Asym` template, suffixed with
-        `desc-smoothAROMAnonaggr_bold`.
+       i. A non-aggressive denoising immediately after :term:`ICA`
+       classification.
+       A linear regression estimates signals with all independent
+       components as predictors. A partial regression is then applied to
+       remove variance associated with noise independent components.
+       :term:`fMRIPrep` performs this step and generates files in
+       `MNI152NLin6Asym` template, suffixed with
+       `desc-smoothAROMAnonaggr_bold`.
 
-        One can produce `desc-smoothAROMAnonaggr_bold` in other spatial
-        templates, please refer to :term:`fMRIPrep` documentation on ICA-AROMA
-        `<https://fmriprep.org/en/latest/usage.html#fmriprep.cli.parser-_build_parser-[deprecated]-options-for-running-ica_aroma>`_
+       One can produce `desc-smoothAROMAnonaggr_bold` in other spatial
+       templates, please refer to :term:`fMRIPrep` documentation on ICA-AROMA
+       `<https://fmriprep.org/en/23.2.3/usage.html#%5Bdeprecated%5D-options-for-running-ica_aroma>`_
 
-        ii. Confound regression step (mean signals from WM and CSF).
-        Confound regressors generated by this function with
-        `denoise_strategy="ica_aroma"`.
+       ii. Confound regression step (mean signals from WM and CSF).
+       Confound regressors generated by this function with
+       `denoise_strategy="ica_aroma"`.
 
-        For more discussion regarding choosing the nuisance regressors before
-        or after denoising with ICA-AROMA has a detriment on outcome measures,
-        please see notebook 5.
-        `<https://github.com/nipreps/fmriprep-notebooks/>`_
+       For more discussion regarding choosing the nuisance regressors before
+       or after denoising with ICA-AROMA has a detriment on outcome measures,
+       please see notebook 5.
+       `<https://github.com/nipreps/fmriprep-notebooks/>`_
+
+       .. attention::
+            Since version 24.0.0 `fMRIPrep` does not perform ICA-AROMA anymore.
+            This feature has been replaced by `fmripost-aroma <https://fmripost-aroma.readthedocs.io/latest/usage.html>`_
+            and consequently the suffixes of files produced by `fmripost-aroma`
+            may differ from the ones produced by `fMRIPrep < 24.0.0`.
+
 
     See Also
     --------
@@ -223,7 +234,7 @@ def load_confounds_strategy(img_files, denoise_strategy="simple", **kwargs):
             "The following parameters are not needed for the "
             f"selected strategy '{denoise_strategy}': {not_needed}; "
             f"parameters accepted: {check_parameters}",
-            stacklevel=2,
+            stacklevel=find_stack_level(),
         )
     return load_confounds(img_files, **user_parameters)
 

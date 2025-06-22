@@ -33,10 +33,6 @@ destrieux_atlas = SurfaceImage(
     },
 )
 
-# The labels are stored as bytes for the Destrieux atlas.
-# For convenience we decode them to string.
-labels = [x.decode("utf-8") for x in destrieux.labels]
-
 # Retrieve fsaverage5 surface dataset for the plotting background.
 # It contains the surface template as pial and inflated version.
 fsaverage_meshes = load_fsaverage()
@@ -65,8 +61,8 @@ plot_surf_roi(
     view="lateral",
     bg_map=fsaverage_sulcal,
     bg_on_data=True,
-    darkness=0.5,
     title="Destrieux parcellation on sulcal surface",
+    darkness=None,
 )
 
 # %%
@@ -80,8 +76,8 @@ for view in ["lateral", "posterior", "ventral"]:
         view=view,
         bg_map=fsaverage_sulcal,
         bg_on_data=True,
-        darkness=0.5,
         title=f"Destrieux parcellation on inflated surface\n{view} view",
+        darkness=None,
     )
 
 show()
@@ -97,7 +93,7 @@ plot_surf_roi(
     view=(elev, azim),
     bg_map=fsaverage_sulcal,
     bg_on_data=True,
-    darkness=0.5,
+    darkness=None,
     title="Arbitrary view of Destrieux parcellation",
 )
 
@@ -119,7 +115,7 @@ for hemi in ["left", "right"]:
     mesh_coordinates = destrieux_atlas.mesh.parts[hemi].coordinates
     coordinates.extend(
         np.mean(mesh_coordinates[data == k], axis=0)
-        for k, label in enumerate(labels)
+        for k, label in enumerate(destrieux.labels)
         if "Unknown" not in str(label)
     )
 # 3D coordinates of parcels
@@ -155,7 +151,7 @@ view = view_surf(
     surf_map=destrieux_atlas,
     cmap="gist_ncar",
     symmetric_cmap=False,
-    colorbar=False,
+    darkness=None,
 )
 # In a Jupyter notebook, if ``view`` is the output of a cell,
 # it will be displayed below the cell
@@ -171,7 +167,6 @@ view = view_connectome(
     corr,
     coordinates,
     edge_threshold="90%",
-    colorbar=False,
 )
 
 # uncomment this to open the plot in a web browser:
@@ -182,7 +177,7 @@ view
 # References
 # ----------
 #
-#  .. footbibliography::
+# .. footbibliography::
 
 
 # sphinx_gallery_dummy_images=1

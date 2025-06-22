@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colourmap
-Version: 1.1.21
+Version: 1.2.0
 Summary: Python package colourmap generates an N unique colors from the specified input colormap.
 Author-email: Erdogan Taskesen <erdogant@gmail.com>
 License: MIT License

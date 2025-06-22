@@ -28,6 +28,7 @@ use pyo3::types::{PyBytes, PyDict};
 import_exception!(dulwich.errors, ObjectFormatException);
 
 const S_IFDIR: u32 = 0o40000;
+const S_IFMT: u32 = 0o170000;  // File type mask
 
 #[inline]
 fn bytehex(byte: u8) -> u8 {
@@ -78,7 +79,7 @@ fn parse_tree(
         text = &text[namelen + 1..];
         let sha = &text[..20];
         entries.push((
-            PyBytes::new(py, name).to_object(py),
+            PyBytes::new(py, name).into_pyobject(py)?.unbind().into(),
             mode,
             sha_to_pyhex(py, sha)?,
         ));
@@ -96,10 +97,10 @@ fn cmp_with_suffix(a: (u32, &[u8]), b: (u32, &[u8])) -> std::cmp::Ordering {
 
     let c1 =
         a.1.get(len)
-            .map_or_else(|| if a.0 & S_IFDIR != 0 { b'/' } else { 0 }, |&c| c);
+            .map_or_else(|| if (a.0 & S_IFMT) == S_IFDIR { b'/' } else { 0 }, |&c| c);
     let c2 =
         b.1.get(len)
-            .map_or_else(|| if b.0 & S_IFDIR != 0 { b'/' } else { 0 }, |&c| c);
+            .map_or_else(|| if (b.0 & S_IFMT) == S_IFDIR { b'/' } else { 0 }, |&c| c);
     c1.cmp(&c2)
 }
 
@@ -140,11 +141,18 @@ fn sorted_tree_items(
         .map(|(name, mode, hexsha)| -> PyResult<PyObject> {
             Ok(tree_entry_cls
                 .call1((
-                    PyBytes::new(py, name.as_slice()).to_object(py),
+                    PyBytes::new(py, name.as_slice())
+                        .into_pyobject(py)?
+                        .unbind()
+                        .into_any(),
                     mode,
-                    PyBytes::new(py, hexsha.as_slice()).to_object(py),
+                    PyBytes::new(py, hexsha.as_slice())
+                        .into_pyobject(py)?
+                        .unbind()
+                        .into_any(),
                 ))?
-                .to_object(py))
+                .unbind()
+                .into())
         })
         .collect::<PyResult<Vec<PyObject>>>()
 }
