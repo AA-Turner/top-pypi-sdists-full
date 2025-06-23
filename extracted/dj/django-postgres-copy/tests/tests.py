@@ -4,6 +4,7 @@ import os
 from datetime import date
 from unittest import mock
 
+import pytest
 from django.core.exceptions import FieldDoesNotExist
 from django.db import transaction
 from django.db.models import Count
@@ -23,6 +24,11 @@ from .models import (
     SecondaryMockObject,
     UniqueMockObject,
 )
+
+try:
+    from psycopg.errors import Error
+except ImportError:
+    from psycopg2.errors import Error
 
 
 class BaseTest(TestCase):
@@ -92,14 +98,15 @@ class PostgresCopyToTest(BaseTest):
     @mock.patch("django.db.connection.validate_no_atomic_block")
     def test_export_to_str(self, _):
         self._load_objects(self.name_path)
+        first_id = MockObject.objects.order_by("id").first().id
         export = MockObject.objects.to_csv()
         self.assertEqual(
             export,
-            b"""id,name,num,dt,parent_id
-92,BEN,1,2012-01-01,
-93,JOE,2,2012-01-02,
-94,JANE,3,2012-01-03,
-""",
+            f"""id,name,num,dt,parent_id
+{first_id},BEN,1,2012-01-01,
+{first_id + 1},JOE,2,2012-01-02,
+{first_id + 2},JANE,3,2012-01-03,
+""".encode(),
         )
 
     @mock.patch("django.db.connection.validate_no_atomic_block")
@@ -181,12 +188,21 @@ class PostgresCopyToTest(BaseTest):
         MockObject.objects.to_csv(self.export_path, encoding="LATIN2")
 
         # Function should fail on known invalid inputs ('ASCII', 'utf-16')
-        self.assertRaises(
-            Exception, MockObject.objects.to_csv(self.export_path), encoding="utf-16"
-        )
-        self.assertRaises(
-            Exception, MockObject.objects.to_csv(self.export_path), encoding="ASCII"
-        )
+        with pytest.raises(Error) as exc_info:
+            # since `to_csv` causes a db error we need an atomic block to make
+            # sure the db connection is restored, so that e.g. the next
+            # assertion and our teardown can run
+            with transaction.atomic():
+                MockObject.objects.to_csv(self.export_path, encoding="utf-16")
+        assert "must be a valid encoding" in str(exc_info.value)
+
+        with pytest.raises(Error) as exc_info2:
+            # since `to_csv` causes a db error we need an atomic block to make
+            # sure the db connection is restored, so that e.g. our teardown
+            # can run
+            with transaction.atomic():
+                MockObject.objects.to_csv(self.export_path, encoding="ASCII")
+        assert "must be a valid encoding" in str(exc_info2.value)
 
     @mock.patch("django.db.connection.validate_no_atomic_block")
     def test_export_escape_character(self, _):
@@ -196,9 +212,13 @@ class PostgresCopyToTest(BaseTest):
         MockObject.objects.to_csv(self.export_path, escape="-")
 
         # Function should fail on known invalid inputs
-        self.assertRaises(
-            Exception, MockObject.objects.to_csv(self.export_path), escape="--"
-        )
+        with pytest.raises(Error) as exc_info:
+            # since `to_csv` causes a db error we need an atomic block to make
+            # sure the db connection is restored, so that e.g. our teardown
+            # can run
+            with transaction.atomic():
+                MockObject.objects.to_csv(self.export_path, escape="--")
+        assert "escape must be a single" in str(exc_info.value)
 
     @mock.patch("django.db.connection.validate_no_atomic_block")
     def test_filter(self, _):

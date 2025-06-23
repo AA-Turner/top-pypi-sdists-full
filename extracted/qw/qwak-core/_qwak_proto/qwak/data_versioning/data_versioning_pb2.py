@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,30 +15,15 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n*qwak/data_versioning/data_versioning.proto\x12\x1fqwak.management.data_versioning\"|\n\x0b\x44\x61taTagSpec\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\x0b\n\x03tag\x18\x03 \x01(\t\x12\x16\n\x0e\x65xtension_type\x18\x04 \x01(\t\x12\x16\n\x0e\x65nvironment_id\x18\x05 \x01(\t\x12\x0c\n\x04path\x18\x06 \x01(\t\"G\n\rDataTagFilter\x12\x16\n\x0ctag_contains\x18\x01 \x01(\tH\x00\x12\x14\n\ntag_prefix\x18\x02 \x01(\tH\x00\x42\x08\n\x06\x66ilterB/\n+com.qwak.ai.management.model_versioning.apiP\x01\x62\x06proto3')
 
-
-
-_DATATAGSPEC = DESCRIPTOR.message_types_by_name['DataTagSpec']
-_DATATAGFILTER = DESCRIPTOR.message_types_by_name['DataTagFilter']
-DataTagSpec = _reflection.GeneratedProtocolMessageType('DataTagSpec', (_message.Message,), {
-  'DESCRIPTOR' : _DATATAGSPEC,
-  '__module__' : 'qwak.data_versioning.data_versioning_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.data_versioning.DataTagSpec)
-  })
-_sym_db.RegisterMessage(DataTagSpec)
-
-DataTagFilter = _reflection.GeneratedProtocolMessageType('DataTagFilter', (_message.Message,), {
-  'DESCRIPTOR' : _DATATAGFILTER,
-  '__module__' : 'qwak.data_versioning.data_versioning_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.data_versioning.DataTagFilter)
-  })
-_sym_db.RegisterMessage(DataTagFilter)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.data_versioning.data_versioning_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n+com.qwak.ai.management.model_versioning.apiP\001'
-  _DATATAGSPEC._serialized_start=79
-  _DATATAGSPEC._serialized_end=203
-  _DATATAGFILTER._serialized_start=205
-  _DATATAGFILTER._serialized_end=276
+  _globals['_DATATAGSPEC']._serialized_start=79
+  _globals['_DATATAGSPEC']._serialized_end=203
+  _globals['_DATATAGFILTER']._serialized_start=205
+  _globals['_DATATAGFILTER']._serialized_end=276
 # @@protoc_insertion_point(module_scope)

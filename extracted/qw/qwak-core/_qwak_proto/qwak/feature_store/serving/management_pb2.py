@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,53 +16,21 @@ from _qwak_proto.qwak.feature_store.serving import metadata_pb2 as qwak_dot_feat
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+qwak/feature_store/serving/management.proto\x12%com.qwak.ai.feature.store.serving.api\x1a)qwak/feature_store/serving/metadata.proto\"<\n#GetFeaturesetMemoryUsageByIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"}\n$GetFeaturesetMemoryUsageByIdResponse\x12U\n\x05usage\x18\x01 \x01(\x0b\x32\x46.com.qwak.ai.feature.store.serving.metadata.FeaturesetMemoryUsageStats\".\n,GetFeaturesetMemoryUsageByEnvironmentRequest\"\x8c\x01\n-GetFeaturesetMemoryUsageByEnvironmentResponse\x12[\n\x0busage_stats\x18\x01 \x03(\x0b\x32\x46.com.qwak.ai.feature.store.serving.metadata.FeaturesetMemoryUsageStats2\xac\x03\n\x1b\x46\x65\x61turesetManagementService\x12\xb7\x01\n\x1cGetFeaturesetMemoryUsageById\x12J.com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByIdRequest\x1aK.com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByIdResponse\x12\xd2\x01\n%GetFeaturesetMemoryUsageByEnvironment\x12S.com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByEnvironmentRequest\x1aT.com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByEnvironmentResponseB\'\n%com.qwak.ai.feature.store.serving.apib\x06proto3')
 
-
-
-_GETFEATURESETMEMORYUSAGEBYIDREQUEST = DESCRIPTOR.message_types_by_name['GetFeaturesetMemoryUsageByIdRequest']
-_GETFEATURESETMEMORYUSAGEBYIDRESPONSE = DESCRIPTOR.message_types_by_name['GetFeaturesetMemoryUsageByIdResponse']
-_GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST = DESCRIPTOR.message_types_by_name['GetFeaturesetMemoryUsageByEnvironmentRequest']
-_GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE = DESCRIPTOR.message_types_by_name['GetFeaturesetMemoryUsageByEnvironmentResponse']
-GetFeaturesetMemoryUsageByIdRequest = _reflection.GeneratedProtocolMessageType('GetFeaturesetMemoryUsageByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETMEMORYUSAGEBYIDREQUEST,
-  '__module__' : 'qwak.feature_store.serving.management_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByIdRequest)
-  })
-_sym_db.RegisterMessage(GetFeaturesetMemoryUsageByIdRequest)
-
-GetFeaturesetMemoryUsageByIdResponse = _reflection.GeneratedProtocolMessageType('GetFeaturesetMemoryUsageByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETMEMORYUSAGEBYIDRESPONSE,
-  '__module__' : 'qwak.feature_store.serving.management_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByIdResponse)
-  })
-_sym_db.RegisterMessage(GetFeaturesetMemoryUsageByIdResponse)
-
-GetFeaturesetMemoryUsageByEnvironmentRequest = _reflection.GeneratedProtocolMessageType('GetFeaturesetMemoryUsageByEnvironmentRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST,
-  '__module__' : 'qwak.feature_store.serving.management_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByEnvironmentRequest)
-  })
-_sym_db.RegisterMessage(GetFeaturesetMemoryUsageByEnvironmentRequest)
-
-GetFeaturesetMemoryUsageByEnvironmentResponse = _reflection.GeneratedProtocolMessageType('GetFeaturesetMemoryUsageByEnvironmentResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE,
-  '__module__' : 'qwak.feature_store.serving.management_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.ai.feature.store.serving.api.GetFeaturesetMemoryUsageByEnvironmentResponse)
-  })
-_sym_db.RegisterMessage(GetFeaturesetMemoryUsageByEnvironmentResponse)
-
-_FEATURESETMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['FeaturesetManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.serving.management_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.feature.store.serving.api'
-  _GETFEATURESETMEMORYUSAGEBYIDREQUEST._serialized_start=129
-  _GETFEATURESETMEMORYUSAGEBYIDREQUEST._serialized_end=189
-  _GETFEATURESETMEMORYUSAGEBYIDRESPONSE._serialized_start=191
-  _GETFEATURESETMEMORYUSAGEBYIDRESPONSE._serialized_end=316
-  _GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST._serialized_start=318
-  _GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST._serialized_end=364
-  _GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE._serialized_start=367
-  _GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE._serialized_end=507
-  _FEATURESETMANAGEMENTSERVICE._serialized_start=510
-  _FEATURESETMANAGEMENTSERVICE._serialized_end=938
+  _globals['_GETFEATURESETMEMORYUSAGEBYIDREQUEST']._serialized_start=129
+  _globals['_GETFEATURESETMEMORYUSAGEBYIDREQUEST']._serialized_end=189
+  _globals['_GETFEATURESETMEMORYUSAGEBYIDRESPONSE']._serialized_start=191
+  _globals['_GETFEATURESETMEMORYUSAGEBYIDRESPONSE']._serialized_end=316
+  _globals['_GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST']._serialized_start=318
+  _globals['_GETFEATURESETMEMORYUSAGEBYENVIRONMENTREQUEST']._serialized_end=364
+  _globals['_GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE']._serialized_start=367
+  _globals['_GETFEATURESETMEMORYUSAGEBYENVIRONMENTRESPONSE']._serialized_end=507
+  _globals['_FEATURESETMANAGEMENTSERVICE']._serialized_start=510
+  _globals['_FEATURESETMANAGEMENTSERVICE']._serialized_end=938
 # @@protoc_insertion_point(module_scope)

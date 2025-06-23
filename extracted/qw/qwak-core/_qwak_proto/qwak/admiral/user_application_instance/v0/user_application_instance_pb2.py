@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,180 +18,45 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIqwak/admiral/user_application_instance/v0/user_application_instance.proto\x12!qwak.admiral.user_app_instance.v0\x1a\x35qwak/administration/v0/environments/environment.proto\x1a/qwak/user_application/v0/user_application.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf0\x01\n\rCreateOptions\x12\x41\n\nidentifier\x18\x01 \x01(\x0b\x32-.qwak.admiral.user_app_instance.v0.Identifier\x12\x18\n\x10kind_sem_version\x18\x03 \x01(\t\x12,\n\x04spec\x18\x04 \x01(\x0b\x32\x1e.qwak.user_application.v0.Spec\x12T\n\x14resource_reservation\x18\x05 \x01(\x0b\x32\x36.qwak.admiral.user_app_instance.v0.ResourceReservation\"\xc5\x04\n\x11UpdateSpecOptions\x12\x41\n\nidentifier\x18\x01 \x01(\x0b\x32-.qwak.admiral.user_app_instance.v0.Identifier\x12,\n\x04spec\x18\x02 \x01(\x0b\x32\x1e.qwak.user_application.v0.Spec\x12T\n\x14resource_reservation\x18\x04 \x01(\x0b\x32\x36.qwak.admiral.user_app_instance.v0.ResourceReservation\x12T\n\x14revision_restriction\x18\x05 \x01(\x0b\x32\x36.qwak.admiral.user_app_instance.v0.RevisionRestriction\x12\x62\n\x1bkind_version_update_options\x18\x06 \x01(\x0b\x32;.qwak.admiral.user_app_instance.v0.KindVersionUpdateOptionsH\x00\x12x\n#static_global_config_update_options\x18\x07 \x01(\x0b\x32I.qwak.admiral.user_app_instance.v0.StaticGlobalConfigurationUpdateOptionsH\x01\x42\x19\n\x17kind_version_update_optB\x1a\n\x18static_global_update_opt\";\n\x13ResourceReservation\x12\x11\n\tcpu_cores\x18\x01 \x01(\x02\x12\x11\n\tmemory_mb\x18\x02 \x01(\r\"\xec\x01\n\x0b\x44\x65scription\x12=\n\x08metadata\x18\x01 \x01(\x0b\x32+.qwak.admiral.user_app_instance.v0.Metadata\x12L\n\x10spec_description\x18\x02 \x01(\x0b\x32\x32.qwak.admiral.user_app_instance.v0.SpecDescription\x12P\n\x12status_description\x18\x03 \x01(\x0b\x32\x34.qwak.admiral.user_app_instance.v0.StatusDescription\"\x95\x01\n\x0fSpecDescription\x12,\n\x04spec\x18\x01 \x01(\x0b\x32\x1e.qwak.user_application.v0.Spec\x12T\n\x14static_configuration\x18\x02 \x01(\x0b\x32\x36.qwak.admiral.user_app_instance.v0.GlobalConfiguration\"E\n\x11StatusDescription\x12\x30\n\x06status\x18\x01 \x01(\x0b\x32 .qwak.user_application.v0.Status\"\xa6\x03\n\x08Metadata\x12\x41\n\nidentifier\x18\x01 \x01(\x0b\x32-.qwak.admiral.user_app_instance.v0.Identifier\x12\x14\n\x0ckind_version\x18\x02 \x01(\t\x12\x35\n\x11spec_last_updated\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x37\n\x13status_last_updated\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncluster_id\x18\x06 \x01(\t\x12\x0c\n\x04uuid\x18\x08 \x01(\t\x12#\n\x1blast_deployed_spec_revision\x18\x07 \x01(\x04\x12\x15\n\rspec_revision\x18\t \x01(\x04\x12\x17\n\x0fstatus_revision\x18\n \x01(\x04\x12*\n\"environment_sequencer_when_changed\x18\x0b \x01(\x04\"t\n\nIdentifier\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12,\n\x04type\x18\x02 \x01(\x0e\x32\x1e.qwak.user_application.v0.Type\x12\x16\n\x0e\x65nvironment_id\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\"J\n\x13RevisionRestriction\x12\x1f\n\x15\x63urrent_spec_revision\x18\x01 \x01(\x04H\x00\x42\x12\n\x10restriction_type\"\\\n\x13GlobalConfiguration\x12\x45\n\x0b\x65nvironment\x18\x01 \x01(\x0b\x32\x30.qwak.administration.environment.QwakEnvironment\"\xb4\x02\n\x18KindVersionUpdateOptions\x12[\n\x15keep_existing_version\x18\x01 \x01(\x0b\x32:.qwak.admiral.user_app_instance.v0.KeepExistingKindVersionH\x00\x12S\n\x13latest_kind_version\x18\x02 \x01(\x0b\x32\x34.qwak.admiral.user_app_instance.v0.LatestKindVersionH\x00\x12W\n\x15\x65xplicit_kind_version\x18\x03 \x01(\x0b\x32\x36.qwak.admiral.user_app_instance.v0.ExplicitKindVersionH\x00\x42\r\n\x0bupdate_type\"\x19\n\x17KeepExistingKindVersion\"\x13\n\x11LatestKindVersion\"+\n\x13\x45xplicitKindVersion\x12\x14\n\x0ckind_version\x18\x01 \x01(\t\"\xaa\x02\n&StaticGlobalConfigurationUpdateOptions\x12}\n)keep_existing_static_global_configuration\x18\x01 \x01(\x0b\x32H.qwak.admiral.user_app_instance.v0.KeepExistingStaticGlobalConfigurationH\x00\x12r\n#refresh_static_global_configuration\x18\x02 \x01(\x0b\x32\x43.qwak.admiral.user_app_instance.v0.RefreshStaticGlobalConfigurationH\x00\x42\r\n\x0bupdate_type\"\'\n%KeepExistingStaticGlobalConfiguration\"\"\n RefreshStaticGlobalConfigurationB\xbe\x01\n(com.qwak.ai.admiral.user_app_instance.v0P\x01Z\x8f\x01github.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/user_application_instance/v0;user_application_instance_v0b\x06proto3')
 
-
-
-_CREATEOPTIONS = DESCRIPTOR.message_types_by_name['CreateOptions']
-_UPDATESPECOPTIONS = DESCRIPTOR.message_types_by_name['UpdateSpecOptions']
-_RESOURCERESERVATION = DESCRIPTOR.message_types_by_name['ResourceReservation']
-_DESCRIPTION = DESCRIPTOR.message_types_by_name['Description']
-_SPECDESCRIPTION = DESCRIPTOR.message_types_by_name['SpecDescription']
-_STATUSDESCRIPTION = DESCRIPTOR.message_types_by_name['StatusDescription']
-_METADATA = DESCRIPTOR.message_types_by_name['Metadata']
-_IDENTIFIER = DESCRIPTOR.message_types_by_name['Identifier']
-_REVISIONRESTRICTION = DESCRIPTOR.message_types_by_name['RevisionRestriction']
-_GLOBALCONFIGURATION = DESCRIPTOR.message_types_by_name['GlobalConfiguration']
-_KINDVERSIONUPDATEOPTIONS = DESCRIPTOR.message_types_by_name['KindVersionUpdateOptions']
-_KEEPEXISTINGKINDVERSION = DESCRIPTOR.message_types_by_name['KeepExistingKindVersion']
-_LATESTKINDVERSION = DESCRIPTOR.message_types_by_name['LatestKindVersion']
-_EXPLICITKINDVERSION = DESCRIPTOR.message_types_by_name['ExplicitKindVersion']
-_STATICGLOBALCONFIGURATIONUPDATEOPTIONS = DESCRIPTOR.message_types_by_name['StaticGlobalConfigurationUpdateOptions']
-_KEEPEXISTINGSTATICGLOBALCONFIGURATION = DESCRIPTOR.message_types_by_name['KeepExistingStaticGlobalConfiguration']
-_REFRESHSTATICGLOBALCONFIGURATION = DESCRIPTOR.message_types_by_name['RefreshStaticGlobalConfiguration']
-CreateOptions = _reflection.GeneratedProtocolMessageType('CreateOptions', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEOPTIONS,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.CreateOptions)
-  })
-_sym_db.RegisterMessage(CreateOptions)
-
-UpdateSpecOptions = _reflection.GeneratedProtocolMessageType('UpdateSpecOptions', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATESPECOPTIONS,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.UpdateSpecOptions)
-  })
-_sym_db.RegisterMessage(UpdateSpecOptions)
-
-ResourceReservation = _reflection.GeneratedProtocolMessageType('ResourceReservation', (_message.Message,), {
-  'DESCRIPTOR' : _RESOURCERESERVATION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.ResourceReservation)
-  })
-_sym_db.RegisterMessage(ResourceReservation)
-
-Description = _reflection.GeneratedProtocolMessageType('Description', (_message.Message,), {
-  'DESCRIPTOR' : _DESCRIPTION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.Description)
-  })
-_sym_db.RegisterMessage(Description)
-
-SpecDescription = _reflection.GeneratedProtocolMessageType('SpecDescription', (_message.Message,), {
-  'DESCRIPTOR' : _SPECDESCRIPTION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.SpecDescription)
-  })
-_sym_db.RegisterMessage(SpecDescription)
-
-StatusDescription = _reflection.GeneratedProtocolMessageType('StatusDescription', (_message.Message,), {
-  'DESCRIPTOR' : _STATUSDESCRIPTION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.StatusDescription)
-  })
-_sym_db.RegisterMessage(StatusDescription)
-
-Metadata = _reflection.GeneratedProtocolMessageType('Metadata', (_message.Message,), {
-  'DESCRIPTOR' : _METADATA,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.Metadata)
-  })
-_sym_db.RegisterMessage(Metadata)
-
-Identifier = _reflection.GeneratedProtocolMessageType('Identifier', (_message.Message,), {
-  'DESCRIPTOR' : _IDENTIFIER,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.Identifier)
-  })
-_sym_db.RegisterMessage(Identifier)
-
-RevisionRestriction = _reflection.GeneratedProtocolMessageType('RevisionRestriction', (_message.Message,), {
-  'DESCRIPTOR' : _REVISIONRESTRICTION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.RevisionRestriction)
-  })
-_sym_db.RegisterMessage(RevisionRestriction)
-
-GlobalConfiguration = _reflection.GeneratedProtocolMessageType('GlobalConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _GLOBALCONFIGURATION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.GlobalConfiguration)
-  })
-_sym_db.RegisterMessage(GlobalConfiguration)
-
-KindVersionUpdateOptions = _reflection.GeneratedProtocolMessageType('KindVersionUpdateOptions', (_message.Message,), {
-  'DESCRIPTOR' : _KINDVERSIONUPDATEOPTIONS,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.KindVersionUpdateOptions)
-  })
-_sym_db.RegisterMessage(KindVersionUpdateOptions)
-
-KeepExistingKindVersion = _reflection.GeneratedProtocolMessageType('KeepExistingKindVersion', (_message.Message,), {
-  'DESCRIPTOR' : _KEEPEXISTINGKINDVERSION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.KeepExistingKindVersion)
-  })
-_sym_db.RegisterMessage(KeepExistingKindVersion)
-
-LatestKindVersion = _reflection.GeneratedProtocolMessageType('LatestKindVersion', (_message.Message,), {
-  'DESCRIPTOR' : _LATESTKINDVERSION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.LatestKindVersion)
-  })
-_sym_db.RegisterMessage(LatestKindVersion)
-
-ExplicitKindVersion = _reflection.GeneratedProtocolMessageType('ExplicitKindVersion', (_message.Message,), {
-  'DESCRIPTOR' : _EXPLICITKINDVERSION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.ExplicitKindVersion)
-  })
-_sym_db.RegisterMessage(ExplicitKindVersion)
-
-StaticGlobalConfigurationUpdateOptions = _reflection.GeneratedProtocolMessageType('StaticGlobalConfigurationUpdateOptions', (_message.Message,), {
-  'DESCRIPTOR' : _STATICGLOBALCONFIGURATIONUPDATEOPTIONS,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.StaticGlobalConfigurationUpdateOptions)
-  })
-_sym_db.RegisterMessage(StaticGlobalConfigurationUpdateOptions)
-
-KeepExistingStaticGlobalConfiguration = _reflection.GeneratedProtocolMessageType('KeepExistingStaticGlobalConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _KEEPEXISTINGSTATICGLOBALCONFIGURATION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.KeepExistingStaticGlobalConfiguration)
-  })
-_sym_db.RegisterMessage(KeepExistingStaticGlobalConfiguration)
-
-RefreshStaticGlobalConfiguration = _reflection.GeneratedProtocolMessageType('RefreshStaticGlobalConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _REFRESHSTATICGLOBALCONFIGURATION,
-  '__module__' : 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.user_app_instance.v0.RefreshStaticGlobalConfiguration)
-  })
-_sym_db.RegisterMessage(RefreshStaticGlobalConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.admiral.user_application_instance.v0.user_application_instance_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n(com.qwak.ai.admiral.user_app_instance.v0P\001Z\217\001github.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/user_application_instance/v0;user_application_instance_v0'
-  _CREATEOPTIONS._serialized_start=250
-  _CREATEOPTIONS._serialized_end=490
-  _UPDATESPECOPTIONS._serialized_start=493
-  _UPDATESPECOPTIONS._serialized_end=1074
-  _RESOURCERESERVATION._serialized_start=1076
-  _RESOURCERESERVATION._serialized_end=1135
-  _DESCRIPTION._serialized_start=1138
-  _DESCRIPTION._serialized_end=1374
-  _SPECDESCRIPTION._serialized_start=1377
-  _SPECDESCRIPTION._serialized_end=1526
-  _STATUSDESCRIPTION._serialized_start=1528
-  _STATUSDESCRIPTION._serialized_end=1597
-  _METADATA._serialized_start=1600
-  _METADATA._serialized_end=2022
-  _IDENTIFIER._serialized_start=2024
-  _IDENTIFIER._serialized_end=2140
-  _REVISIONRESTRICTION._serialized_start=2142
-  _REVISIONRESTRICTION._serialized_end=2216
-  _GLOBALCONFIGURATION._serialized_start=2218
-  _GLOBALCONFIGURATION._serialized_end=2310
-  _KINDVERSIONUPDATEOPTIONS._serialized_start=2313
-  _KINDVERSIONUPDATEOPTIONS._serialized_end=2621
-  _KEEPEXISTINGKINDVERSION._serialized_start=2623
-  _KEEPEXISTINGKINDVERSION._serialized_end=2648
-  _LATESTKINDVERSION._serialized_start=2650
-  _LATESTKINDVERSION._serialized_end=2669
-  _EXPLICITKINDVERSION._serialized_start=2671
-  _EXPLICITKINDVERSION._serialized_end=2714
-  _STATICGLOBALCONFIGURATIONUPDATEOPTIONS._serialized_start=2717
-  _STATICGLOBALCONFIGURATIONUPDATEOPTIONS._serialized_end=3015
-  _KEEPEXISTINGSTATICGLOBALCONFIGURATION._serialized_start=3017
-  _KEEPEXISTINGSTATICGLOBALCONFIGURATION._serialized_end=3056
-  _REFRESHSTATICGLOBALCONFIGURATION._serialized_start=3058
-  _REFRESHSTATICGLOBALCONFIGURATION._serialized_end=3092
+  _globals['_CREATEOPTIONS']._serialized_start=250
+  _globals['_CREATEOPTIONS']._serialized_end=490
+  _globals['_UPDATESPECOPTIONS']._serialized_start=493
+  _globals['_UPDATESPECOPTIONS']._serialized_end=1074
+  _globals['_RESOURCERESERVATION']._serialized_start=1076
+  _globals['_RESOURCERESERVATION']._serialized_end=1135
+  _globals['_DESCRIPTION']._serialized_start=1138
+  _globals['_DESCRIPTION']._serialized_end=1374
+  _globals['_SPECDESCRIPTION']._serialized_start=1377
+  _globals['_SPECDESCRIPTION']._serialized_end=1526
+  _globals['_STATUSDESCRIPTION']._serialized_start=1528
+  _globals['_STATUSDESCRIPTION']._serialized_end=1597
+  _globals['_METADATA']._serialized_start=1600
+  _globals['_METADATA']._serialized_end=2022
+  _globals['_IDENTIFIER']._serialized_start=2024
+  _globals['_IDENTIFIER']._serialized_end=2140
+  _globals['_REVISIONRESTRICTION']._serialized_start=2142
+  _globals['_REVISIONRESTRICTION']._serialized_end=2216
+  _globals['_GLOBALCONFIGURATION']._serialized_start=2218
+  _globals['_GLOBALCONFIGURATION']._serialized_end=2310
+  _globals['_KINDVERSIONUPDATEOPTIONS']._serialized_start=2313
+  _globals['_KINDVERSIONUPDATEOPTIONS']._serialized_end=2621
+  _globals['_KEEPEXISTINGKINDVERSION']._serialized_start=2623
+  _globals['_KEEPEXISTINGKINDVERSION']._serialized_end=2648
+  _globals['_LATESTKINDVERSION']._serialized_start=2650
+  _globals['_LATESTKINDVERSION']._serialized_end=2669
+  _globals['_EXPLICITKINDVERSION']._serialized_start=2671
+  _globals['_EXPLICITKINDVERSION']._serialized_end=2714
+  _globals['_STATICGLOBALCONFIGURATIONUPDATEOPTIONS']._serialized_start=2717
+  _globals['_STATICGLOBALCONFIGURATIONUPDATEOPTIONS']._serialized_end=3015
+  _globals['_KEEPEXISTINGSTATICGLOBALCONFIGURATION']._serialized_start=3017
+  _globals['_KEEPEXISTINGSTATICGLOBALCONFIGURATION']._serialized_end=3056
+  _globals['_REFRESHSTATICGLOBALCONFIGURATION']._serialized_start=3058
+  _globals['_REFRESHSTATICGLOBALCONFIGURATION']._serialized_end=3092
 # @@protoc_insertion_point(module_scope)

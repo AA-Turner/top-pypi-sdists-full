@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,93 +16,29 @@ from _qwak_proto.qwak.ecosystem.jfrog.v0 import token_pb2 as qwak_dot_ecosystem_
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+qwak/ecosystem/jfrog/v0/token_service.proto\x12\x1dqwak.ecosystem.jfrog.token.v0\x1a#qwak/ecosystem/jfrog/v0/token.proto\"Y\n\x14GenerateTokenRequest\x12\x41\n\ntoken_spec\x18\x01 \x01(\x0b\x32-.qwak.ecosystem.jfrog.token.v0.JFrogTokenSpec\"Q\n\x15GenerateTokenResponse\x12\x38\n\x05token\x18\x01 \x01(\x0b\x32).qwak.ecosystem.jfrog.token.v0.JFrogToken\"|\n(GenerateArtifactoryImagePullTokenRequest\x12P\n\ntoken_spec\x18\x01 \x01(\x0b\x32<.qwak.ecosystem.jfrog.token.v0.ArtifactoryImagePullTokenSpec\"e\n)GenerateArtifactoryImagePullTokenResponse\x12\x38\n\x05token\x18\x01 \x01(\x0b\x32).qwak.ecosystem.jfrog.token.v0.JFrogToken\"`\n\x19PersistTokenClaimsRequest\x12\x43\n\x04spec\x18\x01 \x01(\x0b\x32\x35.qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsSpec\".\n\x1aPersistTokenClaimsResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t\"d\n\x12RevokeTokenRequest\x12N\n\x11token_revoke_spec\x18\x01 \x01(\x0b\x32\x33.qwak.ecosystem.jfrog.token.v0.JFrogTokenRevokeSpec\"\x1c\n\x1aRevokeTokenRequestResponse2\xcc\x04\n\x0cTokenService\x12z\n\rGenerateToken\x12\x33.qwak.ecosystem.jfrog.token.v0.GenerateTokenRequest\x1a\x34.qwak.ecosystem.jfrog.token.v0.GenerateTokenResponse\x12\xb6\x01\n!GenerateArtifactoryImagePullToken\x12G.qwak.ecosystem.jfrog.token.v0.GenerateArtifactoryImagePullTokenRequest\x1aH.qwak.ecosystem.jfrog.token.v0.GenerateArtifactoryImagePullTokenResponse\x12\x89\x01\n\x12PersistTokenClaims\x12\x38.qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsRequest\x1a\x39.qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsResponse\x12{\n\x0bRevokeToken\x12\x31.qwak.ecosystem.jfrog.token.v0.RevokeTokenRequest\x1a\x39.qwak.ecosystem.jfrog.token.v0.RevokeTokenRequestResponseB\xb7\x01\n\x1a\x63om.qwak.ai.jfrog.token.v0P\x01Z\x96\x01github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/jfrog/v0;jfrog_v0b\x06proto3')
 
-
-
-_GENERATETOKENREQUEST = DESCRIPTOR.message_types_by_name['GenerateTokenRequest']
-_GENERATETOKENRESPONSE = DESCRIPTOR.message_types_by_name['GenerateTokenResponse']
-_GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST = DESCRIPTOR.message_types_by_name['GenerateArtifactoryImagePullTokenRequest']
-_GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE = DESCRIPTOR.message_types_by_name['GenerateArtifactoryImagePullTokenResponse']
-_PERSISTTOKENCLAIMSREQUEST = DESCRIPTOR.message_types_by_name['PersistTokenClaimsRequest']
-_PERSISTTOKENCLAIMSRESPONSE = DESCRIPTOR.message_types_by_name['PersistTokenClaimsResponse']
-_REVOKETOKENREQUEST = DESCRIPTOR.message_types_by_name['RevokeTokenRequest']
-_REVOKETOKENREQUESTRESPONSE = DESCRIPTOR.message_types_by_name['RevokeTokenRequestResponse']
-GenerateTokenRequest = _reflection.GeneratedProtocolMessageType('GenerateTokenRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GENERATETOKENREQUEST,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.GenerateTokenRequest)
-  })
-_sym_db.RegisterMessage(GenerateTokenRequest)
-
-GenerateTokenResponse = _reflection.GeneratedProtocolMessageType('GenerateTokenResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GENERATETOKENRESPONSE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.GenerateTokenResponse)
-  })
-_sym_db.RegisterMessage(GenerateTokenResponse)
-
-GenerateArtifactoryImagePullTokenRequest = _reflection.GeneratedProtocolMessageType('GenerateArtifactoryImagePullTokenRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.GenerateArtifactoryImagePullTokenRequest)
-  })
-_sym_db.RegisterMessage(GenerateArtifactoryImagePullTokenRequest)
-
-GenerateArtifactoryImagePullTokenResponse = _reflection.GeneratedProtocolMessageType('GenerateArtifactoryImagePullTokenResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.GenerateArtifactoryImagePullTokenResponse)
-  })
-_sym_db.RegisterMessage(GenerateArtifactoryImagePullTokenResponse)
-
-PersistTokenClaimsRequest = _reflection.GeneratedProtocolMessageType('PersistTokenClaimsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _PERSISTTOKENCLAIMSREQUEST,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsRequest)
-  })
-_sym_db.RegisterMessage(PersistTokenClaimsRequest)
-
-PersistTokenClaimsResponse = _reflection.GeneratedProtocolMessageType('PersistTokenClaimsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _PERSISTTOKENCLAIMSRESPONSE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsResponse)
-  })
-_sym_db.RegisterMessage(PersistTokenClaimsResponse)
-
-RevokeTokenRequest = _reflection.GeneratedProtocolMessageType('RevokeTokenRequest', (_message.Message,), {
-  'DESCRIPTOR' : _REVOKETOKENREQUEST,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.RevokeTokenRequest)
-  })
-_sym_db.RegisterMessage(RevokeTokenRequest)
-
-RevokeTokenRequestResponse = _reflection.GeneratedProtocolMessageType('RevokeTokenRequestResponse', (_message.Message,), {
-  'DESCRIPTOR' : _REVOKETOKENREQUESTRESPONSE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.RevokeTokenRequestResponse)
-  })
-_sym_db.RegisterMessage(RevokeTokenRequestResponse)
-
-_TOKENSERVICE = DESCRIPTOR.services_by_name['TokenService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.ecosystem.jfrog.v0.token_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\032com.qwak.ai.jfrog.token.v0P\001Z\226\001github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/jfrog/v0;jfrog_v0'
-  _GENERATETOKENREQUEST._serialized_start=115
-  _GENERATETOKENREQUEST._serialized_end=204
-  _GENERATETOKENRESPONSE._serialized_start=206
-  _GENERATETOKENRESPONSE._serialized_end=287
-  _GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST._serialized_start=289
-  _GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST._serialized_end=413
-  _GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE._serialized_start=415
-  _GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE._serialized_end=516
-  _PERSISTTOKENCLAIMSREQUEST._serialized_start=518
-  _PERSISTTOKENCLAIMSREQUEST._serialized_end=614
-  _PERSISTTOKENCLAIMSRESPONSE._serialized_start=616
-  _PERSISTTOKENCLAIMSRESPONSE._serialized_end=662
-  _REVOKETOKENREQUEST._serialized_start=664
-  _REVOKETOKENREQUEST._serialized_end=764
-  _REVOKETOKENREQUESTRESPONSE._serialized_start=766
-  _REVOKETOKENREQUESTRESPONSE._serialized_end=794
-  _TOKENSERVICE._serialized_start=797
-  _TOKENSERVICE._serialized_end=1385
+  _globals['_GENERATETOKENREQUEST']._serialized_start=115
+  _globals['_GENERATETOKENREQUEST']._serialized_end=204
+  _globals['_GENERATETOKENRESPONSE']._serialized_start=206
+  _globals['_GENERATETOKENRESPONSE']._serialized_end=287
+  _globals['_GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST']._serialized_start=289
+  _globals['_GENERATEARTIFACTORYIMAGEPULLTOKENREQUEST']._serialized_end=413
+  _globals['_GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE']._serialized_start=415
+  _globals['_GENERATEARTIFACTORYIMAGEPULLTOKENRESPONSE']._serialized_end=516
+  _globals['_PERSISTTOKENCLAIMSREQUEST']._serialized_start=518
+  _globals['_PERSISTTOKENCLAIMSREQUEST']._serialized_end=614
+  _globals['_PERSISTTOKENCLAIMSRESPONSE']._serialized_start=616
+  _globals['_PERSISTTOKENCLAIMSRESPONSE']._serialized_end=662
+  _globals['_REVOKETOKENREQUEST']._serialized_start=664
+  _globals['_REVOKETOKENREQUEST']._serialized_end=764
+  _globals['_REVOKETOKENREQUESTRESPONSE']._serialized_start=766
+  _globals['_REVOKETOKENREQUESTRESPONSE']._serialized_end=794
+  _globals['_TOKENSERVICE']._serialized_start=797
+  _globals['_TOKENSERVICE']._serialized_end=1385
 # @@protoc_insertion_point(module_scope)

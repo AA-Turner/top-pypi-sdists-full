@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blacksheep
-Version: 2.3.2
+Version: 2.4.0
 Summary: Fast web framework for Python asyncio
 Author-email: Roberto Prevato <roberto.prevato@gmail.com>
 License: MIT License
@@ -41,7 +41,6 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi>=2025.4.26
-Requires-Dist: charset-normalizer~=3.4.2
 Requires-Dist: guardpost>=1.0.2
 Requires-Dist: rodi~=2.0.8
 Requires-Dist: essentials<2.0,>=1.1.4

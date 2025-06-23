@@ -1,20 +1,15 @@
-# projects/conway.py
+# file: projects/conway.py
 
-# Conway's Game of Life with board state saved to disk
 import os
 import random
 import html
+from datetime import datetime
 
 from gway import gw
+from bottle import response, redirect
 
-BOARD_SIZE = 64
-BOARD_PATH = None
-
-
-def _ensure_board_path():
-    global BOARD_PATH
-    if not BOARD_PATH:
-        BOARD_PATH = gw.resource('work', 'conway.txt', touch=True)
+BOARD_SIZE = 54
+BOARD_FILE = gw.resource("work", "conway.txt", touch=True)
 
 def _new_board(size=BOARD_SIZE, fill=0):
     return [[fill for _ in range(size)] for _ in range(size)]
@@ -22,32 +17,41 @@ def _new_board(size=BOARD_SIZE, fill=0):
 def _random_board(size=BOARD_SIZE):
     return [[random.choice([0, 1]) for _ in range(size)] for _ in range(size)]
 
+def _serialize_board(board):
+    return "\n".join(",".join(str(cell) for cell in row) for row in board)
+
+def _deserialize_board(s):
+    return [[int(cell) for cell in row.split(",")] for row in s.strip().splitlines()]
+
 def load_board():
     """Load the board from disk, or create one if missing."""
-    _ensure_board_path()
-    if not BOARD_PATH.exists():
+    if not os.path.exists(BOARD_FILE):
         board = _random_board()
         save_board(board)
         return board
-    with open(BOARD_PATH, "r", encoding="utf-8") as f:
-        lines = f.read().strip().splitlines()
-    try:
-        return [[int(cell) for cell in row.split(",")] for row in lines]
-    except Exception:
-        # If the board file is corrupted, create a new one
-        board = _random_board()
-        save_board(board)
-        return board
+    with open(BOARD_FILE, "r", encoding="utf-8") as f:
+        try:
+            return _deserialize_board(f.read())
+        except Exception:
+            board = _random_board()
+            save_board(board)
+            return board
 
 def save_board(board):
     """Save the board to disk as CSV rows."""
-    _ensure_board_path()
-    with open(BOARD_PATH, "w", encoding="utf-8") as f:
-        for row in board:
-            f.write(",".join(str(cell) for cell in row) + "\n")
+    with open(BOARD_FILE, "w", encoding="utf-8") as f:
+        f.write(_serialize_board(board))
+
+def is_board_empty(board):
+    return all(cell == 0 for row in board for cell in row)
+
+def is_board_full(board):
+    return all(cell == 1 for row in board for cell in row)
+
+def flip_board(board):
+    return [[1 - cell for cell in row] for row in board]
 
 def next_generation(board):
-    """Compute the next Game of Life generation."""
     size = len(board)
     def neighbors(r, c):
         return sum(
@@ -61,43 +65,57 @@ def next_generation(board):
         for r,row in enumerate(board)
     ]
 
-# TODO: Fix Failed to parse board! on initial load only
+def view_download_board():
+    """Download the current board as a text file."""
+    board = load_board()
+    text = _serialize_board(board)
+    response.content_type = 'text/plain'
+    response.headers['Content-Disposition'] = 'attachment; filename="conway.txt"'
+    return text
 
-def view_readme():
-    return "Welcome to Conway's Game of Life!"
-
-def view_game_of_life(*args, action=None, board=None, **kwargs):
-    """
-    Render the Conway's Game of Life UI.
-    - action: new, random, step, clear, toggle
-    - board: CSV text (flattened)
-    """
+def view_game_of_life(
+    *args,
+    action=None,
+    board=None,
+    toggle_x=None,
+    toggle_y=None,
+    **kwargs
+):
+    # 1. Load the current board
     msg = ""
     current_board = load_board()
 
-    # Parse incoming board if present (from hidden form field)
+    # 2. Handle form board (from hidden input)
     if board:
-        if isinstance(board, str):
-            try:
-                new_board = [
-                    [int(cell) for cell in row.split(",")]
-                    for row in board.strip().split(";")
-                ]
-                current_board = new_board
-            except Exception:
-                msg = "Failed to parse board!"
+        try:
+            new_board = [
+                [int(cell) for cell in row.split(",")]
+                for row in board.strip().split(";")
+            ]
+            current_board = new_board
+        except Exception:
+            msg = "Failed to parse board!"
 
+    # 3. Action handlers
     if action == "random":
         current_board = _random_board()
     elif action == "clear":
         current_board = _new_board()
-    elif action == "new":
-        current_board = _new_board()
     elif action == "step":
         current_board = next_generation(current_board)
+    elif action == "toggle":
+        x = int(toggle_x) if toggle_x is not None else -1
+        y = int(toggle_y) if toggle_y is not None else -1
+        if 0 <= x < BOARD_SIZE and 0 <= y < BOARD_SIZE:
+            current_board[x][y] = 0 if current_board[x][y] else 1
+        save_board(current_board)
+        return redirect("/conway/game-of-life")  # POST-redirect-GET
 
-    save_board(current_board)
+    # 4. Always save board for step/random/clear (toggle already saved above)
+    if action in ("step", "random", "clear"):
+        save_board(current_board)
 
+    # 5. Prepare HTML board
     html_board = ""
     for x, row in enumerate(current_board):
         row_html = "".join(
@@ -106,66 +124,34 @@ def view_game_of_life(*args, action=None, board=None, **kwargs):
         )
         html_board += f"<tr>{row_html}</tr>"
 
-    # Flatten board for form POST
     flat_board = ";".join(",".join(str(cell) for cell in row) for row in current_board)
 
-    # Responsive CSS (supports light/dark backgrounds)
-    css = """
-    <style>
-    :root {
-      --cell-off-light: #fafafa;
-      --cell-on-light: #222;
-      --cell-border-light: #aaa;
-      --cell-off-dark: #181818;
-      --cell-on-dark: #fafafa;
-      --cell-border-dark: #444;
-    }
-    @media (prefers-color-scheme: dark) {
-      .game-board td.cell-0 { background: var(--cell-off-dark); border: 1px solid var(--cell-border-dark); }
-      .game-board td.cell-1 { background: var(--cell-on-dark); border: 1px solid var(--cell-border-dark); }
-    }
-    @media (prefers-color-scheme: light), (prefers-color-scheme: no-preference) {
-      .game-board td.cell-0 { background: var(--cell-off-light); border: 1px solid var(--cell-border-light); }
-      .game-board td.cell-1 { background: var(--cell-on-light); border: 1px solid var(--cell-border-light); }
-    }
-    .game-board { border-collapse: collapse; margin-top: 1em;}
-    .game-board td { width: 18px; height: 18px; cursor: pointer; transition: background 0.1s;}
-    .game-board td { box-sizing: border-box; }
-    @media (max-width: 700px) {
-      .game-board td { width: 10px; height: 10px;}
-    }
-    </style>
-    """
+    # 6. Get last modified date of board file
+    last_mod = None
+    if os.path.exists(BOARD_FILE):
+        last_mod = datetime.fromtimestamp(os.path.getmtime(BOARD_FILE)).strftime("%Y-%m-%d %H:%M:%S")
 
-    # Basic HTML UI with JS for cell toggle
+    ICONS = {
+        "step": '<svg viewBox="0 0 20 20"><polyline points="5,3 15,10 5,17" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+        "random": '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>',
+        "clear": '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"/><line x1="6" y1="6" x2="14" y2="14" stroke="currentColor" stroke-width="2"/><line x1="14" y1="6" x2="6" y2="14" stroke="currentColor" stroke-width="2"/></svg>',
+        "download": '<svg viewBox="0 0 20 20"><path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    }
+
     return f"""
-    {css}
     <h1>Conway's Game of Life</h1>
     <div>
-        <form id="lifeform" method="post">
+        <form id="lifeform" method="post" class="game-actions" autocomplete="off" style="margin-bottom:8px;">
             <input type="hidden" name="board" id="boarddata" value="{html.escape(flat_board)}" />
-            <button type="submit" name="action" value="step">Step</button>
-            <button type="submit" name="action" value="random">Random</button>
-            <button type="submit" name="action" value="clear">Clear</button>
+            <button type="submit" name="action" value="step">{ICONS['step']} Step Forward</button>
+            <button type="submit" name="action" value="random">{ICONS['random']} Random</button>
+            <button type="submit" name="action" value="clear">{ICONS['clear']} Clear</button>
+            <a href="/web/conway/download" download class="button">{ICONS['download']} Download</a>
         </form>
-        <p>{html.escape(msg)}</p>
+        <p style="color:#aa2222">{html.escape(msg)}</p>
         <table id="gameboard" class="game-board">{html_board}</table>
+        <div style="margin-top:0.8em;color:#888;font-size:0.96em">
+            Last updated: {last_mod or "Never"}
+        </div>
     </div>
-    <script>
-    // Allow clicking cells to toggle state, send to backend
-    document.querySelectorAll('.cell').forEach(cell => {{
-        cell.onclick = function() {{
-            const x = +this.getAttribute('data-x');
-            const y = +this.getAttribute('data-y');
-            const rows = Array.from(document.querySelectorAll('.game-board tr')).map(
-                tr => Array.from(tr.querySelectorAll('.cell')).map(td => td.classList.contains('cell-1') ? 1 : 0)
-            );
-            rows[x][y] = rows[x][y] ? 0 : 1;
-            const flat = rows.map(r => r.join(',')).join(';');
-            document.getElementById('boarddata').value = flat;
-            document.getElementById('lifeform').submit();
-        }};
-    }});
-    </script>
     """
-

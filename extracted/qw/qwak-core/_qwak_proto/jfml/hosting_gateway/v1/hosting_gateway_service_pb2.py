@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,33 +16,17 @@ from jfml.hosting_gateway.v1 import build_upload_url_pb2 as jfml_dot_hosting__ga
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5jfml/hosting_gateway/v1/hosting_gateway_service.proto\x12\x17jfml.hosting_gateway.v1\x1a.jfml/hosting_gateway/v1/build_upload_url.proto\"g\n\"GetBuildVersioningUploadURLRequest\x12\x41\n\x06params\x18\x01 \x01(\x0b\x32\x31.jfml.hosting_gateway.v1.BuildUploadUrlParameters\"9\n#GetBuildVersioningUploadURLResponse\x12\x12\n\nupload_url\x18\x01 \x01(\t2\xb2\x01\n\x15HostingGatewayService\x12\x98\x01\n\x1bGetBuildVersioningUploadURL\x12;.jfml.hosting_gateway.v1.GetBuildVersioningUploadURLRequest\x1a<.jfml.hosting_gateway.v1.GetBuildVersioningUploadURLResponseB\'\n#com.jfrog.ml.hosting_gateway.api.v1P\x01\x62\x06proto3')
 
-
-
-_GETBUILDVERSIONINGUPLOADURLREQUEST = DESCRIPTOR.message_types_by_name['GetBuildVersioningUploadURLRequest']
-_GETBUILDVERSIONINGUPLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['GetBuildVersioningUploadURLResponse']
-GetBuildVersioningUploadURLRequest = _reflection.GeneratedProtocolMessageType('GetBuildVersioningUploadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDVERSIONINGUPLOADURLREQUEST,
-  '__module__' : 'jfml.hosting_gateway.v1.hosting_gateway_service_pb2'
-  # @@protoc_insertion_point(class_scope:jfml.hosting_gateway.v1.GetBuildVersioningUploadURLRequest)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningUploadURLRequest)
-
-GetBuildVersioningUploadURLResponse = _reflection.GeneratedProtocolMessageType('GetBuildVersioningUploadURLResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDVERSIONINGUPLOADURLRESPONSE,
-  '__module__' : 'jfml.hosting_gateway.v1.hosting_gateway_service_pb2'
-  # @@protoc_insertion_point(class_scope:jfml.hosting_gateway.v1.GetBuildVersioningUploadURLResponse)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningUploadURLResponse)
-
-_HOSTINGGATEWAYSERVICE = DESCRIPTOR.services_by_name['HostingGatewayService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'jfml.hosting_gateway.v1.hosting_gateway_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.jfrog.ml.hosting_gateway.api.v1P\001'
-  _GETBUILDVERSIONINGUPLOADURLREQUEST._serialized_start=130
-  _GETBUILDVERSIONINGUPLOADURLREQUEST._serialized_end=233
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE._serialized_start=235
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE._serialized_end=292
-  _HOSTINGGATEWAYSERVICE._serialized_start=295
-  _HOSTINGGATEWAYSERVICE._serialized_end=473
+  _globals['_GETBUILDVERSIONINGUPLOADURLREQUEST']._serialized_start=130
+  _globals['_GETBUILDVERSIONINGUPLOADURLREQUEST']._serialized_end=233
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE']._serialized_start=235
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE']._serialized_end=292
+  _globals['_HOSTINGGATEWAYSERVICE']._serialized_start=295
+  _globals['_HOSTINGGATEWAYSERVICE']._serialized_end=473
 # @@protoc_insertion_point(module_scope)

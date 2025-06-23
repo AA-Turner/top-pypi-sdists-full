@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,93 +17,29 @@ from _qwak_proto.qwak.self_service.account.v0 import managing_account_pb2 as qwa
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;qwak/self_service/account/v0/managing_account_service.proto\x12\x1cqwak.self_service.account.v0\x1a\x31qwak/self_service/account/v0/account_status.proto\x1a\x33qwak/self_service/account/v0/managing_account.proto\"j\n#CreateAccountCreationRequestRequest\x12\x43\n\x07options\x18\x01 \x01(\x0b\x32\x32.qwak.self_service.account.v0.CreateAccountOptions\"z\n$CreateAccountCreationRequestResponse\x12R\n\x0b\x64\x65scription\x18\x01 \x01(\x0b\x32=.qwak.self_service.account.v0.CreateAccountRequestDescription\"l\n%ValidateAccountCreationRequestRequest\x12\x43\n\x07options\x18\x01 \x01(\x0b\x32\x32.qwak.self_service.account.v0.CreateAccountOptions\"C\n&ValidateAccountCreationRequestResponse\x12\x19\n\x11\x65rror_description\x18\x01 \x03(\t\"\x19\n\x17GetAccountStatusRequest\"W\n\x18GetAccountStatusResponse\x12;\n\x06status\x18\x01 \x01(\x0b\x32+.qwak.self_service.account.v0.AccountStatus\")\n\'GetCloudProviderSupportedRegionsRequest\"y\n(GetCloudProviderSupportedRegionsResponse\x12M\n\x11supported_regions\x18\x01 \x03(\x0b\x32\x32.qwak.self_service.account.v0.CloudProviderRegions2\xa6\x05\n\x16ManagingAccountService\x12\xa5\x01\n\x1c\x43reateAccountCreationRequest\x12\x41.qwak.self_service.account.v0.CreateAccountCreationRequestRequest\x1a\x42.qwak.self_service.account.v0.CreateAccountCreationRequestResponse\x12\xab\x01\n\x1eValidateAccountCreationRequest\x12\x43.qwak.self_service.account.v0.ValidateAccountCreationRequestRequest\x1a\x44.qwak.self_service.account.v0.ValidateAccountCreationRequestResponse\x12\x81\x01\n\x10GetAccountStatus\x12\x35.qwak.self_service.account.v0.GetAccountStatusRequest\x1a\x36.qwak.self_service.account.v0.GetAccountStatusResponse\x12\xb1\x01\n GetCloudProviderSupportedRegions\x12\x45.qwak.self_service.account.v0.GetCloudProviderSupportedRegionsRequest\x1a\x46.qwak.self_service.account.v0.GetCloudProviderSupportedRegionsResponseB\xb9\x01\n#com.qwak.ai.self_service.account.v0P\x01Z\x8f\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0b\x06proto3')
 
-
-
-_CREATEACCOUNTCREATIONREQUESTREQUEST = DESCRIPTOR.message_types_by_name['CreateAccountCreationRequestRequest']
-_CREATEACCOUNTCREATIONREQUESTRESPONSE = DESCRIPTOR.message_types_by_name['CreateAccountCreationRequestResponse']
-_VALIDATEACCOUNTCREATIONREQUESTREQUEST = DESCRIPTOR.message_types_by_name['ValidateAccountCreationRequestRequest']
-_VALIDATEACCOUNTCREATIONREQUESTRESPONSE = DESCRIPTOR.message_types_by_name['ValidateAccountCreationRequestResponse']
-_GETACCOUNTSTATUSREQUEST = DESCRIPTOR.message_types_by_name['GetAccountStatusRequest']
-_GETACCOUNTSTATUSRESPONSE = DESCRIPTOR.message_types_by_name['GetAccountStatusResponse']
-_GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST = DESCRIPTOR.message_types_by_name['GetCloudProviderSupportedRegionsRequest']
-_GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE = DESCRIPTOR.message_types_by_name['GetCloudProviderSupportedRegionsResponse']
-CreateAccountCreationRequestRequest = _reflection.GeneratedProtocolMessageType('CreateAccountCreationRequestRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEACCOUNTCREATIONREQUESTREQUEST,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.CreateAccountCreationRequestRequest)
-  })
-_sym_db.RegisterMessage(CreateAccountCreationRequestRequest)
-
-CreateAccountCreationRequestResponse = _reflection.GeneratedProtocolMessageType('CreateAccountCreationRequestResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEACCOUNTCREATIONREQUESTRESPONSE,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.CreateAccountCreationRequestResponse)
-  })
-_sym_db.RegisterMessage(CreateAccountCreationRequestResponse)
-
-ValidateAccountCreationRequestRequest = _reflection.GeneratedProtocolMessageType('ValidateAccountCreationRequestRequest', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEACCOUNTCREATIONREQUESTREQUEST,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.ValidateAccountCreationRequestRequest)
-  })
-_sym_db.RegisterMessage(ValidateAccountCreationRequestRequest)
-
-ValidateAccountCreationRequestResponse = _reflection.GeneratedProtocolMessageType('ValidateAccountCreationRequestResponse', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEACCOUNTCREATIONREQUESTRESPONSE,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.ValidateAccountCreationRequestResponse)
-  })
-_sym_db.RegisterMessage(ValidateAccountCreationRequestResponse)
-
-GetAccountStatusRequest = _reflection.GeneratedProtocolMessageType('GetAccountStatusRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTSTATUSREQUEST,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.GetAccountStatusRequest)
-  })
-_sym_db.RegisterMessage(GetAccountStatusRequest)
-
-GetAccountStatusResponse = _reflection.GeneratedProtocolMessageType('GetAccountStatusResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTSTATUSRESPONSE,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.GetAccountStatusResponse)
-  })
-_sym_db.RegisterMessage(GetAccountStatusResponse)
-
-GetCloudProviderSupportedRegionsRequest = _reflection.GeneratedProtocolMessageType('GetCloudProviderSupportedRegionsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.GetCloudProviderSupportedRegionsRequest)
-  })
-_sym_db.RegisterMessage(GetCloudProviderSupportedRegionsRequest)
-
-GetCloudProviderSupportedRegionsResponse = _reflection.GeneratedProtocolMessageType('GetCloudProviderSupportedRegionsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE,
-  '__module__' : 'qwak.self_service.account.v0.managing_account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.GetCloudProviderSupportedRegionsResponse)
-  })
-_sym_db.RegisterMessage(GetCloudProviderSupportedRegionsResponse)
-
-_MANAGINGACCOUNTSERVICE = DESCRIPTOR.services_by_name['ManagingAccountService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.self_service.account.v0.managing_account_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.self_service.account.v0P\001Z\217\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0'
-  _CREATEACCOUNTCREATIONREQUESTREQUEST._serialized_start=197
-  _CREATEACCOUNTCREATIONREQUESTREQUEST._serialized_end=303
-  _CREATEACCOUNTCREATIONREQUESTRESPONSE._serialized_start=305
-  _CREATEACCOUNTCREATIONREQUESTRESPONSE._serialized_end=427
-  _VALIDATEACCOUNTCREATIONREQUESTREQUEST._serialized_start=429
-  _VALIDATEACCOUNTCREATIONREQUESTREQUEST._serialized_end=537
-  _VALIDATEACCOUNTCREATIONREQUESTRESPONSE._serialized_start=539
-  _VALIDATEACCOUNTCREATIONREQUESTRESPONSE._serialized_end=606
-  _GETACCOUNTSTATUSREQUEST._serialized_start=608
-  _GETACCOUNTSTATUSREQUEST._serialized_end=633
-  _GETACCOUNTSTATUSRESPONSE._serialized_start=635
-  _GETACCOUNTSTATUSRESPONSE._serialized_end=722
-  _GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST._serialized_start=724
-  _GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST._serialized_end=765
-  _GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE._serialized_start=767
-  _GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE._serialized_end=888
-  _MANAGINGACCOUNTSERVICE._serialized_start=891
-  _MANAGINGACCOUNTSERVICE._serialized_end=1569
+  _globals['_CREATEACCOUNTCREATIONREQUESTREQUEST']._serialized_start=197
+  _globals['_CREATEACCOUNTCREATIONREQUESTREQUEST']._serialized_end=303
+  _globals['_CREATEACCOUNTCREATIONREQUESTRESPONSE']._serialized_start=305
+  _globals['_CREATEACCOUNTCREATIONREQUESTRESPONSE']._serialized_end=427
+  _globals['_VALIDATEACCOUNTCREATIONREQUESTREQUEST']._serialized_start=429
+  _globals['_VALIDATEACCOUNTCREATIONREQUESTREQUEST']._serialized_end=537
+  _globals['_VALIDATEACCOUNTCREATIONREQUESTRESPONSE']._serialized_start=539
+  _globals['_VALIDATEACCOUNTCREATIONREQUESTRESPONSE']._serialized_end=606
+  _globals['_GETACCOUNTSTATUSREQUEST']._serialized_start=608
+  _globals['_GETACCOUNTSTATUSREQUEST']._serialized_end=633
+  _globals['_GETACCOUNTSTATUSRESPONSE']._serialized_start=635
+  _globals['_GETACCOUNTSTATUSRESPONSE']._serialized_end=722
+  _globals['_GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST']._serialized_start=724
+  _globals['_GETCLOUDPROVIDERSUPPORTEDREGIONSREQUEST']._serialized_end=765
+  _globals['_GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE']._serialized_start=767
+  _globals['_GETCLOUDPROVIDERSUPPORTEDREGIONSRESPONSE']._serialized_end=888
+  _globals['_MANAGINGACCOUNTSERVICE']._serialized_start=891
+  _globals['_MANAGINGACCOUNTSERVICE']._serialized_end=1569
 # @@protoc_insertion_point(module_scope)

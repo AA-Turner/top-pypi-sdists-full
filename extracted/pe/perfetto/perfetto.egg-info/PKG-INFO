@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: perfetto
-Version: 0.13.0
+Version: 0.13.1
 Summary: Python APIs and bindings for Perfetto (perfetto.dev)
 Home-page: https://perfetto.dev/
 Download-URL: https://github.com/google/perfetto/archive/aeddce7011258bffbb8a870923202db97c34e655.zip

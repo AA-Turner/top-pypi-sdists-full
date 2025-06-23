@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,60 +16,21 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.creds import secre
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nAqwak/administration/runtime_configuration/v0/hosting_config.proto\x12;qwak.administration.runtime_configuration.v0.hosting_config\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\"\x8e\x02\n\x14HostingConfiguration\x12v\n\x16\x61ws_host_configuration\x18\x01 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.AWSHostingConfigurationH\x00\x12v\n\x16gcp_host_configuration\x18\x02 \x01(\x0b\x32T.qwak.administration.runtime_configuration.v0.hosting_config.GCPHostingConfigurationH\x00\x42\x06\n\x04type\"\xa0\x01\n\x17\x41WSHostingConfiguration\x12m\n\x13iam_service_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccountH\x00\x12\x0e\n\x06region\x18\x02 \x01(\tB\x06\n\x04\x61uth\"\xb8\x01\n\x17GCPHostingConfiguration\x12q\n\x13gcp_service_account\x18\x01 \x01(\x0b\x32R.qwak.administration.runtime_configuration.v0.hosting_config.GCPServiceAccountAuthH\x00\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x12\n\nproject_id\x18\x03 \x01(\tB\x06\n\x04\x61uth\"\xe7\x01\n\x15GCPServiceAccountAuth\x12g\n\x0fservice_account\x18\x01 \x01(\x0b\x32N.qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccount\x12\x65\n\x14service_account_json\x18\x02 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRef\"&\n\x11IAMServiceAccount\x12\x11\n\trole_name\x18\x01 \x01(\tB\xdb\x01\n4com.jfrog.ml.runtime_configuration.v0.hosting_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_HOSTINGCONFIGURATION = DESCRIPTOR.message_types_by_name['HostingConfiguration']
-_AWSHOSTINGCONFIGURATION = DESCRIPTOR.message_types_by_name['AWSHostingConfiguration']
-_GCPHOSTINGCONFIGURATION = DESCRIPTOR.message_types_by_name['GCPHostingConfiguration']
-_GCPSERVICEACCOUNTAUTH = DESCRIPTOR.message_types_by_name['GCPServiceAccountAuth']
-_IAMSERVICEACCOUNT = DESCRIPTOR.message_types_by_name['IAMServiceAccount']
-HostingConfiguration = _reflection.GeneratedProtocolMessageType('HostingConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _HOSTINGCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.hosting_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.hosting_config.HostingConfiguration)
-  })
-_sym_db.RegisterMessage(HostingConfiguration)
-
-AWSHostingConfiguration = _reflection.GeneratedProtocolMessageType('AWSHostingConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _AWSHOSTINGCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.hosting_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.hosting_config.AWSHostingConfiguration)
-  })
-_sym_db.RegisterMessage(AWSHostingConfiguration)
-
-GCPHostingConfiguration = _reflection.GeneratedProtocolMessageType('GCPHostingConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _GCPHOSTINGCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.hosting_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.hosting_config.GCPHostingConfiguration)
-  })
-_sym_db.RegisterMessage(GCPHostingConfiguration)
-
-GCPServiceAccountAuth = _reflection.GeneratedProtocolMessageType('GCPServiceAccountAuth', (_message.Message,), {
-  'DESCRIPTOR' : _GCPSERVICEACCOUNTAUTH,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.hosting_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.hosting_config.GCPServiceAccountAuth)
-  })
-_sym_db.RegisterMessage(GCPServiceAccountAuth)
-
-IAMServiceAccount = _reflection.GeneratedProtocolMessageType('IAMServiceAccount', (_message.Message,), {
-  'DESCRIPTOR' : _IAMSERVICEACCOUNT,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.hosting_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.hosting_config.IAMServiceAccount)
-  })
-_sym_db.RegisterMessage(IAMServiceAccount)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.hosting_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n4com.jfrog.ml.runtime_configuration.v0.hosting_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _HOSTINGCONFIGURATION._serialized_start=196
-  _HOSTINGCONFIGURATION._serialized_end=466
-  _AWSHOSTINGCONFIGURATION._serialized_start=469
-  _AWSHOSTINGCONFIGURATION._serialized_end=629
-  _GCPHOSTINGCONFIGURATION._serialized_start=632
-  _GCPHOSTINGCONFIGURATION._serialized_end=816
-  _GCPSERVICEACCOUNTAUTH._serialized_start=819
-  _GCPSERVICEACCOUNTAUTH._serialized_end=1050
-  _IAMSERVICEACCOUNT._serialized_start=1052
-  _IAMSERVICEACCOUNT._serialized_end=1090
+  _globals['_HOSTINGCONFIGURATION']._serialized_start=196
+  _globals['_HOSTINGCONFIGURATION']._serialized_end=466
+  _globals['_AWSHOSTINGCONFIGURATION']._serialized_start=469
+  _globals['_AWSHOSTINGCONFIGURATION']._serialized_end=629
+  _globals['_GCPHOSTINGCONFIGURATION']._serialized_start=632
+  _globals['_GCPHOSTINGCONFIGURATION']._serialized_end=816
+  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_start=819
+  _globals['_GCPSERVICEACCOUNTAUTH']._serialized_end=1050
+  _globals['_IAMSERVICEACCOUNT']._serialized_start=1052
+  _globals['_IAMSERVICEACCOUNT']._serialized_end=1090
 # @@protoc_insertion_point(module_scope)

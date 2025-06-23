@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,220 +17,53 @@ from _qwak_proto.qwak.model_descriptor import open_ai_descriptor_pb2 as qwak_dot
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/prompt/v1/prompt/prompt.proto\x12\x15qwak.prompt.v1.prompt\x1a\x1fgoogle/protobuf/timestamp.proto\x1a.qwak/model_descriptor/open_ai_descriptor.proto\"\xdb\x01\n\x06Prompt\x12\x0c\n\x04name\x18\x01 \x01(\t\x12R\n\x1a\x64\x65\x66\x61ult_version_definition\x18\x02 \x01(\x0b\x32..qwak.prompt.v1.prompt.PromptVersionDefinition\x12\x37\n\x08metadata\x18\x03 \x01(\x0b\x32%.qwak.prompt.v1.prompt.PromptMetadata\x12\x36\n\x0bprompt_spec\x18\x04 \x01(\x0b\x32!.qwak.prompt.v1.prompt.PromptSpec\"w\n\rPromptVersion\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12Q\n\x19prompt_version_definition\x18\x02 \x01(\x0b\x32..qwak.prompt.v1.prompt.PromptVersionDefinition\"\xb9\x01\n\x17PromptVersionDefinition\x12\x16\n\x0eversion_number\x18\x01 \x01(\x05\x12>\n\x0cversion_spec\x18\x02 \x01(\x0b\x32(.qwak.prompt.v1.prompt.PromptVersionSpec\x12\x46\n\x10version_metadata\x18\x03 \x01(\x0b\x32,.qwak.prompt.v1.prompt.PromptVersionMetadata\"^\n\x0bPromptBrief\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x41\n\x0eversion_briefs\x18\x02 \x03(\x0b\x32).qwak.prompt.v1.prompt.PromptVersionBrief\"\x98\x01\n\x12PromptVersionBrief\x12\x16\n\x0eversion_number\x18\x01 \x01(\x05\x12I\n\x14model_provider_brief\x18\x02 \x01(\x0b\x32).qwak.prompt.v1.prompt.ModelProviderBriefH\x00\x42\x1f\n\x1doptional_model_provider_brief\"8\n\x12ModelProviderBrief\x12\"\n\x1amodel_provider_case_number\x18\x01 \x01(\x05\"!\n\nPromptSpec\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\"\xcf\x01\n\x11PromptVersionSpec\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12>\n\x0fprompt_template\x18\x02 \x01(\x0b\x32%.qwak.prompt.v1.prompt.PromptTemplate\x12H\n\x10model_descriptor\x18\x03 \x01(\x0b\x32,.qwak.prompt.v1.prompt.PromptModelDescriptorH\x00\x42\x1b\n\x19optional_model_descriptor\"c\n\x0ePromptTemplate\x12I\n\x14\x63hat_prompt_template\x18\x01 \x01(\x0b\x32).qwak.prompt.v1.prompt.ChatPromptTemplateH\x00\x42\x06\n\x04type\"O\n\x12\x43hatPromptTemplate\x12\x39\n\rchat_messages\x18\x01 \x03(\x0b\x32\".qwak.prompt.v1.prompt.ChatMessage\"\x83\x01\n\x0b\x43hatMessage\x12\x36\n\x04role\x18\x01 \x01(\x0b\x32(.qwak.prompt.v1.prompt.PromptMessageRole\x12<\n\x08template\x18\x02 \x01(\x0b\x32*.qwak.prompt.v1.prompt.ChatMessageTemplate\"[\n\x13\x43hatMessageTemplate\x12<\n\rtext_template\x18\x01 \x01(\x0b\x32#.qwak.prompt.v1.prompt.TextTemplateH\x00\x42\x06\n\x04type\" \n\x0cTextTemplate\x12\x10\n\x08template\x18\x01 \x01(\t\"\xe6\x01\n\x11PromptMessageRole\x12\x43\n\nhuman_role\x18\x01 \x01(\x0b\x32-.qwak.prompt.v1.prompt.HumanPromptMessageRoleH\x00\x12\x45\n\x0bsystem_role\x18\x02 \x01(\x0b\x32..qwak.prompt.v1.prompt.SystemPromptMessageRoleH\x00\x12=\n\x07\x61i_role\x18\x03 \x01(\x0b\x32*.qwak.prompt.v1.prompt.AIPromptMessageRoleH\x00\x42\x06\n\x04role\"\x18\n\x16HumanPromptMessageRole\"\x19\n\x17SystemPromptMessageRole\"\x15\n\x13\x41IPromptMessageRole\"r\n\x15PromptModelDescriptor\x12G\n\x10open_ai_provider\x18\x01 \x01(\x0b\x32+.qwak.prompt.v1.prompt.PromptOpenAIProviderH\x00\x42\x10\n\x0emodel_provider\"t\n\x14PromptOpenAIProvider\x12\\\n\x18open_ai_model_descriptor\x18\x01 \x01(\x0b\x32:.qwak.llmops.model_descriptor.openai.OpenAIModelDescriptor\"T\n\x0ePromptMetadata\x12.\n\ncreated_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\x02 \x01(\t\"[\n\x15PromptVersionMetadata\x12.\n\ncreated_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\x02 \x01(\tB$\n com.qwak.ai.prompt.api.v1.promptP\x01\x62\x06proto3')
 
-
-
-_PROMPT = DESCRIPTOR.message_types_by_name['Prompt']
-_PROMPTVERSION = DESCRIPTOR.message_types_by_name['PromptVersion']
-_PROMPTVERSIONDEFINITION = DESCRIPTOR.message_types_by_name['PromptVersionDefinition']
-_PROMPTBRIEF = DESCRIPTOR.message_types_by_name['PromptBrief']
-_PROMPTVERSIONBRIEF = DESCRIPTOR.message_types_by_name['PromptVersionBrief']
-_MODELPROVIDERBRIEF = DESCRIPTOR.message_types_by_name['ModelProviderBrief']
-_PROMPTSPEC = DESCRIPTOR.message_types_by_name['PromptSpec']
-_PROMPTVERSIONSPEC = DESCRIPTOR.message_types_by_name['PromptVersionSpec']
-_PROMPTTEMPLATE = DESCRIPTOR.message_types_by_name['PromptTemplate']
-_CHATPROMPTTEMPLATE = DESCRIPTOR.message_types_by_name['ChatPromptTemplate']
-_CHATMESSAGE = DESCRIPTOR.message_types_by_name['ChatMessage']
-_CHATMESSAGETEMPLATE = DESCRIPTOR.message_types_by_name['ChatMessageTemplate']
-_TEXTTEMPLATE = DESCRIPTOR.message_types_by_name['TextTemplate']
-_PROMPTMESSAGEROLE = DESCRIPTOR.message_types_by_name['PromptMessageRole']
-_HUMANPROMPTMESSAGEROLE = DESCRIPTOR.message_types_by_name['HumanPromptMessageRole']
-_SYSTEMPROMPTMESSAGEROLE = DESCRIPTOR.message_types_by_name['SystemPromptMessageRole']
-_AIPROMPTMESSAGEROLE = DESCRIPTOR.message_types_by_name['AIPromptMessageRole']
-_PROMPTMODELDESCRIPTOR = DESCRIPTOR.message_types_by_name['PromptModelDescriptor']
-_PROMPTOPENAIPROVIDER = DESCRIPTOR.message_types_by_name['PromptOpenAIProvider']
-_PROMPTMETADATA = DESCRIPTOR.message_types_by_name['PromptMetadata']
-_PROMPTVERSIONMETADATA = DESCRIPTOR.message_types_by_name['PromptVersionMetadata']
-Prompt = _reflection.GeneratedProtocolMessageType('Prompt', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPT,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.Prompt)
-  })
-_sym_db.RegisterMessage(Prompt)
-
-PromptVersion = _reflection.GeneratedProtocolMessageType('PromptVersion', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTVERSION,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptVersion)
-  })
-_sym_db.RegisterMessage(PromptVersion)
-
-PromptVersionDefinition = _reflection.GeneratedProtocolMessageType('PromptVersionDefinition', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTVERSIONDEFINITION,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptVersionDefinition)
-  })
-_sym_db.RegisterMessage(PromptVersionDefinition)
-
-PromptBrief = _reflection.GeneratedProtocolMessageType('PromptBrief', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTBRIEF,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptBrief)
-  })
-_sym_db.RegisterMessage(PromptBrief)
-
-PromptVersionBrief = _reflection.GeneratedProtocolMessageType('PromptVersionBrief', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTVERSIONBRIEF,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptVersionBrief)
-  })
-_sym_db.RegisterMessage(PromptVersionBrief)
-
-ModelProviderBrief = _reflection.GeneratedProtocolMessageType('ModelProviderBrief', (_message.Message,), {
-  'DESCRIPTOR' : _MODELPROVIDERBRIEF,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ModelProviderBrief)
-  })
-_sym_db.RegisterMessage(ModelProviderBrief)
-
-PromptSpec = _reflection.GeneratedProtocolMessageType('PromptSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTSPEC,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptSpec)
-  })
-_sym_db.RegisterMessage(PromptSpec)
-
-PromptVersionSpec = _reflection.GeneratedProtocolMessageType('PromptVersionSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTVERSIONSPEC,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptVersionSpec)
-  })
-_sym_db.RegisterMessage(PromptVersionSpec)
-
-PromptTemplate = _reflection.GeneratedProtocolMessageType('PromptTemplate', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTTEMPLATE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptTemplate)
-  })
-_sym_db.RegisterMessage(PromptTemplate)
-
-ChatPromptTemplate = _reflection.GeneratedProtocolMessageType('ChatPromptTemplate', (_message.Message,), {
-  'DESCRIPTOR' : _CHATPROMPTTEMPLATE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ChatPromptTemplate)
-  })
-_sym_db.RegisterMessage(ChatPromptTemplate)
-
-ChatMessage = _reflection.GeneratedProtocolMessageType('ChatMessage', (_message.Message,), {
-  'DESCRIPTOR' : _CHATMESSAGE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ChatMessage)
-  })
-_sym_db.RegisterMessage(ChatMessage)
-
-ChatMessageTemplate = _reflection.GeneratedProtocolMessageType('ChatMessageTemplate', (_message.Message,), {
-  'DESCRIPTOR' : _CHATMESSAGETEMPLATE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ChatMessageTemplate)
-  })
-_sym_db.RegisterMessage(ChatMessageTemplate)
-
-TextTemplate = _reflection.GeneratedProtocolMessageType('TextTemplate', (_message.Message,), {
-  'DESCRIPTOR' : _TEXTTEMPLATE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.TextTemplate)
-  })
-_sym_db.RegisterMessage(TextTemplate)
-
-PromptMessageRole = _reflection.GeneratedProtocolMessageType('PromptMessageRole', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTMESSAGEROLE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptMessageRole)
-  })
-_sym_db.RegisterMessage(PromptMessageRole)
-
-HumanPromptMessageRole = _reflection.GeneratedProtocolMessageType('HumanPromptMessageRole', (_message.Message,), {
-  'DESCRIPTOR' : _HUMANPROMPTMESSAGEROLE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.HumanPromptMessageRole)
-  })
-_sym_db.RegisterMessage(HumanPromptMessageRole)
-
-SystemPromptMessageRole = _reflection.GeneratedProtocolMessageType('SystemPromptMessageRole', (_message.Message,), {
-  'DESCRIPTOR' : _SYSTEMPROMPTMESSAGEROLE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.SystemPromptMessageRole)
-  })
-_sym_db.RegisterMessage(SystemPromptMessageRole)
-
-AIPromptMessageRole = _reflection.GeneratedProtocolMessageType('AIPromptMessageRole', (_message.Message,), {
-  'DESCRIPTOR' : _AIPROMPTMESSAGEROLE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.AIPromptMessageRole)
-  })
-_sym_db.RegisterMessage(AIPromptMessageRole)
-
-PromptModelDescriptor = _reflection.GeneratedProtocolMessageType('PromptModelDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTMODELDESCRIPTOR,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptModelDescriptor)
-  })
-_sym_db.RegisterMessage(PromptModelDescriptor)
-
-PromptOpenAIProvider = _reflection.GeneratedProtocolMessageType('PromptOpenAIProvider', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTOPENAIPROVIDER,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptOpenAIProvider)
-  })
-_sym_db.RegisterMessage(PromptOpenAIProvider)
-
-PromptMetadata = _reflection.GeneratedProtocolMessageType('PromptMetadata', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTMETADATA,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptMetadata)
-  })
-_sym_db.RegisterMessage(PromptMetadata)
-
-PromptVersionMetadata = _reflection.GeneratedProtocolMessageType('PromptVersionMetadata', (_message.Message,), {
-  'DESCRIPTOR' : _PROMPTVERSIONMETADATA,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.PromptVersionMetadata)
-  })
-_sym_db.RegisterMessage(PromptVersionMetadata)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.prompt.v1.prompt.prompt_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n com.qwak.ai.prompt.api.v1.promptP\001'
-  _PROMPT._serialized_start=143
-  _PROMPT._serialized_end=362
-  _PROMPTVERSION._serialized_start=364
-  _PROMPTVERSION._serialized_end=483
-  _PROMPTVERSIONDEFINITION._serialized_start=486
-  _PROMPTVERSIONDEFINITION._serialized_end=671
-  _PROMPTBRIEF._serialized_start=673
-  _PROMPTBRIEF._serialized_end=767
-  _PROMPTVERSIONBRIEF._serialized_start=770
-  _PROMPTVERSIONBRIEF._serialized_end=922
-  _MODELPROVIDERBRIEF._serialized_start=924
-  _MODELPROVIDERBRIEF._serialized_end=980
-  _PROMPTSPEC._serialized_start=982
-  _PROMPTSPEC._serialized_end=1015
-  _PROMPTVERSIONSPEC._serialized_start=1018
-  _PROMPTVERSIONSPEC._serialized_end=1225
-  _PROMPTTEMPLATE._serialized_start=1227
-  _PROMPTTEMPLATE._serialized_end=1326
-  _CHATPROMPTTEMPLATE._serialized_start=1328
-  _CHATPROMPTTEMPLATE._serialized_end=1407
-  _CHATMESSAGE._serialized_start=1410
-  _CHATMESSAGE._serialized_end=1541
-  _CHATMESSAGETEMPLATE._serialized_start=1543
-  _CHATMESSAGETEMPLATE._serialized_end=1634
-  _TEXTTEMPLATE._serialized_start=1636
-  _TEXTTEMPLATE._serialized_end=1668
-  _PROMPTMESSAGEROLE._serialized_start=1671
-  _PROMPTMESSAGEROLE._serialized_end=1901
-  _HUMANPROMPTMESSAGEROLE._serialized_start=1903
-  _HUMANPROMPTMESSAGEROLE._serialized_end=1927
-  _SYSTEMPROMPTMESSAGEROLE._serialized_start=1929
-  _SYSTEMPROMPTMESSAGEROLE._serialized_end=1954
-  _AIPROMPTMESSAGEROLE._serialized_start=1956
-  _AIPROMPTMESSAGEROLE._serialized_end=1977
-  _PROMPTMODELDESCRIPTOR._serialized_start=1979
-  _PROMPTMODELDESCRIPTOR._serialized_end=2093
-  _PROMPTOPENAIPROVIDER._serialized_start=2095
-  _PROMPTOPENAIPROVIDER._serialized_end=2211
-  _PROMPTMETADATA._serialized_start=2213
-  _PROMPTMETADATA._serialized_end=2297
-  _PROMPTVERSIONMETADATA._serialized_start=2299
-  _PROMPTVERSIONMETADATA._serialized_end=2390
+  _globals['_PROMPT']._serialized_start=143
+  _globals['_PROMPT']._serialized_end=362
+  _globals['_PROMPTVERSION']._serialized_start=364
+  _globals['_PROMPTVERSION']._serialized_end=483
+  _globals['_PROMPTVERSIONDEFINITION']._serialized_start=486
+  _globals['_PROMPTVERSIONDEFINITION']._serialized_end=671
+  _globals['_PROMPTBRIEF']._serialized_start=673
+  _globals['_PROMPTBRIEF']._serialized_end=767
+  _globals['_PROMPTVERSIONBRIEF']._serialized_start=770
+  _globals['_PROMPTVERSIONBRIEF']._serialized_end=922
+  _globals['_MODELPROVIDERBRIEF']._serialized_start=924
+  _globals['_MODELPROVIDERBRIEF']._serialized_end=980
+  _globals['_PROMPTSPEC']._serialized_start=982
+  _globals['_PROMPTSPEC']._serialized_end=1015
+  _globals['_PROMPTVERSIONSPEC']._serialized_start=1018
+  _globals['_PROMPTVERSIONSPEC']._serialized_end=1225
+  _globals['_PROMPTTEMPLATE']._serialized_start=1227
+  _globals['_PROMPTTEMPLATE']._serialized_end=1326
+  _globals['_CHATPROMPTTEMPLATE']._serialized_start=1328
+  _globals['_CHATPROMPTTEMPLATE']._serialized_end=1407
+  _globals['_CHATMESSAGE']._serialized_start=1410
+  _globals['_CHATMESSAGE']._serialized_end=1541
+  _globals['_CHATMESSAGETEMPLATE']._serialized_start=1543
+  _globals['_CHATMESSAGETEMPLATE']._serialized_end=1634
+  _globals['_TEXTTEMPLATE']._serialized_start=1636
+  _globals['_TEXTTEMPLATE']._serialized_end=1668
+  _globals['_PROMPTMESSAGEROLE']._serialized_start=1671
+  _globals['_PROMPTMESSAGEROLE']._serialized_end=1901
+  _globals['_HUMANPROMPTMESSAGEROLE']._serialized_start=1903
+  _globals['_HUMANPROMPTMESSAGEROLE']._serialized_end=1927
+  _globals['_SYSTEMPROMPTMESSAGEROLE']._serialized_start=1929
+  _globals['_SYSTEMPROMPTMESSAGEROLE']._serialized_end=1954
+  _globals['_AIPROMPTMESSAGEROLE']._serialized_start=1956
+  _globals['_AIPROMPTMESSAGEROLE']._serialized_end=1977
+  _globals['_PROMPTMODELDESCRIPTOR']._serialized_start=1979
+  _globals['_PROMPTMODELDESCRIPTOR']._serialized_end=2093
+  _globals['_PROMPTOPENAIPROVIDER']._serialized_start=2095
+  _globals['_PROMPTOPENAIPROVIDER']._serialized_end=2211
+  _globals['_PROMPTMETADATA']._serialized_start=2213
+  _globals['_PROMPTMETADATA']._serialized_end=2297
+  _globals['_PROMPTVERSIONMETADATA']._serialized_start=2299
+  _globals['_PROMPTVERSIONMETADATA']._serialized_end=2390
 # @@protoc_insertion_point(module_scope)

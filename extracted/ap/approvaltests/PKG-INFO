@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 14.6.0
+Version: 14.7.1
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -32,7 +32,7 @@ Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: mrjob>=0.7.4
 Requires-Dist: testfixtures>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==14.6.0
+Requires-Dist: approval_utilities==14.7.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

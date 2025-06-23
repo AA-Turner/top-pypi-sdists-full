@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -22,306 +21,73 @@ from _qwak_proto.qwak.execution.v1 import execution_pb2 as qwak_dot_execution_do
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n)qwak/execution/v1/execution_service.proto\x12\x1fqwak.feature.store.execution.v1\x1a qwak/execution/v1/backfill.proto\x1a\x1dqwak/execution/v1/batch.proto\x1a qwak/execution/v1/deletion.proto\x1a!qwak/execution/v1/streaming.proto\x1a-qwak/execution/v1/streaming_aggregation.proto\x1a!qwak/execution/v1/execution.proto\")\n\'ListLastExecutionsForEnvironmentRequest\"\xb5\x02\n(ListLastExecutionsForEnvironmentResponse\x12\x93\x01\n\x1f\x66\x65\x61tureset_id_to_last_execution\x18\x01 \x03(\x0b\x32j.qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentResponse.FeaturesetIdToLastExecutionEntry\x1as\n FeaturesetIdToLastExecutionEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12>\n\x05value\x18\x02 \x01(\x0b\x32/.qwak.feature.store.execution.v1.ExecutionEntry:\x02\x38\x01\"^\n\x16TriggerBackfillRequest\x12\x44\n\rbackfill_spec\x18\x01 \x01(\x0b\x32-.qwak.feature.store.execution.v1.BackfillSpec\"/\n\x17TriggerBackfillResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"1\n\x19GetExecutionStatusRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"h\n\x1aGetExecutionStatusResponse\x12J\n\x10\x65xecution_status\x18\x01 \x01(\x0e\x32\x30.qwak.feature.store.execution.v1.ExecutionStatus\"0\n\x18GetExecutionEntryRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"e\n\x19GetExecutionEntryResponse\x12H\n\x0f\x65xecution_entry\x18\x01 \x01(\x0b\x32/.qwak.feature.store.execution.v1.ExecutionEntry\"i\n\x1dTriggerBatchFeaturesetRequest\x12H\n\x0f\x62\x61tch_ingestion\x18\x01 \x01(\x0b\x32/.qwak.feature.store.execution.v1.BatchIngestion\"6\n\x1eTriggerBatchFeaturesetResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\":\n!GetRunningExecutionEntriesRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"p\n\"GetRunningExecutionEntriesResponse\x12J\n\x11\x65xecution_entries\x18\x01 \x03(\x0b\x32/.qwak.feature.store.execution.v1.ExecutionEntry\"9\n TriggerFeaturesetDeletionRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"9\n!TriggerFeaturesetDeletionResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"<\n#InitPaginationByFeaturesetIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"Y\n$InitPaginationByFeaturesetIdResponse\x12\x14\n\x0crecord_count\x18\x01 \x01(\x03\x12\x1b\n\x13max_execution_index\x18\x02 \x01(\x03\"\x81\x01\n#ListExecutionsByFeaturesetIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x13\n\x0bpage_number\x18\x03 \x01(\x05\x12\x1b\n\x13max_execution_index\x18\x04 \x01(\x03\"r\n$ListExecutionsByFeaturesetIdResponse\x12J\n\x11\x65xecution_entries\x18\x01 \x03(\x0b\x32/.qwak.feature.store.execution.v1.ExecutionEntry\"\x87\x01\n&TriggerOnlineStreamingIngestionRequest\x12]\n\x1aonline_streaming_ingestion\x18\x01 \x01(\x0b\x32\x39.qwak.feature.store.execution.v1.OnlineStreamingIngestion\"?\n\'TriggerOnlineStreamingIngestionResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"\x8a\x01\n\'TriggerOfflineStreamingIngestionRequest\x12_\n\x1boffline_streaming_ingestion\x18\x01 \x01(\x0b\x32:.qwak.feature.store.execution.v1.OfflineStreamingIngestion\"@\n(TriggerOfflineStreamingIngestionResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"\x9a\x01\n3TriggerRowLevelStreamingAggregationIngestionRequest\x12\x63\n\x13row_level_ingestion\x18\x01 \x01(\x0b\x32\x46.qwak.feature.store.execution.v1.RowLevelStreamingAggregationIngestion\"L\n4TriggerRowLevelStreamingAggregationIngestionResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"\x9f\x01\n5TriggerCompactionStreamingAggregationIngestionRequest\x12\x66\n\x14\x63ompaction_ingestion\x18\x01 \x01(\x0b\x32H.qwak.feature.store.execution.v1.CompactionStreamingAggregationIngestion\"N\n6TriggerCompactionStreamingAggregationIngestionResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"\x86\x01\n*TriggerStreamingAggregationBackfillRequest\x12X\n\x08\x62\x61\x63kfill\x18\x01 \x01(\x0b\x32\x46.qwak.feature.store.execution.v1.StreamingAggregationBackfillIngestion\"C\n+TriggerStreamingAggregationBackfillResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t2\xbc\x13\n\x1c\x46\x65\x61tureStoreExecutionService\x12\x89\x01\n\x14TriggerBatchBackfill\x12\x37.qwak.feature.store.execution.v1.TriggerBackfillRequest\x1a\x38.qwak.feature.store.execution.v1.TriggerBackfillResponse\x12\x99\x01\n\x16TriggerBatchFeatureset\x12>.qwak.feature.store.execution.v1.TriggerBatchFeaturesetRequest\x1a?.qwak.feature.store.execution.v1.TriggerBatchFeaturesetResponse\x12\xb4\x01\n\x1fTriggerOnlineStreamingIngestion\x12G.qwak.feature.store.execution.v1.TriggerOnlineStreamingIngestionRequest\x1aH.qwak.feature.store.execution.v1.TriggerOnlineStreamingIngestionResponse\x12\xb7\x01\n TriggerOfflineStreamingIngestion\x12H.qwak.feature.store.execution.v1.TriggerOfflineStreamingIngestionRequest\x1aI.qwak.feature.store.execution.v1.TriggerOfflineStreamingIngestionResponse\x12\xdb\x01\n,TriggerRowLevelStreamingAggregationIngestion\x12T.qwak.feature.store.execution.v1.TriggerRowLevelStreamingAggregationIngestionRequest\x1aU.qwak.feature.store.execution.v1.TriggerRowLevelStreamingAggregationIngestionResponse\x12\xe1\x01\n.TriggerCompactionStreamingAggregationIngestion\x12V.qwak.feature.store.execution.v1.TriggerCompactionStreamingAggregationIngestionRequest\x1aW.qwak.feature.store.execution.v1.TriggerCompactionStreamingAggregationIngestionResponse\x12\xc0\x01\n#TriggerStreamingAggregationBackfill\x12K.qwak.feature.store.execution.v1.TriggerStreamingAggregationBackfillRequest\x1aL.qwak.feature.store.execution.v1.TriggerStreamingAggregationBackfillResponse\x12\xa2\x01\n\x19TriggerFeaturesetDeletion\x12\x41.qwak.feature.store.execution.v1.TriggerFeaturesetDeletionRequest\x1a\x42.qwak.feature.store.execution.v1.TriggerFeaturesetDeletionResponse\x12\x8d\x01\n\x12GetExecutionStatus\x12:.qwak.feature.store.execution.v1.GetExecutionStatusRequest\x1a;.qwak.feature.store.execution.v1.GetExecutionStatusResponse\x12\x8a\x01\n\x11GetExecutionEntry\x12\x39.qwak.feature.store.execution.v1.GetExecutionEntryRequest\x1a:.qwak.feature.store.execution.v1.GetExecutionEntryResponse\x12\xa5\x01\n\x1aGetRunningExecutionEntries\x12\x42.qwak.feature.store.execution.v1.GetRunningExecutionEntriesRequest\x1a\x43.qwak.feature.store.execution.v1.GetRunningExecutionEntriesResponse\x12\xab\x01\n\x1cInitPaginationByFeaturesetId\x12\x44.qwak.feature.store.execution.v1.InitPaginationByFeaturesetIdRequest\x1a\x45.qwak.feature.store.execution.v1.InitPaginationByFeaturesetIdResponse\x12\xab\x01\n\x1cListExecutionsByFeaturesetId\x12\x44.qwak.feature.store.execution.v1.ListExecutionsByFeaturesetIdRequest\x1a\x45.qwak.feature.store.execution.v1.ListExecutionsByFeaturesetIdResponse\x12\xb7\x01\n ListLastExecutionsForEnvironment\x12H.qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentRequest\x1aI.qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentResponseB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
 
-
-
-_LISTLASTEXECUTIONSFORENVIRONMENTREQUEST = DESCRIPTOR.message_types_by_name['ListLastExecutionsForEnvironmentRequest']
-_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE = DESCRIPTOR.message_types_by_name['ListLastExecutionsForEnvironmentResponse']
-_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY = _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE.nested_types_by_name['FeaturesetIdToLastExecutionEntry']
-_TRIGGERBACKFILLREQUEST = DESCRIPTOR.message_types_by_name['TriggerBackfillRequest']
-_TRIGGERBACKFILLRESPONSE = DESCRIPTOR.message_types_by_name['TriggerBackfillResponse']
-_GETEXECUTIONSTATUSREQUEST = DESCRIPTOR.message_types_by_name['GetExecutionStatusRequest']
-_GETEXECUTIONSTATUSRESPONSE = DESCRIPTOR.message_types_by_name['GetExecutionStatusResponse']
-_GETEXECUTIONENTRYREQUEST = DESCRIPTOR.message_types_by_name['GetExecutionEntryRequest']
-_GETEXECUTIONENTRYRESPONSE = DESCRIPTOR.message_types_by_name['GetExecutionEntryResponse']
-_TRIGGERBATCHFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['TriggerBatchFeaturesetRequest']
-_TRIGGERBATCHFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['TriggerBatchFeaturesetResponse']
-_GETRUNNINGEXECUTIONENTRIESREQUEST = DESCRIPTOR.message_types_by_name['GetRunningExecutionEntriesRequest']
-_GETRUNNINGEXECUTIONENTRIESRESPONSE = DESCRIPTOR.message_types_by_name['GetRunningExecutionEntriesResponse']
-_TRIGGERFEATURESETDELETIONREQUEST = DESCRIPTOR.message_types_by_name['TriggerFeaturesetDeletionRequest']
-_TRIGGERFEATURESETDELETIONRESPONSE = DESCRIPTOR.message_types_by_name['TriggerFeaturesetDeletionResponse']
-_INITPAGINATIONBYFEATURESETIDREQUEST = DESCRIPTOR.message_types_by_name['InitPaginationByFeaturesetIdRequest']
-_INITPAGINATIONBYFEATURESETIDRESPONSE = DESCRIPTOR.message_types_by_name['InitPaginationByFeaturesetIdResponse']
-_LISTEXECUTIONSBYFEATURESETIDREQUEST = DESCRIPTOR.message_types_by_name['ListExecutionsByFeaturesetIdRequest']
-_LISTEXECUTIONSBYFEATURESETIDRESPONSE = DESCRIPTOR.message_types_by_name['ListExecutionsByFeaturesetIdResponse']
-_TRIGGERONLINESTREAMINGINGESTIONREQUEST = DESCRIPTOR.message_types_by_name['TriggerOnlineStreamingIngestionRequest']
-_TRIGGERONLINESTREAMINGINGESTIONRESPONSE = DESCRIPTOR.message_types_by_name['TriggerOnlineStreamingIngestionResponse']
-_TRIGGEROFFLINESTREAMINGINGESTIONREQUEST = DESCRIPTOR.message_types_by_name['TriggerOfflineStreamingIngestionRequest']
-_TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE = DESCRIPTOR.message_types_by_name['TriggerOfflineStreamingIngestionResponse']
-_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST = DESCRIPTOR.message_types_by_name['TriggerRowLevelStreamingAggregationIngestionRequest']
-_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE = DESCRIPTOR.message_types_by_name['TriggerRowLevelStreamingAggregationIngestionResponse']
-_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST = DESCRIPTOR.message_types_by_name['TriggerCompactionStreamingAggregationIngestionRequest']
-_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE = DESCRIPTOR.message_types_by_name['TriggerCompactionStreamingAggregationIngestionResponse']
-_TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST = DESCRIPTOR.message_types_by_name['TriggerStreamingAggregationBackfillRequest']
-_TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE = DESCRIPTOR.message_types_by_name['TriggerStreamingAggregationBackfillResponse']
-ListLastExecutionsForEnvironmentRequest = _reflection.GeneratedProtocolMessageType('ListLastExecutionsForEnvironmentRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTLASTEXECUTIONSFORENVIRONMENTREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentRequest)
-  })
-_sym_db.RegisterMessage(ListLastExecutionsForEnvironmentRequest)
-
-ListLastExecutionsForEnvironmentResponse = _reflection.GeneratedProtocolMessageType('ListLastExecutionsForEnvironmentResponse', (_message.Message,), {
-
-  'FeaturesetIdToLastExecutionEntry' : _reflection.GeneratedProtocolMessageType('FeaturesetIdToLastExecutionEntry', (_message.Message,), {
-    'DESCRIPTOR' : _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY,
-    '__module__' : 'qwak.execution.v1.execution_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentResponse.FeaturesetIdToLastExecutionEntry)
-    })
-  ,
-  'DESCRIPTOR' : _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ListLastExecutionsForEnvironmentResponse)
-  })
-_sym_db.RegisterMessage(ListLastExecutionsForEnvironmentResponse)
-_sym_db.RegisterMessage(ListLastExecutionsForEnvironmentResponse.FeaturesetIdToLastExecutionEntry)
-
-TriggerBackfillRequest = _reflection.GeneratedProtocolMessageType('TriggerBackfillRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERBACKFILLREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerBackfillRequest)
-  })
-_sym_db.RegisterMessage(TriggerBackfillRequest)
-
-TriggerBackfillResponse = _reflection.GeneratedProtocolMessageType('TriggerBackfillResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERBACKFILLRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerBackfillResponse)
-  })
-_sym_db.RegisterMessage(TriggerBackfillResponse)
-
-GetExecutionStatusRequest = _reflection.GeneratedProtocolMessageType('GetExecutionStatusRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETEXECUTIONSTATUSREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetExecutionStatusRequest)
-  })
-_sym_db.RegisterMessage(GetExecutionStatusRequest)
-
-GetExecutionStatusResponse = _reflection.GeneratedProtocolMessageType('GetExecutionStatusResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETEXECUTIONSTATUSRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetExecutionStatusResponse)
-  })
-_sym_db.RegisterMessage(GetExecutionStatusResponse)
-
-GetExecutionEntryRequest = _reflection.GeneratedProtocolMessageType('GetExecutionEntryRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETEXECUTIONENTRYREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetExecutionEntryRequest)
-  })
-_sym_db.RegisterMessage(GetExecutionEntryRequest)
-
-GetExecutionEntryResponse = _reflection.GeneratedProtocolMessageType('GetExecutionEntryResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETEXECUTIONENTRYRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetExecutionEntryResponse)
-  })
-_sym_db.RegisterMessage(GetExecutionEntryResponse)
-
-TriggerBatchFeaturesetRequest = _reflection.GeneratedProtocolMessageType('TriggerBatchFeaturesetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERBATCHFEATURESETREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerBatchFeaturesetRequest)
-  })
-_sym_db.RegisterMessage(TriggerBatchFeaturesetRequest)
-
-TriggerBatchFeaturesetResponse = _reflection.GeneratedProtocolMessageType('TriggerBatchFeaturesetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERBATCHFEATURESETRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerBatchFeaturesetResponse)
-  })
-_sym_db.RegisterMessage(TriggerBatchFeaturesetResponse)
-
-GetRunningExecutionEntriesRequest = _reflection.GeneratedProtocolMessageType('GetRunningExecutionEntriesRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETRUNNINGEXECUTIONENTRIESREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetRunningExecutionEntriesRequest)
-  })
-_sym_db.RegisterMessage(GetRunningExecutionEntriesRequest)
-
-GetRunningExecutionEntriesResponse = _reflection.GeneratedProtocolMessageType('GetRunningExecutionEntriesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETRUNNINGEXECUTIONENTRIESRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.GetRunningExecutionEntriesResponse)
-  })
-_sym_db.RegisterMessage(GetRunningExecutionEntriesResponse)
-
-TriggerFeaturesetDeletionRequest = _reflection.GeneratedProtocolMessageType('TriggerFeaturesetDeletionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERFEATURESETDELETIONREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerFeaturesetDeletionRequest)
-  })
-_sym_db.RegisterMessage(TriggerFeaturesetDeletionRequest)
-
-TriggerFeaturesetDeletionResponse = _reflection.GeneratedProtocolMessageType('TriggerFeaturesetDeletionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERFEATURESETDELETIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerFeaturesetDeletionResponse)
-  })
-_sym_db.RegisterMessage(TriggerFeaturesetDeletionResponse)
-
-InitPaginationByFeaturesetIdRequest = _reflection.GeneratedProtocolMessageType('InitPaginationByFeaturesetIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYFEATURESETIDREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.InitPaginationByFeaturesetIdRequest)
-  })
-_sym_db.RegisterMessage(InitPaginationByFeaturesetIdRequest)
-
-InitPaginationByFeaturesetIdResponse = _reflection.GeneratedProtocolMessageType('InitPaginationByFeaturesetIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYFEATURESETIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.InitPaginationByFeaturesetIdResponse)
-  })
-_sym_db.RegisterMessage(InitPaginationByFeaturesetIdResponse)
-
-ListExecutionsByFeaturesetIdRequest = _reflection.GeneratedProtocolMessageType('ListExecutionsByFeaturesetIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTEXECUTIONSBYFEATURESETIDREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ListExecutionsByFeaturesetIdRequest)
-  })
-_sym_db.RegisterMessage(ListExecutionsByFeaturesetIdRequest)
-
-ListExecutionsByFeaturesetIdResponse = _reflection.GeneratedProtocolMessageType('ListExecutionsByFeaturesetIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTEXECUTIONSBYFEATURESETIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ListExecutionsByFeaturesetIdResponse)
-  })
-_sym_db.RegisterMessage(ListExecutionsByFeaturesetIdResponse)
-
-TriggerOnlineStreamingIngestionRequest = _reflection.GeneratedProtocolMessageType('TriggerOnlineStreamingIngestionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERONLINESTREAMINGINGESTIONREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerOnlineStreamingIngestionRequest)
-  })
-_sym_db.RegisterMessage(TriggerOnlineStreamingIngestionRequest)
-
-TriggerOnlineStreamingIngestionResponse = _reflection.GeneratedProtocolMessageType('TriggerOnlineStreamingIngestionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERONLINESTREAMINGINGESTIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerOnlineStreamingIngestionResponse)
-  })
-_sym_db.RegisterMessage(TriggerOnlineStreamingIngestionResponse)
-
-TriggerOfflineStreamingIngestionRequest = _reflection.GeneratedProtocolMessageType('TriggerOfflineStreamingIngestionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGEROFFLINESTREAMINGINGESTIONREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerOfflineStreamingIngestionRequest)
-  })
-_sym_db.RegisterMessage(TriggerOfflineStreamingIngestionRequest)
-
-TriggerOfflineStreamingIngestionResponse = _reflection.GeneratedProtocolMessageType('TriggerOfflineStreamingIngestionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerOfflineStreamingIngestionResponse)
-  })
-_sym_db.RegisterMessage(TriggerOfflineStreamingIngestionResponse)
-
-TriggerRowLevelStreamingAggregationIngestionRequest = _reflection.GeneratedProtocolMessageType('TriggerRowLevelStreamingAggregationIngestionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerRowLevelStreamingAggregationIngestionRequest)
-  })
-_sym_db.RegisterMessage(TriggerRowLevelStreamingAggregationIngestionRequest)
-
-TriggerRowLevelStreamingAggregationIngestionResponse = _reflection.GeneratedProtocolMessageType('TriggerRowLevelStreamingAggregationIngestionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerRowLevelStreamingAggregationIngestionResponse)
-  })
-_sym_db.RegisterMessage(TriggerRowLevelStreamingAggregationIngestionResponse)
-
-TriggerCompactionStreamingAggregationIngestionRequest = _reflection.GeneratedProtocolMessageType('TriggerCompactionStreamingAggregationIngestionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerCompactionStreamingAggregationIngestionRequest)
-  })
-_sym_db.RegisterMessage(TriggerCompactionStreamingAggregationIngestionRequest)
-
-TriggerCompactionStreamingAggregationIngestionResponse = _reflection.GeneratedProtocolMessageType('TriggerCompactionStreamingAggregationIngestionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerCompactionStreamingAggregationIngestionResponse)
-  })
-_sym_db.RegisterMessage(TriggerCompactionStreamingAggregationIngestionResponse)
-
-TriggerStreamingAggregationBackfillRequest = _reflection.GeneratedProtocolMessageType('TriggerStreamingAggregationBackfillRequest', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerStreamingAggregationBackfillRequest)
-  })
-_sym_db.RegisterMessage(TriggerStreamingAggregationBackfillRequest)
-
-TriggerStreamingAggregationBackfillResponse = _reflection.GeneratedProtocolMessageType('TriggerStreamingAggregationBackfillResponse', (_message.Message,), {
-  'DESCRIPTOR' : _TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE,
-  '__module__' : 'qwak.execution.v1.execution_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.TriggerStreamingAggregationBackfillResponse)
-  })
-_sym_db.RegisterMessage(TriggerStreamingAggregationBackfillResponse)
-
-_FEATURESTOREEXECUTIONSERVICE = DESCRIPTOR.services_by_name['FeatureStoreExecutionService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.execution_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.features.execution.api.v1P\001'
   _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY._options = None
   _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY._serialized_options = b'8\001'
-  _LISTLASTEXECUTIONSFORENVIRONMENTREQUEST._serialized_start=294
-  _LISTLASTEXECUTIONSFORENVIRONMENTREQUEST._serialized_end=335
-  _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE._serialized_start=338
-  _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE._serialized_end=647
-  _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY._serialized_start=532
-  _LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY._serialized_end=647
-  _TRIGGERBACKFILLREQUEST._serialized_start=649
-  _TRIGGERBACKFILLREQUEST._serialized_end=743
-  _TRIGGERBACKFILLRESPONSE._serialized_start=745
-  _TRIGGERBACKFILLRESPONSE._serialized_end=792
-  _GETEXECUTIONSTATUSREQUEST._serialized_start=794
-  _GETEXECUTIONSTATUSREQUEST._serialized_end=843
-  _GETEXECUTIONSTATUSRESPONSE._serialized_start=845
-  _GETEXECUTIONSTATUSRESPONSE._serialized_end=949
-  _GETEXECUTIONENTRYREQUEST._serialized_start=951
-  _GETEXECUTIONENTRYREQUEST._serialized_end=999
-  _GETEXECUTIONENTRYRESPONSE._serialized_start=1001
-  _GETEXECUTIONENTRYRESPONSE._serialized_end=1102
-  _TRIGGERBATCHFEATURESETREQUEST._serialized_start=1104
-  _TRIGGERBATCHFEATURESETREQUEST._serialized_end=1209
-  _TRIGGERBATCHFEATURESETRESPONSE._serialized_start=1211
-  _TRIGGERBATCHFEATURESETRESPONSE._serialized_end=1265
-  _GETRUNNINGEXECUTIONENTRIESREQUEST._serialized_start=1267
-  _GETRUNNINGEXECUTIONENTRIESREQUEST._serialized_end=1325
-  _GETRUNNINGEXECUTIONENTRIESRESPONSE._serialized_start=1327
-  _GETRUNNINGEXECUTIONENTRIESRESPONSE._serialized_end=1439
-  _TRIGGERFEATURESETDELETIONREQUEST._serialized_start=1441
-  _TRIGGERFEATURESETDELETIONREQUEST._serialized_end=1498
-  _TRIGGERFEATURESETDELETIONRESPONSE._serialized_start=1500
-  _TRIGGERFEATURESETDELETIONRESPONSE._serialized_end=1557
-  _INITPAGINATIONBYFEATURESETIDREQUEST._serialized_start=1559
-  _INITPAGINATIONBYFEATURESETIDREQUEST._serialized_end=1619
-  _INITPAGINATIONBYFEATURESETIDRESPONSE._serialized_start=1621
-  _INITPAGINATIONBYFEATURESETIDRESPONSE._serialized_end=1710
-  _LISTEXECUTIONSBYFEATURESETIDREQUEST._serialized_start=1713
-  _LISTEXECUTIONSBYFEATURESETIDREQUEST._serialized_end=1842
-  _LISTEXECUTIONSBYFEATURESETIDRESPONSE._serialized_start=1844
-  _LISTEXECUTIONSBYFEATURESETIDRESPONSE._serialized_end=1958
-  _TRIGGERONLINESTREAMINGINGESTIONREQUEST._serialized_start=1961
-  _TRIGGERONLINESTREAMINGINGESTIONREQUEST._serialized_end=2096
-  _TRIGGERONLINESTREAMINGINGESTIONRESPONSE._serialized_start=2098
-  _TRIGGERONLINESTREAMINGINGESTIONRESPONSE._serialized_end=2161
-  _TRIGGEROFFLINESTREAMINGINGESTIONREQUEST._serialized_start=2164
-  _TRIGGEROFFLINESTREAMINGINGESTIONREQUEST._serialized_end=2302
-  _TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE._serialized_start=2304
-  _TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE._serialized_end=2368
-  _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST._serialized_start=2371
-  _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST._serialized_end=2525
-  _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE._serialized_start=2527
-  _TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE._serialized_end=2603
-  _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST._serialized_start=2606
-  _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST._serialized_end=2765
-  _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE._serialized_start=2767
-  _TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE._serialized_end=2845
-  _TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST._serialized_start=2848
-  _TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST._serialized_end=2982
-  _TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE._serialized_start=2984
-  _TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE._serialized_end=3051
-  _FEATURESTOREEXECUTIONSERVICE._serialized_start=3054
-  _FEATURESTOREEXECUTIONSERVICE._serialized_end=5546
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTREQUEST']._serialized_start=294
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTREQUEST']._serialized_end=335
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE']._serialized_start=338
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE']._serialized_end=647
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY']._serialized_start=532
+  _globals['_LISTLASTEXECUTIONSFORENVIRONMENTRESPONSE_FEATURESETIDTOLASTEXECUTIONENTRY']._serialized_end=647
+  _globals['_TRIGGERBACKFILLREQUEST']._serialized_start=649
+  _globals['_TRIGGERBACKFILLREQUEST']._serialized_end=743
+  _globals['_TRIGGERBACKFILLRESPONSE']._serialized_start=745
+  _globals['_TRIGGERBACKFILLRESPONSE']._serialized_end=792
+  _globals['_GETEXECUTIONSTATUSREQUEST']._serialized_start=794
+  _globals['_GETEXECUTIONSTATUSREQUEST']._serialized_end=843
+  _globals['_GETEXECUTIONSTATUSRESPONSE']._serialized_start=845
+  _globals['_GETEXECUTIONSTATUSRESPONSE']._serialized_end=949
+  _globals['_GETEXECUTIONENTRYREQUEST']._serialized_start=951
+  _globals['_GETEXECUTIONENTRYREQUEST']._serialized_end=999
+  _globals['_GETEXECUTIONENTRYRESPONSE']._serialized_start=1001
+  _globals['_GETEXECUTIONENTRYRESPONSE']._serialized_end=1102
+  _globals['_TRIGGERBATCHFEATURESETREQUEST']._serialized_start=1104
+  _globals['_TRIGGERBATCHFEATURESETREQUEST']._serialized_end=1209
+  _globals['_TRIGGERBATCHFEATURESETRESPONSE']._serialized_start=1211
+  _globals['_TRIGGERBATCHFEATURESETRESPONSE']._serialized_end=1265
+  _globals['_GETRUNNINGEXECUTIONENTRIESREQUEST']._serialized_start=1267
+  _globals['_GETRUNNINGEXECUTIONENTRIESREQUEST']._serialized_end=1325
+  _globals['_GETRUNNINGEXECUTIONENTRIESRESPONSE']._serialized_start=1327
+  _globals['_GETRUNNINGEXECUTIONENTRIESRESPONSE']._serialized_end=1439
+  _globals['_TRIGGERFEATURESETDELETIONREQUEST']._serialized_start=1441
+  _globals['_TRIGGERFEATURESETDELETIONREQUEST']._serialized_end=1498
+  _globals['_TRIGGERFEATURESETDELETIONRESPONSE']._serialized_start=1500
+  _globals['_TRIGGERFEATURESETDELETIONRESPONSE']._serialized_end=1557
+  _globals['_INITPAGINATIONBYFEATURESETIDREQUEST']._serialized_start=1559
+  _globals['_INITPAGINATIONBYFEATURESETIDREQUEST']._serialized_end=1619
+  _globals['_INITPAGINATIONBYFEATURESETIDRESPONSE']._serialized_start=1621
+  _globals['_INITPAGINATIONBYFEATURESETIDRESPONSE']._serialized_end=1710
+  _globals['_LISTEXECUTIONSBYFEATURESETIDREQUEST']._serialized_start=1713
+  _globals['_LISTEXECUTIONSBYFEATURESETIDREQUEST']._serialized_end=1842
+  _globals['_LISTEXECUTIONSBYFEATURESETIDRESPONSE']._serialized_start=1844
+  _globals['_LISTEXECUTIONSBYFEATURESETIDRESPONSE']._serialized_end=1958
+  _globals['_TRIGGERONLINESTREAMINGINGESTIONREQUEST']._serialized_start=1961
+  _globals['_TRIGGERONLINESTREAMINGINGESTIONREQUEST']._serialized_end=2096
+  _globals['_TRIGGERONLINESTREAMINGINGESTIONRESPONSE']._serialized_start=2098
+  _globals['_TRIGGERONLINESTREAMINGINGESTIONRESPONSE']._serialized_end=2161
+  _globals['_TRIGGEROFFLINESTREAMINGINGESTIONREQUEST']._serialized_start=2164
+  _globals['_TRIGGEROFFLINESTREAMINGINGESTIONREQUEST']._serialized_end=2302
+  _globals['_TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE']._serialized_start=2304
+  _globals['_TRIGGEROFFLINESTREAMINGINGESTIONRESPONSE']._serialized_end=2368
+  _globals['_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST']._serialized_start=2371
+  _globals['_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONREQUEST']._serialized_end=2525
+  _globals['_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE']._serialized_start=2527
+  _globals['_TRIGGERROWLEVELSTREAMINGAGGREGATIONINGESTIONRESPONSE']._serialized_end=2603
+  _globals['_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST']._serialized_start=2606
+  _globals['_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONREQUEST']._serialized_end=2765
+  _globals['_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE']._serialized_start=2767
+  _globals['_TRIGGERCOMPACTIONSTREAMINGAGGREGATIONINGESTIONRESPONSE']._serialized_end=2845
+  _globals['_TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST']._serialized_start=2848
+  _globals['_TRIGGERSTREAMINGAGGREGATIONBACKFILLREQUEST']._serialized_end=2982
+  _globals['_TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE']._serialized_start=2984
+  _globals['_TRIGGERSTREAMINGAGGREGATIONBACKFILLRESPONSE']._serialized_end=3051
+  _globals['_FEATURESTOREEXECUTIONSERVICE']._serialized_start=3054
+  _globals['_FEATURESTOREEXECUTIONSERVICE']._serialized_end=5546
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,50 +15,19 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n qwak/execution/v1/deletion.proto\x12\x1fqwak.feature.store.execution.v1\"\xe9\x02\n\x12\x46\x65\x61turesetDeletion\x12]\n\x19\x62\x61tch_featureset_deletion\x18\x01 \x01(\x0b\x32\x38.qwak.feature.store.execution.v1.BatchFeaturesetDeletionH\x00\x12\x65\n\x1dstreaming_featureset_deletion\x18\x02 \x01(\x0b\x32<.qwak.feature.store.execution.v1.StreamingFeaturesetDeletionH\x00\x12|\n)streaming_aggregation_featureset_deletion\x18\x03 \x01(\x0b\x32G.qwak.feature.store.execution.v1.StreamingAggregationFeaturesetDeletionH\x00\x42\x0f\n\rdeletion_type\"\x19\n\x17\x42\x61tchFeaturesetDeletion\"\x1d\n\x1bStreamingFeaturesetDeletion\"(\n&StreamingAggregationFeaturesetDeletionB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
 
-
-
-_FEATURESETDELETION = DESCRIPTOR.message_types_by_name['FeaturesetDeletion']
-_BATCHFEATURESETDELETION = DESCRIPTOR.message_types_by_name['BatchFeaturesetDeletion']
-_STREAMINGFEATURESETDELETION = DESCRIPTOR.message_types_by_name['StreamingFeaturesetDeletion']
-_STREAMINGAGGREGATIONFEATURESETDELETION = DESCRIPTOR.message_types_by_name['StreamingAggregationFeaturesetDeletion']
-FeaturesetDeletion = _reflection.GeneratedProtocolMessageType('FeaturesetDeletion', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESETDELETION,
-  '__module__' : 'qwak.execution.v1.deletion_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.FeaturesetDeletion)
-  })
-_sym_db.RegisterMessage(FeaturesetDeletion)
-
-BatchFeaturesetDeletion = _reflection.GeneratedProtocolMessageType('BatchFeaturesetDeletion', (_message.Message,), {
-  'DESCRIPTOR' : _BATCHFEATURESETDELETION,
-  '__module__' : 'qwak.execution.v1.deletion_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.BatchFeaturesetDeletion)
-  })
-_sym_db.RegisterMessage(BatchFeaturesetDeletion)
-
-StreamingFeaturesetDeletion = _reflection.GeneratedProtocolMessageType('StreamingFeaturesetDeletion', (_message.Message,), {
-  'DESCRIPTOR' : _STREAMINGFEATURESETDELETION,
-  '__module__' : 'qwak.execution.v1.deletion_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.StreamingFeaturesetDeletion)
-  })
-_sym_db.RegisterMessage(StreamingFeaturesetDeletion)
-
-StreamingAggregationFeaturesetDeletion = _reflection.GeneratedProtocolMessageType('StreamingAggregationFeaturesetDeletion', (_message.Message,), {
-  'DESCRIPTOR' : _STREAMINGAGGREGATIONFEATURESETDELETION,
-  '__module__' : 'qwak.execution.v1.deletion_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.StreamingAggregationFeaturesetDeletion)
-  })
-_sym_db.RegisterMessage(StreamingAggregationFeaturesetDeletion)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.deletion_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.features.execution.api.v1P\001'
-  _FEATURESETDELETION._serialized_start=70
-  _FEATURESETDELETION._serialized_end=431
-  _BATCHFEATURESETDELETION._serialized_start=433
-  _BATCHFEATURESETDELETION._serialized_end=458
-  _STREAMINGFEATURESETDELETION._serialized_start=460
-  _STREAMINGFEATURESETDELETION._serialized_end=489
-  _STREAMINGAGGREGATIONFEATURESETDELETION._serialized_start=491
-  _STREAMINGAGGREGATIONFEATURESETDELETION._serialized_end=531
+  _globals['_FEATURESETDELETION']._serialized_start=70
+  _globals['_FEATURESETDELETION']._serialized_end=431
+  _globals['_BATCHFEATURESETDELETION']._serialized_start=433
+  _globals['_BATCHFEATURESETDELETION']._serialized_end=458
+  _globals['_STREAMINGFEATURESETDELETION']._serialized_start=460
+  _globals['_STREAMINGFEATURESETDELETION']._serialized_end=489
+  _globals['_STREAMINGAGGREGATIONFEATURESETDELETION']._serialized_start=491
+  _globals['_STREAMINGAGGREGATIONFEATURESETDELETION']._serialized_end=531
 # @@protoc_insertion_point(module_scope)

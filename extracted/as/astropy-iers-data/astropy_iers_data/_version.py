@@ -17,5 +17,5 @@ __version__: str
 __version_tuple__: VERSION_TUPLE
 version_tuple: VERSION_TUPLE
 
-__version__ = version = '0.2025.6.16.0.38.47'
-__version_tuple__ = version_tuple = (0, 2025, 6, 16, 0, 38, 47)
+__version__ = version = '0.2025.6.23.0.39.50'
+__version_tuple__ = version_tuple = (0, 2025, 6, 23, 0, 39, 50)

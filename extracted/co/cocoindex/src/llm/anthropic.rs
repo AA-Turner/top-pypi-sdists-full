@@ -1,6 +1,5 @@
 use crate::llm::{
-    LlmGenerateRequest, LlmGenerateResponse, LlmGenerationClient, LlmSpec, OutputFormat,
-    ToJsonSchemaOptions,
+    LlmGenerateRequest, LlmGenerateResponse, LlmGenerationClient, OutputFormat, ToJsonSchemaOptions,
 };
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
@@ -11,19 +10,20 @@ use crate::api_bail;
 use urlencoding::encode;
 
 pub struct Client {
-    model: String,
     api_key: String,
     client: reqwest::Client,
 }
 
 impl Client {
-    pub async fn new(spec: LlmSpec) -> Result<Self> {
+    pub async fn new(address: Option<String>) -> Result<Self> {
+        if address.is_some() {
+            api_bail!("Anthropic doesn't support custom API address");
+        }
         let api_key = match std::env::var("ANTHROPIC_API_KEY") {
             Ok(val) => val,
             Err(_) => api_bail!("ANTHROPIC_API_KEY environment variable must be set"),
         };
         Ok(Self {
-            model: spec.model,
             api_key,
             client: reqwest::Client::new(),
         })
@@ -42,7 +42,7 @@ impl LlmGenerationClient for Client {
         })];
 
         let mut payload = serde_json::json!({
-            "model": self.model,
+            "model": request.model,
             "messages": messages,
             "max_tokens": 4096
         });
@@ -76,6 +76,13 @@ impl LlmGenerationClient for Client {
             .send()
             .await
             .context("HTTP error")?;
+        if !resp.status().is_success() {
+            bail!(
+                "Anthropic API error: {:?}\n{}\n",
+                resp.status(),
+                resp.text().await?
+            );
+        }
         let mut resp_json: Value = resp.json().await.context("Invalid JSON")?;
         if let Some(error) = resp_json.get("error") {
             bail!("Anthropic API error: {:?}", error);

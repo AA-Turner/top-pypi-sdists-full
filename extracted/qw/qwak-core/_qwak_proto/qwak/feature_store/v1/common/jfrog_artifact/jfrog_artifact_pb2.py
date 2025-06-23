@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,20 +15,13 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n@qwak/feature_store/v1/common/jfrog_artifact/jfrog_artifact.proto\x12+qwak.feature.store.v1.common.jfrog_artifact\"\x1d\n\rJfrogArtifact\x12\x0c\n\x04path\x18\x01 \x01(\tBp\n2com.qwak.ai.feature.store.v1.common.jfrog_artifactP\x01Z8qwak/featurestore/v1/common/jfrog_artifact;jfrogartifactb\x06proto3')
 
-
-
-_JFROGARTIFACT = DESCRIPTOR.message_types_by_name['JfrogArtifact']
-JfrogArtifact = _reflection.GeneratedProtocolMessageType('JfrogArtifact', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGARTIFACT,
-  '__module__' : 'qwak.feature_store.v1.common.jfrog_artifact.jfrog_artifact_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.v1.common.jfrog_artifact.JfrogArtifact)
-  })
-_sym_db.RegisterMessage(JfrogArtifact)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.v1.common.jfrog_artifact.jfrog_artifact_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n2com.qwak.ai.feature.store.v1.common.jfrog_artifactP\001Z8qwak/featurestore/v1/common/jfrog_artifact;jfrogartifact'
-  _JFROGARTIFACT._serialized_start=113
-  _JFROGARTIFACT._serialized_end=142
+  _globals['_JFROGARTIFACT']._serialized_start=113
+  _globals['_JFROGARTIFACT']._serialized_end=142
 # @@protoc_insertion_point(module_scope)

@@ -1,11 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-postgres-copy
-Version: 2.7.6
-Summary: Quickly import and export delimited data with Django support for PostgreSQL’s COPY command
-Home-page: https://palewi.re/docs/django-postgres-copy/
-Author: Ben Welsh
-Author-email: b@palewi.re
-License: MIT
+Version: 2.8.0
+Summary: Quickly import and export delimited data with Django support for PostgreSQL's COPY command
+Author-email: Ben Welsh <b@palewi.re>
+License-Expression: MIT
 Project-URL: Documentation, https://palewi.re/docs/django-postgres-copy/
 Project-URL: Source, https://github.com/palewire/django-postgres-copy
 Project-URL: Tracker, https://github.com/palewire/django-postgres-copy/issues
@@ -15,19 +13,44 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: mock; extra == "dev"
+Requires-Dist: setuptools-scm; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-django; extra == "dev"
+Provides-Extra: mypy
+Requires-Dist: mypy; extra == "mypy"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: sphinx-palewire-theme; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Dynamic: license-file
 
 ### Links
 
 -  Documentation: [palewi.re/docs/django-postgres-copy/](https://palewi.re/docs/django-postgres-copy/)
--  Issues: [github.com/california-civic-data-coalition/django-postgres-copy/issues](https://github.com/california-civic-data-coalition/django-postgres-copy/issues)
+-  Issues: [github.com/palewire/django-postgres-copy/issues](https://github.com/palewire/django-postgres-copy/issues)
 -  Packaging: [pypi.python.org/pypi/django-postgres-copy](https://pypi.python.org/pypi/django-postgres-copy)
--  Testing: [github.com/california-civic-data-coalition/django-postgres-copy/actions](https://github.com/california-civic-data-coalition/django-postgres-copy/actions/workflows/test.yaml)
+-  Testing: [github.com/palewire/django-postgres-copy/actions](https://github.com/palewire/django-postgres-copy/actions/workflows/test.yaml)
+
+### Contributing
+
+To set up a development environment, run `pipenv install` after forking and cloning the repository.
+To run tests, use `pipenv run pytest tests`

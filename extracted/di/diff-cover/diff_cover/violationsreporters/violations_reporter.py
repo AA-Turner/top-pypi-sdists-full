@@ -308,8 +308,15 @@ class LcovCoverageReporter(BaseViolationReporter):
     def parse(lcov_file):
         """
         Parse a single LCov coverage report
-        File format: https://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
+        File format: https://linux.die.net/man/1/geninfo
+        More info: https://github.com/linux-test-project/lcov/issues/113#issuecomment-762335134
         """
+        branch_coverage = defaultdict(
+            lambda: defaultdict(lambda: {"total": 0, "hit": 0, "executions": 0})
+        )
+        function_lines = defaultdict(
+            dict
+        )  # { source_file: { func_name: (line_no, hit_count) } }
         lcov_report = defaultdict(dict)
         lcov = open(lcov_file)
         while True:
@@ -336,22 +343,92 @@ class LcovCoverageReporter(BaseViolationReporter):
                 if line_no not in lcov_report[source_file]:
                     lcov_report[source_file][line_no] = 0
                 lcov_report[source_file][line_no] += num_executions
+            elif directive == "BRDA":
+                args = content.split(",")
+                if len(args) != 4:
+                    raise ValueError(f"Unknown syntax in lcov report: {line}")
+                if source_file is None:
+                    raise ValueError(
+                        f"No source file specified for line coverage: {line}"
+                    )
+                line_no = int(args[0])
+                taken = (
+                    int(args[3]) if args[3] != "-" else 0
+                )  # Handle '-' for untaken branches
+                branch_coverage[source_file][line_no]["total"] += 1
+                branch_coverage[source_file][line_no]["executions"] += taken
+                if taken > 0:
+                    branch_coverage[source_file][line_no]["hit"] += 1
+            elif directive == "FN":
+                args = content.split(",")
+                if len(args) != 2:
+                    raise ValueError(f"Unknown syntax in lcov report: {line}")
+                if source_file is None:
+                    raise ValueError(
+                        f"No source file specified for line coverage: {line}"
+                    )
+                line_no = int(args[0])
+                func_name = args[1]
+                function_lines[source_file][func_name] = (line_no, 0)
+            elif directive == "FNDA":
+                args = content.split(",")
+                if len(args) != 2:
+                    raise ValueError(f"Unknown syntax in lcov report: {line}")
+                if source_file is None:
+                    raise ValueError(
+                        f"No source file specified for line coverage: {line}"
+                    )
+                hit_count = int(args[0])
+                func_name = args[1]
+                if func_name in function_lines[source_file]:
+                    line_no, _ = function_lines[source_file][func_name]
+                    function_lines[source_file][func_name] = (line_no, hit_count)
             elif directive in [
-                "TN",
-                "FNF",
-                "FNH",
-                "FN",
-                "FNDA",
-                "LH",
-                "LF",
-                "BRF",
-                "BRH",
-                "BRDA",
-                "VER",
+                "TN",  # Test name
+                "FNF",  # Functions found
+                "FNH",  # Functions hit
+                "LH",  # Lines hit
+                "LF",  # Lines found
+                "BRF",  # Branches found
+                "BRH",  # Branches hit
+                "VER",  # Version
+                "FNL",  # Function line coverage (alternative format)
+                "FNA",  # Function name (alternative format)
             ]:
-                # these are valid lines, but not we don't need them
+                # Valid directives that we don't need to process
                 continue
             elif directive == "end_of_record":
+                # Process collected coverage data for current source file
+
+                # 1. Apply branch coverage logic
+                for line_no, info in branch_coverage[source_file].items():
+                    has_da_directive = line_no in lcov_report[source_file]
+
+                    if not has_da_directive:
+                        # No line execution data, use branch coverage
+                        if info["total"] > 0 and info["hit"] < info["total"]:
+                            lcov_report[source_file][
+                                line_no
+                            ] = 0  # Partial branch coverage
+                        else:
+                            lcov_report[source_file][line_no] = info["executions"]
+                        continue
+                    if not lcov_report[source_file][line_no]:
+                        # Line shows 0 executions, but check if branches were hit
+                        if info["executions"] > 0:
+                            lcov_report[source_file][line_no] = info["executions"]
+                    # Note: Don't override existing positive execution counts
+
+                # 2. Apply function coverage logic
+                for func_name, (line_no, hit) in function_lines[source_file].items():
+                    if line_no not in lcov_report[source_file]:
+                        # No existing line data, use function hit count
+                        lcov_report[source_file][line_no] = hit
+                    # Note: Don't override existing line execution data
+
+                # 3. Clean up temporary data for current file
+                branch_coverage[source_file].clear()
+                function_lines[source_file].clear()
                 source_file = None
             else:
                 raise ValueError(f"Unknown syntax in lcov report: {line}")
@@ -639,7 +716,7 @@ class PylintDriver(QualityDriver):
                 current_line += 1
                 match = self.multi_line_violation_regex.match(lines[current_line])
                 src_path, l_number = match.groups()
-                src_paths.append(("%s.py" % src_path, l_number))
+                src_paths.append((f"{src_path}.py", l_number))
         return src_paths
 
     def parse_reports(self, reports):
@@ -659,36 +736,32 @@ class PylintDriver(QualityDriver):
 
                 # Ignore any line that isn't matched
                 # (for example, snippets from the source code)
-                if match is not None:
-                    (
-                        pylint_src_path,
-                        line_number,
-                        pylint_code,
-                        function_name,
-                        message,
-                    ) = match.groups()
-                    if pylint_code == self.dupe_code_violation:
-                        files_involved = self._process_dupe_code_violation(
-                            output_lines, output_line_number, message
-                        )
-                    else:
-                        files_involved = [(pylint_src_path, line_number)]
+                if match is None:
+                    continue
 
-                    for violation in files_involved:
-                        pylint_src_path, line_number = violation
-                        # pylint might uses windows paths
-                        pylint_src_path = util.to_unix_path(pylint_src_path)
-                        # If we're looking for a particular source file,
-                        # ignore any other source files.
-                        if function_name:
-                            error_str = "{}: {}: {}".format(
-                                pylint_code, function_name, message
-                            )
-                        else:
-                            error_str = f"{pylint_code}: {message}"
+                (
+                    pylint_src_path,
+                    line_number,
+                    pylint_code,
+                    function_name,
+                    message,
+                ) = match.groups()
+                files_involved = [(pylint_src_path, line_number)]
+                if pylint_code == self.dupe_code_violation:
+                    files_involved = self._process_dupe_code_violation(
+                        output_lines, output_line_number, message
+                    )
 
-                        violation = Violation(int(line_number), error_str)
-                        violations_dict[pylint_src_path].append(violation)
+                for pylint_src_path, line_number in files_involved:
+                    # If we're looking for a particular source file,
+                    # ignore any other source files.
+                    error_str = f"{pylint_code}: {message}"
+                    if function_name:
+                        error_str = f"{pylint_code}: {function_name}: {message}"
+
+                    clean_path = util.to_unix_path(pylint_src_path)
+                    violation = Violation(int(line_number), error_str)
+                    violations_dict[clean_path].append(violation)
 
         return violations_dict
 

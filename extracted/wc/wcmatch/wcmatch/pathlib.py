@@ -1,3 +1,4 @@
+# noqa: A005
 """Pathlib implementation that uses our own glob."""
 from __future__ import annotations
 import pathlib
@@ -187,7 +188,7 @@ class Path(pathlib.Path):
                 self._init()
             return self  # type: ignore[no-any-return]
         else:
-            if cls is WindowsPath and not win_host or cls is not WindowsPath and win_host:
+            if (cls is WindowsPath and not win_host) or (cls is not WindowsPath and win_host):
                 raise NotImplementedError(f"Cannot instantiate {cls.__name__!r} on your system")
             return object.__new__(cls)
 

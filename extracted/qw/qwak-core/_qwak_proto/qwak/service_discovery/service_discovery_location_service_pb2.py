@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,33 +16,17 @@ from _qwak_proto.qwak.service_discovery import service_discovery_location_pb2 as
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?qwak/service_discovery/service_discovery_location_service.proto\x12\"qwak.service_discovery.location.v0\x1a\x37qwak/service_discovery/service_discovery_location.proto\"\x16\n\x14GetServingUrlRequest\"o\n\x1cGetServingUrlRequestResponse\x12O\n\x08location\x18\x01 \x01(\x0b\x32=.qwak.service_discovery.location.v0.ServiceLocationDescriptor2\xa0\x07\n\x18LocationDiscoveryService\x12\x92\x01\n\x14GetOfflineServingUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponse\x12\x97\x01\n\x19GetDistributionManagerUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponse\x12\x93\x01\n\x15GetAnalyticsEngineUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponse\x12\x92\x01\n\x14GetMetricsGatewayUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponse\x12\x94\x01\n\x16GetFeaturesOperatorUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponse\x12\x92\x01\n\x14GetHostingGatewayUrl\x12\x38.qwak.service_discovery.location.v0.GetServingUrlRequest\x1a@.qwak.service_discovery.location.v0.GetServingUrlRequestResponseB-\n)com.qwak.ai.service_discovery.location.v0P\x01\x62\x06proto3')
 
-
-
-_GETSERVINGURLREQUEST = DESCRIPTOR.message_types_by_name['GetServingUrlRequest']
-_GETSERVINGURLREQUESTRESPONSE = DESCRIPTOR.message_types_by_name['GetServingUrlRequestResponse']
-GetServingUrlRequest = _reflection.GeneratedProtocolMessageType('GetServingUrlRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETSERVINGURLREQUEST,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.GetServingUrlRequest)
-  })
-_sym_db.RegisterMessage(GetServingUrlRequest)
-
-GetServingUrlRequestResponse = _reflection.GeneratedProtocolMessageType('GetServingUrlRequestResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETSERVINGURLREQUESTRESPONSE,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.GetServingUrlRequestResponse)
-  })
-_sym_db.RegisterMessage(GetServingUrlRequestResponse)
-
-_LOCATIONDISCOVERYSERVICE = DESCRIPTOR.services_by_name['LocationDiscoveryService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.service_discovery.service_discovery_location_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.service_discovery.location.v0P\001'
-  _GETSERVINGURLREQUEST._serialized_start=160
-  _GETSERVINGURLREQUEST._serialized_end=182
-  _GETSERVINGURLREQUESTRESPONSE._serialized_start=184
-  _GETSERVINGURLREQUESTRESPONSE._serialized_end=295
-  _LOCATIONDISCOVERYSERVICE._serialized_start=298
-  _LOCATIONDISCOVERYSERVICE._serialized_end=1226
+  _globals['_GETSERVINGURLREQUEST']._serialized_start=160
+  _globals['_GETSERVINGURLREQUEST']._serialized_end=182
+  _globals['_GETSERVINGURLREQUESTRESPONSE']._serialized_start=184
+  _globals['_GETSERVINGURLREQUESTRESPONSE']._serialized_end=295
+  _globals['_LOCATIONDISCOVERYSERVICE']._serialized_start=298
+  _globals['_LOCATIONDISCOVERYSERVICE']._serialized_end=1226
 # @@protoc_insertion_point(module_scope)

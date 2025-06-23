@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,40 +15,17 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nDqwak/administration/runtime_configuration/v0/sql_engine_config.proto\x12>qwak.administration.runtime_configuration.v0.sql_engine_config\"\xab\x02\n\x16SqlEngineConfiguration\x12\x80\x01\n\x1f\x61thena_sql_engine_configuration\x18\x01 \x01(\x0b\x32U.qwak.administration.runtime_configuration.v0.sql_engine_config.AthenaSqlEngineConfigH\x00\x12\x85\x01\n\"big_query_sql_engine_configuration\x18\x02 \x01(\x0b\x32W.qwak.administration.runtime_configuration.v0.sql_engine_config.BigQuerySqlEngineConfigH\x00\x42\x06\n\x04type\"?\n\x15\x41thenaSqlEngineConfig\x12\x13\n\x0b\x65xternal_id\x18\x01 \x01(\t\x12\x11\n\tworkgroup\x18\x02 \x01(\t\"\x19\n\x17\x42igQuerySqlEngineConfigB\xde\x01\n7com.jfrog.ml.runtime_configuration.v0.sql_engine_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_SQLENGINECONFIGURATION = DESCRIPTOR.message_types_by_name['SqlEngineConfiguration']
-_ATHENASQLENGINECONFIG = DESCRIPTOR.message_types_by_name['AthenaSqlEngineConfig']
-_BIGQUERYSQLENGINECONFIG = DESCRIPTOR.message_types_by_name['BigQuerySqlEngineConfig']
-SqlEngineConfiguration = _reflection.GeneratedProtocolMessageType('SqlEngineConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _SQLENGINECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.sql_engine_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.sql_engine_config.SqlEngineConfiguration)
-  })
-_sym_db.RegisterMessage(SqlEngineConfiguration)
-
-AthenaSqlEngineConfig = _reflection.GeneratedProtocolMessageType('AthenaSqlEngineConfig', (_message.Message,), {
-  'DESCRIPTOR' : _ATHENASQLENGINECONFIG,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.sql_engine_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.sql_engine_config.AthenaSqlEngineConfig)
-  })
-_sym_db.RegisterMessage(AthenaSqlEngineConfig)
-
-BigQuerySqlEngineConfig = _reflection.GeneratedProtocolMessageType('BigQuerySqlEngineConfig', (_message.Message,), {
-  'DESCRIPTOR' : _BIGQUERYSQLENGINECONFIG,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.sql_engine_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.sql_engine_config.BigQuerySqlEngineConfig)
-  })
-_sym_db.RegisterMessage(BigQuerySqlEngineConfig)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.sql_engine_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n7com.jfrog.ml.runtime_configuration.v0.sql_engine_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _SQLENGINECONFIGURATION._serialized_start=137
-  _SQLENGINECONFIGURATION._serialized_end=436
-  _ATHENASQLENGINECONFIG._serialized_start=438
-  _ATHENASQLENGINECONFIG._serialized_end=501
-  _BIGQUERYSQLENGINECONFIG._serialized_start=503
-  _BIGQUERYSQLENGINECONFIG._serialized_end=528
+  _globals['_SQLENGINECONFIGURATION']._serialized_start=137
+  _globals['_SQLENGINECONFIGURATION']._serialized_end=436
+  _globals['_ATHENASQLENGINECONFIG']._serialized_start=438
+  _globals['_ATHENASQLENGINECONFIG']._serialized_end=501
+  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_start=503
+  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_end=528
 # @@protoc_insertion_point(module_scope)

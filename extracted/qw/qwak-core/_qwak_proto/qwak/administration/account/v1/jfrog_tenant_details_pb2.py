@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,122 +15,35 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n9qwak/administration/account/v1/jfrog_tenant_details.proto\x12\x1eqwak.administration.account.v1\"\xa6\x02\n\x12JfrogTenantDetails\x12\x11\n\ttenant_id\x18\x01 \x01(\t\x12^\n\x1d\x64\x65\x66\x61ult_jfrog_project_details\x18\x02 \x01(\x0b\x32\x33.qwak.administration.account.v1.JfrogProjectDetailsB\x02\x18\x01\x12\\\n\x1ajfrog_tenant_configuration\x18\x03 \x01(\x0b\x32\x38.qwak.administration.account.v1.JFrogTenantConfiguration\x12?\n\x0bjpd_details\x18\x04 \x01(\x0b\x32*.qwak.administration.account.v1.JPDDetails\"\xb0\x01\n\nJPDDetails\x12N\n\x0esh_jpd_details\x18\x01 \x01(\x0b\x32\x34.qwak.administration.account.v1.SelfHostedJPDDetailsH\x00\x12J\n\x10saas_jpd_details\x18\x02 \x01(\x0b\x32..qwak.administration.account.v1.SAASJPDDetailsH\x00\x42\x06\n\x04type\"(\n\x14SelfHostedJPDDetails\x12\x10\n\x08\x62\x61se_url\x18\x01 \x01(\t\"\x10\n\x0eSAASJPDDetails\"v\n\x18JFrogTenantConfiguration\x12Z\n\x1d\x64\x65\x66\x61ult_jfrog_project_details\x18\x01 \x01(\x0b\x32\x33.qwak.administration.account.v1.JfrogProjectDetails\"*\n\x13JfrogProjectDetails\x12\x13\n\x0bproject_key\x18\x01 \x01(\t\"\xbe\x01\n\x0fJfrogTenantSpec\x12\x11\n\ttenant_id\x18\x01 \x01(\t\x12N\n\x14\x64\x65\x66\x61ult_project_spec\x18\x02 \x01(\x0b\x32\x30.qwak.administration.account.v1.JfrogProjectSpec\x12H\n\x10jpd_details_spec\x18\x03 \x01(\x0b\x32..qwak.administration.account.v1.JPDDetailsSpec\"\xc6\x01\n\x0eJPDDetailsSpec\x12W\n\x13sh_jpd_details_spec\x18\x01 \x01(\x0b\x32\x38.qwak.administration.account.v1.SelfHostedJPDDetailsSpecH\x00\x12S\n\x15saas_jpd_details_spec\x18\x02 \x01(\x0b\x32\x32.qwak.administration.account.v1.SAASJPDDetailsSpecH\x00\x42\x06\n\x04type\",\n\x18SelfHostedJPDDetailsSpec\x12\x10\n\x08\x62\x61se_url\x18\x01 \x01(\t\"\x14\n\x12SAASJPDDetailsSpec\"\'\n\x10JfrogProjectSpec\x12\x13\n\x0bproject_key\x18\x01 \x01(\tB\xb4\x01\n)com.qwak.ai.administration.api.account.v1P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0b\x06proto3')
 
-
-
-_JFROGTENANTDETAILS = DESCRIPTOR.message_types_by_name['JfrogTenantDetails']
-_JPDDETAILS = DESCRIPTOR.message_types_by_name['JPDDetails']
-_SELFHOSTEDJPDDETAILS = DESCRIPTOR.message_types_by_name['SelfHostedJPDDetails']
-_SAASJPDDETAILS = DESCRIPTOR.message_types_by_name['SAASJPDDetails']
-_JFROGTENANTCONFIGURATION = DESCRIPTOR.message_types_by_name['JFrogTenantConfiguration']
-_JFROGPROJECTDETAILS = DESCRIPTOR.message_types_by_name['JfrogProjectDetails']
-_JFROGTENANTSPEC = DESCRIPTOR.message_types_by_name['JfrogTenantSpec']
-_JPDDETAILSSPEC = DESCRIPTOR.message_types_by_name['JPDDetailsSpec']
-_SELFHOSTEDJPDDETAILSSPEC = DESCRIPTOR.message_types_by_name['SelfHostedJPDDetailsSpec']
-_SAASJPDDETAILSSPEC = DESCRIPTOR.message_types_by_name['SAASJPDDetailsSpec']
-_JFROGPROJECTSPEC = DESCRIPTOR.message_types_by_name['JfrogProjectSpec']
-JfrogTenantDetails = _reflection.GeneratedProtocolMessageType('JfrogTenantDetails', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTENANTDETAILS,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JfrogTenantDetails)
-  })
-_sym_db.RegisterMessage(JfrogTenantDetails)
-
-JPDDetails = _reflection.GeneratedProtocolMessageType('JPDDetails', (_message.Message,), {
-  'DESCRIPTOR' : _JPDDETAILS,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JPDDetails)
-  })
-_sym_db.RegisterMessage(JPDDetails)
-
-SelfHostedJPDDetails = _reflection.GeneratedProtocolMessageType('SelfHostedJPDDetails', (_message.Message,), {
-  'DESCRIPTOR' : _SELFHOSTEDJPDDETAILS,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.SelfHostedJPDDetails)
-  })
-_sym_db.RegisterMessage(SelfHostedJPDDetails)
-
-SAASJPDDetails = _reflection.GeneratedProtocolMessageType('SAASJPDDetails', (_message.Message,), {
-  'DESCRIPTOR' : _SAASJPDDETAILS,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.SAASJPDDetails)
-  })
-_sym_db.RegisterMessage(SAASJPDDetails)
-
-JFrogTenantConfiguration = _reflection.GeneratedProtocolMessageType('JFrogTenantConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTENANTCONFIGURATION,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JFrogTenantConfiguration)
-  })
-_sym_db.RegisterMessage(JFrogTenantConfiguration)
-
-JfrogProjectDetails = _reflection.GeneratedProtocolMessageType('JfrogProjectDetails', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGPROJECTDETAILS,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JfrogProjectDetails)
-  })
-_sym_db.RegisterMessage(JfrogProjectDetails)
-
-JfrogTenantSpec = _reflection.GeneratedProtocolMessageType('JfrogTenantSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTENANTSPEC,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JfrogTenantSpec)
-  })
-_sym_db.RegisterMessage(JfrogTenantSpec)
-
-JPDDetailsSpec = _reflection.GeneratedProtocolMessageType('JPDDetailsSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JPDDETAILSSPEC,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JPDDetailsSpec)
-  })
-_sym_db.RegisterMessage(JPDDetailsSpec)
-
-SelfHostedJPDDetailsSpec = _reflection.GeneratedProtocolMessageType('SelfHostedJPDDetailsSpec', (_message.Message,), {
-  'DESCRIPTOR' : _SELFHOSTEDJPDDETAILSSPEC,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.SelfHostedJPDDetailsSpec)
-  })
-_sym_db.RegisterMessage(SelfHostedJPDDetailsSpec)
-
-SAASJPDDetailsSpec = _reflection.GeneratedProtocolMessageType('SAASJPDDetailsSpec', (_message.Message,), {
-  'DESCRIPTOR' : _SAASJPDDETAILSSPEC,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.SAASJPDDetailsSpec)
-  })
-_sym_db.RegisterMessage(SAASJPDDetailsSpec)
-
-JfrogProjectSpec = _reflection.GeneratedProtocolMessageType('JfrogProjectSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGPROJECTSPEC,
-  '__module__' : 'qwak.administration.account.v1.jfrog_tenant_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.JfrogProjectSpec)
-  })
-_sym_db.RegisterMessage(JfrogProjectSpec)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.account.v1.jfrog_tenant_details_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.administration.api.account.v1P\001Z\204\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0'
   _JFROGTENANTDETAILS.fields_by_name['default_jfrog_project_details']._options = None
   _JFROGTENANTDETAILS.fields_by_name['default_jfrog_project_details']._serialized_options = b'\030\001'
-  _JFROGTENANTDETAILS._serialized_start=94
-  _JFROGTENANTDETAILS._serialized_end=388
-  _JPDDETAILS._serialized_start=391
-  _JPDDETAILS._serialized_end=567
-  _SELFHOSTEDJPDDETAILS._serialized_start=569
-  _SELFHOSTEDJPDDETAILS._serialized_end=609
-  _SAASJPDDETAILS._serialized_start=611
-  _SAASJPDDETAILS._serialized_end=627
-  _JFROGTENANTCONFIGURATION._serialized_start=629
-  _JFROGTENANTCONFIGURATION._serialized_end=747
-  _JFROGPROJECTDETAILS._serialized_start=749
-  _JFROGPROJECTDETAILS._serialized_end=791
-  _JFROGTENANTSPEC._serialized_start=794
-  _JFROGTENANTSPEC._serialized_end=984
-  _JPDDETAILSSPEC._serialized_start=987
-  _JPDDETAILSSPEC._serialized_end=1185
-  _SELFHOSTEDJPDDETAILSSPEC._serialized_start=1187
-  _SELFHOSTEDJPDDETAILSSPEC._serialized_end=1231
-  _SAASJPDDETAILSSPEC._serialized_start=1233
-  _SAASJPDDETAILSSPEC._serialized_end=1253
-  _JFROGPROJECTSPEC._serialized_start=1255
-  _JFROGPROJECTSPEC._serialized_end=1294
+  _globals['_JFROGTENANTDETAILS']._serialized_start=94
+  _globals['_JFROGTENANTDETAILS']._serialized_end=388
+  _globals['_JPDDETAILS']._serialized_start=391
+  _globals['_JPDDETAILS']._serialized_end=567
+  _globals['_SELFHOSTEDJPDDETAILS']._serialized_start=569
+  _globals['_SELFHOSTEDJPDDETAILS']._serialized_end=609
+  _globals['_SAASJPDDETAILS']._serialized_start=611
+  _globals['_SAASJPDDETAILS']._serialized_end=627
+  _globals['_JFROGTENANTCONFIGURATION']._serialized_start=629
+  _globals['_JFROGTENANTCONFIGURATION']._serialized_end=747
+  _globals['_JFROGPROJECTDETAILS']._serialized_start=749
+  _globals['_JFROGPROJECTDETAILS']._serialized_end=791
+  _globals['_JFROGTENANTSPEC']._serialized_start=794
+  _globals['_JFROGTENANTSPEC']._serialized_end=984
+  _globals['_JPDDETAILSSPEC']._serialized_start=987
+  _globals['_JPDDETAILSSPEC']._serialized_end=1185
+  _globals['_SELFHOSTEDJPDDETAILSSPEC']._serialized_start=1187
+  _globals['_SELFHOSTEDJPDDETAILSSPEC']._serialized_end=1231
+  _globals['_SAASJPDDETAILSSPEC']._serialized_start=1233
+  _globals['_SAASJPDDETAILSSPEC']._serialized_end=1253
+  _globals['_JFROGPROJECTSPEC']._serialized_start=1255
+  _globals['_JFROGPROJECTSPEC']._serialized_end=1294
 # @@protoc_insertion_point(module_scope)

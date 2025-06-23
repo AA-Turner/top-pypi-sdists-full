@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,253 +17,61 @@ from _qwak_proto.qwak.model_descriptor import open_ai_descriptor_pb2 as qwak_dot
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/prompt/v1/prompt/prompt_manager_service.proto\x12\x15qwak.prompt.v1.prompt\x1a\"qwak/prompt/v1/prompt/prompt.proto\x1a.qwak/model_descriptor/open_ai_descriptor.proto\"\xa9\x01\n\x13\x43reatePromptRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x45\n\x13prompt_version_spec\x18\x02 \x01(\x0b\x32(.qwak.prompt.v1.prompt.PromptVersionSpec\x12\x36\n\x0bprompt_spec\x18\x03 \x01(\x0b\x32!.qwak.prompt.v1.prompt.PromptSpec\"E\n\x14\x43reatePromptResponse\x12-\n\x06prompt\x18\x01 \x01(\x0b\x32\x1d.qwak.prompt.v1.prompt.Prompt\"\x8d\x01\n\x1a\x43reatePromptVersionRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x45\n\x13prompt_version_spec\x18\x02 \x01(\x0b\x32(.qwak.prompt.v1.prompt.PromptVersionSpec\x12\x13\n\x0bset_default\x18\x03 \x01(\x08\"[\n\x1b\x43reatePromptVersionResponse\x12<\n\x0eprompt_version\x18\x01 \x01(\x0b\x32$.qwak.prompt.v1.prompt.PromptVersion\"b\n\x13UpdatePromptRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x36\n\x0bprompt_spec\x18\x02 \x01(\x0b\x32!.qwak.prompt.v1.prompt.PromptSpec\"\x16\n\x14UpdatePromptResponse\"o\n#GetPromptVersionByPromptNameRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x18\n\x0eversion_number\x18\x02 \x01(\x05H\x00\x42\x19\n\x17optional_version_number\"d\n$GetPromptVersionByPromptNameResponse\x12<\n\x0eprompt_version\x18\x01 \x01(\x0b\x32$.qwak.prompt.v1.prompt.PromptVersion\"-\n\x16GetPromptByNameRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\"H\n\x17GetPromptByNameResponse\x12-\n\x06prompt\x18\x01 \x01(\x0b\x32\x1d.qwak.prompt.v1.prompt.Prompt\"\x14\n\x12ListPromptsRequest\"E\n\x13ListPromptsResponse\x12.\n\x07prompts\x18\x01 \x03(\x0b\x32\x1d.qwak.prompt.v1.prompt.Prompt\"8\n!InitPaginationByPromptNameRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\"V\n\"InitPaginationByPromptNameResponse\x12\x14\n\x0crecord_count\x18\x01 \x01(\x03\x12\x1a\n\x12max_version_number\x18\x02 \x01(\x05\"\x80\x01\n%ListPromptVersionsByPromptNameRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x13\n\x0bpage_number\x18\x03 \x01(\x05\x12\x1a\n\x12max_version_number\x18\x04 \x01(\x05\"g\n&ListPromptVersionsByPromptNameResponse\x12=\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32$.qwak.prompt.v1.prompt.PromptVersion\"*\n\x13\x44\x65letePromptRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65letePromptResponse\"I\n\x1a\x44\x65letePromptVersionRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x16\n\x0eversion_number\x18\x03 \x01(\x05\"\x1d\n\x1b\x44\x65letePromptVersionResponse\"M\n\x1eSetDefaultPromptVersionRequest\x12\x13\n\x0bprompt_name\x18\x01 \x01(\t\x12\x16\n\x0eversion_number\x18\x02 \x01(\x05\"!\n\x1fSetDefaultPromptVersionResponse\"\x19\n\x17ListPromptBriefsRequest\"U\n\x18ListPromptBriefsResponse\x12\x39\n\rprompt_briefs\x18\x01 \x03(\x0b\x32\".qwak.prompt.v1.prompt.PromptBrief2\xf3\x0b\n\x14PromptManagerService\x12g\n\x0c\x43reatePrompt\x12*.qwak.prompt.v1.prompt.CreatePromptRequest\x1a+.qwak.prompt.v1.prompt.CreatePromptResponse\x12|\n\x13\x43reatePromptVersion\x12\x31.qwak.prompt.v1.prompt.CreatePromptVersionRequest\x1a\x32.qwak.prompt.v1.prompt.CreatePromptVersionResponse\x12g\n\x0cUpdatePrompt\x12*.qwak.prompt.v1.prompt.UpdatePromptRequest\x1a+.qwak.prompt.v1.prompt.UpdatePromptResponse\x12p\n\x0fGetPromptByName\x12-.qwak.prompt.v1.prompt.GetPromptByNameRequest\x1a..qwak.prompt.v1.prompt.GetPromptByNameResponse\x12\x64\n\x0bListPrompts\x12).qwak.prompt.v1.prompt.ListPromptsRequest\x1a*.qwak.prompt.v1.prompt.ListPromptsResponse\x12\x97\x01\n\x1cGetPromptVersionByPromptName\x12:.qwak.prompt.v1.prompt.GetPromptVersionByPromptNameRequest\x1a;.qwak.prompt.v1.prompt.GetPromptVersionByPromptNameResponse\x12\x91\x01\n\x1aInitPaginationByPromptName\x12\x38.qwak.prompt.v1.prompt.InitPaginationByPromptNameRequest\x1a\x39.qwak.prompt.v1.prompt.InitPaginationByPromptNameResponse\x12\x9d\x01\n\x1eListPromptVersionsByPromptName\x12<.qwak.prompt.v1.prompt.ListPromptVersionsByPromptNameRequest\x1a=.qwak.prompt.v1.prompt.ListPromptVersionsByPromptNameResponse\x12g\n\x0c\x44\x65letePrompt\x12*.qwak.prompt.v1.prompt.DeletePromptRequest\x1a+.qwak.prompt.v1.prompt.DeletePromptResponse\x12|\n\x13\x44\x65letePromptVersion\x12\x31.qwak.prompt.v1.prompt.DeletePromptVersionRequest\x1a\x32.qwak.prompt.v1.prompt.DeletePromptVersionResponse\x12\x88\x01\n\x17SetDefaultPromptVersion\x12\x35.qwak.prompt.v1.prompt.SetDefaultPromptVersionRequest\x1a\x36.qwak.prompt.v1.prompt.SetDefaultPromptVersionResponse\x12s\n\x10ListPromptBriefs\x12..qwak.prompt.v1.prompt.ListPromptBriefsRequest\x1a/.qwak.prompt.v1.prompt.ListPromptBriefsResponseB$\n com.qwak.ai.prompt.api.v1.promptP\x01\x62\x06proto3')
 
-
-
-_CREATEPROMPTREQUEST = DESCRIPTOR.message_types_by_name['CreatePromptRequest']
-_CREATEPROMPTRESPONSE = DESCRIPTOR.message_types_by_name['CreatePromptResponse']
-_CREATEPROMPTVERSIONREQUEST = DESCRIPTOR.message_types_by_name['CreatePromptVersionRequest']
-_CREATEPROMPTVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['CreatePromptVersionResponse']
-_UPDATEPROMPTREQUEST = DESCRIPTOR.message_types_by_name['UpdatePromptRequest']
-_UPDATEPROMPTRESPONSE = DESCRIPTOR.message_types_by_name['UpdatePromptResponse']
-_GETPROMPTVERSIONBYPROMPTNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetPromptVersionByPromptNameRequest']
-_GETPROMPTVERSIONBYPROMPTNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetPromptVersionByPromptNameResponse']
-_GETPROMPTBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetPromptByNameRequest']
-_GETPROMPTBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetPromptByNameResponse']
-_LISTPROMPTSREQUEST = DESCRIPTOR.message_types_by_name['ListPromptsRequest']
-_LISTPROMPTSRESPONSE = DESCRIPTOR.message_types_by_name['ListPromptsResponse']
-_INITPAGINATIONBYPROMPTNAMEREQUEST = DESCRIPTOR.message_types_by_name['InitPaginationByPromptNameRequest']
-_INITPAGINATIONBYPROMPTNAMERESPONSE = DESCRIPTOR.message_types_by_name['InitPaginationByPromptNameResponse']
-_LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST = DESCRIPTOR.message_types_by_name['ListPromptVersionsByPromptNameRequest']
-_LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE = DESCRIPTOR.message_types_by_name['ListPromptVersionsByPromptNameResponse']
-_DELETEPROMPTREQUEST = DESCRIPTOR.message_types_by_name['DeletePromptRequest']
-_DELETEPROMPTRESPONSE = DESCRIPTOR.message_types_by_name['DeletePromptResponse']
-_DELETEPROMPTVERSIONREQUEST = DESCRIPTOR.message_types_by_name['DeletePromptVersionRequest']
-_DELETEPROMPTVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['DeletePromptVersionResponse']
-_SETDEFAULTPROMPTVERSIONREQUEST = DESCRIPTOR.message_types_by_name['SetDefaultPromptVersionRequest']
-_SETDEFAULTPROMPTVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['SetDefaultPromptVersionResponse']
-_LISTPROMPTBRIEFSREQUEST = DESCRIPTOR.message_types_by_name['ListPromptBriefsRequest']
-_LISTPROMPTBRIEFSRESPONSE = DESCRIPTOR.message_types_by_name['ListPromptBriefsResponse']
-CreatePromptRequest = _reflection.GeneratedProtocolMessageType('CreatePromptRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROMPTREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.CreatePromptRequest)
-  })
-_sym_db.RegisterMessage(CreatePromptRequest)
-
-CreatePromptResponse = _reflection.GeneratedProtocolMessageType('CreatePromptResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROMPTRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.CreatePromptResponse)
-  })
-_sym_db.RegisterMessage(CreatePromptResponse)
-
-CreatePromptVersionRequest = _reflection.GeneratedProtocolMessageType('CreatePromptVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROMPTVERSIONREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.CreatePromptVersionRequest)
-  })
-_sym_db.RegisterMessage(CreatePromptVersionRequest)
-
-CreatePromptVersionResponse = _reflection.GeneratedProtocolMessageType('CreatePromptVersionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROMPTVERSIONRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.CreatePromptVersionResponse)
-  })
-_sym_db.RegisterMessage(CreatePromptVersionResponse)
-
-UpdatePromptRequest = _reflection.GeneratedProtocolMessageType('UpdatePromptRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEPROMPTREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.UpdatePromptRequest)
-  })
-_sym_db.RegisterMessage(UpdatePromptRequest)
-
-UpdatePromptResponse = _reflection.GeneratedProtocolMessageType('UpdatePromptResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEPROMPTRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.UpdatePromptResponse)
-  })
-_sym_db.RegisterMessage(UpdatePromptResponse)
-
-GetPromptVersionByPromptNameRequest = _reflection.GeneratedProtocolMessageType('GetPromptVersionByPromptNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROMPTVERSIONBYPROMPTNAMEREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.GetPromptVersionByPromptNameRequest)
-  })
-_sym_db.RegisterMessage(GetPromptVersionByPromptNameRequest)
-
-GetPromptVersionByPromptNameResponse = _reflection.GeneratedProtocolMessageType('GetPromptVersionByPromptNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROMPTVERSIONBYPROMPTNAMERESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.GetPromptVersionByPromptNameResponse)
-  })
-_sym_db.RegisterMessage(GetPromptVersionByPromptNameResponse)
-
-GetPromptByNameRequest = _reflection.GeneratedProtocolMessageType('GetPromptByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROMPTBYNAMEREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.GetPromptByNameRequest)
-  })
-_sym_db.RegisterMessage(GetPromptByNameRequest)
-
-GetPromptByNameResponse = _reflection.GeneratedProtocolMessageType('GetPromptByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROMPTBYNAMERESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.GetPromptByNameResponse)
-  })
-_sym_db.RegisterMessage(GetPromptByNameResponse)
-
-ListPromptsRequest = _reflection.GeneratedProtocolMessageType('ListPromptsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTSREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptsRequest)
-  })
-_sym_db.RegisterMessage(ListPromptsRequest)
-
-ListPromptsResponse = _reflection.GeneratedProtocolMessageType('ListPromptsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTSRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptsResponse)
-  })
-_sym_db.RegisterMessage(ListPromptsResponse)
-
-InitPaginationByPromptNameRequest = _reflection.GeneratedProtocolMessageType('InitPaginationByPromptNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYPROMPTNAMEREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.InitPaginationByPromptNameRequest)
-  })
-_sym_db.RegisterMessage(InitPaginationByPromptNameRequest)
-
-InitPaginationByPromptNameResponse = _reflection.GeneratedProtocolMessageType('InitPaginationByPromptNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYPROMPTNAMERESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.InitPaginationByPromptNameResponse)
-  })
-_sym_db.RegisterMessage(InitPaginationByPromptNameResponse)
-
-ListPromptVersionsByPromptNameRequest = _reflection.GeneratedProtocolMessageType('ListPromptVersionsByPromptNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptVersionsByPromptNameRequest)
-  })
-_sym_db.RegisterMessage(ListPromptVersionsByPromptNameRequest)
-
-ListPromptVersionsByPromptNameResponse = _reflection.GeneratedProtocolMessageType('ListPromptVersionsByPromptNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptVersionsByPromptNameResponse)
-  })
-_sym_db.RegisterMessage(ListPromptVersionsByPromptNameResponse)
-
-DeletePromptRequest = _reflection.GeneratedProtocolMessageType('DeletePromptRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROMPTREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.DeletePromptRequest)
-  })
-_sym_db.RegisterMessage(DeletePromptRequest)
-
-DeletePromptResponse = _reflection.GeneratedProtocolMessageType('DeletePromptResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROMPTRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.DeletePromptResponse)
-  })
-_sym_db.RegisterMessage(DeletePromptResponse)
-
-DeletePromptVersionRequest = _reflection.GeneratedProtocolMessageType('DeletePromptVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROMPTVERSIONREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.DeletePromptVersionRequest)
-  })
-_sym_db.RegisterMessage(DeletePromptVersionRequest)
-
-DeletePromptVersionResponse = _reflection.GeneratedProtocolMessageType('DeletePromptVersionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROMPTVERSIONRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.DeletePromptVersionResponse)
-  })
-_sym_db.RegisterMessage(DeletePromptVersionResponse)
-
-SetDefaultPromptVersionRequest = _reflection.GeneratedProtocolMessageType('SetDefaultPromptVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SETDEFAULTPROMPTVERSIONREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.SetDefaultPromptVersionRequest)
-  })
-_sym_db.RegisterMessage(SetDefaultPromptVersionRequest)
-
-SetDefaultPromptVersionResponse = _reflection.GeneratedProtocolMessageType('SetDefaultPromptVersionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SETDEFAULTPROMPTVERSIONRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.SetDefaultPromptVersionResponse)
-  })
-_sym_db.RegisterMessage(SetDefaultPromptVersionResponse)
-
-ListPromptBriefsRequest = _reflection.GeneratedProtocolMessageType('ListPromptBriefsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTBRIEFSREQUEST,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptBriefsRequest)
-  })
-_sym_db.RegisterMessage(ListPromptBriefsRequest)
-
-ListPromptBriefsResponse = _reflection.GeneratedProtocolMessageType('ListPromptBriefsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROMPTBRIEFSRESPONSE,
-  '__module__' : 'qwak.prompt.v1.prompt.prompt_manager_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.prompt.v1.prompt.ListPromptBriefsResponse)
-  })
-_sym_db.RegisterMessage(ListPromptBriefsResponse)
-
-_PROMPTMANAGERSERVICE = DESCRIPTOR.services_by_name['PromptManagerService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.prompt.v1.prompt.prompt_manager_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n com.qwak.ai.prompt.api.v1.promptP\001'
-  _CREATEPROMPTREQUEST._serialized_start=162
-  _CREATEPROMPTREQUEST._serialized_end=331
-  _CREATEPROMPTRESPONSE._serialized_start=333
-  _CREATEPROMPTRESPONSE._serialized_end=402
-  _CREATEPROMPTVERSIONREQUEST._serialized_start=405
-  _CREATEPROMPTVERSIONREQUEST._serialized_end=546
-  _CREATEPROMPTVERSIONRESPONSE._serialized_start=548
-  _CREATEPROMPTVERSIONRESPONSE._serialized_end=639
-  _UPDATEPROMPTREQUEST._serialized_start=641
-  _UPDATEPROMPTREQUEST._serialized_end=739
-  _UPDATEPROMPTRESPONSE._serialized_start=741
-  _UPDATEPROMPTRESPONSE._serialized_end=763
-  _GETPROMPTVERSIONBYPROMPTNAMEREQUEST._serialized_start=765
-  _GETPROMPTVERSIONBYPROMPTNAMEREQUEST._serialized_end=876
-  _GETPROMPTVERSIONBYPROMPTNAMERESPONSE._serialized_start=878
-  _GETPROMPTVERSIONBYPROMPTNAMERESPONSE._serialized_end=978
-  _GETPROMPTBYNAMEREQUEST._serialized_start=980
-  _GETPROMPTBYNAMEREQUEST._serialized_end=1025
-  _GETPROMPTBYNAMERESPONSE._serialized_start=1027
-  _GETPROMPTBYNAMERESPONSE._serialized_end=1099
-  _LISTPROMPTSREQUEST._serialized_start=1101
-  _LISTPROMPTSREQUEST._serialized_end=1121
-  _LISTPROMPTSRESPONSE._serialized_start=1123
-  _LISTPROMPTSRESPONSE._serialized_end=1192
-  _INITPAGINATIONBYPROMPTNAMEREQUEST._serialized_start=1194
-  _INITPAGINATIONBYPROMPTNAMEREQUEST._serialized_end=1250
-  _INITPAGINATIONBYPROMPTNAMERESPONSE._serialized_start=1252
-  _INITPAGINATIONBYPROMPTNAMERESPONSE._serialized_end=1338
-  _LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST._serialized_start=1341
-  _LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST._serialized_end=1469
-  _LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE._serialized_start=1471
-  _LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE._serialized_end=1574
-  _DELETEPROMPTREQUEST._serialized_start=1576
-  _DELETEPROMPTREQUEST._serialized_end=1618
-  _DELETEPROMPTRESPONSE._serialized_start=1620
-  _DELETEPROMPTRESPONSE._serialized_end=1642
-  _DELETEPROMPTVERSIONREQUEST._serialized_start=1644
-  _DELETEPROMPTVERSIONREQUEST._serialized_end=1717
-  _DELETEPROMPTVERSIONRESPONSE._serialized_start=1719
-  _DELETEPROMPTVERSIONRESPONSE._serialized_end=1748
-  _SETDEFAULTPROMPTVERSIONREQUEST._serialized_start=1750
-  _SETDEFAULTPROMPTVERSIONREQUEST._serialized_end=1827
-  _SETDEFAULTPROMPTVERSIONRESPONSE._serialized_start=1829
-  _SETDEFAULTPROMPTVERSIONRESPONSE._serialized_end=1862
-  _LISTPROMPTBRIEFSREQUEST._serialized_start=1864
-  _LISTPROMPTBRIEFSREQUEST._serialized_end=1889
-  _LISTPROMPTBRIEFSRESPONSE._serialized_start=1891
-  _LISTPROMPTBRIEFSRESPONSE._serialized_end=1976
-  _PROMPTMANAGERSERVICE._serialized_start=1979
-  _PROMPTMANAGERSERVICE._serialized_end=3502
+  _globals['_CREATEPROMPTREQUEST']._serialized_start=162
+  _globals['_CREATEPROMPTREQUEST']._serialized_end=331
+  _globals['_CREATEPROMPTRESPONSE']._serialized_start=333
+  _globals['_CREATEPROMPTRESPONSE']._serialized_end=402
+  _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_start=405
+  _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_end=546
+  _globals['_CREATEPROMPTVERSIONRESPONSE']._serialized_start=548
+  _globals['_CREATEPROMPTVERSIONRESPONSE']._serialized_end=639
+  _globals['_UPDATEPROMPTREQUEST']._serialized_start=641
+  _globals['_UPDATEPROMPTREQUEST']._serialized_end=739
+  _globals['_UPDATEPROMPTRESPONSE']._serialized_start=741
+  _globals['_UPDATEPROMPTRESPONSE']._serialized_end=763
+  _globals['_GETPROMPTVERSIONBYPROMPTNAMEREQUEST']._serialized_start=765
+  _globals['_GETPROMPTVERSIONBYPROMPTNAMEREQUEST']._serialized_end=876
+  _globals['_GETPROMPTVERSIONBYPROMPTNAMERESPONSE']._serialized_start=878
+  _globals['_GETPROMPTVERSIONBYPROMPTNAMERESPONSE']._serialized_end=978
+  _globals['_GETPROMPTBYNAMEREQUEST']._serialized_start=980
+  _globals['_GETPROMPTBYNAMEREQUEST']._serialized_end=1025
+  _globals['_GETPROMPTBYNAMERESPONSE']._serialized_start=1027
+  _globals['_GETPROMPTBYNAMERESPONSE']._serialized_end=1099
+  _globals['_LISTPROMPTSREQUEST']._serialized_start=1101
+  _globals['_LISTPROMPTSREQUEST']._serialized_end=1121
+  _globals['_LISTPROMPTSRESPONSE']._serialized_start=1123
+  _globals['_LISTPROMPTSRESPONSE']._serialized_end=1192
+  _globals['_INITPAGINATIONBYPROMPTNAMEREQUEST']._serialized_start=1194
+  _globals['_INITPAGINATIONBYPROMPTNAMEREQUEST']._serialized_end=1250
+  _globals['_INITPAGINATIONBYPROMPTNAMERESPONSE']._serialized_start=1252
+  _globals['_INITPAGINATIONBYPROMPTNAMERESPONSE']._serialized_end=1338
+  _globals['_LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST']._serialized_start=1341
+  _globals['_LISTPROMPTVERSIONSBYPROMPTNAMEREQUEST']._serialized_end=1469
+  _globals['_LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE']._serialized_start=1471
+  _globals['_LISTPROMPTVERSIONSBYPROMPTNAMERESPONSE']._serialized_end=1574
+  _globals['_DELETEPROMPTREQUEST']._serialized_start=1576
+  _globals['_DELETEPROMPTREQUEST']._serialized_end=1618
+  _globals['_DELETEPROMPTRESPONSE']._serialized_start=1620
+  _globals['_DELETEPROMPTRESPONSE']._serialized_end=1642
+  _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_start=1644
+  _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_end=1717
+  _globals['_DELETEPROMPTVERSIONRESPONSE']._serialized_start=1719
+  _globals['_DELETEPROMPTVERSIONRESPONSE']._serialized_end=1748
+  _globals['_SETDEFAULTPROMPTVERSIONREQUEST']._serialized_start=1750
+  _globals['_SETDEFAULTPROMPTVERSIONREQUEST']._serialized_end=1827
+  _globals['_SETDEFAULTPROMPTVERSIONRESPONSE']._serialized_start=1829
+  _globals['_SETDEFAULTPROMPTVERSIONRESPONSE']._serialized_end=1862
+  _globals['_LISTPROMPTBRIEFSREQUEST']._serialized_start=1864
+  _globals['_LISTPROMPTBRIEFSREQUEST']._serialized_end=1889
+  _globals['_LISTPROMPTBRIEFSRESPONSE']._serialized_start=1891
+  _globals['_LISTPROMPTBRIEFSRESPONSE']._serialized_end=1976
+  _globals['_PROMPTMANAGERSERVICE']._serialized_start=1979
+  _globals['_PROMPTMANAGERSERVICE']._serialized_end=3502
 # @@protoc_insertion_point(module_scope)

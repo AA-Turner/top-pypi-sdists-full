@@ -1,19 +1,19 @@
 Metadata-Version: 2.1
 Name: baize
-Version: 0.22.2
+Version: 0.23.0
 Summary: Powerful and exquisite WSGI/ASGI framework/toolkit.
+Author-Email: abersheeran <me@abersheeran.com>
 License: Apache-2.0
-Author-email: abersheeran <me@abersheeran.com>
-Requires-Python: >=3.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
-Project-URL: Documentation, https://baize.aber.sh/
 Project-URL: Homepage, https://github.com/abersheeran/baize
 Project-URL: Repository, https://github.com/abersheeran/baize
+Project-URL: Documentation, https://baize.aber.sh/
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 # BáiZé
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 [![Codecov](https://img.shields.io/codecov/c/github/abersheeran/baize?style=flat-square)](https://codecov.io/gh/abersheeran/baize)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/baize?label=Support%20Python%20Version&style=flat-square)](https://pypi.org/project/baize/)
 
-Powerful and exquisite WSGI/ASGI framework/toolkit.
+Powerful and exquisite WSGI/ASGI framework/toolkit. Only relies on the standard library.
 
 The minimize implementation of methods required in the Web framework. No redundant implementation means that you can freely customize functions without considering the conflict with baize's own implementation.
 
@@ -149,4 +149,3 @@ if __name__ == "__main__":
 ## License
 
 Apache-2.0.
-

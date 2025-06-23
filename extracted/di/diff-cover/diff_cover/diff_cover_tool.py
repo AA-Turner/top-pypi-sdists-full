@@ -17,6 +17,7 @@ from diff_cover.report_generator import (
     MarkdownReportGenerator,
     StringReportGenerator,
 )
+from diff_cover.util import open_file
 from diff_cover.violationsreporters.violations_reporter import (
     LcovCoverageReporter,
     XmlCoverageReporter,
@@ -81,7 +82,7 @@ def parse_coverage_args(argv):
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument("coverage_file", type=str, help=COVERAGE_FILE_HELP, nargs="+")
+    parser.add_argument("coverage_files", type=str, help=COVERAGE_FILE_HELP, nargs="+")
 
     parser.add_argument(
         "--format",
@@ -236,9 +237,9 @@ def generate_coverage_report(
         for coverage_file in coverage_files
         if not coverage_file.endswith(".xml")
     ]
-    if len(xml_roots) > 0 and len(lcov_roots) > 0:
-        raise ValueError(f"Mixing LCov and XML reports is not supported yet")
-    elif len(xml_roots) > 0:
+    if xml_roots and lcov_roots:
+        raise ValueError("Mixing LCov and XML reports is not supported yet")
+    if xml_roots:
         coverage = XmlCoverageReporter(xml_roots, src_roots, expand_coverage_report)
     else:
         coverage = LcovCoverageReporter(lcov_roots, src_roots)
@@ -250,7 +251,7 @@ def generate_coverage_report(
         if css_url is not None:
             css_url = os.path.relpath(css_file, os.path.dirname(html_report))
         reporter = HtmlReportGenerator(coverage, diff, css_url=css_url)
-        with open(html_report, "wb") as output_file:
+        with open_file(html_report, "wb") as output_file:
             reporter.generate_report(output_file)
         if css_file is not None:
             with open(css_file, "wb") as output_file:
@@ -259,7 +260,7 @@ def generate_coverage_report(
     if "json" in report_formats:
         json_report = report_formats["json"] or JSON_REPORT_DEFAULT_PATH
         reporter = JsonReportGenerator(coverage, diff)
-        with open(json_report, "wb") as output_file:
+        with open_file(json_report, "wb") as output_file:
             reporter.generate_report(output_file)
 
     if "markdown" in report_formats:
@@ -351,7 +352,7 @@ def main(argv=None, directory=None):
         diff_tool = GitDiffFileTool(arg_dict["diff_file"])
 
     percent_covered = generate_coverage_report(
-        arg_dict["coverage_file"],
+        arg_dict["coverage_files"],
         arg_dict["compare_branch"],
         diff_tool,
         report_formats=arg_dict["format"],

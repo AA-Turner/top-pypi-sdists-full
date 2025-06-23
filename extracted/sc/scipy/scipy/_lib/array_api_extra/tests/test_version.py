@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib.metadata
 
 import array_api_extra as xpx

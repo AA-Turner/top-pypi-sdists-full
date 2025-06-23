@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -24,20 +23,13 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0 import observabili
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nAqwak/administration/runtime_configuration/v0/runtime_config.proto\x12,qwak.administration.runtime_configuration.v0\x1aGqwak/administration/runtime_configuration/v0/feature_store_config.proto\x1a\x44qwak/administration/runtime_configuration/v0/sql_engine_config.proto\x1a\x46qwak/administration/runtime_configuration/v0/data_catalog_config.proto\x1a\x46qwak/administration/runtime_configuration/v0/logs_storage_config.proto\x1aHqwak/administration/runtime_configuration/v0/object_storage_config.proto\x1a\x41qwak/administration/runtime_configuration/v0/hosting_config.proto\x1aQqwak/administration/runtime_configuration/v0/model_analytics_storage_config.proto\x1aGqwak/administration/runtime_configuration/v0/observability_config.proto\"\xb3\x08\n\x14RuntimeConfiguration\x12p\n\x15hosting_configuration\x18\x01 \x01(\x0b\x32Q.qwak.administration.runtime_configuration.v0.hosting_config.HostingConfiguration\x12\x81\x01\n\x1b\x66\x65\x61ture_store_configuration\x18\x02 \x01(\x0b\x32\\.qwak.administration.runtime_configuration.v0.feature_store_config.FeatureStoreConfiguration\x12\x84\x01\n\x1cobject_storage_configuration\x18\x03 \x01(\x0b\x32^.qwak.administration.runtime_configuration.v0.object_storage_config.ObjectStorageConfiguration\x12~\n\x1alogs_storage_configuration\x18\x04 \x01(\x0b\x32Z.qwak.administration.runtime_configuration.v0.logs_storage_config.LogsStorageConfiguration\x12~\n\x1a\x64\x61ta_catalog_configuration\x18\x05 \x01(\x0b\x32Z.qwak.administration.runtime_configuration.v0.data_catalog_config.DataCatalogConfiguration\x12x\n\x18sql_engine_configuration\x18\x06 \x01(\x0b\x32V.qwak.administration.runtime_configuration.v0.sql_engine_config.SqlEngineConfiguration\x12\x9e\x01\n%model_analytics_storage_configuration\x18\x07 \x01(\x0b\x32o.qwak.administration.runtime_configuration.v0.model_analytics_storage_config.ModelAnalyticsStorageConfiguration\x12\x82\x01\n\x1bobservability_configuration\x18\x08 \x01(\x0b\x32].qwak.administration.runtime_configuration.v0.observability_config.ObservabilityConfigurationB\xcc\x01\n%com.jfrog.ml.runtime_configuration.v0P\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_RUNTIMECONFIGURATION = DESCRIPTOR.message_types_by_name['RuntimeConfiguration']
-RuntimeConfiguration = _reflection.GeneratedProtocolMessageType('RuntimeConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _RUNTIMECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.runtime_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.RuntimeConfiguration)
-  })
-_sym_db.RegisterMessage(RuntimeConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.runtime_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.jfrog.ml.runtime_configuration.v0P\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _RUNTIMECONFIGURATION._serialized_start=700
-  _RUNTIMECONFIGURATION._serialized_end=1775
+  _globals['_RUNTIMECONFIGURATION']._serialized_start=700
+  _globals['_RUNTIMECONFIGURATION']._serialized_end=1775
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,213 +16,53 @@ from _qwak_proto.qwak.analytics import analytics_pb2 as qwak_dot_analytics_dot_a
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&qwak/analytics/analytics_service.proto\x12\x0eqwak.analytics\x1a\x1eqwak/analytics/analytics.proto\"\x1d\n\x0cQueryRequest\x12\r\n\x05query\x18\x01 \x01(\t\"!\n\rQueryResponse\x12\x10\n\x08query_id\x18\x01 \x01(\t\"\'\n\x16\x45xecuteDdlQueryRequest\x12\r\n\x05query\x18\x01 \x01(\t\"+\n\x17\x45xecuteDdlQueryResponse\x12\x10\n\x08query_id\x18\x01 \x01(\t\"T\n\x1aGetQueryResultsPageRequest\x12\x10\n\x08query_id\x18\x01 \x01(\t\x12\x0f\n\x07page_id\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\"\xa2\x01\n\x1bGetQueryResultsPageResponse\x12+\n\x06status\x18\x01 \x01(\x0e\x32\x1b.qwak.analytics.QueryStatus\x12\x16\n\x0e\x66\x61ilure_reason\x18\x04 \x01(\t\x12\x14\n\x0cnext_page_id\x18\x02 \x01(\t\x12(\n\x04\x64\x61ta\x18\x03 \x01(\x0b\x32\x1a.qwak.analytics.ResultData\")\n\x15GetQueryStatusRequest\x12\x10\n\x08query_id\x18\x01 \x01(\t\"]\n\x16GetQueryStatusResponse\x12+\n\x06status\x18\x01 \x01(\x0e\x32\x1b.qwak.analytics.QueryStatus\x12\x16\n\x0e\x66\x61ilure_reason\x18\x02 \x01(\t\"A\n\x14\x44\x65scribeTableRequest\x12\x12\n\ntable_name\x18\x01 \x01(\t\x12\x15\n\rdatabase_name\x18\x02 \x01(\t\"Y\n\x15\x44\x65scribeTableResponse\x12\x12\n\ntable_name\x18\x01 \x01(\t\x12,\n\x07\x63olumns\x18\x02 \x03(\x0b\x32\x1b.qwak.analytics.TableColumn\"\x12\n\x10ListTableRequest\"(\n\x11ListTableResponse\x12\x13\n\x0btable_names\x18\x01 \x03(\t\"D\n\x12\x43reateTableRequest\x12.\n\x05table\x18\x01 \x01(\x0b\x32\x1f.qwak.analytics.TableDefinition\"\x15\n\x13\x43reateTableResponse\"`\n GetQueryResultDownloadURLRequest\x12<\n\x06params\x18\x01 \x01(\x0b\x32,.qwak.analytics.QueryResultDownloadURLParams\"9\n!GetQueryResultDownloadURLResponse\x12\x14\n\x0c\x64ownload_url\x18\x01 \x01(\t\"B\n\x14OptimizeTableRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12\x12\n\ntable_name\x18\x02 \x01(\t\")\n\x15OptimizeTableResponse\x12\x10\n\x08query_id\x18\x01 \x01(\t\".\n\x15\x43reateDatabaseRequest\x12\x15\n\rdatabase_name\x18\x01 \x01(\t\"\x18\n\x16\x43reateDatabaseResponse2\xdd\x07\n\x15\x41nalyticsQueryService\x12\x44\n\x05Query\x12\x1c.qwak.analytics.QueryRequest\x1a\x1d.qwak.analytics.QueryResponse\x12\x62\n\x0f\x45xecuteDdlQuery\x12&.qwak.analytics.ExecuteDdlQueryRequest\x1a\'.qwak.analytics.ExecuteDdlQueryResponse\x12n\n\x13GetQueryResultsPage\x12*.qwak.analytics.GetQueryResultsPageRequest\x1a+.qwak.analytics.GetQueryResultsPageResponse\x12_\n\x0eGetQueryStatus\x12%.qwak.analytics.GetQueryStatusRequest\x1a&.qwak.analytics.GetQueryStatusResponse\x12\\\n\rDescribeTable\x12$.qwak.analytics.DescribeTableRequest\x1a%.qwak.analytics.DescribeTableResponse\x12Q\n\nListTables\x12 .qwak.analytics.ListTableRequest\x1a!.qwak.analytics.ListTableResponse\x12V\n\x0b\x43reateTable\x12\".qwak.analytics.CreateTableRequest\x1a#.qwak.analytics.CreateTableResponse\x12\x80\x01\n\x19GetQueryResultDownloadURL\x12\x30.qwak.analytics.GetQueryResultDownloadURLRequest\x1a\x31.qwak.analytics.GetQueryResultDownloadURLResponse\x12\\\n\rOptimizeTable\x12$.qwak.analytics.OptimizeTableRequest\x1a%.qwak.analytics.OptimizeTableResponse\x12_\n\x0e\x43reateDatabase\x12%.qwak.analytics.CreateDatabaseRequest\x1a&.qwak.analytics.CreateDatabaseResponseB\x86\x01\n\x19\x63om.qwak.ai.analytics.apiP\x01Zggithub.com/qwak-ai/qwak-platform/services/core/java/analytics/analytics-api/pb/qwak/analytics;analyticsb\x06proto3')
 
-
-
-_QUERYREQUEST = DESCRIPTOR.message_types_by_name['QueryRequest']
-_QUERYRESPONSE = DESCRIPTOR.message_types_by_name['QueryResponse']
-_EXECUTEDDLQUERYREQUEST = DESCRIPTOR.message_types_by_name['ExecuteDdlQueryRequest']
-_EXECUTEDDLQUERYRESPONSE = DESCRIPTOR.message_types_by_name['ExecuteDdlQueryResponse']
-_GETQUERYRESULTSPAGEREQUEST = DESCRIPTOR.message_types_by_name['GetQueryResultsPageRequest']
-_GETQUERYRESULTSPAGERESPONSE = DESCRIPTOR.message_types_by_name['GetQueryResultsPageResponse']
-_GETQUERYSTATUSREQUEST = DESCRIPTOR.message_types_by_name['GetQueryStatusRequest']
-_GETQUERYSTATUSRESPONSE = DESCRIPTOR.message_types_by_name['GetQueryStatusResponse']
-_DESCRIBETABLEREQUEST = DESCRIPTOR.message_types_by_name['DescribeTableRequest']
-_DESCRIBETABLERESPONSE = DESCRIPTOR.message_types_by_name['DescribeTableResponse']
-_LISTTABLEREQUEST = DESCRIPTOR.message_types_by_name['ListTableRequest']
-_LISTTABLERESPONSE = DESCRIPTOR.message_types_by_name['ListTableResponse']
-_CREATETABLEREQUEST = DESCRIPTOR.message_types_by_name['CreateTableRequest']
-_CREATETABLERESPONSE = DESCRIPTOR.message_types_by_name['CreateTableResponse']
-_GETQUERYRESULTDOWNLOADURLREQUEST = DESCRIPTOR.message_types_by_name['GetQueryResultDownloadURLRequest']
-_GETQUERYRESULTDOWNLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['GetQueryResultDownloadURLResponse']
-_OPTIMIZETABLEREQUEST = DESCRIPTOR.message_types_by_name['OptimizeTableRequest']
-_OPTIMIZETABLERESPONSE = DESCRIPTOR.message_types_by_name['OptimizeTableResponse']
-_CREATEDATABASEREQUEST = DESCRIPTOR.message_types_by_name['CreateDatabaseRequest']
-_CREATEDATABASERESPONSE = DESCRIPTOR.message_types_by_name['CreateDatabaseResponse']
-QueryRequest = _reflection.GeneratedProtocolMessageType('QueryRequest', (_message.Message,), {
-  'DESCRIPTOR' : _QUERYREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.QueryRequest)
-  })
-_sym_db.RegisterMessage(QueryRequest)
-
-QueryResponse = _reflection.GeneratedProtocolMessageType('QueryResponse', (_message.Message,), {
-  'DESCRIPTOR' : _QUERYRESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.QueryResponse)
-  })
-_sym_db.RegisterMessage(QueryResponse)
-
-ExecuteDdlQueryRequest = _reflection.GeneratedProtocolMessageType('ExecuteDdlQueryRequest', (_message.Message,), {
-  'DESCRIPTOR' : _EXECUTEDDLQUERYREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.ExecuteDdlQueryRequest)
-  })
-_sym_db.RegisterMessage(ExecuteDdlQueryRequest)
-
-ExecuteDdlQueryResponse = _reflection.GeneratedProtocolMessageType('ExecuteDdlQueryResponse', (_message.Message,), {
-  'DESCRIPTOR' : _EXECUTEDDLQUERYRESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.ExecuteDdlQueryResponse)
-  })
-_sym_db.RegisterMessage(ExecuteDdlQueryResponse)
-
-GetQueryResultsPageRequest = _reflection.GeneratedProtocolMessageType('GetQueryResultsPageRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYRESULTSPAGEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryResultsPageRequest)
-  })
-_sym_db.RegisterMessage(GetQueryResultsPageRequest)
-
-GetQueryResultsPageResponse = _reflection.GeneratedProtocolMessageType('GetQueryResultsPageResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYRESULTSPAGERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryResultsPageResponse)
-  })
-_sym_db.RegisterMessage(GetQueryResultsPageResponse)
-
-GetQueryStatusRequest = _reflection.GeneratedProtocolMessageType('GetQueryStatusRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYSTATUSREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryStatusRequest)
-  })
-_sym_db.RegisterMessage(GetQueryStatusRequest)
-
-GetQueryStatusResponse = _reflection.GeneratedProtocolMessageType('GetQueryStatusResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYSTATUSRESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryStatusResponse)
-  })
-_sym_db.RegisterMessage(GetQueryStatusResponse)
-
-DescribeTableRequest = _reflection.GeneratedProtocolMessageType('DescribeTableRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DESCRIBETABLEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.DescribeTableRequest)
-  })
-_sym_db.RegisterMessage(DescribeTableRequest)
-
-DescribeTableResponse = _reflection.GeneratedProtocolMessageType('DescribeTableResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DESCRIBETABLERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.DescribeTableResponse)
-  })
-_sym_db.RegisterMessage(DescribeTableResponse)
-
-ListTableRequest = _reflection.GeneratedProtocolMessageType('ListTableRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTTABLEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.ListTableRequest)
-  })
-_sym_db.RegisterMessage(ListTableRequest)
-
-ListTableResponse = _reflection.GeneratedProtocolMessageType('ListTableResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTTABLERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.ListTableResponse)
-  })
-_sym_db.RegisterMessage(ListTableResponse)
-
-CreateTableRequest = _reflection.GeneratedProtocolMessageType('CreateTableRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATETABLEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.CreateTableRequest)
-  })
-_sym_db.RegisterMessage(CreateTableRequest)
-
-CreateTableResponse = _reflection.GeneratedProtocolMessageType('CreateTableResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATETABLERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.CreateTableResponse)
-  })
-_sym_db.RegisterMessage(CreateTableResponse)
-
-GetQueryResultDownloadURLRequest = _reflection.GeneratedProtocolMessageType('GetQueryResultDownloadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYRESULTDOWNLOADURLREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryResultDownloadURLRequest)
-  })
-_sym_db.RegisterMessage(GetQueryResultDownloadURLRequest)
-
-GetQueryResultDownloadURLResponse = _reflection.GeneratedProtocolMessageType('GetQueryResultDownloadURLResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETQUERYRESULTDOWNLOADURLRESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.GetQueryResultDownloadURLResponse)
-  })
-_sym_db.RegisterMessage(GetQueryResultDownloadURLResponse)
-
-OptimizeTableRequest = _reflection.GeneratedProtocolMessageType('OptimizeTableRequest', (_message.Message,), {
-  'DESCRIPTOR' : _OPTIMIZETABLEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.OptimizeTableRequest)
-  })
-_sym_db.RegisterMessage(OptimizeTableRequest)
-
-OptimizeTableResponse = _reflection.GeneratedProtocolMessageType('OptimizeTableResponse', (_message.Message,), {
-  'DESCRIPTOR' : _OPTIMIZETABLERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.OptimizeTableResponse)
-  })
-_sym_db.RegisterMessage(OptimizeTableResponse)
-
-CreateDatabaseRequest = _reflection.GeneratedProtocolMessageType('CreateDatabaseRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEDATABASEREQUEST,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.CreateDatabaseRequest)
-  })
-_sym_db.RegisterMessage(CreateDatabaseRequest)
-
-CreateDatabaseResponse = _reflection.GeneratedProtocolMessageType('CreateDatabaseResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEDATABASERESPONSE,
-  '__module__' : 'qwak.analytics.analytics_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.analytics.CreateDatabaseResponse)
-  })
-_sym_db.RegisterMessage(CreateDatabaseResponse)
-
-_ANALYTICSQUERYSERVICE = DESCRIPTOR.services_by_name['AnalyticsQueryService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.analytics.analytics_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\031com.qwak.ai.analytics.apiP\001Zggithub.com/qwak-ai/qwak-platform/services/core/java/analytics/analytics-api/pb/qwak/analytics;analytics'
-  _QUERYREQUEST._serialized_start=90
-  _QUERYREQUEST._serialized_end=119
-  _QUERYRESPONSE._serialized_start=121
-  _QUERYRESPONSE._serialized_end=154
-  _EXECUTEDDLQUERYREQUEST._serialized_start=156
-  _EXECUTEDDLQUERYREQUEST._serialized_end=195
-  _EXECUTEDDLQUERYRESPONSE._serialized_start=197
-  _EXECUTEDDLQUERYRESPONSE._serialized_end=240
-  _GETQUERYRESULTSPAGEREQUEST._serialized_start=242
-  _GETQUERYRESULTSPAGEREQUEST._serialized_end=326
-  _GETQUERYRESULTSPAGERESPONSE._serialized_start=329
-  _GETQUERYRESULTSPAGERESPONSE._serialized_end=491
-  _GETQUERYSTATUSREQUEST._serialized_start=493
-  _GETQUERYSTATUSREQUEST._serialized_end=534
-  _GETQUERYSTATUSRESPONSE._serialized_start=536
-  _GETQUERYSTATUSRESPONSE._serialized_end=629
-  _DESCRIBETABLEREQUEST._serialized_start=631
-  _DESCRIBETABLEREQUEST._serialized_end=696
-  _DESCRIBETABLERESPONSE._serialized_start=698
-  _DESCRIBETABLERESPONSE._serialized_end=787
-  _LISTTABLEREQUEST._serialized_start=789
-  _LISTTABLEREQUEST._serialized_end=807
-  _LISTTABLERESPONSE._serialized_start=809
-  _LISTTABLERESPONSE._serialized_end=849
-  _CREATETABLEREQUEST._serialized_start=851
-  _CREATETABLEREQUEST._serialized_end=919
-  _CREATETABLERESPONSE._serialized_start=921
-  _CREATETABLERESPONSE._serialized_end=942
-  _GETQUERYRESULTDOWNLOADURLREQUEST._serialized_start=944
-  _GETQUERYRESULTDOWNLOADURLREQUEST._serialized_end=1040
-  _GETQUERYRESULTDOWNLOADURLRESPONSE._serialized_start=1042
-  _GETQUERYRESULTDOWNLOADURLRESPONSE._serialized_end=1099
-  _OPTIMIZETABLEREQUEST._serialized_start=1101
-  _OPTIMIZETABLEREQUEST._serialized_end=1167
-  _OPTIMIZETABLERESPONSE._serialized_start=1169
-  _OPTIMIZETABLERESPONSE._serialized_end=1210
-  _CREATEDATABASEREQUEST._serialized_start=1212
-  _CREATEDATABASEREQUEST._serialized_end=1258
-  _CREATEDATABASERESPONSE._serialized_start=1260
-  _CREATEDATABASERESPONSE._serialized_end=1284
-  _ANALYTICSQUERYSERVICE._serialized_start=1287
-  _ANALYTICSQUERYSERVICE._serialized_end=2276
+  _globals['_QUERYREQUEST']._serialized_start=90
+  _globals['_QUERYREQUEST']._serialized_end=119
+  _globals['_QUERYRESPONSE']._serialized_start=121
+  _globals['_QUERYRESPONSE']._serialized_end=154
+  _globals['_EXECUTEDDLQUERYREQUEST']._serialized_start=156
+  _globals['_EXECUTEDDLQUERYREQUEST']._serialized_end=195
+  _globals['_EXECUTEDDLQUERYRESPONSE']._serialized_start=197
+  _globals['_EXECUTEDDLQUERYRESPONSE']._serialized_end=240
+  _globals['_GETQUERYRESULTSPAGEREQUEST']._serialized_start=242
+  _globals['_GETQUERYRESULTSPAGEREQUEST']._serialized_end=326
+  _globals['_GETQUERYRESULTSPAGERESPONSE']._serialized_start=329
+  _globals['_GETQUERYRESULTSPAGERESPONSE']._serialized_end=491
+  _globals['_GETQUERYSTATUSREQUEST']._serialized_start=493
+  _globals['_GETQUERYSTATUSREQUEST']._serialized_end=534
+  _globals['_GETQUERYSTATUSRESPONSE']._serialized_start=536
+  _globals['_GETQUERYSTATUSRESPONSE']._serialized_end=629
+  _globals['_DESCRIBETABLEREQUEST']._serialized_start=631
+  _globals['_DESCRIBETABLEREQUEST']._serialized_end=696
+  _globals['_DESCRIBETABLERESPONSE']._serialized_start=698
+  _globals['_DESCRIBETABLERESPONSE']._serialized_end=787
+  _globals['_LISTTABLEREQUEST']._serialized_start=789
+  _globals['_LISTTABLEREQUEST']._serialized_end=807
+  _globals['_LISTTABLERESPONSE']._serialized_start=809
+  _globals['_LISTTABLERESPONSE']._serialized_end=849
+  _globals['_CREATETABLEREQUEST']._serialized_start=851
+  _globals['_CREATETABLEREQUEST']._serialized_end=919
+  _globals['_CREATETABLERESPONSE']._serialized_start=921
+  _globals['_CREATETABLERESPONSE']._serialized_end=942
+  _globals['_GETQUERYRESULTDOWNLOADURLREQUEST']._serialized_start=944
+  _globals['_GETQUERYRESULTDOWNLOADURLREQUEST']._serialized_end=1040
+  _globals['_GETQUERYRESULTDOWNLOADURLRESPONSE']._serialized_start=1042
+  _globals['_GETQUERYRESULTDOWNLOADURLRESPONSE']._serialized_end=1099
+  _globals['_OPTIMIZETABLEREQUEST']._serialized_start=1101
+  _globals['_OPTIMIZETABLEREQUEST']._serialized_end=1167
+  _globals['_OPTIMIZETABLERESPONSE']._serialized_start=1169
+  _globals['_OPTIMIZETABLERESPONSE']._serialized_end=1210
+  _globals['_CREATEDATABASEREQUEST']._serialized_start=1212
+  _globals['_CREATEDATABASEREQUEST']._serialized_end=1258
+  _globals['_CREATEDATABASERESPONSE']._serialized_start=1260
+  _globals['_CREATEDATABASERESPONSE']._serialized_end=1284
+  _globals['_ANALYTICSQUERYSERVICE']._serialized_start=1287
+  _globals['_ANALYTICSQUERYSERVICE']._serialized_end=2276
 # @@protoc_insertion_point(module_scope)

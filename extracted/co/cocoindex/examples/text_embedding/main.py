@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from psycopg_pool import ConnectionPool
 from pgvector.psycopg import register_vector
+from typing import Any
 import cocoindex
 import os
 from numpy.typing import NDArray
@@ -15,6 +16,13 @@ def text_to_embedding(
     Embed the text using a SentenceTransformer model.
     This is a shared logic between indexing and querying, so extract it as a function.
     """
+    # You can also switch to remote embedding model:
+    #   return text.transform(
+    #       cocoindex.functions.EmbedText(
+    #           api_type=cocoindex.llm.LlmApiType.OPENAI,
+    #           model="text-embedding-3-small",
+    #       )
+    #   )
     return text.transform(
         cocoindex.functions.SentenceTransformerEmbed(
             model="sentence-transformers/all-MiniLM-L6-v2"
@@ -25,7 +33,7 @@ def text_to_embedding(
 @cocoindex.flow_def(name="TextEmbedding")
 def text_embedding_flow(
     flow_builder: cocoindex.FlowBuilder, data_scope: cocoindex.DataScope
-):
+) -> None:
     """
     Define an example flow that embeds text into a vector database.
     """
@@ -65,7 +73,7 @@ def text_embedding_flow(
     )
 
 
-def search(pool: ConnectionPool, query: str, top_k: int = 5):
+def search(pool: ConnectionPool, query: str, top_k: int = 5) -> list[dict[str, Any]]:
     # Get the table name, for the export target in the text_embedding_flow above.
     table_name = cocoindex.utils.get_target_default_name(
         text_embedding_flow, "doc_embeddings"
@@ -89,7 +97,7 @@ def search(pool: ConnectionPool, query: str, top_k: int = 5):
             ]
 
 
-def _main():
+def _main() -> None:
     # Initialize the database connection pool.
     pool = ConnectionPool(os.getenv("COCOINDEX_DATABASE_URL"))
     # Run queries in a loop to demonstrate the query capabilities.

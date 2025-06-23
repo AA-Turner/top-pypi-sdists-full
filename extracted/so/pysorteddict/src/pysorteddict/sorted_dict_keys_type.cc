@@ -8,3 +8,8 @@ PyObject* SortedDictKeysIterType::next(void)
 {
     return Py_XNewRef(this->SortedDictViewIterType::next().first);  // 🆕
 }
+
+int SortedDictKeysType::contains(PyObject* key)
+{
+    return this->sd->contains(key);
+}

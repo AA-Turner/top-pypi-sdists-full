@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,73 +15,25 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(qwak/secret_service/secret_service.proto\x12\x13qwak.secret.service\"/\n\x10SetSecretRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x13\n\x11SetSecretResponse\" \n\x10GetSecretRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"0\n\x11GetSecretResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"#\n\x13\x44\x65leteSecretRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65leteSecretResponse2\xac\x02\n\rSecretService\x12Z\n\tSetSecret\x12%.qwak.secret.service.SetSecretRequest\x1a&.qwak.secret.service.SetSecretResponse\x12Z\n\tGetSecret\x12%.qwak.secret.service.GetSecretRequest\x1a&.qwak.secret.service.GetSecretResponse\x12\x63\n\x0c\x44\x65leteSecret\x12(.qwak.secret.service.DeleteSecretRequest\x1a).qwak.secret.service.DeleteSecretResponseB\"\n\x1e\x63om.qwak.ai.secret.service.apiP\x01\x62\x06proto3')
 
-
-
-_SETSECRETREQUEST = DESCRIPTOR.message_types_by_name['SetSecretRequest']
-_SETSECRETRESPONSE = DESCRIPTOR.message_types_by_name['SetSecretResponse']
-_GETSECRETREQUEST = DESCRIPTOR.message_types_by_name['GetSecretRequest']
-_GETSECRETRESPONSE = DESCRIPTOR.message_types_by_name['GetSecretResponse']
-_DELETESECRETREQUEST = DESCRIPTOR.message_types_by_name['DeleteSecretRequest']
-_DELETESECRETRESPONSE = DESCRIPTOR.message_types_by_name['DeleteSecretResponse']
-SetSecretRequest = _reflection.GeneratedProtocolMessageType('SetSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SETSECRETREQUEST,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.SetSecretRequest)
-  })
-_sym_db.RegisterMessage(SetSecretRequest)
-
-SetSecretResponse = _reflection.GeneratedProtocolMessageType('SetSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SETSECRETRESPONSE,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.SetSecretResponse)
-  })
-_sym_db.RegisterMessage(SetSecretResponse)
-
-GetSecretRequest = _reflection.GeneratedProtocolMessageType('GetSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETSECRETREQUEST,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.GetSecretRequest)
-  })
-_sym_db.RegisterMessage(GetSecretRequest)
-
-GetSecretResponse = _reflection.GeneratedProtocolMessageType('GetSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETSECRETRESPONSE,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.GetSecretResponse)
-  })
-_sym_db.RegisterMessage(GetSecretResponse)
-
-DeleteSecretRequest = _reflection.GeneratedProtocolMessageType('DeleteSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETESECRETREQUEST,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.DeleteSecretRequest)
-  })
-_sym_db.RegisterMessage(DeleteSecretRequest)
-
-DeleteSecretResponse = _reflection.GeneratedProtocolMessageType('DeleteSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETESECRETRESPONSE,
-  '__module__' : 'qwak.secret_service.secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.secret.service.DeleteSecretResponse)
-  })
-_sym_db.RegisterMessage(DeleteSecretResponse)
-
-_SECRETSERVICE = DESCRIPTOR.services_by_name['SecretService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.secret_service.secret_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.secret.service.apiP\001'
-  _SETSECRETREQUEST._serialized_start=65
-  _SETSECRETREQUEST._serialized_end=112
-  _SETSECRETRESPONSE._serialized_start=114
-  _SETSECRETRESPONSE._serialized_end=133
-  _GETSECRETREQUEST._serialized_start=135
-  _GETSECRETREQUEST._serialized_end=167
-  _GETSECRETRESPONSE._serialized_start=169
-  _GETSECRETRESPONSE._serialized_end=217
-  _DELETESECRETREQUEST._serialized_start=219
-  _DELETESECRETREQUEST._serialized_end=254
-  _DELETESECRETRESPONSE._serialized_start=256
-  _DELETESECRETRESPONSE._serialized_end=278
-  _SECRETSERVICE._serialized_start=281
-  _SECRETSERVICE._serialized_end=581
+  _globals['_SETSECRETREQUEST']._serialized_start=65
+  _globals['_SETSECRETREQUEST']._serialized_end=112
+  _globals['_SETSECRETRESPONSE']._serialized_start=114
+  _globals['_SETSECRETRESPONSE']._serialized_end=133
+  _globals['_GETSECRETREQUEST']._serialized_start=135
+  _globals['_GETSECRETREQUEST']._serialized_end=167
+  _globals['_GETSECRETRESPONSE']._serialized_start=169
+  _globals['_GETSECRETRESPONSE']._serialized_end=217
+  _globals['_DELETESECRETREQUEST']._serialized_start=219
+  _globals['_DELETESECRETREQUEST']._serialized_end=254
+  _globals['_DELETESECRETRESPONSE']._serialized_start=256
+  _globals['_DELETESECRETRESPONSE']._serialized_end=278
+  _globals['_SECRETSERVICE']._serialized_start=281
+  _globals['_SECRETSERVICE']._serialized_end=581
 # @@protoc_insertion_point(module_scope)

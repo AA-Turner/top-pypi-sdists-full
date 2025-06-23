@@ -1,19 +1,14 @@
 [build-system]
 requires = [
-    # The Apple linker does not recognise `-Bsymbolic-functions`, one of the
-    # arguments cibuildwheel passes to it on macOS when building wheels for
-    # PyPy. Using an older version of Setuptools fixes this problem. However,
-    # that version does not recognise the MSYS2 platform tag, and aborts the
-    # build, preventing me from developing on MSYS2. It is not possible to
-    # detect MSYS2 from here, so just test for Windows.
-    "setuptools==70.0.0; platform_system != 'Windows'",
-    "setuptools==71.0.0; platform_system == 'Windows'",
+    # See https://github.com/pypa/cibuildwheel/issues/2015 for the reason this
+    # version is required.
+    "setuptools==72.1.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pysorteddict"
-version = "0.7.2"
+version = "0.7.3"
 authors = [
     {name = "Vishal Pankaj Chandratreya"},
 ]

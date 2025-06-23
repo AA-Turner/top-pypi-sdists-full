@@ -15,12 +15,26 @@ import sys
 from ._helpers import import_, wrapped_libraries
 
 import pytest
+import typing
+
+TYPING_NAMES = frozenset((
+    "Array",
+    "Device",
+    "DType",
+    "Namespace",
+    "NestedSequence",
+    "SupportsBufferProtocol",
+))
 
 @pytest.mark.parametrize("library", ["common"] + wrapped_libraries)
 def test_all(library):
-    import_(library, wrapper=True)
+    if library == "common":
+        import array_api_compat.common  # noqa: F401
+    else:
+        import_(library, wrapper=True)
 
-    for mod_name in sys.modules:
+    # NB: iterate over a copy to avoid a "dictionary size changed" error
+    for mod_name in sys.modules.copy():
         if not mod_name.startswith('array_api_compat.' + library):
             continue
 
@@ -34,11 +48,16 @@ def test_all(library):
         dir_names = [n for n in dir(module) if not n.startswith('_')]
         if '__array_namespace_info__' in dir(module):
             dir_names.append('__array_namespace_info__')
-        ignore_all_names = getattr(module, '_all_ignore', [])
-        ignore_all_names += ['annotations', 'TYPE_CHECKING']
+        ignore_all_names = set(getattr(module, '_all_ignore', ()))
+        ignore_all_names |= set(dir(typing))
+        ignore_all_names |= {"annotations"}
+        if not module.__name__.endswith("._typing"):
+            ignore_all_names |= TYPING_NAMES
         dir_names = set(dir_names) - set(ignore_all_names)
         all_names = module.__all__
 
         if set(dir_names) != set(all_names):
-            assert set(dir_names) - set(all_names) == set(), f"Some dir() names not included in __all__ for {mod_name}"
-            assert set(all_names) - set(dir_names) == set(), f"Some __all__ names not in dir() for {mod_name}"
+            extra_dir = set(dir_names) - set(all_names)
+            extra_all = set(all_names) - set(dir_names)
+            assert not extra_dir, f"Some dir() names not included in __all__ for {mod_name}: {extra_dir}"
+            assert not extra_all, f"Some __all__ names not in dir() for {mod_name}: {extra_all}"

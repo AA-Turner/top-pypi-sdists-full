@@ -34,6 +34,10 @@ def filter_time(
     # Get time index
     time = df.index.get_level_values("time")
 
+    # If no time index, return original DataFrame
+    if len(time) == 0:
+        return df
+
     # Filter & return
     return df.loc[(time >= start) & (time <= end)] if start and end else df
 
@@ -63,7 +67,19 @@ def calculate_dwpt(df: pd.DataFrame, col: str) -> pd.DataFrame:
     """
     Calculate dew point temperature
     """
-    df[col] = df["temp"] - ((100 - df["rhum"]) / 5)
+    magnus_const_a = 17.27
+    magnus_const_b = 237.7  # degrees Celsius
+
+    temperature = df["temp"]
+    relative_humidity = df["rhum"]
+
+    alpha = (
+        (magnus_const_a * temperature) / (magnus_const_b + temperature)
+    ) + np.log(relative_humidity / 100.0)
+    df[col] = (magnus_const_b * alpha) / (magnus_const_a - alpha)
+
+    df[col] = df[col].round(1)
+
     df[f"{col}_flag"] = df[["temp_flag", "rhum_flag"]].max(axis=1, skipna=True)
 
     return df

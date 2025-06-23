@@ -5,7 +5,7 @@ import os
 import stat
 import copyreg
 from . import util
-from typing import Pattern, AnyStr, Generic, Any
+from typing import Pattern, AnyStr, Generic, Iterable, Any
 
 # `O_DIRECTORY` may not always be defined
 DIR_FLAGS = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0)
@@ -320,24 +320,100 @@ class WcRegexp(util.Immutable, Generic[AnyStr]):
             self._follow != other._follow
         )
 
-    def match(self, filename: AnyStr, root_dir: AnyStr | None = None, dir_fd: int | None = None) -> bool:
-        """Match filename."""
+    def match(
+        self,
+        filename: AnyStr | os.PathLike[AnyStr],
+        root_dir: AnyStr | os.PathLike[AnyStr] | None = None,
+        dir_fd: int | None = None
+    ) -> bool:
+        """Filter filenames."""
+
+        if not filename:
+            return False
 
         return _Match(
-            filename,
+            os.fspath(filename),
             self._include,
             self._exclude,
             self._real,
             self._path,
             self._follow
         ).match(
-            root_dir=root_dir,
+            root_dir=os.fspath(root_dir) if root_dir is not None else None,
             dir_fd=dir_fd
         )
 
+    def filter(
+        self,
+        filenames: Iterable[AnyStr | os.PathLike[AnyStr]],
+        root_dir: AnyStr | os.PathLike[AnyStr] | None = None,
+        dir_fd: int | None = None
+    ) ->  list[AnyStr | os.PathLike[AnyStr]]:
+        """Filter filenames."""
 
-def _pickle(p):  # type: ignore[no-untyped-def]
-    return WcRegexp, (p._include, p._exclude, p._real, p._path, p._follow)
+        if not filenames:
+            return []
+
+        rdir = os.fspath(root_dir) if root_dir is not None else None
+        matches = [
+            filename
+            for filename in filenames
+            if _Match(
+                os.fspath(filename),
+                self._include,
+                self._exclude,
+                self._real,
+                self._path,
+                self._follow
+            ).match(
+                root_dir=rdir,
+                dir_fd=dir_fd
+            )
+        ]
+        return matches
 
 
-copyreg.pickle(WcRegexp, _pickle)
+class WcMatcher(util.Immutable, Generic[AnyStr]):
+    """Pre-compiled matcher object."""
+
+    _matcher: WcRegexp[AnyStr]
+    _hash: int
+
+    __slots__ = ('_matcher', '_hash')
+
+    def __init__(self, matcher: WcRegexp[AnyStr]) -> None:
+        """Initialize."""
+
+        super().__init__(
+            _matcher=matcher,
+            _hash=hash(
+                (
+                    type(self),
+                    type(matcher), matcher,
+                )
+            )
+        )
+
+    def __hash__(self) -> int:
+        """Hash."""
+
+        return self._hash
+
+    def __eq__(self, other: Any) -> bool:
+        """Equal."""
+
+        return (
+            isinstance(other, WcMatcher) and
+            self._matcher == other._matcher
+        )
+
+    def __ne__(self, other: Any) -> bool:
+        """Equal."""
+
+        return (
+            not isinstance(other, WcMatcher) or
+            self._matcher != other._matcher
+        )
+
+
+copyreg.pickle(WcRegexp, lambda p: (WcRegexp, (p._include, p._exclude, p._real, p._path, p._follow)))

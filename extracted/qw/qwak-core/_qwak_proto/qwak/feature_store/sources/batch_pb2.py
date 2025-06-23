@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,272 +16,9 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&qwak/feature_store/sources/batch.proto\x12\x1aqwak.feature.store.sources\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd9\x06\n\x0b\x42\x61tchSource\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x1b\n\x13\x64\x61te_created_column\x18\x03 \x01(\t\x12@\n\x0c\x61thenaSource\x18\x04 \x01(\x0b\x32(.qwak.feature.store.sources.AthenaSourceH\x00\x12>\n\x0bmongoSource\x18\x05 \x01(\x0b\x32\'.qwak.feature.store.sources.MongoSourceH\x00\x12:\n\tcsvSource\x18\x06 \x01(\x0b\x32%.qwak.feature.store.sources.CsvSourceH\x00\x12\x46\n\x0fsnowflakeSource\x18\x07 \x01(\x0b\x32+.qwak.feature.store.sources.SnowflakeSourceH\x00\x12\x42\n\rparquetSource\x18\x08 \x01(\x0b\x32).qwak.feature.store.sources.ParquetSourceH\x00\x12<\n\njdbcSource\x18\t \x01(\x0b\x32&.qwak.feature.store.sources.JdbcSourceH\x00\x12\x42\n\rverticaSource\x18\n \x01(\x0b\x32).qwak.feature.store.sources.VerticaSourceH\x00\x12\x44\n\x0e\x62igquerySource\x18\x0b \x01(\x0b\x32*.qwak.feature.store.sources.BigquerySourceH\x00\x12N\n\x13\x65lasticsearchSource\x18\x0c \x01(\x0b\x32/.qwak.feature.store.sources.ElasticsearchSourceH\x00\x12H\n\x10\x63lickhouseSource\x18\r \x01(\x0b\x32,.qwak.feature.store.sources.ClickhouseSourceH\x00\x12V\n\x17\x66\x65\x61turesetOfflineSource\x18\x0e \x01(\x0b\x32\x33.qwak.feature.store.sources.FeaturesetOfflineSourceH\x00\x42\x06\n\x04type\"\xae\x04\n\x17\x46ileSystemConfiguration\x12X\n\x14\x61ws_s3_configuration\x18\x01 \x01(\x0b\x32\x38.qwak.feature.store.sources.AwsS3FileSystemConfigurationH\x00\x12P\n\x10\x61ws_s3_anonymous\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.sources.AnonymousS3ConfigurationH\x00\x12W\n aws_s3_assume_role_configuration\x18\x03 \x01(\x0b\x32+.qwak.feature.store.sources.AwsS3AssumeRoleH\x00\x12M\n\x13gcs_unauthenticated\x18\x04 \x01(\x0b\x32..qwak.feature.store.sources.GcsUnauthenticatedH\x00\x12N\n\x14gcs_user_credentials\x18\x05 \x01(\x0b\x32..qwak.feature.store.sources.GcsUserCredentialsH\x00\x12g\n!gcs_service_account_impersonation\x18\x06 \x01(\x0b\x32:.qwak.feature.store.sources.GcsServiceAccountImpersonationH\x00\x42\x06\n\x04type\"#\n\x0f\x41wsS3AssumeRole\x12\x10\n\x08role_arn\x18\x01 \x01(\t\"\x91\x01\n\x1c\x41wsS3FileSystemConfiguration\x12\x1e\n\x16\x61\x63\x63\x65ss_key_secret_name\x18\x01 \x01(\t\x12\x1e\n\x16secret_key_secret_name\x18\x02 \x01(\t\x12!\n\x19session_token_secret_name\x18\x03 \x01(\t\x12\x0e\n\x06\x62ucket\x18\x04 \x01(\t\"\x1a\n\x18\x41nonymousS3Configuration\"\x92\x03\n\nJdbcSource\x12\x0b\n\x03url\x18\x03 \x01(\t\x12\x1c\n\x14username_secret_name\x18\x01 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x02 \x01(\t\x12\x10\n\x08\x64\x62_table\x18\x04 \x01(\t\x12\r\n\x05query\x18\x05 \x01(\t\x12>\n\x0bmysqlSource\x18\x06 \x01(\x0b\x32\'.qwak.feature.store.sources.MysqlSourceH\x00\x12H\n\x10postgresqlSource\x18\x07 \x01(\x0b\x32,.qwak.feature.store.sources.PostgresqlSourceH\x00\x12\x44\n\x0eredshiftSource\x18\x08 \x01(\x0b\x32*.qwak.feature.store.sources.RedshiftSourceH\x00\x12\x42\n\x0c\x61thenaSource\x18\t \x01(\x0b\x32*.qwak.feature.store.sources.AthenaSourceV1H\x00\x42\x06\n\x04type\"\r\n\x0bMysqlSource\"\x12\n\x10PostgresqlSource\"\x89\x01\n\x10\x43lickhouseSource\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x1c\n\x14username_secret_name\x18\x02 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x03 \x01(\t\x12\x0f\n\x05table\x18\x04 \x01(\tH\x00\x12\r\n\x03sql\x18\x05 \x01(\tH\x00\x42\x0c\n\nquery_type\"i\n\x0eRedshiftSource\x12\x0f\n\x07\x64\x62_user\x18\x01 \x01(\t\x12\x14\n\x0ciam_role_arn\x18\x02 \x01(\t\x12\x15\n\raccess_key_id\x18\x03 \x01(\t\x12\x19\n\x11secret_access_key\x18\x04 \x01(\t\"\x8d\x03\n\x0e\x41thenaSourceV1\x12\x12\n\naws_region\x18\x01 \x01(\t\x12I\n\x12\x61ws_authentication\x18\x02 \x01(\x0b\x32-.qwak.feature.store.sources.AwsAuthentication\x12\x1a\n\x12s3_output_location\x18\x03 \x01(\t\x12R\n\x16\x64\x61te_partition_columns\x18\x04 \x01(\x0b\x32\x30.qwak.feature.store.sources.DatePartitionColumnsH\x00\x12g\n!time_fragmented_partition_columns\x18\x05 \x01(\x0b\x32:.qwak.feature.store.sources.TimeFragmentedPartitionColumnsH\x00\x12\x13\n\tworkgroup\x18\x06 \x01(\tH\x01\x42\x18\n\x16time_partition_columnsB\x14\n\x12optional_workgroup\"E\n\x14\x44\x61tePartitionColumns\x12\x18\n\x10\x64\x61te_column_name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x61te_format\x18\x02 \x01(\t\"\xb5\x02\n\x1eTimeFragmentedPartitionColumns\x12M\n\x15year_partition_column\x18\x01 \x01(\x0b\x32..qwak.feature.store.sources.YearFragmentColumn\x12Q\n\x16month_partition_column\x18\x02 \x01(\x0b\x32/.qwak.feature.store.sources.MonthFragmentColumnH\x00\x12M\n\x14\x64\x61y_partition_column\x18\x03 \x01(\x0b\x32-.qwak.feature.store.sources.DayFragmentColumnH\x01\x42\x11\n\x0fmonth_partitionB\x0f\n\rday_partition\"\xa4\x01\n\x12YearFragmentColumn\x12\x13\n\x0b\x63olumn_name\x18\x01 \x01(\t\x12`\n\x1dnumeric_column_representation\x18\x02 \x01(\x0b\x32\x37.qwak.feature.store.sources.NumericColumnRepresentationH\x00\x42\x17\n\x15\x63olumn_representation\"\x87\x02\n\x13MonthFragmentColumn\x12\x13\n\x0b\x63olumn_name\x18\x01 \x01(\t\x12`\n\x1dnumeric_column_representation\x18\x02 \x01(\x0b\x32\x37.qwak.feature.store.sources.NumericColumnRepresentationH\x00\x12`\n\x1dtextual_column_representation\x18\x03 \x01(\x0b\x32\x37.qwak.feature.store.sources.TextualColumnRepresentationH\x00\x42\x17\n\x15\x63olumn_representation\"\xa3\x01\n\x11\x44\x61yFragmentColumn\x12\x13\n\x0b\x63olumn_name\x18\x01 \x01(\t\x12`\n\x1dnumeric_column_representation\x18\x02 \x01(\x0b\x32\x37.qwak.feature.store.sources.NumericColumnRepresentationH\x00\x42\x17\n\x15\x63olumn_representation\"\x1d\n\x1bNumericColumnRepresentation\"\x1d\n\x1bTextualColumnRepresentation\"/\n\x0c\x41thenaSource\x12\x10\n\x08\x64\x61tabase\x18\x01 \x01(\t\x12\r\n\x05table\x18\x02 \x01(\t\"\xa0\x02\n\x0e\x42igquerySource\x12\x1f\n\x17\x63redentials_secret_name\x18\x01 \x01(\t\x12\x0f\n\x07\x64\x61taset\x18\x02 \x01(\t\x12\r\n\x05table\x18\x03 \x01(\t\x12\x0f\n\x07project\x18\x04 \x01(\t\x12\x16\n\x0eparent_project\x18\x05 \x01(\t\x12\x0b\n\x03sql\x18\x06 \x01(\t\x12\x15\n\rviews_enabled\x18\x07 \x01(\x08\x12#\n\x17materialization_dataset\x18\x08 \x01(\tB\x02\x18\x01\x12#\n\x17materialization_project\x18\t \x01(\tB\x02\x18\x01\x12\x36\n*materialization_expiration_time_in_minutes\x18\n \x01(\tB\x02\x18\x01\"\xa3\x01\n\tCsvSource\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x17\n\x0fquote_character\x18\x02 \x01(\t\x12\x18\n\x10\x65scape_character\x18\x03 \x01(\t\x12U\n\x18\x66ilesystem_configuration\x18\x04 \x01(\x0b\x32\x33.qwak.feature.store.sources.FileSystemConfiguration\"\xab\x01\n\x0bMongoSource\x12\r\n\x05hosts\x18\x01 \x01(\t\x12\x1c\n\x14username_secret_name\x18\x02 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x03 \x01(\t\x12\x10\n\x08\x64\x61tabase\x18\x04 \x01(\t\x12\x12\n\ncollection\x18\x05 \x01(\t\x12\x19\n\x11\x63onnection_params\x18\x06 \x01(\t\x12\x10\n\x08protocol\x18\x07 \x01(\t\"\xae\x01\n\x0fSnowflakeSource\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x1c\n\x14username_secret_name\x18\x02 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x03 \x01(\t\x12\x10\n\x08\x64\x61tabase\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x11\n\twarehouse\x18\x06 \x01(\t\x12\r\n\x05table\x18\x07 \x01(\t\x12\r\n\x05query\x18\x08 \x01(\t\"t\n\rParquetSource\x12\x0c\n\x04path\x18\x01 \x01(\t\x12U\n\x18\x66ilesystem_configuration\x18\x02 \x01(\x0b\x32\x33.qwak.feature.store.sources.FileSystemConfiguration\"\x98\x01\n\rVerticaSource\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x10\n\x08\x64\x61tabase\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\r\n\x05table\x18\x05 \x01(\t\x12\x1c\n\x14username_secret_name\x18\x06 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x07 \x01(\t\"\xbc\x01\n\x13\x45lasticsearchSource\x12\r\n\x05nodes\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x10\n\x08resource\x18\x03 \x01(\t\x12\r\n\x05query\x18\x04 \x01(\t\x12\x16\n\x0e\x65xclude_fields\x18\x05 \x01(\t\x12\x13\n\x0bparse_dates\x18\x06 \x01(\x08\x12\x1c\n\x14username_secret_name\x18\x07 \x01(\t\x12\x1c\n\x14password_secret_name\x18\x08 \x01(\t\"(\n\x17\x46\x65\x61turesetOfflineSource\x12\r\n\x05\x61lias\x18\x01 \x01(\t\"\xe9\x01\n\x11\x41wsAuthentication\x12\x61\n\x1e\x61ws_assume_role_authentication\x18\x01 \x01(\x0b\x32\x37.qwak.feature.store.sources.AwsAssumeRoleAuthenticationH\x00\x12i\n%aws_static_credentials_authentication\x18\x02 \x01(\x0b\x32\x38.qwak.feature.store.sources.AwsCredentialsAuthenticationH\x00\x42\x06\n\x04type\"/\n\x1b\x41wsAssumeRoleAuthentication\x12\x10\n\x08role_arn\x18\x01 \x01(\t\"^\n\x1c\x41wsCredentialsAuthentication\x12\x1e\n\x16\x61\x63\x63\x65ss_key_secret_name\x18\x01 \x01(\t\x12\x1e\n\x16secret_key_secret_name\x18\x02 \x01(\t\"\x14\n\x12GcsUnauthenticated\"y\n\x12GcsUserCredentials\x12\x1d\n\x15\x63lient_id_secret_name\x18\x01 \x01(\t\x12!\n\x19\x63lient_secret_secret_name\x18\x02 \x01(\t\x12!\n\x19refresh_token_secret_name\x18\x03 \x01(\t\">\n\x1eGcsServiceAccountImpersonation\x12\x1c\n\x14service_account_user\x18\x01 \x01(\tBX\n%com.qwak.ai.feature.store.sources.apiP\x01Z-qwak/featurestore/sources;featurestoresourcesb\x06proto3')
 
-
-
-_BATCHSOURCE = DESCRIPTOR.message_types_by_name['BatchSource']
-_FILESYSTEMCONFIGURATION = DESCRIPTOR.message_types_by_name['FileSystemConfiguration']
-_AWSS3ASSUMEROLE = DESCRIPTOR.message_types_by_name['AwsS3AssumeRole']
-_AWSS3FILESYSTEMCONFIGURATION = DESCRIPTOR.message_types_by_name['AwsS3FileSystemConfiguration']
-_ANONYMOUSS3CONFIGURATION = DESCRIPTOR.message_types_by_name['AnonymousS3Configuration']
-_JDBCSOURCE = DESCRIPTOR.message_types_by_name['JdbcSource']
-_MYSQLSOURCE = DESCRIPTOR.message_types_by_name['MysqlSource']
-_POSTGRESQLSOURCE = DESCRIPTOR.message_types_by_name['PostgresqlSource']
-_CLICKHOUSESOURCE = DESCRIPTOR.message_types_by_name['ClickhouseSource']
-_REDSHIFTSOURCE = DESCRIPTOR.message_types_by_name['RedshiftSource']
-_ATHENASOURCEV1 = DESCRIPTOR.message_types_by_name['AthenaSourceV1']
-_DATEPARTITIONCOLUMNS = DESCRIPTOR.message_types_by_name['DatePartitionColumns']
-_TIMEFRAGMENTEDPARTITIONCOLUMNS = DESCRIPTOR.message_types_by_name['TimeFragmentedPartitionColumns']
-_YEARFRAGMENTCOLUMN = DESCRIPTOR.message_types_by_name['YearFragmentColumn']
-_MONTHFRAGMENTCOLUMN = DESCRIPTOR.message_types_by_name['MonthFragmentColumn']
-_DAYFRAGMENTCOLUMN = DESCRIPTOR.message_types_by_name['DayFragmentColumn']
-_NUMERICCOLUMNREPRESENTATION = DESCRIPTOR.message_types_by_name['NumericColumnRepresentation']
-_TEXTUALCOLUMNREPRESENTATION = DESCRIPTOR.message_types_by_name['TextualColumnRepresentation']
-_ATHENASOURCE = DESCRIPTOR.message_types_by_name['AthenaSource']
-_BIGQUERYSOURCE = DESCRIPTOR.message_types_by_name['BigquerySource']
-_CSVSOURCE = DESCRIPTOR.message_types_by_name['CsvSource']
-_MONGOSOURCE = DESCRIPTOR.message_types_by_name['MongoSource']
-_SNOWFLAKESOURCE = DESCRIPTOR.message_types_by_name['SnowflakeSource']
-_PARQUETSOURCE = DESCRIPTOR.message_types_by_name['ParquetSource']
-_VERTICASOURCE = DESCRIPTOR.message_types_by_name['VerticaSource']
-_ELASTICSEARCHSOURCE = DESCRIPTOR.message_types_by_name['ElasticsearchSource']
-_FEATURESETOFFLINESOURCE = DESCRIPTOR.message_types_by_name['FeaturesetOfflineSource']
-_AWSAUTHENTICATION = DESCRIPTOR.message_types_by_name['AwsAuthentication']
-_AWSASSUMEROLEAUTHENTICATION = DESCRIPTOR.message_types_by_name['AwsAssumeRoleAuthentication']
-_AWSCREDENTIALSAUTHENTICATION = DESCRIPTOR.message_types_by_name['AwsCredentialsAuthentication']
-_GCSUNAUTHENTICATED = DESCRIPTOR.message_types_by_name['GcsUnauthenticated']
-_GCSUSERCREDENTIALS = DESCRIPTOR.message_types_by_name['GcsUserCredentials']
-_GCSSERVICEACCOUNTIMPERSONATION = DESCRIPTOR.message_types_by_name['GcsServiceAccountImpersonation']
-BatchSource = _reflection.GeneratedProtocolMessageType('BatchSource', (_message.Message,), {
-  'DESCRIPTOR' : _BATCHSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.BatchSource)
-  })
-_sym_db.RegisterMessage(BatchSource)
-
-FileSystemConfiguration = _reflection.GeneratedProtocolMessageType('FileSystemConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _FILESYSTEMCONFIGURATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.FileSystemConfiguration)
-  })
-_sym_db.RegisterMessage(FileSystemConfiguration)
-
-AwsS3AssumeRole = _reflection.GeneratedProtocolMessageType('AwsS3AssumeRole', (_message.Message,), {
-  'DESCRIPTOR' : _AWSS3ASSUMEROLE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AwsS3AssumeRole)
-  })
-_sym_db.RegisterMessage(AwsS3AssumeRole)
-
-AwsS3FileSystemConfiguration = _reflection.GeneratedProtocolMessageType('AwsS3FileSystemConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _AWSS3FILESYSTEMCONFIGURATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AwsS3FileSystemConfiguration)
-  })
-_sym_db.RegisterMessage(AwsS3FileSystemConfiguration)
-
-AnonymousS3Configuration = _reflection.GeneratedProtocolMessageType('AnonymousS3Configuration', (_message.Message,), {
-  'DESCRIPTOR' : _ANONYMOUSS3CONFIGURATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AnonymousS3Configuration)
-  })
-_sym_db.RegisterMessage(AnonymousS3Configuration)
-
-JdbcSource = _reflection.GeneratedProtocolMessageType('JdbcSource', (_message.Message,), {
-  'DESCRIPTOR' : _JDBCSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.JdbcSource)
-  })
-_sym_db.RegisterMessage(JdbcSource)
-
-MysqlSource = _reflection.GeneratedProtocolMessageType('MysqlSource', (_message.Message,), {
-  'DESCRIPTOR' : _MYSQLSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.MysqlSource)
-  })
-_sym_db.RegisterMessage(MysqlSource)
-
-PostgresqlSource = _reflection.GeneratedProtocolMessageType('PostgresqlSource', (_message.Message,), {
-  'DESCRIPTOR' : _POSTGRESQLSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.PostgresqlSource)
-  })
-_sym_db.RegisterMessage(PostgresqlSource)
-
-ClickhouseSource = _reflection.GeneratedProtocolMessageType('ClickhouseSource', (_message.Message,), {
-  'DESCRIPTOR' : _CLICKHOUSESOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.ClickhouseSource)
-  })
-_sym_db.RegisterMessage(ClickhouseSource)
-
-RedshiftSource = _reflection.GeneratedProtocolMessageType('RedshiftSource', (_message.Message,), {
-  'DESCRIPTOR' : _REDSHIFTSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.RedshiftSource)
-  })
-_sym_db.RegisterMessage(RedshiftSource)
-
-AthenaSourceV1 = _reflection.GeneratedProtocolMessageType('AthenaSourceV1', (_message.Message,), {
-  'DESCRIPTOR' : _ATHENASOURCEV1,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AthenaSourceV1)
-  })
-_sym_db.RegisterMessage(AthenaSourceV1)
-
-DatePartitionColumns = _reflection.GeneratedProtocolMessageType('DatePartitionColumns', (_message.Message,), {
-  'DESCRIPTOR' : _DATEPARTITIONCOLUMNS,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DatePartitionColumns)
-  })
-_sym_db.RegisterMessage(DatePartitionColumns)
-
-TimeFragmentedPartitionColumns = _reflection.GeneratedProtocolMessageType('TimeFragmentedPartitionColumns', (_message.Message,), {
-  'DESCRIPTOR' : _TIMEFRAGMENTEDPARTITIONCOLUMNS,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.TimeFragmentedPartitionColumns)
-  })
-_sym_db.RegisterMessage(TimeFragmentedPartitionColumns)
-
-YearFragmentColumn = _reflection.GeneratedProtocolMessageType('YearFragmentColumn', (_message.Message,), {
-  'DESCRIPTOR' : _YEARFRAGMENTCOLUMN,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.YearFragmentColumn)
-  })
-_sym_db.RegisterMessage(YearFragmentColumn)
-
-MonthFragmentColumn = _reflection.GeneratedProtocolMessageType('MonthFragmentColumn', (_message.Message,), {
-  'DESCRIPTOR' : _MONTHFRAGMENTCOLUMN,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.MonthFragmentColumn)
-  })
-_sym_db.RegisterMessage(MonthFragmentColumn)
-
-DayFragmentColumn = _reflection.GeneratedProtocolMessageType('DayFragmentColumn', (_message.Message,), {
-  'DESCRIPTOR' : _DAYFRAGMENTCOLUMN,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DayFragmentColumn)
-  })
-_sym_db.RegisterMessage(DayFragmentColumn)
-
-NumericColumnRepresentation = _reflection.GeneratedProtocolMessageType('NumericColumnRepresentation', (_message.Message,), {
-  'DESCRIPTOR' : _NUMERICCOLUMNREPRESENTATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.NumericColumnRepresentation)
-  })
-_sym_db.RegisterMessage(NumericColumnRepresentation)
-
-TextualColumnRepresentation = _reflection.GeneratedProtocolMessageType('TextualColumnRepresentation', (_message.Message,), {
-  'DESCRIPTOR' : _TEXTUALCOLUMNREPRESENTATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.TextualColumnRepresentation)
-  })
-_sym_db.RegisterMessage(TextualColumnRepresentation)
-
-AthenaSource = _reflection.GeneratedProtocolMessageType('AthenaSource', (_message.Message,), {
-  'DESCRIPTOR' : _ATHENASOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AthenaSource)
-  })
-_sym_db.RegisterMessage(AthenaSource)
-
-BigquerySource = _reflection.GeneratedProtocolMessageType('BigquerySource', (_message.Message,), {
-  'DESCRIPTOR' : _BIGQUERYSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.BigquerySource)
-  })
-_sym_db.RegisterMessage(BigquerySource)
-
-CsvSource = _reflection.GeneratedProtocolMessageType('CsvSource', (_message.Message,), {
-  'DESCRIPTOR' : _CSVSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.CsvSource)
-  })
-_sym_db.RegisterMessage(CsvSource)
-
-MongoSource = _reflection.GeneratedProtocolMessageType('MongoSource', (_message.Message,), {
-  'DESCRIPTOR' : _MONGOSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.MongoSource)
-  })
-_sym_db.RegisterMessage(MongoSource)
-
-SnowflakeSource = _reflection.GeneratedProtocolMessageType('SnowflakeSource', (_message.Message,), {
-  'DESCRIPTOR' : _SNOWFLAKESOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.SnowflakeSource)
-  })
-_sym_db.RegisterMessage(SnowflakeSource)
-
-ParquetSource = _reflection.GeneratedProtocolMessageType('ParquetSource', (_message.Message,), {
-  'DESCRIPTOR' : _PARQUETSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.ParquetSource)
-  })
-_sym_db.RegisterMessage(ParquetSource)
-
-VerticaSource = _reflection.GeneratedProtocolMessageType('VerticaSource', (_message.Message,), {
-  'DESCRIPTOR' : _VERTICASOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.VerticaSource)
-  })
-_sym_db.RegisterMessage(VerticaSource)
-
-ElasticsearchSource = _reflection.GeneratedProtocolMessageType('ElasticsearchSource', (_message.Message,), {
-  'DESCRIPTOR' : _ELASTICSEARCHSOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.ElasticsearchSource)
-  })
-_sym_db.RegisterMessage(ElasticsearchSource)
-
-FeaturesetOfflineSource = _reflection.GeneratedProtocolMessageType('FeaturesetOfflineSource', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESETOFFLINESOURCE,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.FeaturesetOfflineSource)
-  })
-_sym_db.RegisterMessage(FeaturesetOfflineSource)
-
-AwsAuthentication = _reflection.GeneratedProtocolMessageType('AwsAuthentication', (_message.Message,), {
-  'DESCRIPTOR' : _AWSAUTHENTICATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AwsAuthentication)
-  })
-_sym_db.RegisterMessage(AwsAuthentication)
-
-AwsAssumeRoleAuthentication = _reflection.GeneratedProtocolMessageType('AwsAssumeRoleAuthentication', (_message.Message,), {
-  'DESCRIPTOR' : _AWSASSUMEROLEAUTHENTICATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AwsAssumeRoleAuthentication)
-  })
-_sym_db.RegisterMessage(AwsAssumeRoleAuthentication)
-
-AwsCredentialsAuthentication = _reflection.GeneratedProtocolMessageType('AwsCredentialsAuthentication', (_message.Message,), {
-  'DESCRIPTOR' : _AWSCREDENTIALSAUTHENTICATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.AwsCredentialsAuthentication)
-  })
-_sym_db.RegisterMessage(AwsCredentialsAuthentication)
-
-GcsUnauthenticated = _reflection.GeneratedProtocolMessageType('GcsUnauthenticated', (_message.Message,), {
-  'DESCRIPTOR' : _GCSUNAUTHENTICATED,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.GcsUnauthenticated)
-  })
-_sym_db.RegisterMessage(GcsUnauthenticated)
-
-GcsUserCredentials = _reflection.GeneratedProtocolMessageType('GcsUserCredentials', (_message.Message,), {
-  'DESCRIPTOR' : _GCSUSERCREDENTIALS,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.GcsUserCredentials)
-  })
-_sym_db.RegisterMessage(GcsUserCredentials)
-
-GcsServiceAccountImpersonation = _reflection.GeneratedProtocolMessageType('GcsServiceAccountImpersonation', (_message.Message,), {
-  'DESCRIPTOR' : _GCSSERVICEACCOUNTIMPERSONATION,
-  '__module__' : 'qwak.feature_store.sources.batch_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.GcsServiceAccountImpersonation)
-  })
-_sym_db.RegisterMessage(GcsServiceAccountImpersonation)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.sources.batch_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -293,70 +29,70 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _BIGQUERYSOURCE.fields_by_name['materialization_project']._serialized_options = b'\030\001'
   _BIGQUERYSOURCE.fields_by_name['materialization_expiration_time_in_minutes']._options = None
   _BIGQUERYSOURCE.fields_by_name['materialization_expiration_time_in_minutes']._serialized_options = b'\030\001'
-  _BATCHSOURCE._serialized_start=104
-  _BATCHSOURCE._serialized_end=961
-  _FILESYSTEMCONFIGURATION._serialized_start=964
-  _FILESYSTEMCONFIGURATION._serialized_end=1522
-  _AWSS3ASSUMEROLE._serialized_start=1524
-  _AWSS3ASSUMEROLE._serialized_end=1559
-  _AWSS3FILESYSTEMCONFIGURATION._serialized_start=1562
-  _AWSS3FILESYSTEMCONFIGURATION._serialized_end=1707
-  _ANONYMOUSS3CONFIGURATION._serialized_start=1709
-  _ANONYMOUSS3CONFIGURATION._serialized_end=1735
-  _JDBCSOURCE._serialized_start=1738
-  _JDBCSOURCE._serialized_end=2140
-  _MYSQLSOURCE._serialized_start=2142
-  _MYSQLSOURCE._serialized_end=2155
-  _POSTGRESQLSOURCE._serialized_start=2157
-  _POSTGRESQLSOURCE._serialized_end=2175
-  _CLICKHOUSESOURCE._serialized_start=2178
-  _CLICKHOUSESOURCE._serialized_end=2315
-  _REDSHIFTSOURCE._serialized_start=2317
-  _REDSHIFTSOURCE._serialized_end=2422
-  _ATHENASOURCEV1._serialized_start=2425
-  _ATHENASOURCEV1._serialized_end=2822
-  _DATEPARTITIONCOLUMNS._serialized_start=2824
-  _DATEPARTITIONCOLUMNS._serialized_end=2893
-  _TIMEFRAGMENTEDPARTITIONCOLUMNS._serialized_start=2896
-  _TIMEFRAGMENTEDPARTITIONCOLUMNS._serialized_end=3205
-  _YEARFRAGMENTCOLUMN._serialized_start=3208
-  _YEARFRAGMENTCOLUMN._serialized_end=3372
-  _MONTHFRAGMENTCOLUMN._serialized_start=3375
-  _MONTHFRAGMENTCOLUMN._serialized_end=3638
-  _DAYFRAGMENTCOLUMN._serialized_start=3641
-  _DAYFRAGMENTCOLUMN._serialized_end=3804
-  _NUMERICCOLUMNREPRESENTATION._serialized_start=3806
-  _NUMERICCOLUMNREPRESENTATION._serialized_end=3835
-  _TEXTUALCOLUMNREPRESENTATION._serialized_start=3837
-  _TEXTUALCOLUMNREPRESENTATION._serialized_end=3866
-  _ATHENASOURCE._serialized_start=3868
-  _ATHENASOURCE._serialized_end=3915
-  _BIGQUERYSOURCE._serialized_start=3918
-  _BIGQUERYSOURCE._serialized_end=4206
-  _CSVSOURCE._serialized_start=4209
-  _CSVSOURCE._serialized_end=4372
-  _MONGOSOURCE._serialized_start=4375
-  _MONGOSOURCE._serialized_end=4546
-  _SNOWFLAKESOURCE._serialized_start=4549
-  _SNOWFLAKESOURCE._serialized_end=4723
-  _PARQUETSOURCE._serialized_start=4725
-  _PARQUETSOURCE._serialized_end=4841
-  _VERTICASOURCE._serialized_start=4844
-  _VERTICASOURCE._serialized_end=4996
-  _ELASTICSEARCHSOURCE._serialized_start=4999
-  _ELASTICSEARCHSOURCE._serialized_end=5187
-  _FEATURESETOFFLINESOURCE._serialized_start=5189
-  _FEATURESETOFFLINESOURCE._serialized_end=5229
-  _AWSAUTHENTICATION._serialized_start=5232
-  _AWSAUTHENTICATION._serialized_end=5465
-  _AWSASSUMEROLEAUTHENTICATION._serialized_start=5467
-  _AWSASSUMEROLEAUTHENTICATION._serialized_end=5514
-  _AWSCREDENTIALSAUTHENTICATION._serialized_start=5516
-  _AWSCREDENTIALSAUTHENTICATION._serialized_end=5610
-  _GCSUNAUTHENTICATED._serialized_start=5612
-  _GCSUNAUTHENTICATED._serialized_end=5632
-  _GCSUSERCREDENTIALS._serialized_start=5634
-  _GCSUSERCREDENTIALS._serialized_end=5755
-  _GCSSERVICEACCOUNTIMPERSONATION._serialized_start=5757
-  _GCSSERVICEACCOUNTIMPERSONATION._serialized_end=5819
+  _globals['_BATCHSOURCE']._serialized_start=104
+  _globals['_BATCHSOURCE']._serialized_end=961
+  _globals['_FILESYSTEMCONFIGURATION']._serialized_start=964
+  _globals['_FILESYSTEMCONFIGURATION']._serialized_end=1522
+  _globals['_AWSS3ASSUMEROLE']._serialized_start=1524
+  _globals['_AWSS3ASSUMEROLE']._serialized_end=1559
+  _globals['_AWSS3FILESYSTEMCONFIGURATION']._serialized_start=1562
+  _globals['_AWSS3FILESYSTEMCONFIGURATION']._serialized_end=1707
+  _globals['_ANONYMOUSS3CONFIGURATION']._serialized_start=1709
+  _globals['_ANONYMOUSS3CONFIGURATION']._serialized_end=1735
+  _globals['_JDBCSOURCE']._serialized_start=1738
+  _globals['_JDBCSOURCE']._serialized_end=2140
+  _globals['_MYSQLSOURCE']._serialized_start=2142
+  _globals['_MYSQLSOURCE']._serialized_end=2155
+  _globals['_POSTGRESQLSOURCE']._serialized_start=2157
+  _globals['_POSTGRESQLSOURCE']._serialized_end=2175
+  _globals['_CLICKHOUSESOURCE']._serialized_start=2178
+  _globals['_CLICKHOUSESOURCE']._serialized_end=2315
+  _globals['_REDSHIFTSOURCE']._serialized_start=2317
+  _globals['_REDSHIFTSOURCE']._serialized_end=2422
+  _globals['_ATHENASOURCEV1']._serialized_start=2425
+  _globals['_ATHENASOURCEV1']._serialized_end=2822
+  _globals['_DATEPARTITIONCOLUMNS']._serialized_start=2824
+  _globals['_DATEPARTITIONCOLUMNS']._serialized_end=2893
+  _globals['_TIMEFRAGMENTEDPARTITIONCOLUMNS']._serialized_start=2896
+  _globals['_TIMEFRAGMENTEDPARTITIONCOLUMNS']._serialized_end=3205
+  _globals['_YEARFRAGMENTCOLUMN']._serialized_start=3208
+  _globals['_YEARFRAGMENTCOLUMN']._serialized_end=3372
+  _globals['_MONTHFRAGMENTCOLUMN']._serialized_start=3375
+  _globals['_MONTHFRAGMENTCOLUMN']._serialized_end=3638
+  _globals['_DAYFRAGMENTCOLUMN']._serialized_start=3641
+  _globals['_DAYFRAGMENTCOLUMN']._serialized_end=3804
+  _globals['_NUMERICCOLUMNREPRESENTATION']._serialized_start=3806
+  _globals['_NUMERICCOLUMNREPRESENTATION']._serialized_end=3835
+  _globals['_TEXTUALCOLUMNREPRESENTATION']._serialized_start=3837
+  _globals['_TEXTUALCOLUMNREPRESENTATION']._serialized_end=3866
+  _globals['_ATHENASOURCE']._serialized_start=3868
+  _globals['_ATHENASOURCE']._serialized_end=3915
+  _globals['_BIGQUERYSOURCE']._serialized_start=3918
+  _globals['_BIGQUERYSOURCE']._serialized_end=4206
+  _globals['_CSVSOURCE']._serialized_start=4209
+  _globals['_CSVSOURCE']._serialized_end=4372
+  _globals['_MONGOSOURCE']._serialized_start=4375
+  _globals['_MONGOSOURCE']._serialized_end=4546
+  _globals['_SNOWFLAKESOURCE']._serialized_start=4549
+  _globals['_SNOWFLAKESOURCE']._serialized_end=4723
+  _globals['_PARQUETSOURCE']._serialized_start=4725
+  _globals['_PARQUETSOURCE']._serialized_end=4841
+  _globals['_VERTICASOURCE']._serialized_start=4844
+  _globals['_VERTICASOURCE']._serialized_end=4996
+  _globals['_ELASTICSEARCHSOURCE']._serialized_start=4999
+  _globals['_ELASTICSEARCHSOURCE']._serialized_end=5187
+  _globals['_FEATURESETOFFLINESOURCE']._serialized_start=5189
+  _globals['_FEATURESETOFFLINESOURCE']._serialized_end=5229
+  _globals['_AWSAUTHENTICATION']._serialized_start=5232
+  _globals['_AWSAUTHENTICATION']._serialized_end=5465
+  _globals['_AWSASSUMEROLEAUTHENTICATION']._serialized_start=5467
+  _globals['_AWSASSUMEROLEAUTHENTICATION']._serialized_end=5514
+  _globals['_AWSCREDENTIALSAUTHENTICATION']._serialized_start=5516
+  _globals['_AWSCREDENTIALSAUTHENTICATION']._serialized_end=5610
+  _globals['_GCSUNAUTHENTICATED']._serialized_start=5612
+  _globals['_GCSUNAUTHENTICATED']._serialized_end=5632
+  _globals['_GCSUSERCREDENTIALS']._serialized_start=5634
+  _globals['_GCSUSERCREDENTIALS']._serialized_end=5755
+  _globals['_GCSSERVICEACCOUNTIMPERSONATION']._serialized_start=5757
+  _globals['_GCSSERVICEACCOUNTIMPERSONATION']._serialized_end=5819
 # @@protoc_insertion_point(module_scope)

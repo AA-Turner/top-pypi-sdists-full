@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,60 +15,21 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(qwak/offline/serving/v1/population.proto\x12%qwak.feature.store.offline.serving.v1\"\x1d\n\x1bPopulationFileUploadUrlType\"w\n\x0fTimedPopulation\x12\x1d\n\x15timestamp_column_name\x18\x01 \x01(\t\x12\x45\n\npopulation\x18\x02 \x01(\x0b\x32\x31.qwak.feature.store.offline.serving.v1.Population\"f\n\nPopulation\x12P\n\x0fpopulation_file\x18\x01 \x01(\x0b\x32\x35.qwak.feature.store.offline.serving.v1.PopulationFileH\x00\x42\x06\n\x04type\"\x81\x01\n\x0ePopulationFile\x12\x10\n\x08\x66ile_url\x18\x01 \x01(\t\x12S\n\x11\x61rrow_schema_json\x18\x02 \x01(\x0b\x32\x36.qwak.feature.store.offline.serving.v1.ArrowSchemaJsonH\x00\x42\x08\n\x06schema\"!\n\x0f\x41rrowSchemaJson\x12\x0e\n\x06schema\x18\x01 \x01(\tB&\n\"com.qwak.ai.offline.serving.api.v1P\x01\x62\x06proto3')
 
-
-
-_POPULATIONFILEUPLOADURLTYPE = DESCRIPTOR.message_types_by_name['PopulationFileUploadUrlType']
-_TIMEDPOPULATION = DESCRIPTOR.message_types_by_name['TimedPopulation']
-_POPULATION = DESCRIPTOR.message_types_by_name['Population']
-_POPULATIONFILE = DESCRIPTOR.message_types_by_name['PopulationFile']
-_ARROWSCHEMAJSON = DESCRIPTOR.message_types_by_name['ArrowSchemaJson']
-PopulationFileUploadUrlType = _reflection.GeneratedProtocolMessageType('PopulationFileUploadUrlType', (_message.Message,), {
-  'DESCRIPTOR' : _POPULATIONFILEUPLOADURLTYPE,
-  '__module__' : 'qwak.offline.serving.v1.population_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.PopulationFileUploadUrlType)
-  })
-_sym_db.RegisterMessage(PopulationFileUploadUrlType)
-
-TimedPopulation = _reflection.GeneratedProtocolMessageType('TimedPopulation', (_message.Message,), {
-  'DESCRIPTOR' : _TIMEDPOPULATION,
-  '__module__' : 'qwak.offline.serving.v1.population_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.TimedPopulation)
-  })
-_sym_db.RegisterMessage(TimedPopulation)
-
-Population = _reflection.GeneratedProtocolMessageType('Population', (_message.Message,), {
-  'DESCRIPTOR' : _POPULATION,
-  '__module__' : 'qwak.offline.serving.v1.population_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.Population)
-  })
-_sym_db.RegisterMessage(Population)
-
-PopulationFile = _reflection.GeneratedProtocolMessageType('PopulationFile', (_message.Message,), {
-  'DESCRIPTOR' : _POPULATIONFILE,
-  '__module__' : 'qwak.offline.serving.v1.population_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.PopulationFile)
-  })
-_sym_db.RegisterMessage(PopulationFile)
-
-ArrowSchemaJson = _reflection.GeneratedProtocolMessageType('ArrowSchemaJson', (_message.Message,), {
-  'DESCRIPTOR' : _ARROWSCHEMAJSON,
-  '__module__' : 'qwak.offline.serving.v1.population_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.ArrowSchemaJson)
-  })
-_sym_db.RegisterMessage(ArrowSchemaJson)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.offline.serving.v1.population_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\"com.qwak.ai.offline.serving.api.v1P\001'
-  _POPULATIONFILEUPLOADURLTYPE._serialized_start=83
-  _POPULATIONFILEUPLOADURLTYPE._serialized_end=112
-  _TIMEDPOPULATION._serialized_start=114
-  _TIMEDPOPULATION._serialized_end=233
-  _POPULATION._serialized_start=235
-  _POPULATION._serialized_end=337
-  _POPULATIONFILE._serialized_start=340
-  _POPULATIONFILE._serialized_end=469
-  _ARROWSCHEMAJSON._serialized_start=471
-  _ARROWSCHEMAJSON._serialized_end=504
+  _globals['_POPULATIONFILEUPLOADURLTYPE']._serialized_start=83
+  _globals['_POPULATIONFILEUPLOADURLTYPE']._serialized_end=112
+  _globals['_TIMEDPOPULATION']._serialized_start=114
+  _globals['_TIMEDPOPULATION']._serialized_end=233
+  _globals['_POPULATION']._serialized_start=235
+  _globals['_POPULATION']._serialized_end=337
+  _globals['_POPULATIONFILE']._serialized_start=340
+  _globals['_POPULATIONFILE']._serialized_end=469
+  _globals['_ARROWSCHEMAJSON']._serialized_start=471
+  _globals['_ARROWSCHEMAJSON']._serialized_end=504
 # @@protoc_insertion_point(module_scope)

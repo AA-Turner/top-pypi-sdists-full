@@ -1,10 +1,13 @@
+# noqa: A005
 """
 Wild Card Match.
 
 A custom implementation of `fnmatch`.
 """
 from __future__ import annotations
+from . import _wcmatch
 from . import _wcparse
+import copyreg
 from typing import AnyStr, Iterable, Sequence
 
 __all__ = (
@@ -12,7 +15,8 @@ __all__ = (
     "NEGATE", "MINUSNEGATE", "DOTMATCH", "BRACE", "SPLIT",
     "NEGATEALL", "FORCEWIN", "FORCEUNIX",
     "C", "I", "R", "N", "M", "D", "E", "S", "B", "A", "W", "U",
-    "translate", "fnmatch", "filter", "escape", "is_magic"
+    "translate", "fnmatch", "filter", "escape", "is_magic", "compile",
+    "WcMatcher"
 )
 
 C = CASE = _wcparse.CASE
@@ -44,6 +48,34 @@ FLAG_MASK = (
 )
 
 
+class WcMatcher(_wcmatch.WcMatcher[AnyStr]):
+    """Pre-compiled matcher object."""
+
+    def match(self, filename: AnyStr) -> bool:
+        """Match filename."""
+
+        return self._matcher.match(filename)
+
+    def filter(self, filenames: Iterable[AnyStr]) -> list[AnyStr]:
+        """Match filename."""
+
+        return self._matcher.filter(filenames)  # type: ignore[return-value]
+
+
+copyreg.pickle(WcMatcher, lambda p: (WcMatcher, (p._matcher,)))
+
+
+def compile(  # noqa: A001
+    patterns: AnyStr | Sequence[AnyStr],
+    flags: int = 0,
+    limit: int = _wcparse.PATTERN_LIMIT,
+    exclude: AnyStr | Sequence[AnyStr] | None = None
+) -> WcMatcher[AnyStr]:
+    """Pre-compile a matcher object."""
+
+    return WcMatcher(_wcparse.compile(patterns, _flag_transform(flags), limit, exclude=exclude))
+
+
 def _flag_transform(flags: int) -> int:
     """Transform flags to glob defaults."""
 
@@ -63,8 +95,7 @@ def translate(
 ) -> tuple[list[AnyStr], list[AnyStr]]:
     """Translate `fnmatch` pattern."""
 
-    flags = _flag_transform(flags)
-    return _wcparse.translate(patterns, flags, limit, exclude=exclude)
+    return _wcparse.translate(patterns, _flag_transform(flags), limit, exclude=exclude)
 
 
 def fnmatch(
@@ -82,8 +113,7 @@ def fnmatch(
     but if `case_sensitive` is set, respect that instead.
     """
 
-    flags = _flag_transform(flags)
-    return bool(_wcparse.compile(patterns, flags, limit, exclude=exclude).match(filename))
+    return _wcparse.compile(patterns, _flag_transform(flags), limit, exclude=exclude).match(filename)
 
 
 def filter(  # noqa A001
@@ -96,15 +126,7 @@ def filter(  # noqa A001
 ) -> list[AnyStr]:
     """Filter names using pattern."""
 
-    matches = []
-
-    flags = _flag_transform(flags)
-    obj = _wcparse.compile(patterns, flags, limit, exclude=exclude)
-
-    for filename in filenames:
-        if obj.match(filename):
-            matches.append(filename)  # noqa: PERF401
-    return matches
+    return _wcparse.compile(patterns, _flag_transform(flags), limit, exclude=exclude).filter(filenames)  # type: ignore[return-value]
 
 
 def escape(pattern: AnyStr) -> AnyStr:

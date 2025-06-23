@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,62 +16,23 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cqwak/vectors/v1/vector.proto\x12\x1cqwak.vector.store.serving.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1f\n\x0c\x44oubleVector\x12\x0f\n\x07\x65lement\x18\x01 \x03(\x01\"\xc0\x01\n\x08Property\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\nstring_val\x18\x02 \x01(\tH\x00\x12\x11\n\x07int_val\x18\x03 \x01(\x03H\x00\x12\x12\n\x08\x62ool_val\x18\x04 \x01(\x08H\x00\x12\x14\n\ndouble_val\x18\x05 \x01(\x01H\x00\x12\x33\n\rtimestamp_val\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12\x10\n\x08is_empty\x18\x07 \x01(\x08\x42\x0c\n\nvalue_type\"\xa4\x01\n\x0cSearchResult\x12\n\n\x02id\x18\x01 \x01(\t\x12:\n\x06vector\x18\x02 \x01(\x0b\x32*.qwak.vector.store.serving.v1.DoubleVector\x12:\n\nproperties\x18\x03 \x03(\x0b\x32&.qwak.vector.store.serving.v1.Property\x12\x10\n\x08\x64istance\x18\x04 \x01(\x01\"\xe1\x01\n\x0cStoredVector\x12\x0e\n\x02id\x18\x01 \x01(\tB\x02\x18\x01\x12:\n\x06vector\x18\x02 \x01(\x0b\x32*.qwak.vector.store.serving.v1.DoubleVector\x12:\n\nproperties\x18\x03 \x03(\x0b\x32&.qwak.vector.store.serving.v1.Property\x12I\n\x11vector_identifier\x18\x04 \x01(\x0b\x32..qwak.vector.store.serving.v1.VectorIdentifier\"M\n\x10VectorIdentifier\x12\x11\n\tvector_id\x18\x01 \x01(\t\x12\x13\n\ttenant_id\x18\x02 \x01(\tH\x00\x42\x11\n\x0foptional_tenantB\x1e\n\x1a\x63om.qwak.ai.vectors.api.v1P\x01\x62\x06proto3')
 
-
-
-_DOUBLEVECTOR = DESCRIPTOR.message_types_by_name['DoubleVector']
-_PROPERTY = DESCRIPTOR.message_types_by_name['Property']
-_SEARCHRESULT = DESCRIPTOR.message_types_by_name['SearchResult']
-_STOREDVECTOR = DESCRIPTOR.message_types_by_name['StoredVector']
-_VECTORIDENTIFIER = DESCRIPTOR.message_types_by_name['VectorIdentifier']
-DoubleVector = _reflection.GeneratedProtocolMessageType('DoubleVector', (_message.Message,), {
-  'DESCRIPTOR' : _DOUBLEVECTOR,
-  '__module__' : 'qwak.vectors.v1.vector_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.DoubleVector)
-  })
-_sym_db.RegisterMessage(DoubleVector)
-
-Property = _reflection.GeneratedProtocolMessageType('Property', (_message.Message,), {
-  'DESCRIPTOR' : _PROPERTY,
-  '__module__' : 'qwak.vectors.v1.vector_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.Property)
-  })
-_sym_db.RegisterMessage(Property)
-
-SearchResult = _reflection.GeneratedProtocolMessageType('SearchResult', (_message.Message,), {
-  'DESCRIPTOR' : _SEARCHRESULT,
-  '__module__' : 'qwak.vectors.v1.vector_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.SearchResult)
-  })
-_sym_db.RegisterMessage(SearchResult)
-
-StoredVector = _reflection.GeneratedProtocolMessageType('StoredVector', (_message.Message,), {
-  'DESCRIPTOR' : _STOREDVECTOR,
-  '__module__' : 'qwak.vectors.v1.vector_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.StoredVector)
-  })
-_sym_db.RegisterMessage(StoredVector)
-
-VectorIdentifier = _reflection.GeneratedProtocolMessageType('VectorIdentifier', (_message.Message,), {
-  'DESCRIPTOR' : _VECTORIDENTIFIER,
-  '__module__' : 'qwak.vectors.v1.vector_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.VectorIdentifier)
-  })
-_sym_db.RegisterMessage(VectorIdentifier)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.vectors.v1.vector_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\032com.qwak.ai.vectors.api.v1P\001'
   _STOREDVECTOR.fields_by_name['id']._options = None
   _STOREDVECTOR.fields_by_name['id']._serialized_options = b'\030\001'
-  _DOUBLEVECTOR._serialized_start=95
-  _DOUBLEVECTOR._serialized_end=126
-  _PROPERTY._serialized_start=129
-  _PROPERTY._serialized_end=321
-  _SEARCHRESULT._serialized_start=324
-  _SEARCHRESULT._serialized_end=488
-  _STOREDVECTOR._serialized_start=491
-  _STOREDVECTOR._serialized_end=716
-  _VECTORIDENTIFIER._serialized_start=718
-  _VECTORIDENTIFIER._serialized_end=795
+  _globals['_DOUBLEVECTOR']._serialized_start=95
+  _globals['_DOUBLEVECTOR']._serialized_end=126
+  _globals['_PROPERTY']._serialized_start=129
+  _globals['_PROPERTY']._serialized_end=321
+  _globals['_SEARCHRESULT']._serialized_start=324
+  _globals['_SEARCHRESULT']._serialized_end=488
+  _globals['_STOREDVECTOR']._serialized_start=491
+  _globals['_STOREDVECTOR']._serialized_end=716
+  _globals['_VECTORIDENTIFIER']._serialized_start=718
+  _globals['_VECTORIDENTIFIER']._serialized_end=795
 # @@protoc_insertion_point(module_scope)

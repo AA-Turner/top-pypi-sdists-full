@@ -2,6 +2,7 @@
 """Tests for `globmatch`."""
 import unittest
 import pytest
+import copy
 import re
 import os
 import sys
@@ -9,6 +10,7 @@ import wcmatch.glob as glob
 import wcmatch._wcparse as _wcparse
 import wcmatch.util as util
 import shutil
+import pathlib
 
 # Below is general helper stuff that Python uses in `unittests`.  As these
 # not meant for users, and could change without notice, include them
@@ -1921,3 +1923,56 @@ class TestExcludes(unittest.TestCase):
         """Test exclusion with filter."""
 
         self.assertEqual(glob.globfilter(['path/name', 'path/test'], '*/*', exclude='path/test'), ['path/name'])
+
+
+class TestPrecompile(unittest.TestCase):
+    """Test precompiled match objects."""
+
+    def test_precompiled_match(self):
+        """Test precompiled matching."""
+
+        m = glob.compile('**/file', flags=glob.GLOBSTAR)
+        self.assertTrue(m.match('some/path/file'))
+
+    def test_precompiled_filter(self):
+        """Test precompiled filtering."""
+
+        pattern = '**/file'
+        m = glob.compile(pattern, flags=glob.GLOBSTAR)
+        self.assertEqual(
+            m.filter(['test/file', 'file', 'nope']),
+            glob.globfilter(['test/file', 'file', 'nope'], pattern, flags=glob.GLOBSTAR)
+        )
+
+    def test_precompiled_match_pathlib(self):
+        """Test precompiled matching."""
+
+        m = glob.compile('**/file', flags=glob.GLOBSTAR)
+        self.assertTrue(m.match(pathlib.PurePath('some/path/file')))
+
+    def test_precompiled_filter_pathlib(self):
+        """Test precompiled filtering."""
+
+        pattern = '**/file'
+        m = glob.compile(pattern, flags=glob.GLOBSTAR)
+        paths = [pathlib.PurePath('test/file'), pathlib.PurePath('file'), pathlib.PurePath('nope')]
+        self.assertEqual(
+            m.filter(paths),
+            glob.globfilter(paths, pattern, flags=glob.GLOBSTAR)
+        )
+
+    def test_hash(self):
+        """Test hashing."""
+
+        m1 = glob.compile('test', flags=glob.C)
+        m2 = glob.compile('test', flags=glob.C)
+        m3 = glob.compile('test', flags=glob.I)
+        m4 = glob.compile(b'test', flags=glob.C)
+
+        self.assertTrue(m1 == m2)
+        self.assertTrue(m1 != m3)
+        self.assertTrue(m1 != m4)
+
+        m5 = copy.copy(m1)
+        self.assertTrue(m1 == m5)
+        self.assertTrue(m5 in {m1})

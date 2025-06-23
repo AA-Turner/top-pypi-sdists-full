@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,60 +16,21 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.creds import secre
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nAqwak/administration/runtime_configuration/v0/network_config.proto\x12;qwak.administration.runtime_configuration.v0.network_config\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\"\x8e\x01\n\x1b\x43lusterNetworkConfiguration\x12\x62\n\x07gateway\x18\x01 \x01(\x0b\x32Q.qwak.administration.runtime_configuration.v0.network_config.GatewayConfiguration\x12\x0b\n\x03url\x18\x02 \x01(\t\"\xaf\x01\n\x1f\x45nvironmentNetworkConfiguration\x12\x62\n\x07gateway\x18\x01 \x01(\x0b\x32Q.qwak.administration.runtime_configuration.v0.network_config.GatewayConfiguration\x12\x14\n\x0cservices_url\x18\x02 \x01(\t\x12\x12\n\nmodels_url\x18\x03 \x01(\t\"\x87\x01\n\x14GatewayConfiguration\x12g\n\x05istio\x18\x01 \x01(\x0b\x32V.qwak.administration.runtime_configuration.v0.network_config.IstioGatewayConfigurationH\x00\x42\x06\n\x04type\"y\n\x19IstioGatewayConfiguration\x12\\\n\x0b\x63\x65rtificate\x18\x01 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRef\"t\n\x0b\x43\x65rtificate\x12Y\n\x06secret\x18\x01 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRefH\x00\x42\n\n\x08locationB\xdb\x01\n4com.jfrog.ml.runtime_configuration.v0.network_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_CLUSTERNETWORKCONFIGURATION = DESCRIPTOR.message_types_by_name['ClusterNetworkConfiguration']
-_ENVIRONMENTNETWORKCONFIGURATION = DESCRIPTOR.message_types_by_name['EnvironmentNetworkConfiguration']
-_GATEWAYCONFIGURATION = DESCRIPTOR.message_types_by_name['GatewayConfiguration']
-_ISTIOGATEWAYCONFIGURATION = DESCRIPTOR.message_types_by_name['IstioGatewayConfiguration']
-_CERTIFICATE = DESCRIPTOR.message_types_by_name['Certificate']
-ClusterNetworkConfiguration = _reflection.GeneratedProtocolMessageType('ClusterNetworkConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _CLUSTERNETWORKCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.network_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.network_config.ClusterNetworkConfiguration)
-  })
-_sym_db.RegisterMessage(ClusterNetworkConfiguration)
-
-EnvironmentNetworkConfiguration = _reflection.GeneratedProtocolMessageType('EnvironmentNetworkConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _ENVIRONMENTNETWORKCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.network_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.network_config.EnvironmentNetworkConfiguration)
-  })
-_sym_db.RegisterMessage(EnvironmentNetworkConfiguration)
-
-GatewayConfiguration = _reflection.GeneratedProtocolMessageType('GatewayConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _GATEWAYCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.network_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.network_config.GatewayConfiguration)
-  })
-_sym_db.RegisterMessage(GatewayConfiguration)
-
-IstioGatewayConfiguration = _reflection.GeneratedProtocolMessageType('IstioGatewayConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _ISTIOGATEWAYCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.network_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.network_config.IstioGatewayConfiguration)
-  })
-_sym_db.RegisterMessage(IstioGatewayConfiguration)
-
-Certificate = _reflection.GeneratedProtocolMessageType('Certificate', (_message.Message,), {
-  'DESCRIPTOR' : _CERTIFICATE,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.network_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.network_config.Certificate)
-  })
-_sym_db.RegisterMessage(Certificate)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.network_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n4com.jfrog.ml.runtime_configuration.v0.network_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _CLUSTERNETWORKCONFIGURATION._serialized_start=196
-  _CLUSTERNETWORKCONFIGURATION._serialized_end=338
-  _ENVIRONMENTNETWORKCONFIGURATION._serialized_start=341
-  _ENVIRONMENTNETWORKCONFIGURATION._serialized_end=516
-  _GATEWAYCONFIGURATION._serialized_start=519
-  _GATEWAYCONFIGURATION._serialized_end=654
-  _ISTIOGATEWAYCONFIGURATION._serialized_start=656
-  _ISTIOGATEWAYCONFIGURATION._serialized_end=777
-  _CERTIFICATE._serialized_start=779
-  _CERTIFICATE._serialized_end=895
+  _globals['_CLUSTERNETWORKCONFIGURATION']._serialized_start=196
+  _globals['_CLUSTERNETWORKCONFIGURATION']._serialized_end=338
+  _globals['_ENVIRONMENTNETWORKCONFIGURATION']._serialized_start=341
+  _globals['_ENVIRONMENTNETWORKCONFIGURATION']._serialized_end=516
+  _globals['_GATEWAYCONFIGURATION']._serialized_start=519
+  _globals['_GATEWAYCONFIGURATION']._serialized_end=654
+  _globals['_ISTIOGATEWAYCONFIGURATION']._serialized_start=656
+  _globals['_ISTIOGATEWAYCONFIGURATION']._serialized_end=777
+  _globals['_CERTIFICATE']._serialized_start=779
+  _globals['_CERTIFICATE']._serialized_end=895
 # @@protoc_insertion_point(module_scope)

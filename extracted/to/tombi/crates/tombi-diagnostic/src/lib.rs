@@ -3,10 +3,12 @@ pub mod printer;
 
 pub use level::Level;
 pub use printer::Print;
+use tower_lsp::lsp_types::NumberOrString;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Diagnostic {
     level: level::Level,
+    code: String,
     message: String,
     range: tombi_text::Range,
     source_file: Option<std::path::PathBuf>,
@@ -14,9 +16,14 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     #[inline]
-    pub fn new_warning(message: impl Into<String>, range: impl Into<tombi_text::Range>) -> Self {
+    pub fn new_warning(
+        message: impl Into<String>,
+        code: impl Into<String>,
+        range: impl Into<tombi_text::Range>,
+    ) -> Self {
         Self {
             level: level::Level::WARNING,
+            code: code.into(),
             message: message.into(),
             range: range.into(),
             source_file: None,
@@ -24,9 +31,14 @@ impl Diagnostic {
     }
 
     #[inline]
-    pub fn new_error(message: impl Into<String>, range: impl Into<tombi_text::Range>) -> Self {
+    pub fn new_error(
+        message: impl Into<String>,
+        code: impl Into<String>,
+        range: impl Into<tombi_text::Range>,
+    ) -> Self {
         Self {
             level: level::Level::ERROR,
+            code: code.into(),
             message: message.into(),
             range: range.into(),
             source_file: None,
@@ -88,6 +100,8 @@ impl From<Diagnostic> for tower_lsp::lsp_types::Diagnostic {
                 level::Level::ERROR => tower_lsp::lsp_types::DiagnosticSeverity::ERROR,
             }),
             message: diagnostic.message().to_string(),
+            source: Some("Tombi".to_owned()),
+            code: Some(NumberOrString::String(diagnostic.code)),
             ..Default::default()
         }
     }

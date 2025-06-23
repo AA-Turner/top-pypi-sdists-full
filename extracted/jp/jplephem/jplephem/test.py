@@ -47,7 +47,6 @@ target_names = {
     'mars': 499,           # w.r.t. 4 MARS BARYCENTER
     }
 
-
 class TestDAFBytesIO(TestCase):
     def sample_daf(self):
         word = Struct('<d').pack
@@ -179,7 +178,6 @@ class TestDAFBytesIO(TestCase):
         eq(list(d.map(summaries[1][1])), [2002.0] * 128)
         eq(list(d.map(summaries[2][1])), [3003.0] * 200)
 
-
 class TestDAFRealFile(TestDAFBytesIO):
     # Where "Real" = "written to disk with a real file descriptor
     # instead of an in-memory BytesIO".
@@ -190,7 +188,6 @@ class TestDAFRealFile(TestDAFBytesIO):
         f.write(bytes_io.getvalue())
         f.seek(0)
         return f
-
 
 def fake_mmap_that_raises_OSError(*args, **kw):
     raise OSError('mmap() not supported on this platform')
@@ -206,7 +203,6 @@ class TestDAFRealFileWithoutMMap(TestDAFRealFile):
 
     def tearDown(self):
         mmap.mmap = self.mmap
-
 
 class _CommonTests(object):
 
@@ -316,7 +312,6 @@ class _CommonTests(object):
         tdb = self.jomega + 16.01
         self.assertRaises(ValueError, self.position, 'earthmoon', tdb)
 
-
 class SPKTests(_CommonTests, TestCase):
 
     def setUp(self):
@@ -381,6 +376,13 @@ class SPKTests(_CommonTests, TestCase):
                              ' 1899-07-29 through 2053-10-09')
             self.assertIs(type(e.out_of_range_times), np.ndarray)
             self.assertEqual(list(e.out_of_range_times), [True, False, True])
+
+    def test_whether_bad_ephemeris_leaves_file_open(self):
+        # This doesn't actually fail if the file object is left open,
+        # but should produce a ResourceWarning as a side effect.
+        non_spk_path = __file__
+        with self.assertRaises(ValueError):
+            SPK.open(non_spk_path)
 
 class LegacyTests(_CommonTests, TestCase):
 
@@ -486,6 +488,60 @@ File type NAIF/DAF and format BIG-IEEE with 15 segments:
 1950-01-01..2050-01-01  Type 2  Mars Barycenter (4) -> Mars (499)
 """)
 
+    def test_verbose_spk_command_with_tidy_ephemeris(self):
+        output = commandline.main(['spk', '-v', 'de421.bsp'])
+        pieces = output.split('\n\n')
+        pieces[1:-2] = ['...']
+        output = '\n\n'.join(pieces)
+        self.assertEqual(output, """\
+File type DAF/SPK and format LTL-IEEE with 15 segments:
+1899-07-29..2053-10-09  Type 2  Solar System Barycenter (0) -> Mercury Barycenter (1)
+   7040 polynomials covering 8.0 days each
+      x 14 coefficients per polynomial
+      x 3 coordinates
+      = 295680 double precision floats
+   Polynomial start date matches segment start date
+   Polynomial end date matches segment end date
+
+...
+
+1899-07-29..2053-10-09  Type 2  Mars Barycenter (4) -> Mars (499)
+   1 polynomial covering 56320.0 days
+      x 2 coefficients per polynomial
+      x 3 coordinates
+      = 6 double precision floats
+   Polynomial start date matches segment start date
+   Polynomial end date matches segment end date
+
+""")
+
+    def test_verbose_spk_command_with_untidy_ephemeris(self):
+        output = commandline.main(['spk', '-v', 'de442s.bsp'])
+        pieces = output.split('\n\n')
+        pieces[1:-2] = ['...']
+        output = '\n\n'.join(pieces)
+        self.assertEqual(output, """\
+File type DAF/SPK and format LTL-IEEE with 14 segments:
+1849-12-26..2150-01-22  Type 2  Venus Barycenter (2) -> Venus (299)
+   1 polynomial covering 401792.0 days
+      x 2 coefficients per polynomial
+      x 3 coordinates
+      = 6 double precision floats
+   First polynomial starts 109568.0 days earlier than segment start date, on 1549-12-31
+   Final polynomial ends 182624.0 days later than segment end date, on 2650-01-25
+
+...
+
+1849-12-26..2150-01-22  Type 2  Solar System Barycenter (0) -> Mercury Barycenter (1)
+   13701 polynomials covering 8.0 days each
+      x 14 coefficients per polynomial
+      x 3 coordinates
+      = 575442 double precision floats
+   Polynomial start date matches segment start date
+   Final polynomial ends 8.0 days later than segment end date, on 2150-01-30
+
+""")
+
     def test_excerpt_command(self):
         output = commandline.main(['excerpt', '2023/8/23', '2023/8/24',
                                    'de421.bsp', 'de421_excerpt.bsp'])
@@ -496,21 +552,60 @@ Date 2023/8/24  = JD 2460180.5
 'de421_excerpt.bsp' written successfully with the following contents
 
 File type DAF/SPK and format LTL-IEEE with 15 segments:
-2023-08-20..2023-08-28  Type 2  Solar System Barycenter (0) -> Mercury Barycenter (1)
-2023-08-20..2023-09-05  Type 2  Solar System Barycenter (0) -> Venus Barycenter (2)
-2023-08-20..2023-09-05  Type 2  Solar System Barycenter (0) -> Earth Barycenter (3)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Mars Barycenter (4)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Jupiter Barycenter (5)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Saturn Barycenter (6)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Uranus Barycenter (7)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Neptune Barycenter (8)
-2023-08-20..2023-09-21  Type 2  Solar System Barycenter (0) -> Pluto Barycenter (9)
-2023-08-20..2023-09-05  Type 2  Solar System Barycenter (0) -> Sun (10)
-2023-08-20..2023-08-28  Type 2  Earth Barycenter (3) -> Moon (301)
-2023-08-20..2023-08-28  Type 2  Earth Barycenter (3) -> Earth (399)
-1899-07-29..2053-10-09  Type 2  Mercury Barycenter (1) -> Mercury (199)
-1899-07-29..2053-10-09  Type 2  Venus Barycenter (2) -> Venus (299)
-1899-07-29..2053-10-09  Type 2  Mars Barycenter (4) -> Mars (499)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Mercury Barycenter (1)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Venus Barycenter (2)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Earth Barycenter (3)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Mars Barycenter (4)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Jupiter Barycenter (5)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Saturn Barycenter (6)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Uranus Barycenter (7)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Neptune Barycenter (8)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Pluto Barycenter (9)
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Sun (10)
+2023-08-23..2023-08-24  Type 2  Earth Barycenter (3) -> Moon (301)
+2023-08-23..2023-08-24  Type 2  Earth Barycenter (3) -> Earth (399)
+2023-08-23..2023-08-24  Type 2  Mercury Barycenter (1) -> Mercury (199)
+2023-08-23..2023-08-24  Type 2  Venus Barycenter (2) -> Venus (299)
+2023-08-23..2023-08-24  Type 2  Mars Barycenter (4) -> Mars (499)
+""")
+
+        preface = """\
+;
+; This is an ephemeris excerpt created by jplephem 2.23, which was
+; asked to narrow the ephemeris to Julian dates 2460179.5 - 2460180.5
+; (proleptic Gregorian dates 2023-08-23 through 2023-08-24).
+;
+; Here is the comments area from the original ephemeris file:
+; ----------------------------------------------------------------------
+"""
+        output1 = commandline.main(['comment', 'de421.bsp'])
+        output2 = commandline.main(['comment', 'de421_excerpt.bsp'])
+        self.assertEqual(preface + output1, output2)
+
+        output = commandline.main(['spk', '-v', 'de421_excerpt.bsp'])
+        pieces = output.split('\n\n')
+        pieces[1:-2] = ['...']
+        output = '\n\n'.join(pieces)
+        self.assertEqual(output, """\
+File type DAF/SPK and format LTL-IEEE with 15 segments:
+2023-08-23..2023-08-24  Type 2  Solar System Barycenter (0) -> Mercury Barycenter (1)
+   1 polynomial covering 8.0 days
+      x 14 coefficients per polynomial
+      x 3 coordinates
+      = 42 double precision floats
+   First polynomial starts 3.0 days earlier than segment start date, on 2023-08-20
+   Final polynomial ends 4.0 days later than segment end date, on 2023-08-28
+
+...
+
+2023-08-23..2023-08-24  Type 2  Mars Barycenter (4) -> Mars (499)
+   1 polynomial covering 56320.0 days
+      x 2 coefficients per polynomial
+      x 3 coordinates
+      = 6 double precision floats
+   First polynomial starts 45315.0 days earlier than segment start date, on 1899-07-29
+   Final polynomial ends 11004.0 days later than segment end date, on 2053-10-09
+
 """)
 
 def load_tests(loader, tests, ignore):

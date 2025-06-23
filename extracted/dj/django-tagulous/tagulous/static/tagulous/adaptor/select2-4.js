@@ -266,6 +266,11 @@
             $selectCtl.trigger("change");
 
           } else {
+            // For new tags that don't exist, we need to create options first
+            for (var i=0; i<selectedTags.length; i++) {
+              var option = new Option(selectedTags[i], selectedTags[i], true, true);
+              $selectCtl.append(option);
+            }
             $selectCtl.val(selectedTags);
             $selectCtl.trigger("change");
           }

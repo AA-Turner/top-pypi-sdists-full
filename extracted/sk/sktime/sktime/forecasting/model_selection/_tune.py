@@ -456,7 +456,7 @@ class ForecastingGridSearchCV(BaseGridSearch):
     backend : {"dask", "loky", "multiprocessing", "threading","ray"}, by default "loky".
         Runs parallel evaluate if specified and ``strategy`` is set as "refit".
 
-        - "None": executes loop sequentally, simple list comprehension
+        - "None": executes loop sequentially, simple list comprehension
         - "loky", "multiprocessing" and "threading": uses ``joblib.Parallel`` loops
         - "joblib": custom and 3rd party ``joblib`` backends, e.g., ``spark``
         - "dask": uses ``dask``, requires ``dask`` package in environment
@@ -604,6 +604,12 @@ class ForecastingGridSearchCV(BaseGridSearch):
     ForecastingGridSearchCV(...)
     >>> y_pred = gscv.predict(fh=[1,2,3])  # doctest: +SKIP
     """
+
+    _tags = {
+        # CI and test flags
+        # -----------------
+        "tests:core": True,  # should tests be triggered by framework changes?
+    }
 
     def __init__(
         self,
@@ -798,7 +804,7 @@ class ForecastingRandomizedSearchCV(BaseGridSearch):
     backend : {"dask", "loky", "multiprocessing", "threading"}, by default "loky".
         Runs parallel evaluate if specified and ``strategy`` is set as "refit".
 
-        - "None": executes loop sequentally, simple list comprehension
+        - "None": executes loop sequentially, simple list comprehension
         - "loky", "multiprocessing" and "threading": uses ``joblib.Parallel`` loops
         - "joblib": custom and 3rd party ``joblib`` backends, e.g., ``spark``
         - "dask": uses ``dask``, requires ``dask`` package in environment
@@ -1068,7 +1074,7 @@ class ForecastingSkoptSearchCV(BaseGridSearch):
     backend : {"dask", "loky", "multiprocessing", "threading"}, by default "loky".
         Runs parallel evaluate if specified and ``strategy`` is set as "refit".
 
-        - "None": executes loop sequentally, simple list comprehension
+        - "None": executes loop sequentially, simple list comprehension
         - "loky", "multiprocessing" and "threading": uses ``joblib.Parallel`` loops
         - "joblib": custom and 3rd party ``joblib`` backends, e.g., ``spark``
         - "dask": uses ``dask``, requires ``dask`` package in environment
@@ -1717,8 +1723,7 @@ class ForecastingOptunaSearchCV(BaseGridSearch):
     >>> from sktime.transformations.series.adapt import TabularToSeriesAdaptor
     >>> from sktime.transformations.series.detrend import Deseasonalizer, Detrender
     >>> from sktime.forecasting.naive import NaiveForecaster
-    >>> from sktime.forecasting.theta import ThetaForecaster
-    >>> from sktime.forecasting.trend import STLForecaster
+    >>> from sktime.forecasting.trend import STLForecaster, TrendForecaster
     >>> import optuna
     >>> from  optuna.distributions import CategoricalDistribution
 
@@ -1741,7 +1746,7 @@ class ForecastingOptunaSearchCV(BaseGridSearch):
     ...             (True, False)
     ...         ),
     ...     "forecaster": CategoricalDistribution(
-    ...             (NaiveForecaster(), ThetaForecaster())
+    ...             (NaiveForecaster(), TrendForecaster())
     ...         ),
     ...     }
     >>> gscv = ForecastingOptunaSearchCV(

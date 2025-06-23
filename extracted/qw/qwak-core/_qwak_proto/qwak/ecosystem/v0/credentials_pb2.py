@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,40 +16,17 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/ecosystem/v0/credentials.proto\x12\x11qwak.ecosystem.v0\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc3\x01\n\x10\x43loudCredentials\x12O\n\x19\x61ws_temporary_credentials\x18\x01 \x01(\x0b\x32*.qwak.ecosystem.v0.AwsTemporaryCredentialsH\x00\x12O\n\x19gcp_temporary_credentials\x18\x02 \x01(\x0b\x32*.qwak.ecosystem.v0.GcpTemporaryCredentialsH\x00\x42\r\n\x0b\x63redentials\"\xa7\x01\n\x17\x41wsTemporaryCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\x12\x33\n\x0f\x65xpiration_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06region\x18\x05 \x01(\t\"d\n\x17GcpTemporaryCredentials\x12\x14\n\x0c\x61\x63\x63\x65ss_token\x18\x01 \x01(\t\x12\x33\n\x0f\x65xpiration_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\xb7\x01\n\x1c\x63om.qwak.ai.common.ecosystemP\x01Z\x94\x01github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/v0;ecosystem_v0b\x06proto3')
 
-
-
-_CLOUDCREDENTIALS = DESCRIPTOR.message_types_by_name['CloudCredentials']
-_AWSTEMPORARYCREDENTIALS = DESCRIPTOR.message_types_by_name['AwsTemporaryCredentials']
-_GCPTEMPORARYCREDENTIALS = DESCRIPTOR.message_types_by_name['GcpTemporaryCredentials']
-CloudCredentials = _reflection.GeneratedProtocolMessageType('CloudCredentials', (_message.Message,), {
-  'DESCRIPTOR' : _CLOUDCREDENTIALS,
-  '__module__' : 'qwak.ecosystem.v0.credentials_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.CloudCredentials)
-  })
-_sym_db.RegisterMessage(CloudCredentials)
-
-AwsTemporaryCredentials = _reflection.GeneratedProtocolMessageType('AwsTemporaryCredentials', (_message.Message,), {
-  'DESCRIPTOR' : _AWSTEMPORARYCREDENTIALS,
-  '__module__' : 'qwak.ecosystem.v0.credentials_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.AwsTemporaryCredentials)
-  })
-_sym_db.RegisterMessage(AwsTemporaryCredentials)
-
-GcpTemporaryCredentials = _reflection.GeneratedProtocolMessageType('GcpTemporaryCredentials', (_message.Message,), {
-  'DESCRIPTOR' : _GCPTEMPORARYCREDENTIALS,
-  '__module__' : 'qwak.ecosystem.v0.credentials_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.GcpTemporaryCredentials)
-  })
-_sym_db.RegisterMessage(GcpTemporaryCredentials)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.ecosystem.v0.credentials_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\034com.qwak.ai.common.ecosystemP\001Z\224\001github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/v0;ecosystem_v0'
-  _CLOUDCREDENTIALS._serialized_start=92
-  _CLOUDCREDENTIALS._serialized_end=287
-  _AWSTEMPORARYCREDENTIALS._serialized_start=290
-  _AWSTEMPORARYCREDENTIALS._serialized_end=457
-  _GCPTEMPORARYCREDENTIALS._serialized_start=459
-  _GCPTEMPORARYCREDENTIALS._serialized_end=559
+  _globals['_CLOUDCREDENTIALS']._serialized_start=92
+  _globals['_CLOUDCREDENTIALS']._serialized_end=287
+  _globals['_AWSTEMPORARYCREDENTIALS']._serialized_start=290
+  _globals['_AWSTEMPORARYCREDENTIALS']._serialized_end=457
+  _globals['_GCPTEMPORARYCREDENTIALS']._serialized_start=459
+  _globals['_GCPTEMPORARYCREDENTIALS']._serialized_end=559
 # @@protoc_insertion_point(module_scope)

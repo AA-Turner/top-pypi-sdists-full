@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,355 +18,9 @@ from _qwak_proto.qwak.feature_store.features import feature_set_types_pb2 as qwa
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/feature_store/features/feature_set_service.proto\x12\x1bqwak.feature.store.features\x1a\x33qwak/feature_store/features/feature_set_state.proto\x1a-qwak/feature_store/features/feature_set.proto\x1a\x33qwak/feature_store/features/feature_set_types.proto\"b\n\x19RegisterFeatureSetRequest\x12\x45\n\x10\x66\x65\x61ture_set_spec\x18\x01 \x01(\x0b\x32+.qwak.feature.store.features.FeatureSetSpec\"Z\n\x1aRegisterFeatureSetResponse\x12<\n\x0b\x66\x65\x61ture_set\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.features.FeatureSet\"x\n\x17UpdateFeatureSetRequest\x12\x16\n\x0e\x66\x65\x61ture_set_id\x18\x01 \x01(\t\x12\x45\n\x10\x66\x65\x61ture_set_spec\x18\x02 \x01(\x0b\x32+.qwak.feature.store.features.FeatureSetSpec\"X\n\x18UpdateFeatureSetResponse\x12<\n\x0b\x66\x65\x61ture_set\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.features.FeatureSet\"2\n\x18GetFeatureSetByIdRequest\x12\x16\n\x0e\x66\x65\x61ture_set_id\x18\x01 \x01(\t\"Y\n\x19GetFeatureSetByIdResponse\x12<\n\x0b\x66\x65\x61ture_set\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.features.FeatureSet\"6\n\x1aGetFeatureSetByNameRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\"[\n\x1bGetFeatureSetByNameResponse\x12<\n\x0b\x66\x65\x61ture_set\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.features.FeatureSet\">\n#ListFeaturesetVersionsByNameRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"h\n$ListFeaturesetVersionsByNameResponse\x12@\n\x0b\x66\x65\x61turesets\x18\x01 \x03(\x0b\x32+.qwak.feature.store.features.FeaturesetInfo\"#\n!GetEnvToFeatureSetsMappingRequest\"\x91\x02\n\"GetEnvToFeatureSetsMappingResponse\x12\x7f\n\x1a\x65nv_to_feature_set_mapping\x18\x01 \x03(\x0b\x32[.qwak.feature.store.features.GetEnvToFeatureSetsMappingResponse.EnvToFeatureSetMappingEntry\x1aj\n\x1b\x45nvToFeatureSetMappingEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12:\n\x05value\x18\x02 \x01(\x0b\x32+.qwak.feature.store.features.FeatureSetList:\x02\x38\x01\"1\n\x17\x44\x65leteFeatureSetRequest\x12\x16\n\x0e\x66\x65\x61ture_set_id\x18\x01 \x01(\t\"\x1a\n\x18\x44\x65leteFeatureSetResponse\"\\\n\x1e\x44\x65leteFeaturesetVersionRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12!\n\x19\x66\x65\x61tureset_version_number\x18\x02 \x01(\x05\"!\n\x1f\x44\x65leteFeaturesetVersionResponse\"\x18\n\x16ListFeatureSetsRequest\"\\\n\x17ListFeatureSetsResponse\x12\x41\n\x10\x66\x65\x61ture_families\x18\x01 \x03(\x0b\x32\'.qwak.feature.store.features.FeatureSet\"5\n\x19RunBatchFeatureSetRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\"2\n\x1aRunBatchFeatureSetResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"p\n RunParquetBatchFeatureSetRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\x12\x18\n\x10parquet_location\x18\x02 \x01(\t\x12\x18\n\x10timestamp_column\x18\x03 \x01(\t\"#\n!RunParquetBatchFeatureSetResponse\"2\n\x16\x43reateUploadURLRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\"x\n\x18\x43reateUploadURLRequestV1\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12\x43\n\x0etransformation\x18\x02 \x01(\x0b\x32+.qwak.feature.store.features.Transformation\"I\n.CreateRealTimeFeatureExtractorUploadURLRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"-\n\x17\x43reateUploadURLResponse\x12\x12\n\nupload_url\x18\x01 \x01(\t\"\x89\x02\n\x1cUpdateFeatureSetStateRequest\x12m\n\x13\x66\x65\x61ture_names_state\x18\x01 \x03(\x0b\x32P.qwak.feature.store.features.UpdateFeatureSetStateRequest.FeatureNamesStateEntry\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x01(\t\x1a\x62\n\x16\x46\x65\x61tureNamesStateEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x37\n\x05value\x18\x02 \x01(\x0b\x32(.qwak.feature.store.features.StateUpdate:\x02\x38\x01\"e\n\x0bStateUpdate\x12V\n\x13\x66\x65\x61ture_names_state\x18\x01 \x01(\x0e\x32\x39.qwak.feature.store.features.FeatureSetLastExecutionState\"\x1f\n\x1dUpdateFeatureSetStateResponse\"K\n\x1fGetFeatureSetStateByNameRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\x03\"x\n GetFeatureSetStateByNameResponse\x12T\n\x11\x66\x65\x61ture_set_state\x18\x01 \x01(\x0e\x32\x39.qwak.feature.store.features.FeatureSetLastExecutionState\"9\n\x1dGetFeatureSetStateByIdRequest\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x01 \x01(\t\"^\n\x1eGetFeatureSetStateByIdResponse\x12<\n\x0b\x66\x65\x61ture_set\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.features.FeatureSet\"1\n\x16PauseFeaturesetRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\x19\n\x17PauseFeaturesetResponse\"2\n\x17ResumeFeaturesetRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\x1a\n\x18ResumeFeaturesetResponse\">\n#GetFeaturesetSchedulingStateRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"m\n$GetFeaturesetSchedulingStateResponse\x12\x45\n\x05state\x18\x01 \x01(\x0e\x32\x36.qwak.feature.store.features.FeaturesetSchedulingState\"_\n!SetActiveFeaturesetVersionRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12!\n\x19\x66\x65\x61tureset_version_number\x18\x02 \x01(\x05\"$\n\"SetActiveFeaturesetVersionResponse2\xe7\x17\n\x11\x46\x65\x61tureSetService\x12\x85\x01\n\x12RegisterFeatureSet\x12\x36.qwak.feature.store.features.RegisterFeatureSetRequest\x1a\x37.qwak.feature.store.features.RegisterFeatureSetResponse\x12\x7f\n\x10UpdateFeatureSet\x12\x34.qwak.feature.store.features.UpdateFeatureSetRequest\x1a\x35.qwak.feature.store.features.UpdateFeatureSetResponse\x12\x82\x01\n\x11GetFeatureSetById\x12\x35.qwak.feature.store.features.GetFeatureSetByIdRequest\x1a\x36.qwak.feature.store.features.GetFeatureSetByIdResponse\x12\x88\x01\n\x13GetFeatureSetByName\x12\x37.qwak.feature.store.features.GetFeatureSetByNameRequest\x1a\x38.qwak.feature.store.features.GetFeatureSetByNameResponse\x12\xa3\x01\n\x1cListFeaturesetVersionsByName\x12@.qwak.feature.store.features.ListFeaturesetVersionsByNameRequest\x1a\x41.qwak.feature.store.features.ListFeaturesetVersionsByNameResponse\x12\x7f\n\x10\x44\x65leteFeatureSet\x12\x34.qwak.feature.store.features.DeleteFeatureSetRequest\x1a\x35.qwak.feature.store.features.DeleteFeatureSetResponse\x12\x94\x01\n\x17\x44\x65leteFeaturesetVersion\x12;.qwak.feature.store.features.DeleteFeaturesetVersionRequest\x1a<.qwak.feature.store.features.DeleteFeaturesetVersionResponse\x12|\n\x0fListFeatureSets\x12\x33.qwak.feature.store.features.ListFeatureSetsRequest\x1a\x34.qwak.feature.store.features.ListFeatureSetsResponse\x12\x85\x01\n\x12RunBatchFeatureSet\x12\x36.qwak.feature.store.features.RunBatchFeatureSetRequest\x1a\x37.qwak.feature.store.features.RunBatchFeatureSetResponse\x12\x9a\x01\n\x19RunParquetBatchFeatureSet\x12=.qwak.feature.store.features.RunParquetBatchFeatureSetRequest\x1a>.qwak.feature.store.features.RunParquetBatchFeatureSetResponse\x12\x81\x01\n\x0f\x43reateUploadURL\x12\x33.qwak.feature.store.features.CreateUploadURLRequest\x1a\x34.qwak.feature.store.features.CreateUploadURLResponse\"\x03\x88\x02\x01\x12\x80\x01\n\x11\x43reateUploadURLV1\x12\x35.qwak.feature.store.features.CreateUploadURLRequestV1\x1a\x34.qwak.feature.store.features.CreateUploadURLResponse\x12\xac\x01\n\'CreateRealTimeFeatureExtractorUploadURL\x12K.qwak.feature.store.features.CreateRealTimeFeatureExtractorUploadURLRequest\x1a\x34.qwak.feature.store.features.CreateUploadURLResponse\x12\x8e\x01\n\x15UpdateFeatureSetState\x12\x39.qwak.feature.store.features.UpdateFeatureSetStateRequest\x1a:.qwak.feature.store.features.UpdateFeatureSetStateResponse\x12\x97\x01\n\x18GetFeatureSetStateByName\x12<.qwak.feature.store.features.GetFeatureSetStateByNameRequest\x1a=.qwak.feature.store.features.GetFeatureSetStateByNameResponse\x12\x9d\x01\n\x1aGetEnvToFeatureSetsMapping\x12>.qwak.feature.store.features.GetEnvToFeatureSetsMappingRequest\x1a?.qwak.feature.store.features.GetEnvToFeatureSetsMappingResponse\x12\x91\x01\n\x16GetFeatureSetStateById\x12:.qwak.feature.store.features.GetFeatureSetStateByIdRequest\x1a;.qwak.feature.store.features.GetFeatureSetStateByIdResponse\x12|\n\x0fPauseFeatureset\x12\x33.qwak.feature.store.features.PauseFeaturesetRequest\x1a\x34.qwak.feature.store.features.PauseFeaturesetResponse\x12\x7f\n\x10ResumeFeatureset\x12\x34.qwak.feature.store.features.ResumeFeaturesetRequest\x1a\x35.qwak.feature.store.features.ResumeFeaturesetResponse\x12\xa3\x01\n\x1cGetFeaturesetSchedulingState\x12@.qwak.feature.store.features.GetFeaturesetSchedulingStateRequest\x1a\x41.qwak.feature.store.features.GetFeaturesetSchedulingStateResponse\x12\x9d\x01\n\x1aSetActiveFeaturesetVersion\x12>.qwak.feature.store.features.SetActiveFeaturesetVersionRequest\x1a?.qwak.feature.store.features.SetActiveFeaturesetVersionResponseB]\n(com.qwak.ai.feature.store.management.apiP\x01Z/qwak/featurestore/features;featurestorefeaturesb\x06proto3')
 
-
-
-_REGISTERFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['RegisterFeatureSetRequest']
-_REGISTERFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['RegisterFeatureSetResponse']
-_UPDATEFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['UpdateFeatureSetRequest']
-_UPDATEFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['UpdateFeatureSetResponse']
-_GETFEATURESETBYIDREQUEST = DESCRIPTOR.message_types_by_name['GetFeatureSetByIdRequest']
-_GETFEATURESETBYIDRESPONSE = DESCRIPTOR.message_types_by_name['GetFeatureSetByIdResponse']
-_GETFEATURESETBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetFeatureSetByNameRequest']
-_GETFEATURESETBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetFeatureSetByNameResponse']
-_LISTFEATURESETVERSIONSBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['ListFeaturesetVersionsByNameRequest']
-_LISTFEATURESETVERSIONSBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['ListFeaturesetVersionsByNameResponse']
-_GETENVTOFEATURESETSMAPPINGREQUEST = DESCRIPTOR.message_types_by_name['GetEnvToFeatureSetsMappingRequest']
-_GETENVTOFEATURESETSMAPPINGRESPONSE = DESCRIPTOR.message_types_by_name['GetEnvToFeatureSetsMappingResponse']
-_GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY = _GETENVTOFEATURESETSMAPPINGRESPONSE.nested_types_by_name['EnvToFeatureSetMappingEntry']
-_DELETEFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['DeleteFeatureSetRequest']
-_DELETEFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['DeleteFeatureSetResponse']
-_DELETEFEATURESETVERSIONREQUEST = DESCRIPTOR.message_types_by_name['DeleteFeaturesetVersionRequest']
-_DELETEFEATURESETVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['DeleteFeaturesetVersionResponse']
-_LISTFEATURESETSREQUEST = DESCRIPTOR.message_types_by_name['ListFeatureSetsRequest']
-_LISTFEATURESETSRESPONSE = DESCRIPTOR.message_types_by_name['ListFeatureSetsResponse']
-_RUNBATCHFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['RunBatchFeatureSetRequest']
-_RUNBATCHFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['RunBatchFeatureSetResponse']
-_RUNPARQUETBATCHFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['RunParquetBatchFeatureSetRequest']
-_RUNPARQUETBATCHFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['RunParquetBatchFeatureSetResponse']
-_CREATEUPLOADURLREQUEST = DESCRIPTOR.message_types_by_name['CreateUploadURLRequest']
-_CREATEUPLOADURLREQUESTV1 = DESCRIPTOR.message_types_by_name['CreateUploadURLRequestV1']
-_CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST = DESCRIPTOR.message_types_by_name['CreateRealTimeFeatureExtractorUploadURLRequest']
-_CREATEUPLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['CreateUploadURLResponse']
-_UPDATEFEATURESETSTATEREQUEST = DESCRIPTOR.message_types_by_name['UpdateFeatureSetStateRequest']
-_UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY = _UPDATEFEATURESETSTATEREQUEST.nested_types_by_name['FeatureNamesStateEntry']
-_STATEUPDATE = DESCRIPTOR.message_types_by_name['StateUpdate']
-_UPDATEFEATURESETSTATERESPONSE = DESCRIPTOR.message_types_by_name['UpdateFeatureSetStateResponse']
-_GETFEATURESETSTATEBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetFeatureSetStateByNameRequest']
-_GETFEATURESETSTATEBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetFeatureSetStateByNameResponse']
-_GETFEATURESETSTATEBYIDREQUEST = DESCRIPTOR.message_types_by_name['GetFeatureSetStateByIdRequest']
-_GETFEATURESETSTATEBYIDRESPONSE = DESCRIPTOR.message_types_by_name['GetFeatureSetStateByIdResponse']
-_PAUSEFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['PauseFeaturesetRequest']
-_PAUSEFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['PauseFeaturesetResponse']
-_RESUMEFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['ResumeFeaturesetRequest']
-_RESUMEFEATURESETRESPONSE = DESCRIPTOR.message_types_by_name['ResumeFeaturesetResponse']
-_GETFEATURESETSCHEDULINGSTATEREQUEST = DESCRIPTOR.message_types_by_name['GetFeaturesetSchedulingStateRequest']
-_GETFEATURESETSCHEDULINGSTATERESPONSE = DESCRIPTOR.message_types_by_name['GetFeaturesetSchedulingStateResponse']
-_SETACTIVEFEATURESETVERSIONREQUEST = DESCRIPTOR.message_types_by_name['SetActiveFeaturesetVersionRequest']
-_SETACTIVEFEATURESETVERSIONRESPONSE = DESCRIPTOR.message_types_by_name['SetActiveFeaturesetVersionResponse']
-RegisterFeatureSetRequest = _reflection.GeneratedProtocolMessageType('RegisterFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _REGISTERFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RegisterFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(RegisterFeatureSetRequest)
-
-RegisterFeatureSetResponse = _reflection.GeneratedProtocolMessageType('RegisterFeatureSetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _REGISTERFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RegisterFeatureSetResponse)
-  })
-_sym_db.RegisterMessage(RegisterFeatureSetResponse)
-
-UpdateFeatureSetRequest = _reflection.GeneratedProtocolMessageType('UpdateFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.UpdateFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(UpdateFeatureSetRequest)
-
-UpdateFeatureSetResponse = _reflection.GeneratedProtocolMessageType('UpdateFeatureSetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.UpdateFeatureSetResponse)
-  })
-_sym_db.RegisterMessage(UpdateFeatureSetResponse)
-
-GetFeatureSetByIdRequest = _reflection.GeneratedProtocolMessageType('GetFeatureSetByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETBYIDREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetByIdRequest)
-  })
-_sym_db.RegisterMessage(GetFeatureSetByIdRequest)
-
-GetFeatureSetByIdResponse = _reflection.GeneratedProtocolMessageType('GetFeatureSetByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETBYIDRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetByIdResponse)
-  })
-_sym_db.RegisterMessage(GetFeatureSetByIdResponse)
-
-GetFeatureSetByNameRequest = _reflection.GeneratedProtocolMessageType('GetFeatureSetByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETBYNAMEREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetByNameRequest)
-  })
-_sym_db.RegisterMessage(GetFeatureSetByNameRequest)
-
-GetFeatureSetByNameResponse = _reflection.GeneratedProtocolMessageType('GetFeatureSetByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETBYNAMERESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetByNameResponse)
-  })
-_sym_db.RegisterMessage(GetFeatureSetByNameResponse)
-
-ListFeaturesetVersionsByNameRequest = _reflection.GeneratedProtocolMessageType('ListFeaturesetVersionsByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFEATURESETVERSIONSBYNAMEREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ListFeaturesetVersionsByNameRequest)
-  })
-_sym_db.RegisterMessage(ListFeaturesetVersionsByNameRequest)
-
-ListFeaturesetVersionsByNameResponse = _reflection.GeneratedProtocolMessageType('ListFeaturesetVersionsByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFEATURESETVERSIONSBYNAMERESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ListFeaturesetVersionsByNameResponse)
-  })
-_sym_db.RegisterMessage(ListFeaturesetVersionsByNameResponse)
-
-GetEnvToFeatureSetsMappingRequest = _reflection.GeneratedProtocolMessageType('GetEnvToFeatureSetsMappingRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETENVTOFEATURESETSMAPPINGREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetEnvToFeatureSetsMappingRequest)
-  })
-_sym_db.RegisterMessage(GetEnvToFeatureSetsMappingRequest)
-
-GetEnvToFeatureSetsMappingResponse = _reflection.GeneratedProtocolMessageType('GetEnvToFeatureSetsMappingResponse', (_message.Message,), {
-
-  'EnvToFeatureSetMappingEntry' : _reflection.GeneratedProtocolMessageType('EnvToFeatureSetMappingEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY,
-    '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetEnvToFeatureSetsMappingResponse.EnvToFeatureSetMappingEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETENVTOFEATURESETSMAPPINGRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetEnvToFeatureSetsMappingResponse)
-  })
-_sym_db.RegisterMessage(GetEnvToFeatureSetsMappingResponse)
-_sym_db.RegisterMessage(GetEnvToFeatureSetsMappingResponse.EnvToFeatureSetMappingEntry)
-
-DeleteFeatureSetRequest = _reflection.GeneratedProtocolMessageType('DeleteFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.DeleteFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(DeleteFeatureSetRequest)
-
-DeleteFeatureSetResponse = _reflection.GeneratedProtocolMessageType('DeleteFeatureSetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.DeleteFeatureSetResponse)
-  })
-_sym_db.RegisterMessage(DeleteFeatureSetResponse)
-
-DeleteFeaturesetVersionRequest = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETVERSIONREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.DeleteFeaturesetVersionRequest)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetVersionRequest)
-
-DeleteFeaturesetVersionResponse = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetVersionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETVERSIONRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.DeleteFeaturesetVersionResponse)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetVersionResponse)
-
-ListFeatureSetsRequest = _reflection.GeneratedProtocolMessageType('ListFeatureSetsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFEATURESETSREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ListFeatureSetsRequest)
-  })
-_sym_db.RegisterMessage(ListFeatureSetsRequest)
-
-ListFeatureSetsResponse = _reflection.GeneratedProtocolMessageType('ListFeatureSetsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFEATURESETSRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ListFeatureSetsResponse)
-  })
-_sym_db.RegisterMessage(ListFeatureSetsResponse)
-
-RunBatchFeatureSetRequest = _reflection.GeneratedProtocolMessageType('RunBatchFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _RUNBATCHFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RunBatchFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(RunBatchFeatureSetRequest)
-
-RunBatchFeatureSetResponse = _reflection.GeneratedProtocolMessageType('RunBatchFeatureSetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _RUNBATCHFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RunBatchFeatureSetResponse)
-  })
-_sym_db.RegisterMessage(RunBatchFeatureSetResponse)
-
-RunParquetBatchFeatureSetRequest = _reflection.GeneratedProtocolMessageType('RunParquetBatchFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _RUNPARQUETBATCHFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RunParquetBatchFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(RunParquetBatchFeatureSetRequest)
-
-RunParquetBatchFeatureSetResponse = _reflection.GeneratedProtocolMessageType('RunParquetBatchFeatureSetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _RUNPARQUETBATCHFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.RunParquetBatchFeatureSetResponse)
-  })
-_sym_db.RegisterMessage(RunParquetBatchFeatureSetResponse)
-
-CreateUploadURLRequest = _reflection.GeneratedProtocolMessageType('CreateUploadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEUPLOADURLREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.CreateUploadURLRequest)
-  })
-_sym_db.RegisterMessage(CreateUploadURLRequest)
-
-CreateUploadURLRequestV1 = _reflection.GeneratedProtocolMessageType('CreateUploadURLRequestV1', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEUPLOADURLREQUESTV1,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.CreateUploadURLRequestV1)
-  })
-_sym_db.RegisterMessage(CreateUploadURLRequestV1)
-
-CreateRealTimeFeatureExtractorUploadURLRequest = _reflection.GeneratedProtocolMessageType('CreateRealTimeFeatureExtractorUploadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.CreateRealTimeFeatureExtractorUploadURLRequest)
-  })
-_sym_db.RegisterMessage(CreateRealTimeFeatureExtractorUploadURLRequest)
-
-CreateUploadURLResponse = _reflection.GeneratedProtocolMessageType('CreateUploadURLResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEUPLOADURLRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.CreateUploadURLResponse)
-  })
-_sym_db.RegisterMessage(CreateUploadURLResponse)
-
-UpdateFeatureSetStateRequest = _reflection.GeneratedProtocolMessageType('UpdateFeatureSetStateRequest', (_message.Message,), {
-
-  'FeatureNamesStateEntry' : _reflection.GeneratedProtocolMessageType('FeatureNamesStateEntry', (_message.Message,), {
-    'DESCRIPTOR' : _UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY,
-    '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.feature.store.features.UpdateFeatureSetStateRequest.FeatureNamesStateEntry)
-    })
-  ,
-  'DESCRIPTOR' : _UPDATEFEATURESETSTATEREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.UpdateFeatureSetStateRequest)
-  })
-_sym_db.RegisterMessage(UpdateFeatureSetStateRequest)
-_sym_db.RegisterMessage(UpdateFeatureSetStateRequest.FeatureNamesStateEntry)
-
-StateUpdate = _reflection.GeneratedProtocolMessageType('StateUpdate', (_message.Message,), {
-  'DESCRIPTOR' : _STATEUPDATE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.StateUpdate)
-  })
-_sym_db.RegisterMessage(StateUpdate)
-
-UpdateFeatureSetStateResponse = _reflection.GeneratedProtocolMessageType('UpdateFeatureSetStateResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEFEATURESETSTATERESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.UpdateFeatureSetStateResponse)
-  })
-_sym_db.RegisterMessage(UpdateFeatureSetStateResponse)
-
-GetFeatureSetStateByNameRequest = _reflection.GeneratedProtocolMessageType('GetFeatureSetStateByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYNAMEREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetStateByNameRequest)
-  })
-_sym_db.RegisterMessage(GetFeatureSetStateByNameRequest)
-
-GetFeatureSetStateByNameResponse = _reflection.GeneratedProtocolMessageType('GetFeatureSetStateByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYNAMERESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetStateByNameResponse)
-  })
-_sym_db.RegisterMessage(GetFeatureSetStateByNameResponse)
-
-GetFeatureSetStateByIdRequest = _reflection.GeneratedProtocolMessageType('GetFeatureSetStateByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYIDREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetStateByIdRequest)
-  })
-_sym_db.RegisterMessage(GetFeatureSetStateByIdRequest)
-
-GetFeatureSetStateByIdResponse = _reflection.GeneratedProtocolMessageType('GetFeatureSetStateByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYIDRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeatureSetStateByIdResponse)
-  })
-_sym_db.RegisterMessage(GetFeatureSetStateByIdResponse)
-
-PauseFeaturesetRequest = _reflection.GeneratedProtocolMessageType('PauseFeaturesetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _PAUSEFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.PauseFeaturesetRequest)
-  })
-_sym_db.RegisterMessage(PauseFeaturesetRequest)
-
-PauseFeaturesetResponse = _reflection.GeneratedProtocolMessageType('PauseFeaturesetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _PAUSEFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.PauseFeaturesetResponse)
-  })
-_sym_db.RegisterMessage(PauseFeaturesetResponse)
-
-ResumeFeaturesetRequest = _reflection.GeneratedProtocolMessageType('ResumeFeaturesetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _RESUMEFEATURESETREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ResumeFeaturesetRequest)
-  })
-_sym_db.RegisterMessage(ResumeFeaturesetRequest)
-
-ResumeFeaturesetResponse = _reflection.GeneratedProtocolMessageType('ResumeFeaturesetResponse', (_message.Message,), {
-  'DESCRIPTOR' : _RESUMEFEATURESETRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.ResumeFeaturesetResponse)
-  })
-_sym_db.RegisterMessage(ResumeFeaturesetResponse)
-
-GetFeaturesetSchedulingStateRequest = _reflection.GeneratedProtocolMessageType('GetFeaturesetSchedulingStateRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSCHEDULINGSTATEREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeaturesetSchedulingStateRequest)
-  })
-_sym_db.RegisterMessage(GetFeaturesetSchedulingStateRequest)
-
-GetFeaturesetSchedulingStateResponse = _reflection.GeneratedProtocolMessageType('GetFeaturesetSchedulingStateResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSCHEDULINGSTATERESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.GetFeaturesetSchedulingStateResponse)
-  })
-_sym_db.RegisterMessage(GetFeaturesetSchedulingStateResponse)
-
-SetActiveFeaturesetVersionRequest = _reflection.GeneratedProtocolMessageType('SetActiveFeaturesetVersionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SETACTIVEFEATURESETVERSIONREQUEST,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.SetActiveFeaturesetVersionRequest)
-  })
-_sym_db.RegisterMessage(SetActiveFeaturesetVersionRequest)
-
-SetActiveFeaturesetVersionResponse = _reflection.GeneratedProtocolMessageType('SetActiveFeaturesetVersionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SETACTIVEFEATURESETVERSIONRESPONSE,
-  '__module__' : 'qwak.feature_store.features.feature_set_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.features.SetActiveFeaturesetVersionResponse)
-  })
-_sym_db.RegisterMessage(SetActiveFeaturesetVersionResponse)
-
-_FEATURESETSERVICE = DESCRIPTOR.services_by_name['FeatureSetService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.features.feature_set_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -378,92 +31,92 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY._serialized_options = b'8\001'
   _FEATURESETSERVICE.methods_by_name['CreateUploadURL']._options = None
   _FEATURESETSERVICE.methods_by_name['CreateUploadURL']._serialized_options = b'\210\002\001'
-  _REGISTERFEATURESETREQUEST._serialized_start=239
-  _REGISTERFEATURESETREQUEST._serialized_end=337
-  _REGISTERFEATURESETRESPONSE._serialized_start=339
-  _REGISTERFEATURESETRESPONSE._serialized_end=429
-  _UPDATEFEATURESETREQUEST._serialized_start=431
-  _UPDATEFEATURESETREQUEST._serialized_end=551
-  _UPDATEFEATURESETRESPONSE._serialized_start=553
-  _UPDATEFEATURESETRESPONSE._serialized_end=641
-  _GETFEATURESETBYIDREQUEST._serialized_start=643
-  _GETFEATURESETBYIDREQUEST._serialized_end=693
-  _GETFEATURESETBYIDRESPONSE._serialized_start=695
-  _GETFEATURESETBYIDRESPONSE._serialized_end=784
-  _GETFEATURESETBYNAMEREQUEST._serialized_start=786
-  _GETFEATURESETBYNAMEREQUEST._serialized_end=840
-  _GETFEATURESETBYNAMERESPONSE._serialized_start=842
-  _GETFEATURESETBYNAMERESPONSE._serialized_end=933
-  _LISTFEATURESETVERSIONSBYNAMEREQUEST._serialized_start=935
-  _LISTFEATURESETVERSIONSBYNAMEREQUEST._serialized_end=997
-  _LISTFEATURESETVERSIONSBYNAMERESPONSE._serialized_start=999
-  _LISTFEATURESETVERSIONSBYNAMERESPONSE._serialized_end=1103
-  _GETENVTOFEATURESETSMAPPINGREQUEST._serialized_start=1105
-  _GETENVTOFEATURESETSMAPPINGREQUEST._serialized_end=1140
-  _GETENVTOFEATURESETSMAPPINGRESPONSE._serialized_start=1143
-  _GETENVTOFEATURESETSMAPPINGRESPONSE._serialized_end=1416
-  _GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY._serialized_start=1310
-  _GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY._serialized_end=1416
-  _DELETEFEATURESETREQUEST._serialized_start=1418
-  _DELETEFEATURESETREQUEST._serialized_end=1467
-  _DELETEFEATURESETRESPONSE._serialized_start=1469
-  _DELETEFEATURESETRESPONSE._serialized_end=1495
-  _DELETEFEATURESETVERSIONREQUEST._serialized_start=1497
-  _DELETEFEATURESETVERSIONREQUEST._serialized_end=1589
-  _DELETEFEATURESETVERSIONRESPONSE._serialized_start=1591
-  _DELETEFEATURESETVERSIONRESPONSE._serialized_end=1624
-  _LISTFEATURESETSREQUEST._serialized_start=1626
-  _LISTFEATURESETSREQUEST._serialized_end=1650
-  _LISTFEATURESETSRESPONSE._serialized_start=1652
-  _LISTFEATURESETSRESPONSE._serialized_end=1744
-  _RUNBATCHFEATURESETREQUEST._serialized_start=1746
-  _RUNBATCHFEATURESETREQUEST._serialized_end=1799
-  _RUNBATCHFEATURESETRESPONSE._serialized_start=1801
-  _RUNBATCHFEATURESETRESPONSE._serialized_end=1851
-  _RUNPARQUETBATCHFEATURESETREQUEST._serialized_start=1853
-  _RUNPARQUETBATCHFEATURESETREQUEST._serialized_end=1965
-  _RUNPARQUETBATCHFEATURESETRESPONSE._serialized_start=1967
-  _RUNPARQUETBATCHFEATURESETRESPONSE._serialized_end=2002
-  _CREATEUPLOADURLREQUEST._serialized_start=2004
-  _CREATEUPLOADURLREQUEST._serialized_end=2054
-  _CREATEUPLOADURLREQUESTV1._serialized_start=2056
-  _CREATEUPLOADURLREQUESTV1._serialized_end=2176
-  _CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST._serialized_start=2178
-  _CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST._serialized_end=2251
-  _CREATEUPLOADURLRESPONSE._serialized_start=2253
-  _CREATEUPLOADURLRESPONSE._serialized_end=2298
-  _UPDATEFEATURESETSTATEREQUEST._serialized_start=2301
-  _UPDATEFEATURESETSTATEREQUEST._serialized_end=2566
-  _UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY._serialized_start=2468
-  _UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY._serialized_end=2566
-  _STATEUPDATE._serialized_start=2568
-  _STATEUPDATE._serialized_end=2669
-  _UPDATEFEATURESETSTATERESPONSE._serialized_start=2671
-  _UPDATEFEATURESETSTATERESPONSE._serialized_end=2702
-  _GETFEATURESETSTATEBYNAMEREQUEST._serialized_start=2704
-  _GETFEATURESETSTATEBYNAMEREQUEST._serialized_end=2779
-  _GETFEATURESETSTATEBYNAMERESPONSE._serialized_start=2781
-  _GETFEATURESETSTATEBYNAMERESPONSE._serialized_end=2901
-  _GETFEATURESETSTATEBYIDREQUEST._serialized_start=2903
-  _GETFEATURESETSTATEBYIDREQUEST._serialized_end=2960
-  _GETFEATURESETSTATEBYIDRESPONSE._serialized_start=2962
-  _GETFEATURESETSTATEBYIDRESPONSE._serialized_end=3056
-  _PAUSEFEATURESETREQUEST._serialized_start=3058
-  _PAUSEFEATURESETREQUEST._serialized_end=3107
-  _PAUSEFEATURESETRESPONSE._serialized_start=3109
-  _PAUSEFEATURESETRESPONSE._serialized_end=3134
-  _RESUMEFEATURESETREQUEST._serialized_start=3136
-  _RESUMEFEATURESETREQUEST._serialized_end=3186
-  _RESUMEFEATURESETRESPONSE._serialized_start=3188
-  _RESUMEFEATURESETRESPONSE._serialized_end=3214
-  _GETFEATURESETSCHEDULINGSTATEREQUEST._serialized_start=3216
-  _GETFEATURESETSCHEDULINGSTATEREQUEST._serialized_end=3278
-  _GETFEATURESETSCHEDULINGSTATERESPONSE._serialized_start=3280
-  _GETFEATURESETSCHEDULINGSTATERESPONSE._serialized_end=3389
-  _SETACTIVEFEATURESETVERSIONREQUEST._serialized_start=3391
-  _SETACTIVEFEATURESETVERSIONREQUEST._serialized_end=3486
-  _SETACTIVEFEATURESETVERSIONRESPONSE._serialized_start=3488
-  _SETACTIVEFEATURESETVERSIONRESPONSE._serialized_end=3524
-  _FEATURESETSERVICE._serialized_start=3527
-  _FEATURESETSERVICE._serialized_end=6574
+  _globals['_REGISTERFEATURESETREQUEST']._serialized_start=239
+  _globals['_REGISTERFEATURESETREQUEST']._serialized_end=337
+  _globals['_REGISTERFEATURESETRESPONSE']._serialized_start=339
+  _globals['_REGISTERFEATURESETRESPONSE']._serialized_end=429
+  _globals['_UPDATEFEATURESETREQUEST']._serialized_start=431
+  _globals['_UPDATEFEATURESETREQUEST']._serialized_end=551
+  _globals['_UPDATEFEATURESETRESPONSE']._serialized_start=553
+  _globals['_UPDATEFEATURESETRESPONSE']._serialized_end=641
+  _globals['_GETFEATURESETBYIDREQUEST']._serialized_start=643
+  _globals['_GETFEATURESETBYIDREQUEST']._serialized_end=693
+  _globals['_GETFEATURESETBYIDRESPONSE']._serialized_start=695
+  _globals['_GETFEATURESETBYIDRESPONSE']._serialized_end=784
+  _globals['_GETFEATURESETBYNAMEREQUEST']._serialized_start=786
+  _globals['_GETFEATURESETBYNAMEREQUEST']._serialized_end=840
+  _globals['_GETFEATURESETBYNAMERESPONSE']._serialized_start=842
+  _globals['_GETFEATURESETBYNAMERESPONSE']._serialized_end=933
+  _globals['_LISTFEATURESETVERSIONSBYNAMEREQUEST']._serialized_start=935
+  _globals['_LISTFEATURESETVERSIONSBYNAMEREQUEST']._serialized_end=997
+  _globals['_LISTFEATURESETVERSIONSBYNAMERESPONSE']._serialized_start=999
+  _globals['_LISTFEATURESETVERSIONSBYNAMERESPONSE']._serialized_end=1103
+  _globals['_GETENVTOFEATURESETSMAPPINGREQUEST']._serialized_start=1105
+  _globals['_GETENVTOFEATURESETSMAPPINGREQUEST']._serialized_end=1140
+  _globals['_GETENVTOFEATURESETSMAPPINGRESPONSE']._serialized_start=1143
+  _globals['_GETENVTOFEATURESETSMAPPINGRESPONSE']._serialized_end=1416
+  _globals['_GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY']._serialized_start=1310
+  _globals['_GETENVTOFEATURESETSMAPPINGRESPONSE_ENVTOFEATURESETMAPPINGENTRY']._serialized_end=1416
+  _globals['_DELETEFEATURESETREQUEST']._serialized_start=1418
+  _globals['_DELETEFEATURESETREQUEST']._serialized_end=1467
+  _globals['_DELETEFEATURESETRESPONSE']._serialized_start=1469
+  _globals['_DELETEFEATURESETRESPONSE']._serialized_end=1495
+  _globals['_DELETEFEATURESETVERSIONREQUEST']._serialized_start=1497
+  _globals['_DELETEFEATURESETVERSIONREQUEST']._serialized_end=1589
+  _globals['_DELETEFEATURESETVERSIONRESPONSE']._serialized_start=1591
+  _globals['_DELETEFEATURESETVERSIONRESPONSE']._serialized_end=1624
+  _globals['_LISTFEATURESETSREQUEST']._serialized_start=1626
+  _globals['_LISTFEATURESETSREQUEST']._serialized_end=1650
+  _globals['_LISTFEATURESETSRESPONSE']._serialized_start=1652
+  _globals['_LISTFEATURESETSRESPONSE']._serialized_end=1744
+  _globals['_RUNBATCHFEATURESETREQUEST']._serialized_start=1746
+  _globals['_RUNBATCHFEATURESETREQUEST']._serialized_end=1799
+  _globals['_RUNBATCHFEATURESETRESPONSE']._serialized_start=1801
+  _globals['_RUNBATCHFEATURESETRESPONSE']._serialized_end=1851
+  _globals['_RUNPARQUETBATCHFEATURESETREQUEST']._serialized_start=1853
+  _globals['_RUNPARQUETBATCHFEATURESETREQUEST']._serialized_end=1965
+  _globals['_RUNPARQUETBATCHFEATURESETRESPONSE']._serialized_start=1967
+  _globals['_RUNPARQUETBATCHFEATURESETRESPONSE']._serialized_end=2002
+  _globals['_CREATEUPLOADURLREQUEST']._serialized_start=2004
+  _globals['_CREATEUPLOADURLREQUEST']._serialized_end=2054
+  _globals['_CREATEUPLOADURLREQUESTV1']._serialized_start=2056
+  _globals['_CREATEUPLOADURLREQUESTV1']._serialized_end=2176
+  _globals['_CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST']._serialized_start=2178
+  _globals['_CREATEREALTIMEFEATUREEXTRACTORUPLOADURLREQUEST']._serialized_end=2251
+  _globals['_CREATEUPLOADURLRESPONSE']._serialized_start=2253
+  _globals['_CREATEUPLOADURLRESPONSE']._serialized_end=2298
+  _globals['_UPDATEFEATURESETSTATEREQUEST']._serialized_start=2301
+  _globals['_UPDATEFEATURESETSTATEREQUEST']._serialized_end=2566
+  _globals['_UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY']._serialized_start=2468
+  _globals['_UPDATEFEATURESETSTATEREQUEST_FEATURENAMESSTATEENTRY']._serialized_end=2566
+  _globals['_STATEUPDATE']._serialized_start=2568
+  _globals['_STATEUPDATE']._serialized_end=2669
+  _globals['_UPDATEFEATURESETSTATERESPONSE']._serialized_start=2671
+  _globals['_UPDATEFEATURESETSTATERESPONSE']._serialized_end=2702
+  _globals['_GETFEATURESETSTATEBYNAMEREQUEST']._serialized_start=2704
+  _globals['_GETFEATURESETSTATEBYNAMEREQUEST']._serialized_end=2779
+  _globals['_GETFEATURESETSTATEBYNAMERESPONSE']._serialized_start=2781
+  _globals['_GETFEATURESETSTATEBYNAMERESPONSE']._serialized_end=2901
+  _globals['_GETFEATURESETSTATEBYIDREQUEST']._serialized_start=2903
+  _globals['_GETFEATURESETSTATEBYIDREQUEST']._serialized_end=2960
+  _globals['_GETFEATURESETSTATEBYIDRESPONSE']._serialized_start=2962
+  _globals['_GETFEATURESETSTATEBYIDRESPONSE']._serialized_end=3056
+  _globals['_PAUSEFEATURESETREQUEST']._serialized_start=3058
+  _globals['_PAUSEFEATURESETREQUEST']._serialized_end=3107
+  _globals['_PAUSEFEATURESETRESPONSE']._serialized_start=3109
+  _globals['_PAUSEFEATURESETRESPONSE']._serialized_end=3134
+  _globals['_RESUMEFEATURESETREQUEST']._serialized_start=3136
+  _globals['_RESUMEFEATURESETREQUEST']._serialized_end=3186
+  _globals['_RESUMEFEATURESETRESPONSE']._serialized_start=3188
+  _globals['_RESUMEFEATURESETRESPONSE']._serialized_end=3214
+  _globals['_GETFEATURESETSCHEDULINGSTATEREQUEST']._serialized_start=3216
+  _globals['_GETFEATURESETSCHEDULINGSTATEREQUEST']._serialized_end=3278
+  _globals['_GETFEATURESETSCHEDULINGSTATERESPONSE']._serialized_start=3280
+  _globals['_GETFEATURESETSCHEDULINGSTATERESPONSE']._serialized_end=3389
+  _globals['_SETACTIVEFEATURESETVERSIONREQUEST']._serialized_start=3391
+  _globals['_SETACTIVEFEATURESETVERSIONREQUEST']._serialized_end=3486
+  _globals['_SETACTIVEFEATURESETVERSIONRESPONSE']._serialized_start=3488
+  _globals['_SETACTIVEFEATURESETVERSIONRESPONSE']._serialized_end=3524
+  _globals['_FEATURESETSERVICE']._serialized_start=3527
+  _globals['_FEATURESETSERVICE']._serialized_end=6574
 # @@protoc_insertion_point(module_scope)

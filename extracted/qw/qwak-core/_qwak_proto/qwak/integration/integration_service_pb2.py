@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,153 +16,41 @@ from _qwak_proto.qwak.integration import integration_pb2 as qwak_dot_integration
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n*qwak/integration/integration_service.proto\x12\x1bqwak.integration.management\x1a\"qwak/integration/integration.proto\"b\n\x18\x43reateIntegrationRequest\x12\x46\n\x10integration_spec\x18\x01 \x01(\x0b\x32,.qwak.integration.management.IntegrationSpec\"a\n\x19\x43reateIntegrationResponse\x12\x16\n\x0eintegration_id\x18\x01 \x01(\t\x12\x15\n\ris_successful\x18\x02 \x01(\x08\x12\x15\n\rerror_message\x18\x03 \x01(\t\"/\n\x15GetIntegrationRequest\x12\x16\n\x0eintegration_id\x18\x01 \x01(\t\"W\n\x16GetIntegrationResponse\x12=\n\x0bintegration\x18\x01 \x01(\x0b\x32(.qwak.integration.management.Integration\"\x18\n\x16ListIntegrationRequest\"Z\n\x18ListIntegrationsResponse\x12>\n\x0cintegrations\x18\x01 \x03(\x0b\x32(.qwak.integration.management.Integration\"z\n\x18UpdateIntegrationRequest\x12\x16\n\x0eintegration_id\x18\x01 \x01(\t\x12\x46\n\x10integration_spec\x18\x02 \x01(\x0b\x32,.qwak.integration.management.IntegrationSpec\"\x1b\n\x19UpdateIntegrationResponse\"2\n\x18\x44\x65leteIntegrationRequest\x12\x16\n\x0eintegration_id\x18\x01 \x01(\t\"\x1b\n\x19\x44\x65leteIntegrationResponse\"m\n\x1aValidateIntegrationRequest\x12O\n\x0fvalidation_spec\x18\x01 \x01(\x0b\x32\x36.qwak.integration.management.IntegrationValidationSpec\"g\n\x1bValidateIntegrationResponse\x12H\n\x06result\x18\x01 \x01(\x0b\x32\x38.qwak.integration.management.ValidationIntegrationResult\"6\n\x1cGetIntegrationOptionsRequest\x12\x16\n\x0eintegration_id\x18\x01 \x01(\t\"a\n\x1dGetIntegrationOptionsResponse\x12@\n\x07options\x18\x01 \x01(\x0b\x32/.qwak.integration.management.IntegrationOptions2\xc4\x07\n\x1cIntegrationManagementService\x12\x82\x01\n\x11\x43reateIntegration\x12\x35.qwak.integration.management.CreateIntegrationRequest\x1a\x36.qwak.integration.management.CreateIntegrationResponse\x12y\n\x0eGetIntegration\x12\x32.qwak.integration.management.GetIntegrationRequest\x1a\x33.qwak.integration.management.GetIntegrationResponse\x12~\n\x10ListIntegrations\x12\x33.qwak.integration.management.ListIntegrationRequest\x1a\x35.qwak.integration.management.ListIntegrationsResponse\x12\x82\x01\n\x11UpdateIntegration\x12\x35.qwak.integration.management.UpdateIntegrationRequest\x1a\x36.qwak.integration.management.UpdateIntegrationResponse\x12\x82\x01\n\x11\x44\x65leteIntegration\x12\x35.qwak.integration.management.DeleteIntegrationRequest\x1a\x36.qwak.integration.management.DeleteIntegrationResponse\x12\x88\x01\n\x13ValidateIntegration\x12\x37.qwak.integration.management.ValidateIntegrationRequest\x1a\x38.qwak.integration.management.ValidateIntegrationResponse\x12\x8e\x01\n\x15GetIntegrationOptions\x12\x39.qwak.integration.management.GetIntegrationOptionsRequest\x1a:.qwak.integration.management.GetIntegrationOptionsResponseBH\n&com.qwak.ai.management.integration.apiP\x01Z\x1cqwak/integration;integrationb\x06proto3')
 
-
-
-_CREATEINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['CreateIntegrationRequest']
-_CREATEINTEGRATIONRESPONSE = DESCRIPTOR.message_types_by_name['CreateIntegrationResponse']
-_GETINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['GetIntegrationRequest']
-_GETINTEGRATIONRESPONSE = DESCRIPTOR.message_types_by_name['GetIntegrationResponse']
-_LISTINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['ListIntegrationRequest']
-_LISTINTEGRATIONSRESPONSE = DESCRIPTOR.message_types_by_name['ListIntegrationsResponse']
-_UPDATEINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['UpdateIntegrationRequest']
-_UPDATEINTEGRATIONRESPONSE = DESCRIPTOR.message_types_by_name['UpdateIntegrationResponse']
-_DELETEINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['DeleteIntegrationRequest']
-_DELETEINTEGRATIONRESPONSE = DESCRIPTOR.message_types_by_name['DeleteIntegrationResponse']
-_VALIDATEINTEGRATIONREQUEST = DESCRIPTOR.message_types_by_name['ValidateIntegrationRequest']
-_VALIDATEINTEGRATIONRESPONSE = DESCRIPTOR.message_types_by_name['ValidateIntegrationResponse']
-_GETINTEGRATIONOPTIONSREQUEST = DESCRIPTOR.message_types_by_name['GetIntegrationOptionsRequest']
-_GETINTEGRATIONOPTIONSRESPONSE = DESCRIPTOR.message_types_by_name['GetIntegrationOptionsResponse']
-CreateIntegrationRequest = _reflection.GeneratedProtocolMessageType('CreateIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.CreateIntegrationRequest)
-  })
-_sym_db.RegisterMessage(CreateIntegrationRequest)
-
-CreateIntegrationResponse = _reflection.GeneratedProtocolMessageType('CreateIntegrationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEINTEGRATIONRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.CreateIntegrationResponse)
-  })
-_sym_db.RegisterMessage(CreateIntegrationResponse)
-
-GetIntegrationRequest = _reflection.GeneratedProtocolMessageType('GetIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.GetIntegrationRequest)
-  })
-_sym_db.RegisterMessage(GetIntegrationRequest)
-
-GetIntegrationResponse = _reflection.GeneratedProtocolMessageType('GetIntegrationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETINTEGRATIONRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.GetIntegrationResponse)
-  })
-_sym_db.RegisterMessage(GetIntegrationResponse)
-
-ListIntegrationRequest = _reflection.GeneratedProtocolMessageType('ListIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.ListIntegrationRequest)
-  })
-_sym_db.RegisterMessage(ListIntegrationRequest)
-
-ListIntegrationsResponse = _reflection.GeneratedProtocolMessageType('ListIntegrationsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTINTEGRATIONSRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.ListIntegrationsResponse)
-  })
-_sym_db.RegisterMessage(ListIntegrationsResponse)
-
-UpdateIntegrationRequest = _reflection.GeneratedProtocolMessageType('UpdateIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.UpdateIntegrationRequest)
-  })
-_sym_db.RegisterMessage(UpdateIntegrationRequest)
-
-UpdateIntegrationResponse = _reflection.GeneratedProtocolMessageType('UpdateIntegrationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEINTEGRATIONRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.UpdateIntegrationResponse)
-  })
-_sym_db.RegisterMessage(UpdateIntegrationResponse)
-
-DeleteIntegrationRequest = _reflection.GeneratedProtocolMessageType('DeleteIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.DeleteIntegrationRequest)
-  })
-_sym_db.RegisterMessage(DeleteIntegrationRequest)
-
-DeleteIntegrationResponse = _reflection.GeneratedProtocolMessageType('DeleteIntegrationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEINTEGRATIONRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.DeleteIntegrationResponse)
-  })
-_sym_db.RegisterMessage(DeleteIntegrationResponse)
-
-ValidateIntegrationRequest = _reflection.GeneratedProtocolMessageType('ValidateIntegrationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEINTEGRATIONREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.ValidateIntegrationRequest)
-  })
-_sym_db.RegisterMessage(ValidateIntegrationRequest)
-
-ValidateIntegrationResponse = _reflection.GeneratedProtocolMessageType('ValidateIntegrationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEINTEGRATIONRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.ValidateIntegrationResponse)
-  })
-_sym_db.RegisterMessage(ValidateIntegrationResponse)
-
-GetIntegrationOptionsRequest = _reflection.GeneratedProtocolMessageType('GetIntegrationOptionsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETINTEGRATIONOPTIONSREQUEST,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.GetIntegrationOptionsRequest)
-  })
-_sym_db.RegisterMessage(GetIntegrationOptionsRequest)
-
-GetIntegrationOptionsResponse = _reflection.GeneratedProtocolMessageType('GetIntegrationOptionsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETINTEGRATIONOPTIONSRESPONSE,
-  '__module__' : 'qwak.integration.integration_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.GetIntegrationOptionsResponse)
-  })
-_sym_db.RegisterMessage(GetIntegrationOptionsResponse)
-
-_INTEGRATIONMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['IntegrationManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.integration.integration_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.integration.apiP\001Z\034qwak/integration;integration'
-  _CREATEINTEGRATIONREQUEST._serialized_start=111
-  _CREATEINTEGRATIONREQUEST._serialized_end=209
-  _CREATEINTEGRATIONRESPONSE._serialized_start=211
-  _CREATEINTEGRATIONRESPONSE._serialized_end=308
-  _GETINTEGRATIONREQUEST._serialized_start=310
-  _GETINTEGRATIONREQUEST._serialized_end=357
-  _GETINTEGRATIONRESPONSE._serialized_start=359
-  _GETINTEGRATIONRESPONSE._serialized_end=446
-  _LISTINTEGRATIONREQUEST._serialized_start=448
-  _LISTINTEGRATIONREQUEST._serialized_end=472
-  _LISTINTEGRATIONSRESPONSE._serialized_start=474
-  _LISTINTEGRATIONSRESPONSE._serialized_end=564
-  _UPDATEINTEGRATIONREQUEST._serialized_start=566
-  _UPDATEINTEGRATIONREQUEST._serialized_end=688
-  _UPDATEINTEGRATIONRESPONSE._serialized_start=690
-  _UPDATEINTEGRATIONRESPONSE._serialized_end=717
-  _DELETEINTEGRATIONREQUEST._serialized_start=719
-  _DELETEINTEGRATIONREQUEST._serialized_end=769
-  _DELETEINTEGRATIONRESPONSE._serialized_start=771
-  _DELETEINTEGRATIONRESPONSE._serialized_end=798
-  _VALIDATEINTEGRATIONREQUEST._serialized_start=800
-  _VALIDATEINTEGRATIONREQUEST._serialized_end=909
-  _VALIDATEINTEGRATIONRESPONSE._serialized_start=911
-  _VALIDATEINTEGRATIONRESPONSE._serialized_end=1014
-  _GETINTEGRATIONOPTIONSREQUEST._serialized_start=1016
-  _GETINTEGRATIONOPTIONSREQUEST._serialized_end=1070
-  _GETINTEGRATIONOPTIONSRESPONSE._serialized_start=1072
-  _GETINTEGRATIONOPTIONSRESPONSE._serialized_end=1169
-  _INTEGRATIONMANAGEMENTSERVICE._serialized_start=1172
-  _INTEGRATIONMANAGEMENTSERVICE._serialized_end=2136
+  _globals['_CREATEINTEGRATIONREQUEST']._serialized_start=111
+  _globals['_CREATEINTEGRATIONREQUEST']._serialized_end=209
+  _globals['_CREATEINTEGRATIONRESPONSE']._serialized_start=211
+  _globals['_CREATEINTEGRATIONRESPONSE']._serialized_end=308
+  _globals['_GETINTEGRATIONREQUEST']._serialized_start=310
+  _globals['_GETINTEGRATIONREQUEST']._serialized_end=357
+  _globals['_GETINTEGRATIONRESPONSE']._serialized_start=359
+  _globals['_GETINTEGRATIONRESPONSE']._serialized_end=446
+  _globals['_LISTINTEGRATIONREQUEST']._serialized_start=448
+  _globals['_LISTINTEGRATIONREQUEST']._serialized_end=472
+  _globals['_LISTINTEGRATIONSRESPONSE']._serialized_start=474
+  _globals['_LISTINTEGRATIONSRESPONSE']._serialized_end=564
+  _globals['_UPDATEINTEGRATIONREQUEST']._serialized_start=566
+  _globals['_UPDATEINTEGRATIONREQUEST']._serialized_end=688
+  _globals['_UPDATEINTEGRATIONRESPONSE']._serialized_start=690
+  _globals['_UPDATEINTEGRATIONRESPONSE']._serialized_end=717
+  _globals['_DELETEINTEGRATIONREQUEST']._serialized_start=719
+  _globals['_DELETEINTEGRATIONREQUEST']._serialized_end=769
+  _globals['_DELETEINTEGRATIONRESPONSE']._serialized_start=771
+  _globals['_DELETEINTEGRATIONRESPONSE']._serialized_end=798
+  _globals['_VALIDATEINTEGRATIONREQUEST']._serialized_start=800
+  _globals['_VALIDATEINTEGRATIONREQUEST']._serialized_end=909
+  _globals['_VALIDATEINTEGRATIONRESPONSE']._serialized_start=911
+  _globals['_VALIDATEINTEGRATIONRESPONSE']._serialized_end=1014
+  _globals['_GETINTEGRATIONOPTIONSREQUEST']._serialized_start=1016
+  _globals['_GETINTEGRATIONOPTIONSREQUEST']._serialized_end=1070
+  _globals['_GETINTEGRATIONOPTIONSRESPONSE']._serialized_start=1072
+  _globals['_GETINTEGRATIONOPTIONSRESPONSE']._serialized_end=1169
+  _globals['_INTEGRATIONMANAGEMENTSERVICE']._serialized_start=1172
+  _globals['_INTEGRATIONMANAGEMENTSERVICE']._serialized_end=2136
 # @@protoc_insertion_point(module_scope)

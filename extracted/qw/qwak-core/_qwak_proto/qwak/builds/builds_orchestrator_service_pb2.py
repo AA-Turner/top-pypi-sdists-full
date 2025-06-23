@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,219 +17,9 @@ from _qwak_proto.qwak.builds import build_url_pb2 as qwak_dot_builds_dot_build__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-qwak/builds/builds_orchestrator_service.proto\x12\x18qwak.builds.orchestrator\x1a\x17qwak/builds/build.proto\x1a\x1bqwak/builds/build_url.proto\"R\n\x11\x42uildModelRequest\x12=\n\nbuild_spec\x18\x01 \x01(\x0b\x32).qwak.builds.orchestrator.RemoteBuildSpec\"\x14\n\x12\x42uildModelResponse\"+\n\x17\x43\x61ncelBuildModelRequest\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\"\x1a\n\x18\x43\x61ncelBuildModelResponse\"*\n\x16\x43reateUploadURLRequest\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\"C\n\x17\x43reateUploadURLResponse\x12\x12\n\nupload_url\x18\x01 \x01(\t\x12\x14\n\x0c\x64ownload_url\x18\x02 \x01(\t\"h\n\"GetBuildVersioningUploadURLRequest\x12\x42\n\x06params\x18\x01 \x01(\x0b\x32\x32.qwak.builds.orchestrator.BuildVersioningUrlParams\"\xa7\x02\n#GetBuildVersioningUploadURLResponse\x12\x12\n\nupload_url\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12Q\n\x15\x61uthentication_detail\x18\x03 \x01(\x0b\x32..qwak.builds.orchestrator.AuthenticationDetailB\x02\x18\x01\x12[\n\x07headers\x18\x04 \x03(\x0b\x32J.qwak.builds.orchestrator.GetBuildVersioningUploadURLResponse.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x86\x01\n\x14\x41uthenticationDetail\x12Z\n\x1bjfrog_authentication_detail\x18\x01 \x01(\x0b\x32\x33.qwak.builds.orchestrator.JfrogAuthenticationDetailH\x00\x42\x12\n\x10integration_type\"<\n\x19JfrogAuthenticationDetail\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"j\n$GetBuildVersioningDownloadURLRequest\x12\x42\n\x06params\x18\x01 \x01(\x0b\x32\x32.qwak.builds.orchestrator.BuildVersioningUrlParams\"\xdf\x01\n%GetBuildVersioningDownloadURLResponse\x12\x14\n\x0c\x64ownload_url\x18\x01 \x01(\t\x12\x11\n\tfile_size\x18\x02 \x01(\x03\x12]\n\x07headers\x18\x03 \x03(\x0b\x32L.qwak.builds.orchestrator.GetBuildVersioningDownloadURLResponse.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"n\n\x1eListBuildVersioningTagsRequest\x12L\n\x15\x62uild_versioning_tags\x18\x01 \x01(\x0b\x32-.qwak.builds.orchestrator.BuildVersioningTags\"\x9c\x01\n\x1fListBuildVersioningTagsResponse\x12\x61\n build_versioning_tags_properties\x18\x01 \x03(\x0b\x32\x37.qwak.builds.orchestrator.BuildVersioningTagsProperties\x12\x16\n\x0eui_direct_link\x18\x02 \x01(\t\"\x95\x01\n\x16\x43reateDataTableRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x10\n\x08\x62uild_id\x18\x02 \x01(\t\x12\x0b\n\x03tag\x18\x03 \x01(\t\x12<\n\x05table\x18\x04 \x01(\x0b\x32-.qwak.builds.orchestrator.DataTableDefinition\x12\x0c\n\x04path\x18\x05 \x01(\t\"\x19\n\x17\x43reateDataTableResponse\"n\n\x1dGetBaseDockerImageNameRequest\x12M\n\x16\x62\x61se_docker_image_type\x18\x01 \x01(\x0e\x32-.qwak.builds.orchestrator.BaseDockerImageType\"@\n\x1eGetBaseDockerImageNameResponse\x12\x1e\n\x16\x62\x61se_docker_image_name\x18\x01 \x01(\t\"f\n\x17SaveArtifactPathRequest\x12K\n\x12\x61rtifact_path_spec\x18\x01 \x01(\x0b\x32/.qwak.builds.orchestrator.BuildArtifactPathSpec\"\x1a\n\x18SaveArtifactPathResponse\"-\n\x19ListBuildArtifactsRequest\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\"X\n\x1aListBuildArtifactsResponse\x12:\n\tartifacts\x18\x01 \x03(\x0b\x32\'.qwak.builds.orchestrator.BuildArtifact\"A\n$DetachBuildsFromModelVersionsRequest\x12\x19\n\x11model_version_ids\x18\x01 \x03(\t\"\'\n%DetachBuildsFromModelVersionsResponse2\xf2\x0b\n\x19\x42uildsOrchestratorService\x12g\n\nBuildModel\x12+.qwak.builds.orchestrator.BuildModelRequest\x1a,.qwak.builds.orchestrator.BuildModelResponse\x12y\n\x10\x43\x61ncelBuildModel\x12\x31.qwak.builds.orchestrator.CancelBuildModelRequest\x1a\x32.qwak.builds.orchestrator.CancelBuildModelResponse\x12{\n\x0f\x43reateUploadURL\x12\x30.qwak.builds.orchestrator.CreateUploadURLRequest\x1a\x31.qwak.builds.orchestrator.CreateUploadURLResponse\"\x03\x88\x02\x01\x12\x9a\x01\n\x1bGetBuildVersioningUploadURL\x12<.qwak.builds.orchestrator.GetBuildVersioningUploadURLRequest\x1a=.qwak.builds.orchestrator.GetBuildVersioningUploadURLResponse\x12\xa0\x01\n\x1dGetBuildVersioningDownloadURL\x12>.qwak.builds.orchestrator.GetBuildVersioningDownloadURLRequest\x1a?.qwak.builds.orchestrator.GetBuildVersioningDownloadURLResponse\x12\x8e\x01\n\x17ListBuildVersioningTags\x12\x38.qwak.builds.orchestrator.ListBuildVersioningTagsRequest\x1a\x39.qwak.builds.orchestrator.ListBuildVersioningTagsResponse\x12v\n\x0f\x43reateDataTable\x12\x30.qwak.builds.orchestrator.CreateDataTableRequest\x1a\x31.qwak.builds.orchestrator.CreateDataTableResponse\x12\x8b\x01\n\x16GetBaseDockerImageName\x12\x37.qwak.builds.orchestrator.GetBaseDockerImageNameRequest\x1a\x38.qwak.builds.orchestrator.GetBaseDockerImageNameResponse\x12y\n\x10SaveArtifactPath\x12\x31.qwak.builds.orchestrator.SaveArtifactPathRequest\x1a\x32.qwak.builds.orchestrator.SaveArtifactPathResponse\x12\x7f\n\x12ListBuildArtifacts\x12\x33.qwak.builds.orchestrator.ListBuildArtifactsRequest\x1a\x34.qwak.builds.orchestrator.ListBuildArtifactsResponse\x12\xa0\x01\n\x1d\x44\x65tachBuildsFromModelVersions\x12>.qwak.builds.orchestrator.DetachBuildsFromModelVersionsRequest\x1a?.qwak.builds.orchestrator.DetachBuildsFromModelVersionsResponseB\'\n#com.qwak.ai.builds.orchestrator.apiP\x01\x62\x06proto3')
 
-
-
-_BUILDMODELREQUEST = DESCRIPTOR.message_types_by_name['BuildModelRequest']
-_BUILDMODELRESPONSE = DESCRIPTOR.message_types_by_name['BuildModelResponse']
-_CANCELBUILDMODELREQUEST = DESCRIPTOR.message_types_by_name['CancelBuildModelRequest']
-_CANCELBUILDMODELRESPONSE = DESCRIPTOR.message_types_by_name['CancelBuildModelResponse']
-_CREATEUPLOADURLREQUEST = DESCRIPTOR.message_types_by_name['CreateUploadURLRequest']
-_CREATEUPLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['CreateUploadURLResponse']
-_GETBUILDVERSIONINGUPLOADURLREQUEST = DESCRIPTOR.message_types_by_name['GetBuildVersioningUploadURLRequest']
-_GETBUILDVERSIONINGUPLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['GetBuildVersioningUploadURLResponse']
-_GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY = _GETBUILDVERSIONINGUPLOADURLRESPONSE.nested_types_by_name['HeadersEntry']
-_AUTHENTICATIONDETAIL = DESCRIPTOR.message_types_by_name['AuthenticationDetail']
-_JFROGAUTHENTICATIONDETAIL = DESCRIPTOR.message_types_by_name['JfrogAuthenticationDetail']
-_GETBUILDVERSIONINGDOWNLOADURLREQUEST = DESCRIPTOR.message_types_by_name['GetBuildVersioningDownloadURLRequest']
-_GETBUILDVERSIONINGDOWNLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['GetBuildVersioningDownloadURLResponse']
-_GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY = _GETBUILDVERSIONINGDOWNLOADURLRESPONSE.nested_types_by_name['HeadersEntry']
-_LISTBUILDVERSIONINGTAGSREQUEST = DESCRIPTOR.message_types_by_name['ListBuildVersioningTagsRequest']
-_LISTBUILDVERSIONINGTAGSRESPONSE = DESCRIPTOR.message_types_by_name['ListBuildVersioningTagsResponse']
-_CREATEDATATABLEREQUEST = DESCRIPTOR.message_types_by_name['CreateDataTableRequest']
-_CREATEDATATABLERESPONSE = DESCRIPTOR.message_types_by_name['CreateDataTableResponse']
-_GETBASEDOCKERIMAGENAMEREQUEST = DESCRIPTOR.message_types_by_name['GetBaseDockerImageNameRequest']
-_GETBASEDOCKERIMAGENAMERESPONSE = DESCRIPTOR.message_types_by_name['GetBaseDockerImageNameResponse']
-_SAVEARTIFACTPATHREQUEST = DESCRIPTOR.message_types_by_name['SaveArtifactPathRequest']
-_SAVEARTIFACTPATHRESPONSE = DESCRIPTOR.message_types_by_name['SaveArtifactPathResponse']
-_LISTBUILDARTIFACTSREQUEST = DESCRIPTOR.message_types_by_name['ListBuildArtifactsRequest']
-_LISTBUILDARTIFACTSRESPONSE = DESCRIPTOR.message_types_by_name['ListBuildArtifactsResponse']
-_DETACHBUILDSFROMMODELVERSIONSREQUEST = DESCRIPTOR.message_types_by_name['DetachBuildsFromModelVersionsRequest']
-_DETACHBUILDSFROMMODELVERSIONSRESPONSE = DESCRIPTOR.message_types_by_name['DetachBuildsFromModelVersionsResponse']
-BuildModelRequest = _reflection.GeneratedProtocolMessageType('BuildModelRequest', (_message.Message,), {
-  'DESCRIPTOR' : _BUILDMODELREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.BuildModelRequest)
-  })
-_sym_db.RegisterMessage(BuildModelRequest)
-
-BuildModelResponse = _reflection.GeneratedProtocolMessageType('BuildModelResponse', (_message.Message,), {
-  'DESCRIPTOR' : _BUILDMODELRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.BuildModelResponse)
-  })
-_sym_db.RegisterMessage(BuildModelResponse)
-
-CancelBuildModelRequest = _reflection.GeneratedProtocolMessageType('CancelBuildModelRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CANCELBUILDMODELREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CancelBuildModelRequest)
-  })
-_sym_db.RegisterMessage(CancelBuildModelRequest)
-
-CancelBuildModelResponse = _reflection.GeneratedProtocolMessageType('CancelBuildModelResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CANCELBUILDMODELRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CancelBuildModelResponse)
-  })
-_sym_db.RegisterMessage(CancelBuildModelResponse)
-
-CreateUploadURLRequest = _reflection.GeneratedProtocolMessageType('CreateUploadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEUPLOADURLREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CreateUploadURLRequest)
-  })
-_sym_db.RegisterMessage(CreateUploadURLRequest)
-
-CreateUploadURLResponse = _reflection.GeneratedProtocolMessageType('CreateUploadURLResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEUPLOADURLRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CreateUploadURLResponse)
-  })
-_sym_db.RegisterMessage(CreateUploadURLResponse)
-
-GetBuildVersioningUploadURLRequest = _reflection.GeneratedProtocolMessageType('GetBuildVersioningUploadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDVERSIONINGUPLOADURLREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningUploadURLRequest)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningUploadURLRequest)
-
-GetBuildVersioningUploadURLResponse = _reflection.GeneratedProtocolMessageType('GetBuildVersioningUploadURLResponse', (_message.Message,), {
-
-  'HeadersEntry' : _reflection.GeneratedProtocolMessageType('HeadersEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY,
-    '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningUploadURLResponse.HeadersEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETBUILDVERSIONINGUPLOADURLRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningUploadURLResponse)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningUploadURLResponse)
-_sym_db.RegisterMessage(GetBuildVersioningUploadURLResponse.HeadersEntry)
-
-AuthenticationDetail = _reflection.GeneratedProtocolMessageType('AuthenticationDetail', (_message.Message,), {
-  'DESCRIPTOR' : _AUTHENTICATIONDETAIL,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.AuthenticationDetail)
-  })
-_sym_db.RegisterMessage(AuthenticationDetail)
-
-JfrogAuthenticationDetail = _reflection.GeneratedProtocolMessageType('JfrogAuthenticationDetail', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGAUTHENTICATIONDETAIL,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.JfrogAuthenticationDetail)
-  })
-_sym_db.RegisterMessage(JfrogAuthenticationDetail)
-
-GetBuildVersioningDownloadURLRequest = _reflection.GeneratedProtocolMessageType('GetBuildVersioningDownloadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDVERSIONINGDOWNLOADURLREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningDownloadURLRequest)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningDownloadURLRequest)
-
-GetBuildVersioningDownloadURLResponse = _reflection.GeneratedProtocolMessageType('GetBuildVersioningDownloadURLResponse', (_message.Message,), {
-
-  'HeadersEntry' : _reflection.GeneratedProtocolMessageType('HeadersEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY,
-    '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningDownloadURLResponse.HeadersEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETBUILDVERSIONINGDOWNLOADURLRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBuildVersioningDownloadURLResponse)
-  })
-_sym_db.RegisterMessage(GetBuildVersioningDownloadURLResponse)
-_sym_db.RegisterMessage(GetBuildVersioningDownloadURLResponse.HeadersEntry)
-
-ListBuildVersioningTagsRequest = _reflection.GeneratedProtocolMessageType('ListBuildVersioningTagsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTBUILDVERSIONINGTAGSREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.ListBuildVersioningTagsRequest)
-  })
-_sym_db.RegisterMessage(ListBuildVersioningTagsRequest)
-
-ListBuildVersioningTagsResponse = _reflection.GeneratedProtocolMessageType('ListBuildVersioningTagsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTBUILDVERSIONINGTAGSRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.ListBuildVersioningTagsResponse)
-  })
-_sym_db.RegisterMessage(ListBuildVersioningTagsResponse)
-
-CreateDataTableRequest = _reflection.GeneratedProtocolMessageType('CreateDataTableRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEDATATABLEREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CreateDataTableRequest)
-  })
-_sym_db.RegisterMessage(CreateDataTableRequest)
-
-CreateDataTableResponse = _reflection.GeneratedProtocolMessageType('CreateDataTableResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEDATATABLERESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.CreateDataTableResponse)
-  })
-_sym_db.RegisterMessage(CreateDataTableResponse)
-
-GetBaseDockerImageNameRequest = _reflection.GeneratedProtocolMessageType('GetBaseDockerImageNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETBASEDOCKERIMAGENAMEREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBaseDockerImageNameRequest)
-  })
-_sym_db.RegisterMessage(GetBaseDockerImageNameRequest)
-
-GetBaseDockerImageNameResponse = _reflection.GeneratedProtocolMessageType('GetBaseDockerImageNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETBASEDOCKERIMAGENAMERESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.GetBaseDockerImageNameResponse)
-  })
-_sym_db.RegisterMessage(GetBaseDockerImageNameResponse)
-
-SaveArtifactPathRequest = _reflection.GeneratedProtocolMessageType('SaveArtifactPathRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SAVEARTIFACTPATHREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.SaveArtifactPathRequest)
-  })
-_sym_db.RegisterMessage(SaveArtifactPathRequest)
-
-SaveArtifactPathResponse = _reflection.GeneratedProtocolMessageType('SaveArtifactPathResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SAVEARTIFACTPATHRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.SaveArtifactPathResponse)
-  })
-_sym_db.RegisterMessage(SaveArtifactPathResponse)
-
-ListBuildArtifactsRequest = _reflection.GeneratedProtocolMessageType('ListBuildArtifactsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTBUILDARTIFACTSREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.ListBuildArtifactsRequest)
-  })
-_sym_db.RegisterMessage(ListBuildArtifactsRequest)
-
-ListBuildArtifactsResponse = _reflection.GeneratedProtocolMessageType('ListBuildArtifactsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTBUILDARTIFACTSRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.ListBuildArtifactsResponse)
-  })
-_sym_db.RegisterMessage(ListBuildArtifactsResponse)
-
-DetachBuildsFromModelVersionsRequest = _reflection.GeneratedProtocolMessageType('DetachBuildsFromModelVersionsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DETACHBUILDSFROMMODELVERSIONSREQUEST,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.DetachBuildsFromModelVersionsRequest)
-  })
-_sym_db.RegisterMessage(DetachBuildsFromModelVersionsRequest)
-
-DetachBuildsFromModelVersionsResponse = _reflection.GeneratedProtocolMessageType('DetachBuildsFromModelVersionsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DETACHBUILDSFROMMODELVERSIONSRESPONSE,
-  '__module__' : 'qwak.builds.builds_orchestrator_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.builds.orchestrator.DetachBuildsFromModelVersionsResponse)
-  })
-_sym_db.RegisterMessage(DetachBuildsFromModelVersionsResponse)
-
-_BUILDSORCHESTRATORSERVICE = DESCRIPTOR.services_by_name['BuildsOrchestratorService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.builds.builds_orchestrator_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -243,58 +32,58 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY._serialized_options = b'8\001'
   _BUILDSORCHESTRATORSERVICE.methods_by_name['CreateUploadURL']._options = None
   _BUILDSORCHESTRATORSERVICE.methods_by_name['CreateUploadURL']._serialized_options = b'\210\002\001'
-  _BUILDMODELREQUEST._serialized_start=129
-  _BUILDMODELREQUEST._serialized_end=211
-  _BUILDMODELRESPONSE._serialized_start=213
-  _BUILDMODELRESPONSE._serialized_end=233
-  _CANCELBUILDMODELREQUEST._serialized_start=235
-  _CANCELBUILDMODELREQUEST._serialized_end=278
-  _CANCELBUILDMODELRESPONSE._serialized_start=280
-  _CANCELBUILDMODELRESPONSE._serialized_end=306
-  _CREATEUPLOADURLREQUEST._serialized_start=308
-  _CREATEUPLOADURLREQUEST._serialized_end=350
-  _CREATEUPLOADURLRESPONSE._serialized_start=352
-  _CREATEUPLOADURLRESPONSE._serialized_end=419
-  _GETBUILDVERSIONINGUPLOADURLREQUEST._serialized_start=421
-  _GETBUILDVERSIONINGUPLOADURLREQUEST._serialized_end=525
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE._serialized_start=528
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE._serialized_end=823
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY._serialized_start=777
-  _GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY._serialized_end=823
-  _AUTHENTICATIONDETAIL._serialized_start=826
-  _AUTHENTICATIONDETAIL._serialized_end=960
-  _JFROGAUTHENTICATIONDETAIL._serialized_start=962
-  _JFROGAUTHENTICATIONDETAIL._serialized_end=1022
-  _GETBUILDVERSIONINGDOWNLOADURLREQUEST._serialized_start=1024
-  _GETBUILDVERSIONINGDOWNLOADURLREQUEST._serialized_end=1130
-  _GETBUILDVERSIONINGDOWNLOADURLRESPONSE._serialized_start=1133
-  _GETBUILDVERSIONINGDOWNLOADURLRESPONSE._serialized_end=1356
-  _GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY._serialized_start=777
-  _GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY._serialized_end=823
-  _LISTBUILDVERSIONINGTAGSREQUEST._serialized_start=1358
-  _LISTBUILDVERSIONINGTAGSREQUEST._serialized_end=1468
-  _LISTBUILDVERSIONINGTAGSRESPONSE._serialized_start=1471
-  _LISTBUILDVERSIONINGTAGSRESPONSE._serialized_end=1627
-  _CREATEDATATABLEREQUEST._serialized_start=1630
-  _CREATEDATATABLEREQUEST._serialized_end=1779
-  _CREATEDATATABLERESPONSE._serialized_start=1781
-  _CREATEDATATABLERESPONSE._serialized_end=1806
-  _GETBASEDOCKERIMAGENAMEREQUEST._serialized_start=1808
-  _GETBASEDOCKERIMAGENAMEREQUEST._serialized_end=1918
-  _GETBASEDOCKERIMAGENAMERESPONSE._serialized_start=1920
-  _GETBASEDOCKERIMAGENAMERESPONSE._serialized_end=1984
-  _SAVEARTIFACTPATHREQUEST._serialized_start=1986
-  _SAVEARTIFACTPATHREQUEST._serialized_end=2088
-  _SAVEARTIFACTPATHRESPONSE._serialized_start=2090
-  _SAVEARTIFACTPATHRESPONSE._serialized_end=2116
-  _LISTBUILDARTIFACTSREQUEST._serialized_start=2118
-  _LISTBUILDARTIFACTSREQUEST._serialized_end=2163
-  _LISTBUILDARTIFACTSRESPONSE._serialized_start=2165
-  _LISTBUILDARTIFACTSRESPONSE._serialized_end=2253
-  _DETACHBUILDSFROMMODELVERSIONSREQUEST._serialized_start=2255
-  _DETACHBUILDSFROMMODELVERSIONSREQUEST._serialized_end=2320
-  _DETACHBUILDSFROMMODELVERSIONSRESPONSE._serialized_start=2322
-  _DETACHBUILDSFROMMODELVERSIONSRESPONSE._serialized_end=2361
-  _BUILDSORCHESTRATORSERVICE._serialized_start=2364
-  _BUILDSORCHESTRATORSERVICE._serialized_end=3886
+  _globals['_BUILDMODELREQUEST']._serialized_start=129
+  _globals['_BUILDMODELREQUEST']._serialized_end=211
+  _globals['_BUILDMODELRESPONSE']._serialized_start=213
+  _globals['_BUILDMODELRESPONSE']._serialized_end=233
+  _globals['_CANCELBUILDMODELREQUEST']._serialized_start=235
+  _globals['_CANCELBUILDMODELREQUEST']._serialized_end=278
+  _globals['_CANCELBUILDMODELRESPONSE']._serialized_start=280
+  _globals['_CANCELBUILDMODELRESPONSE']._serialized_end=306
+  _globals['_CREATEUPLOADURLREQUEST']._serialized_start=308
+  _globals['_CREATEUPLOADURLREQUEST']._serialized_end=350
+  _globals['_CREATEUPLOADURLRESPONSE']._serialized_start=352
+  _globals['_CREATEUPLOADURLRESPONSE']._serialized_end=419
+  _globals['_GETBUILDVERSIONINGUPLOADURLREQUEST']._serialized_start=421
+  _globals['_GETBUILDVERSIONINGUPLOADURLREQUEST']._serialized_end=525
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE']._serialized_start=528
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE']._serialized_end=823
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY']._serialized_start=777
+  _globals['_GETBUILDVERSIONINGUPLOADURLRESPONSE_HEADERSENTRY']._serialized_end=823
+  _globals['_AUTHENTICATIONDETAIL']._serialized_start=826
+  _globals['_AUTHENTICATIONDETAIL']._serialized_end=960
+  _globals['_JFROGAUTHENTICATIONDETAIL']._serialized_start=962
+  _globals['_JFROGAUTHENTICATIONDETAIL']._serialized_end=1022
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLREQUEST']._serialized_start=1024
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLREQUEST']._serialized_end=1130
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLRESPONSE']._serialized_start=1133
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLRESPONSE']._serialized_end=1356
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY']._serialized_start=777
+  _globals['_GETBUILDVERSIONINGDOWNLOADURLRESPONSE_HEADERSENTRY']._serialized_end=823
+  _globals['_LISTBUILDVERSIONINGTAGSREQUEST']._serialized_start=1358
+  _globals['_LISTBUILDVERSIONINGTAGSREQUEST']._serialized_end=1468
+  _globals['_LISTBUILDVERSIONINGTAGSRESPONSE']._serialized_start=1471
+  _globals['_LISTBUILDVERSIONINGTAGSRESPONSE']._serialized_end=1627
+  _globals['_CREATEDATATABLEREQUEST']._serialized_start=1630
+  _globals['_CREATEDATATABLEREQUEST']._serialized_end=1779
+  _globals['_CREATEDATATABLERESPONSE']._serialized_start=1781
+  _globals['_CREATEDATATABLERESPONSE']._serialized_end=1806
+  _globals['_GETBASEDOCKERIMAGENAMEREQUEST']._serialized_start=1808
+  _globals['_GETBASEDOCKERIMAGENAMEREQUEST']._serialized_end=1918
+  _globals['_GETBASEDOCKERIMAGENAMERESPONSE']._serialized_start=1920
+  _globals['_GETBASEDOCKERIMAGENAMERESPONSE']._serialized_end=1984
+  _globals['_SAVEARTIFACTPATHREQUEST']._serialized_start=1986
+  _globals['_SAVEARTIFACTPATHREQUEST']._serialized_end=2088
+  _globals['_SAVEARTIFACTPATHRESPONSE']._serialized_start=2090
+  _globals['_SAVEARTIFACTPATHRESPONSE']._serialized_end=2116
+  _globals['_LISTBUILDARTIFACTSREQUEST']._serialized_start=2118
+  _globals['_LISTBUILDARTIFACTSREQUEST']._serialized_end=2163
+  _globals['_LISTBUILDARTIFACTSRESPONSE']._serialized_start=2165
+  _globals['_LISTBUILDARTIFACTSRESPONSE']._serialized_end=2253
+  _globals['_DETACHBUILDSFROMMODELVERSIONSREQUEST']._serialized_start=2255
+  _globals['_DETACHBUILDSFROMMODELVERSIONSREQUEST']._serialized_end=2320
+  _globals['_DETACHBUILDSFROMMODELVERSIONSRESPONSE']._serialized_start=2322
+  _globals['_DETACHBUILDSFROMMODELVERSIONSRESPONSE']._serialized_end=2361
+  _globals['_BUILDSORCHESTRATORSERVICE']._serialized_start=2364
+  _globals['_BUILDSORCHESTRATORSERVICE']._serialized_end=3886
 # @@protoc_insertion_point(module_scope)

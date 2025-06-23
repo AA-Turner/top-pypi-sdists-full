@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,20 +15,13 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n<qwak/execution/v1/internal/deployment/platform_details.proto\x12\x33qwak.feature.store.execution.v1.internal.deployment\"&\n\x0fPlatformDetails\x12\x13\n\x0bproject_key\x18\x01 \x01(\tB=\n9com.qwak.ai.features.execution.api.v1.internal.deploymentP\x01\x62\x06proto3')
 
-
-
-_PLATFORMDETAILS = DESCRIPTOR.message_types_by_name['PlatformDetails']
-PlatformDetails = _reflection.GeneratedProtocolMessageType('PlatformDetails', (_message.Message,), {
-  'DESCRIPTOR' : _PLATFORMDETAILS,
-  '__module__' : 'qwak.execution.v1.internal.deployment.platform_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.internal.deployment.PlatformDetails)
-  })
-_sym_db.RegisterMessage(PlatformDetails)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.internal.deployment.platform_details_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n9com.qwak.ai.features.execution.api.v1.internal.deploymentP\001'
-  _PLATFORMDETAILS._serialized_start=117
-  _PLATFORMDETAILS._serialized_end=155
+  _globals['_PLATFORMDETAILS']._serialized_start=117
+  _globals['_PLATFORMDETAILS']._serialized_end=155
 # @@protoc_insertion_point(module_scope)

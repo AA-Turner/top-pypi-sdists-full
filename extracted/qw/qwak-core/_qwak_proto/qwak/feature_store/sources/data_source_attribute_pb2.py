@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,20 +16,13 @@ from _qwak_proto.qwak.feature_store.v1.common.source_code import source_code_pb2
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n6qwak/feature_store/sources/data_source_attribute.proto\x12\x1aqwak.feature.store.sources\x1a:qwak/feature_store/v1/common/source_code/source_code.proto\"j\n\x14\x44\x61taSourceAttributes\x12R\n\x10source_code_spec\x18\x01 \x01(\x0b\x32\x38.qwak.feature.store.v1.common.source_code.SourceCodeSpecBX\n%com.qwak.ai.feature.store.sources.apiP\x01Z-qwak/featurestore/sources;featurestoresourcesb\x06proto3')
 
-
-
-_DATASOURCEATTRIBUTES = DESCRIPTOR.message_types_by_name['DataSourceAttributes']
-DataSourceAttributes = _reflection.GeneratedProtocolMessageType('DataSourceAttributes', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCEATTRIBUTES,
-  '__module__' : 'qwak.feature_store.sources.data_source_attribute_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DataSourceAttributes)
-  })
-_sym_db.RegisterMessage(DataSourceAttributes)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.sources.data_source_attribute_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.feature.store.sources.apiP\001Z-qwak/featurestore/sources;featurestoresources'
-  _DATASOURCEATTRIBUTES._serialized_start=146
-  _DATASOURCEATTRIBUTES._serialized_end=252
+  _globals['_DATASOURCEATTRIBUTES']._serialized_start=146
+  _globals['_DATASOURCEATTRIBUTES']._serialized_end=252
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,60 +15,21 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-qwak/execution/v1/streaming_aggregation.proto\x12\x1fqwak.feature.store.execution.v1\"@\n%RowLevelStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\xf8\x01\n\'CompactionStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12T\n\x14scheduled_compaction\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.execution.v1.ScheduledCompactionH\x00\x12N\n\x11manual_compaction\x18\x03 \x01(\x0b\x32\x31.qwak.feature.store.execution.v1.ManualCompactionH\x00\x42\x0e\n\x0ctrigger_type\"\x15\n\x13ScheduledCompaction\"\x12\n\x10ManualCompaction\"@\n%StreamingAggregationBackfillIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\tB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
 
-
-
-_ROWLEVELSTREAMINGAGGREGATIONINGESTION = DESCRIPTOR.message_types_by_name['RowLevelStreamingAggregationIngestion']
-_COMPACTIONSTREAMINGAGGREGATIONINGESTION = DESCRIPTOR.message_types_by_name['CompactionStreamingAggregationIngestion']
-_SCHEDULEDCOMPACTION = DESCRIPTOR.message_types_by_name['ScheduledCompaction']
-_MANUALCOMPACTION = DESCRIPTOR.message_types_by_name['ManualCompaction']
-_STREAMINGAGGREGATIONBACKFILLINGESTION = DESCRIPTOR.message_types_by_name['StreamingAggregationBackfillIngestion']
-RowLevelStreamingAggregationIngestion = _reflection.GeneratedProtocolMessageType('RowLevelStreamingAggregationIngestion', (_message.Message,), {
-  'DESCRIPTOR' : _ROWLEVELSTREAMINGAGGREGATIONINGESTION,
-  '__module__' : 'qwak.execution.v1.streaming_aggregation_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.RowLevelStreamingAggregationIngestion)
-  })
-_sym_db.RegisterMessage(RowLevelStreamingAggregationIngestion)
-
-CompactionStreamingAggregationIngestion = _reflection.GeneratedProtocolMessageType('CompactionStreamingAggregationIngestion', (_message.Message,), {
-  'DESCRIPTOR' : _COMPACTIONSTREAMINGAGGREGATIONINGESTION,
-  '__module__' : 'qwak.execution.v1.streaming_aggregation_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.CompactionStreamingAggregationIngestion)
-  })
-_sym_db.RegisterMessage(CompactionStreamingAggregationIngestion)
-
-ScheduledCompaction = _reflection.GeneratedProtocolMessageType('ScheduledCompaction', (_message.Message,), {
-  'DESCRIPTOR' : _SCHEDULEDCOMPACTION,
-  '__module__' : 'qwak.execution.v1.streaming_aggregation_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ScheduledCompaction)
-  })
-_sym_db.RegisterMessage(ScheduledCompaction)
-
-ManualCompaction = _reflection.GeneratedProtocolMessageType('ManualCompaction', (_message.Message,), {
-  'DESCRIPTOR' : _MANUALCOMPACTION,
-  '__module__' : 'qwak.execution.v1.streaming_aggregation_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ManualCompaction)
-  })
-_sym_db.RegisterMessage(ManualCompaction)
-
-StreamingAggregationBackfillIngestion = _reflection.GeneratedProtocolMessageType('StreamingAggregationBackfillIngestion', (_message.Message,), {
-  'DESCRIPTOR' : _STREAMINGAGGREGATIONBACKFILLINGESTION,
-  '__module__' : 'qwak.execution.v1.streaming_aggregation_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.StreamingAggregationBackfillIngestion)
-  })
-_sym_db.RegisterMessage(StreamingAggregationBackfillIngestion)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.streaming_aggregation_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.features.execution.api.v1P\001'
-  _ROWLEVELSTREAMINGAGGREGATIONINGESTION._serialized_start=82
-  _ROWLEVELSTREAMINGAGGREGATIONINGESTION._serialized_end=146
-  _COMPACTIONSTREAMINGAGGREGATIONINGESTION._serialized_start=149
-  _COMPACTIONSTREAMINGAGGREGATIONINGESTION._serialized_end=397
-  _SCHEDULEDCOMPACTION._serialized_start=399
-  _SCHEDULEDCOMPACTION._serialized_end=420
-  _MANUALCOMPACTION._serialized_start=422
-  _MANUALCOMPACTION._serialized_end=440
-  _STREAMINGAGGREGATIONBACKFILLINGESTION._serialized_start=442
-  _STREAMINGAGGREGATIONBACKFILLINGESTION._serialized_end=506
+  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_start=82
+  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_end=146
+  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_start=149
+  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_end=397
+  _globals['_SCHEDULEDCOMPACTION']._serialized_start=399
+  _globals['_SCHEDULEDCOMPACTION']._serialized_end=420
+  _globals['_MANUALCOMPACTION']._serialized_start=422
+  _globals['_MANUALCOMPACTION']._serialized_end=440
+  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_start=442
+  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_end=506
 # @@protoc_insertion_point(module_scope)

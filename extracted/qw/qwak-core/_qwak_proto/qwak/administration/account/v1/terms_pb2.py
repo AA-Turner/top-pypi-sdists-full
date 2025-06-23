@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,60 +15,21 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n*qwak/administration/account/v1/terms.proto\x12\x1bqwak.administration.account\"H\n\x14\x41\x63\x63ountAcceptedTerms\x12\x30\n\x05terms\x18\x01 \x03(\x0b\x32!.qwak.administration.account.Term\"\x95\x02\n\x04Term\x12Q\n\x15platform_general_term\x18\x01 \x01(\x0b\x32\x30.qwak.administration.account.PlatformGeneralTermH\x00\x12Z\n\x1amodel_library_general_term\x18\x02 \x01(\x0b\x32\x34.qwak.administration.account.ModelLibraryGeneralTermH\x00\x12V\n\x18model_library_model_term\x18\x03 \x01(\x0b\x32\x32.qwak.administration.account.ModelLibraryModelTermH\x00\x42\x06\n\x04term\"\x15\n\x13PlatformGeneralTerm\"\x19\n\x17ModelLibraryGeneralTerm\"2\n\x15ModelLibraryModelTerm\x12\x19\n\x11model_registry_id\x18\x01 \x01(\tB\xb4\x01\n)com.qwak.ai.administration.api.account.v1P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0b\x06proto3')
 
-
-
-_ACCOUNTACCEPTEDTERMS = DESCRIPTOR.message_types_by_name['AccountAcceptedTerms']
-_TERM = DESCRIPTOR.message_types_by_name['Term']
-_PLATFORMGENERALTERM = DESCRIPTOR.message_types_by_name['PlatformGeneralTerm']
-_MODELLIBRARYGENERALTERM = DESCRIPTOR.message_types_by_name['ModelLibraryGeneralTerm']
-_MODELLIBRARYMODELTERM = DESCRIPTOR.message_types_by_name['ModelLibraryModelTerm']
-AccountAcceptedTerms = _reflection.GeneratedProtocolMessageType('AccountAcceptedTerms', (_message.Message,), {
-  'DESCRIPTOR' : _ACCOUNTACCEPTEDTERMS,
-  '__module__' : 'qwak.administration.account.v1.terms_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.AccountAcceptedTerms)
-  })
-_sym_db.RegisterMessage(AccountAcceptedTerms)
-
-Term = _reflection.GeneratedProtocolMessageType('Term', (_message.Message,), {
-  'DESCRIPTOR' : _TERM,
-  '__module__' : 'qwak.administration.account.v1.terms_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.Term)
-  })
-_sym_db.RegisterMessage(Term)
-
-PlatformGeneralTerm = _reflection.GeneratedProtocolMessageType('PlatformGeneralTerm', (_message.Message,), {
-  'DESCRIPTOR' : _PLATFORMGENERALTERM,
-  '__module__' : 'qwak.administration.account.v1.terms_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.PlatformGeneralTerm)
-  })
-_sym_db.RegisterMessage(PlatformGeneralTerm)
-
-ModelLibraryGeneralTerm = _reflection.GeneratedProtocolMessageType('ModelLibraryGeneralTerm', (_message.Message,), {
-  'DESCRIPTOR' : _MODELLIBRARYGENERALTERM,
-  '__module__' : 'qwak.administration.account.v1.terms_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.ModelLibraryGeneralTerm)
-  })
-_sym_db.RegisterMessage(ModelLibraryGeneralTerm)
-
-ModelLibraryModelTerm = _reflection.GeneratedProtocolMessageType('ModelLibraryModelTerm', (_message.Message,), {
-  'DESCRIPTOR' : _MODELLIBRARYMODELTERM,
-  '__module__' : 'qwak.administration.account.v1.terms_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.ModelLibraryModelTerm)
-  })
-_sym_db.RegisterMessage(ModelLibraryModelTerm)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.account.v1.terms_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.administration.api.account.v1P\001Z\204\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0'
-  _ACCOUNTACCEPTEDTERMS._serialized_start=75
-  _ACCOUNTACCEPTEDTERMS._serialized_end=147
-  _TERM._serialized_start=150
-  _TERM._serialized_end=427
-  _PLATFORMGENERALTERM._serialized_start=429
-  _PLATFORMGENERALTERM._serialized_end=450
-  _MODELLIBRARYGENERALTERM._serialized_start=452
-  _MODELLIBRARYGENERALTERM._serialized_end=477
-  _MODELLIBRARYMODELTERM._serialized_start=479
-  _MODELLIBRARYMODELTERM._serialized_end=529
+  _globals['_ACCOUNTACCEPTEDTERMS']._serialized_start=75
+  _globals['_ACCOUNTACCEPTEDTERMS']._serialized_end=147
+  _globals['_TERM']._serialized_start=150
+  _globals['_TERM']._serialized_end=427
+  _globals['_PLATFORMGENERALTERM']._serialized_start=429
+  _globals['_PLATFORMGENERALTERM']._serialized_end=450
+  _globals['_MODELLIBRARYGENERALTERM']._serialized_start=452
+  _globals['_MODELLIBRARYGENERALTERM']._serialized_end=477
+  _globals['_MODELLIBRARYMODELTERM']._serialized_start=479
+  _globals['_MODELLIBRARYMODELTERM']._serialized_end=529
 # @@protoc_insertion_point(module_scope)

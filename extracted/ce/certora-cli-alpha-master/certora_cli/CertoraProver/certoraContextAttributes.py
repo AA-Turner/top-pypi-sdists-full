@@ -582,6 +582,16 @@ class EvmAttributes(AttrUtil.Attributes):
         affects_build_cache_key=True,
         disables_build_cache=True
     )
+
+    YUL_OPTIMIZER_STEPS = AttrUtil.AttributeDefinition(
+        # overrides the hardcoded yul optimizer steps, set in certoraBuild.py
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False
+    )
+
     CACHE = AttrUtil.AttributeDefinition(
         argparse_args={
             'action': AttrUtil.UniqueStore

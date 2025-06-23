@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -21,73 +20,25 @@ from _qwak_proto.qwak.administration.v0.environments import configuration_pb2 as
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n1qwak/self_service/account/v0/account_status.proto\x12\x1cqwak.self_service.account.v0\x1a\x30qwak/administration/account/v1/preferences.proto\x1a*qwak/administration/account/v1/terms.proto\x1a,qwak/administration/account/v1/account.proto\x1a\x39qwak/administration/account/v1/jfrog_tenant_details.proto\x1a\x37qwak/administration/v0/environments/configuration.proto\"\x91\x02\n\rAccountStatus\x12_\n\x1c\x61\x63\x63ount_creation_in_progress\x18\x01 \x01(\x0b\x32\x37.qwak.self_service.account.v0.AccountCreationInProgressH\x00\x12\x43\n\raccount_ready\x18\x02 \x01(\x0b\x32*.qwak.self_service.account.v0.AccountReadyH\x00\x12P\n\x14\x61\x63\x63ount_doesnt_exist\x18\x03 \x01(\x0b\x32\x30.qwak.self_service.account.v0.AccountDoesntExistH\x00\x42\x08\n\x06status\"\x1b\n\x19\x41\x63\x63ountCreationInProgress\"\xfa\x04\n\x0c\x41\x63\x63ountReady\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x02 \x01(\t\x12\x44\n\x0bpreferences\x18\x03 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\x12\x1e\n\x16\x64\x65\x66\x61ult_environment_id\x18\x04 \x01(\t\x12\\\n\x12\x65nvironments_by_id\x18\x05 \x03(\x0b\x32@.qwak.self_service.account.v0.AccountReady.EnvironmentsByIdEntry\x12\x39\n\x04type\x18\x06 \x01(\x0e\x32+.qwak.administration.account.v1.AccountType\x12\x39\n\x04tier\x18\x07 \x01(\x0e\x32+.qwak.administration.account.v1.AccountTier\x12P\n\x14jfrog_tenant_details\x18\x08 \x01(\x0b\x32\x32.qwak.administration.account.v1.JfrogTenantDetails\x12I\n\x0e\x61\x63\x63\x65pted_terms\x18\t \x01(\x0b\x32\x31.qwak.administration.account.AccountAcceptedTerms\x1ai\n\x15\x45nvironmentsByIdEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12?\n\x05value\x18\x02 \x01(\x0b\x32\x30.qwak.self_service.account.v0.EnvironmentDetails:\x02\x38\x01\"\\\n\x12\x41\x63\x63ountDoesntExist\x12\x1f\n\x17is_entitled_to_jfrog_ml\x18\x01 \x01(\x08\x12%\n\x1dhas_create_account_permission\x18\x02 \x01(\x08\"\x98\x01\n\x12\x45nvironmentDetails\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12T\n\rconfiguration\x18\x03 \x01(\x0b\x32=.qwak.administration.environment.QwakEnvironmentConfiguration\x12\x12\n\ncluster_id\x18\x04 \x01(\tB\xb9\x01\n#com.qwak.ai.self_service.account.v0P\x01Z\x8f\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0b\x06proto3')
 
-
-
-_ACCOUNTSTATUS = DESCRIPTOR.message_types_by_name['AccountStatus']
-_ACCOUNTCREATIONINPROGRESS = DESCRIPTOR.message_types_by_name['AccountCreationInProgress']
-_ACCOUNTREADY = DESCRIPTOR.message_types_by_name['AccountReady']
-_ACCOUNTREADY_ENVIRONMENTSBYIDENTRY = _ACCOUNTREADY.nested_types_by_name['EnvironmentsByIdEntry']
-_ACCOUNTDOESNTEXIST = DESCRIPTOR.message_types_by_name['AccountDoesntExist']
-_ENVIRONMENTDETAILS = DESCRIPTOR.message_types_by_name['EnvironmentDetails']
-AccountStatus = _reflection.GeneratedProtocolMessageType('AccountStatus', (_message.Message,), {
-  'DESCRIPTOR' : _ACCOUNTSTATUS,
-  '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.AccountStatus)
-  })
-_sym_db.RegisterMessage(AccountStatus)
-
-AccountCreationInProgress = _reflection.GeneratedProtocolMessageType('AccountCreationInProgress', (_message.Message,), {
-  'DESCRIPTOR' : _ACCOUNTCREATIONINPROGRESS,
-  '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.AccountCreationInProgress)
-  })
-_sym_db.RegisterMessage(AccountCreationInProgress)
-
-AccountReady = _reflection.GeneratedProtocolMessageType('AccountReady', (_message.Message,), {
-
-  'EnvironmentsByIdEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentsByIdEntry', (_message.Message,), {
-    'DESCRIPTOR' : _ACCOUNTREADY_ENVIRONMENTSBYIDENTRY,
-    '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.AccountReady.EnvironmentsByIdEntry)
-    })
-  ,
-  'DESCRIPTOR' : _ACCOUNTREADY,
-  '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.AccountReady)
-  })
-_sym_db.RegisterMessage(AccountReady)
-_sym_db.RegisterMessage(AccountReady.EnvironmentsByIdEntry)
-
-AccountDoesntExist = _reflection.GeneratedProtocolMessageType('AccountDoesntExist', (_message.Message,), {
-  'DESCRIPTOR' : _ACCOUNTDOESNTEXIST,
-  '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.AccountDoesntExist)
-  })
-_sym_db.RegisterMessage(AccountDoesntExist)
-
-EnvironmentDetails = _reflection.GeneratedProtocolMessageType('EnvironmentDetails', (_message.Message,), {
-  'DESCRIPTOR' : _ENVIRONMENTDETAILS,
-  '__module__' : 'qwak.self_service.account.v0.account_status_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.account.v0.EnvironmentDetails)
-  })
-_sym_db.RegisterMessage(EnvironmentDetails)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.self_service.account.v0.account_status_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.self_service.account.v0P\001Z\217\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0'
   _ACCOUNTREADY_ENVIRONMENTSBYIDENTRY._options = None
   _ACCOUNTREADY_ENVIRONMENTSBYIDENTRY._serialized_options = b'8\001'
-  _ACCOUNTSTATUS._serialized_start=340
-  _ACCOUNTSTATUS._serialized_end=613
-  _ACCOUNTCREATIONINPROGRESS._serialized_start=615
-  _ACCOUNTCREATIONINPROGRESS._serialized_end=642
-  _ACCOUNTREADY._serialized_start=645
-  _ACCOUNTREADY._serialized_end=1279
-  _ACCOUNTREADY_ENVIRONMENTSBYIDENTRY._serialized_start=1174
-  _ACCOUNTREADY_ENVIRONMENTSBYIDENTRY._serialized_end=1279
-  _ACCOUNTDOESNTEXIST._serialized_start=1281
-  _ACCOUNTDOESNTEXIST._serialized_end=1373
-  _ENVIRONMENTDETAILS._serialized_start=1376
-  _ENVIRONMENTDETAILS._serialized_end=1528
+  _globals['_ACCOUNTSTATUS']._serialized_start=340
+  _globals['_ACCOUNTSTATUS']._serialized_end=613
+  _globals['_ACCOUNTCREATIONINPROGRESS']._serialized_start=615
+  _globals['_ACCOUNTCREATIONINPROGRESS']._serialized_end=642
+  _globals['_ACCOUNTREADY']._serialized_start=645
+  _globals['_ACCOUNTREADY']._serialized_end=1279
+  _globals['_ACCOUNTREADY_ENVIRONMENTSBYIDENTRY']._serialized_start=1174
+  _globals['_ACCOUNTREADY_ENVIRONMENTSBYIDENTRY']._serialized_end=1279
+  _globals['_ACCOUNTDOESNTEXIST']._serialized_start=1281
+  _globals['_ACCOUNTDOESNTEXIST']._serialized_end=1373
+  _globals['_ENVIRONMENTDETAILS']._serialized_start=1376
+  _globals['_ENVIRONMENTDETAILS']._serialized_end=1528
 # @@protoc_insertion_point(module_scope)

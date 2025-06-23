@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daytona_sdk
-Version: 0.21.2
+Version: 0.21.3
 Summary: Python SDK for Daytona
 Author-email: "Daytona Platforms Inc." <support@daytona.io>
 License: Apache-2.0
@@ -17,8 +17,8 @@ Classifier: Programming Language :: Python :: 3.9
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: daytona_api_client<0.21.0,>=0.20.1
-Requires-Dist: daytona_api_client_async<0.21.0,>=0.20.1
+Requires-Dist: daytona_api_client<0.22.0,>=0.21.0
+Requires-Dist: daytona_api_client_async<0.22.0,>=0.21.0
 Requires-Dist: environs<10.0.0,>=9.5.0
 Requires-Dist: marshmallow<4.0.0,>=3.19.0
 Requires-Dist: pydantic<3.0.0,>=2.4.2

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,66 +15,25 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nDqwak/feature_store/v1/internal/data_source/data_source_service.proto\x12\x31qwak.feature.store.management.v1.internal.sources\"E\n)GetDataSourceSourceCodeDownloadURLRequest\x12\x18\n\x10\x64\x61ta_source_name\x18\x01 \x01(\t\"B\n*GetDataSourceSourceCodeDownloadURLResponse\x12\x14\n\x0c\x64ownload_url\x18\x01 \x01(\t\"q\n$GetDataSourceSourceCodeUploadRequest\x12\x18\n\x10\x64\x61ta_source_name\x18\x01 \x01(\t\x12\x19\n\x0frepository_name\x18\x02 \x01(\tH\x00\x42\x14\n\x12repository_details\"\xf4\x01\n%GetDataSourceSourceCodeUploadResponse\x12\x12\n\nupload_url\x18\x01 \x01(\t\x12\x81\x01\n\rextra_headers\x18\x02 \x03(\x0b\x32j.qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadResponse.ExtraHeadersEntry\x1a\x33\n\x11\x45xtraHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xcf\x03\n\x11\x44\x61taSourceService\x12\xd5\x01\n GetDataSourceSourceCodeUploadURL\x12W.qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadRequest\x1aX.qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadResponse\x12\xe1\x01\n\"GetDataSourceSourceCodeDownloadURL\x12\\.qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeDownloadURLRequest\x1a].qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeDownloadURLResponseBw\n<com.qwak.ai.feature.store.management.v1.api.internal.sourcesP\x01Z5qwak/featurestore/sources;featurestoreinternalsourcesb\x06proto3')
 
-
-
-_GETDATASOURCESOURCECODEDOWNLOADURLREQUEST = DESCRIPTOR.message_types_by_name['GetDataSourceSourceCodeDownloadURLRequest']
-_GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE = DESCRIPTOR.message_types_by_name['GetDataSourceSourceCodeDownloadURLResponse']
-_GETDATASOURCESOURCECODEUPLOADREQUEST = DESCRIPTOR.message_types_by_name['GetDataSourceSourceCodeUploadRequest']
-_GETDATASOURCESOURCECODEUPLOADRESPONSE = DESCRIPTOR.message_types_by_name['GetDataSourceSourceCodeUploadResponse']
-_GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY = _GETDATASOURCESOURCECODEUPLOADRESPONSE.nested_types_by_name['ExtraHeadersEntry']
-GetDataSourceSourceCodeDownloadURLRequest = _reflection.GeneratedProtocolMessageType('GetDataSourceSourceCodeDownloadURLRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDATASOURCESOURCECODEDOWNLOADURLREQUEST,
-  '__module__' : 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeDownloadURLRequest)
-  })
-_sym_db.RegisterMessage(GetDataSourceSourceCodeDownloadURLRequest)
-
-GetDataSourceSourceCodeDownloadURLResponse = _reflection.GeneratedProtocolMessageType('GetDataSourceSourceCodeDownloadURLResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE,
-  '__module__' : 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeDownloadURLResponse)
-  })
-_sym_db.RegisterMessage(GetDataSourceSourceCodeDownloadURLResponse)
-
-GetDataSourceSourceCodeUploadRequest = _reflection.GeneratedProtocolMessageType('GetDataSourceSourceCodeUploadRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDATASOURCESOURCECODEUPLOADREQUEST,
-  '__module__' : 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadRequest)
-  })
-_sym_db.RegisterMessage(GetDataSourceSourceCodeUploadRequest)
-
-GetDataSourceSourceCodeUploadResponse = _reflection.GeneratedProtocolMessageType('GetDataSourceSourceCodeUploadResponse', (_message.Message,), {
-
-  'ExtraHeadersEntry' : _reflection.GeneratedProtocolMessageType('ExtraHeadersEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY,
-    '__module__' : 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadResponse.ExtraHeadersEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETDATASOURCESOURCECODEUPLOADRESPONSE,
-  '__module__' : 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.sources.GetDataSourceSourceCodeUploadResponse)
-  })
-_sym_db.RegisterMessage(GetDataSourceSourceCodeUploadResponse)
-_sym_db.RegisterMessage(GetDataSourceSourceCodeUploadResponse.ExtraHeadersEntry)
-
-_DATASOURCESERVICE = DESCRIPTOR.services_by_name['DataSourceService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.v1.internal.data_source.data_source_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n<com.qwak.ai.feature.store.management.v1.api.internal.sourcesP\001Z5qwak/featurestore/sources;featurestoreinternalsources'
   _GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY._options = None
   _GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY._serialized_options = b'8\001'
-  _GETDATASOURCESOURCECODEDOWNLOADURLREQUEST._serialized_start=123
-  _GETDATASOURCESOURCECODEDOWNLOADURLREQUEST._serialized_end=192
-  _GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE._serialized_start=194
-  _GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE._serialized_end=260
-  _GETDATASOURCESOURCECODEUPLOADREQUEST._serialized_start=262
-  _GETDATASOURCESOURCECODEUPLOADREQUEST._serialized_end=375
-  _GETDATASOURCESOURCECODEUPLOADRESPONSE._serialized_start=378
-  _GETDATASOURCESOURCECODEUPLOADRESPONSE._serialized_end=622
-  _GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY._serialized_start=571
-  _GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY._serialized_end=622
-  _DATASOURCESERVICE._serialized_start=625
-  _DATASOURCESERVICE._serialized_end=1088
+  _globals['_GETDATASOURCESOURCECODEDOWNLOADURLREQUEST']._serialized_start=123
+  _globals['_GETDATASOURCESOURCECODEDOWNLOADURLREQUEST']._serialized_end=192
+  _globals['_GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE']._serialized_start=194
+  _globals['_GETDATASOURCESOURCECODEDOWNLOADURLRESPONSE']._serialized_end=260
+  _globals['_GETDATASOURCESOURCECODEUPLOADREQUEST']._serialized_start=262
+  _globals['_GETDATASOURCESOURCECODEUPLOADREQUEST']._serialized_end=375
+  _globals['_GETDATASOURCESOURCECODEUPLOADRESPONSE']._serialized_start=378
+  _globals['_GETDATASOURCESOURCECODEUPLOADRESPONSE']._serialized_end=622
+  _globals['_GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY']._serialized_start=571
+  _globals['_GETDATASOURCESOURCECODEUPLOADRESPONSE_EXTRAHEADERSENTRY']._serialized_end=622
+  _globals['_DATASOURCESERVICE']._serialized_start=625
+  _globals['_DATASOURCESERVICE']._serialized_end=1088
 # @@protoc_insertion_point(module_scope)

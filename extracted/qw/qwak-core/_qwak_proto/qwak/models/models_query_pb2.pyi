@@ -112,9 +112,9 @@ class Filter(google.protobuf.message.Message):
     model_name_substring: builtins.str
     @property
     def model_group_names(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """Filter models by one or more model group names.
-        Return models that belong to one of the specified model groups.
+        """Filter models by one or more model group names. Returns models that belong to any of the specified model groups.
         Optional field. If not specified, models from all groups are included.
+        The maximum number of model group names allowed is 100, with each model group name having a maximum length of 100 characters.
         """
     deployment_model_status: global___DeploymentModelStatusFilter.ValueType
     def __init__(
@@ -141,10 +141,10 @@ class PaginationMetadata(google.protobuf.message.Message):
     PAGE_SIZE_FIELD_NUMBER: builtins.int
     NEXT_CURSOR_FIELD_NUMBER: builtins.int
     page_size: builtins.int
-    """Number of items per page."""
+    """Number of models returned in the current page."""
     next_cursor: builtins.str
     """Cursor for the next page.
-    If there are no more pages, this field will be empty.
+    If there are no more pages, an empty string will be returned as the next cursor.
     """
     def __init__(
         self,

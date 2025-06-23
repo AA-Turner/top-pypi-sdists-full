@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,60 +16,21 @@ from _qwak_proto.qwak.feature_store.sources import streaming_pb2 as qwak_dot_fea
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/feature_store/sinks/sink.proto\x12\x18qwak.feature.store.sinks\x1a*qwak/feature_store/sources/streaming.proto\"\xb3\x01\n\rStreamingSink\x12L\n\x10\x61ttachment_point\x18\x01 \x01(\x0b\x32\x32.qwak.feature.store.sinks.StreamingAttachmentPoint\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x39\n\nkafka_sink\x18\x02 \x01(\x0b\x32#.qwak.feature.store.sinks.KafkaSinkH\x00\x42\x0b\n\tsink_type\"\xb9\x01\n\tKafkaSink\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x19\n\x11\x62ootstrap_servers\x18\x02 \x01(\t\x12\x41\n\x0emessage_format\x18\x03 \x01(\x0e\x32).qwak.feature.store.sources.MessageFormat\x12?\n\x0b\x61uth_config\x18\x04 \x01(\x0b\x32*.qwak.feature.store.sources.Authentication\" \n\x1eOnlineStreamingAttachmentPoint\"!\n\x1fOfflineStreamingAttachmentPoint\"\x83\x02\n\x18StreamingAttachmentPoint\x12\x65\n!online_streaming_attachment_point\x18\x01 \x01(\x0b\x32\x38.qwak.feature.store.sinks.OnlineStreamingAttachmentPointH\x00\x12g\n\"offline_streaming_attachment_point\x18\x02 \x01(\x0b\x32\x39.qwak.feature.store.sinks.OfflineStreamingAttachmentPointH\x00\x42\x17\n\x15\x61ttachment_point_typeBR\n#com.qwak.ai.feature.store.sinks.apiP\x01Z)qwak/featurestore/sinks;featurestoresinksb\x06proto3')
 
-
-
-_STREAMINGSINK = DESCRIPTOR.message_types_by_name['StreamingSink']
-_KAFKASINK = DESCRIPTOR.message_types_by_name['KafkaSink']
-_ONLINESTREAMINGATTACHMENTPOINT = DESCRIPTOR.message_types_by_name['OnlineStreamingAttachmentPoint']
-_OFFLINESTREAMINGATTACHMENTPOINT = DESCRIPTOR.message_types_by_name['OfflineStreamingAttachmentPoint']
-_STREAMINGATTACHMENTPOINT = DESCRIPTOR.message_types_by_name['StreamingAttachmentPoint']
-StreamingSink = _reflection.GeneratedProtocolMessageType('StreamingSink', (_message.Message,), {
-  'DESCRIPTOR' : _STREAMINGSINK,
-  '__module__' : 'qwak.feature_store.sinks.sink_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sinks.StreamingSink)
-  })
-_sym_db.RegisterMessage(StreamingSink)
-
-KafkaSink = _reflection.GeneratedProtocolMessageType('KafkaSink', (_message.Message,), {
-  'DESCRIPTOR' : _KAFKASINK,
-  '__module__' : 'qwak.feature_store.sinks.sink_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sinks.KafkaSink)
-  })
-_sym_db.RegisterMessage(KafkaSink)
-
-OnlineStreamingAttachmentPoint = _reflection.GeneratedProtocolMessageType('OnlineStreamingAttachmentPoint', (_message.Message,), {
-  'DESCRIPTOR' : _ONLINESTREAMINGATTACHMENTPOINT,
-  '__module__' : 'qwak.feature_store.sinks.sink_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sinks.OnlineStreamingAttachmentPoint)
-  })
-_sym_db.RegisterMessage(OnlineStreamingAttachmentPoint)
-
-OfflineStreamingAttachmentPoint = _reflection.GeneratedProtocolMessageType('OfflineStreamingAttachmentPoint', (_message.Message,), {
-  'DESCRIPTOR' : _OFFLINESTREAMINGATTACHMENTPOINT,
-  '__module__' : 'qwak.feature_store.sinks.sink_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sinks.OfflineStreamingAttachmentPoint)
-  })
-_sym_db.RegisterMessage(OfflineStreamingAttachmentPoint)
-
-StreamingAttachmentPoint = _reflection.GeneratedProtocolMessageType('StreamingAttachmentPoint', (_message.Message,), {
-  'DESCRIPTOR' : _STREAMINGATTACHMENTPOINT,
-  '__module__' : 'qwak.feature_store.sinks.sink_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sinks.StreamingAttachmentPoint)
-  })
-_sym_db.RegisterMessage(StreamingAttachmentPoint)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.sinks.sink_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.feature.store.sinks.apiP\001Z)qwak/featurestore/sinks;featurestoresinks'
-  _STREAMINGSINK._serialized_start=110
-  _STREAMINGSINK._serialized_end=289
-  _KAFKASINK._serialized_start=292
-  _KAFKASINK._serialized_end=477
-  _ONLINESTREAMINGATTACHMENTPOINT._serialized_start=479
-  _ONLINESTREAMINGATTACHMENTPOINT._serialized_end=511
-  _OFFLINESTREAMINGATTACHMENTPOINT._serialized_start=513
-  _OFFLINESTREAMINGATTACHMENTPOINT._serialized_end=546
-  _STREAMINGATTACHMENTPOINT._serialized_start=549
-  _STREAMINGATTACHMENTPOINT._serialized_end=808
+  _globals['_STREAMINGSINK']._serialized_start=110
+  _globals['_STREAMINGSINK']._serialized_end=289
+  _globals['_KAFKASINK']._serialized_start=292
+  _globals['_KAFKASINK']._serialized_end=477
+  _globals['_ONLINESTREAMINGATTACHMENTPOINT']._serialized_start=479
+  _globals['_ONLINESTREAMINGATTACHMENTPOINT']._serialized_end=511
+  _globals['_OFFLINESTREAMINGATTACHMENTPOINT']._serialized_start=513
+  _globals['_OFFLINESTREAMINGATTACHMENTPOINT']._serialized_end=546
+  _globals['_STREAMINGATTACHMENTPOINT']._serialized_start=549
+  _globals['_STREAMINGATTACHMENTPOINT']._serialized_end=808
 # @@protoc_insertion_point(module_scope)

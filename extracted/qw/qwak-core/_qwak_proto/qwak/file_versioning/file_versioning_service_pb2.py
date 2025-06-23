@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,53 +16,21 @@ from _qwak_proto.qwak.file_versioning import file_versioning_pb2 as qwak_dot_fil
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/file_versioning/file_versioning_service.proto\x12\x1fqwak.management.file_versioning\x1a*qwak/file_versioning/file_versioning.proto\"]\n\x16RegisterFileTagRequest\x12\x43\n\rfile_tag_spec\x18\x01 \x01(\x0b\x32,.qwak.management.file_versioning.FileTagSpec\"\x19\n\x17RegisterFileTagResponse\"}\n\x17GetModelFileTagsRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x10\n\x08\x62uild_id\x18\x02 \x01(\t\x12>\n\x06\x66ilter\x18\x03 \x01(\x0b\x32..qwak.management.file_versioning.FileTagFilter\"[\n\x18GetModelFileTagsResponse\x12?\n\tfile_tags\x18\x01 \x03(\x0b\x32,.qwak.management.file_versioning.FileTagSpec2\xb2\x02\n\x1f\x46ileVersioningManagementService\x12\x84\x01\n\x0fRegisterFileTag\x12\x37.qwak.management.file_versioning.RegisterFileTagRequest\x1a\x38.qwak.management.file_versioning.RegisterFileTagResponse\x12\x87\x01\n\x10GetModelFileTags\x12\x38.qwak.management.file_versioning.GetModelFileTagsRequest\x1a\x39.qwak.management.file_versioning.GetModelFileTagsResponseB/\n+com.qwak.ai.management.model_versioning.apiP\x01\x62\x06proto3')
 
-
-
-_REGISTERFILETAGREQUEST = DESCRIPTOR.message_types_by_name['RegisterFileTagRequest']
-_REGISTERFILETAGRESPONSE = DESCRIPTOR.message_types_by_name['RegisterFileTagResponse']
-_GETMODELFILETAGSREQUEST = DESCRIPTOR.message_types_by_name['GetModelFileTagsRequest']
-_GETMODELFILETAGSRESPONSE = DESCRIPTOR.message_types_by_name['GetModelFileTagsResponse']
-RegisterFileTagRequest = _reflection.GeneratedProtocolMessageType('RegisterFileTagRequest', (_message.Message,), {
-  'DESCRIPTOR' : _REGISTERFILETAGREQUEST,
-  '__module__' : 'qwak.file_versioning.file_versioning_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.file_versioning.RegisterFileTagRequest)
-  })
-_sym_db.RegisterMessage(RegisterFileTagRequest)
-
-RegisterFileTagResponse = _reflection.GeneratedProtocolMessageType('RegisterFileTagResponse', (_message.Message,), {
-  'DESCRIPTOR' : _REGISTERFILETAGRESPONSE,
-  '__module__' : 'qwak.file_versioning.file_versioning_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.file_versioning.RegisterFileTagResponse)
-  })
-_sym_db.RegisterMessage(RegisterFileTagResponse)
-
-GetModelFileTagsRequest = _reflection.GeneratedProtocolMessageType('GetModelFileTagsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETMODELFILETAGSREQUEST,
-  '__module__' : 'qwak.file_versioning.file_versioning_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.file_versioning.GetModelFileTagsRequest)
-  })
-_sym_db.RegisterMessage(GetModelFileTagsRequest)
-
-GetModelFileTagsResponse = _reflection.GeneratedProtocolMessageType('GetModelFileTagsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETMODELFILETAGSRESPONSE,
-  '__module__' : 'qwak.file_versioning.file_versioning_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.management.file_versioning.GetModelFileTagsResponse)
-  })
-_sym_db.RegisterMessage(GetModelFileTagsResponse)
-
-_FILEVERSIONINGMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['FileVersioningManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.file_versioning.file_versioning_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n+com.qwak.ai.management.model_versioning.apiP\001'
-  _REGISTERFILETAGREQUEST._serialized_start=131
-  _REGISTERFILETAGREQUEST._serialized_end=224
-  _REGISTERFILETAGRESPONSE._serialized_start=226
-  _REGISTERFILETAGRESPONSE._serialized_end=251
-  _GETMODELFILETAGSREQUEST._serialized_start=253
-  _GETMODELFILETAGSREQUEST._serialized_end=378
-  _GETMODELFILETAGSRESPONSE._serialized_start=380
-  _GETMODELFILETAGSRESPONSE._serialized_end=471
-  _FILEVERSIONINGMANAGEMENTSERVICE._serialized_start=474
-  _FILEVERSIONINGMANAGEMENTSERVICE._serialized_end=780
+  _globals['_REGISTERFILETAGREQUEST']._serialized_start=131
+  _globals['_REGISTERFILETAGREQUEST']._serialized_end=224
+  _globals['_REGISTERFILETAGRESPONSE']._serialized_start=226
+  _globals['_REGISTERFILETAGRESPONSE']._serialized_end=251
+  _globals['_GETMODELFILETAGSREQUEST']._serialized_start=253
+  _globals['_GETMODELFILETAGSREQUEST']._serialized_end=378
+  _globals['_GETMODELFILETAGSRESPONSE']._serialized_start=380
+  _globals['_GETMODELFILETAGSRESPONSE']._serialized_end=471
+  _globals['_FILEVERSIONINGMANAGEMENTSERVICE']._serialized_start=474
+  _globals['_FILEVERSIONINGMANAGEMENTSERVICE']._serialized_end=780
 # @@protoc_insertion_point(module_scope)

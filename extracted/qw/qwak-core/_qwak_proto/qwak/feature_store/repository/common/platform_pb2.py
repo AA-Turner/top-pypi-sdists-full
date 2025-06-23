@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,40 +15,17 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3qwak/feature_store/repository/common/platform.proto\x12$qwak.feature.store.repository.common\"\xb6\x01\n\x10PlatformSettings\x12S\n\x12repository_setting\x18\x01 \x01(\x0b\x32\x37.qwak.feature.store.repository.common.RepositorySetting\x12M\n\x0fproject_setting\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.repository.common.ProjectSetting\"+\n\x11RepositorySetting\x12\x16\n\x0erepository_key\x18\x01 \x01(\t\"=\n\x0eProjectSetting\x12\x15\n\x0bproject_key\x18\x02 \x01(\tH\x00\x42\x14\n\x12project_identifierBj\n/com.qwak.ai.feature.store.repository.common.apiP\x01Z5qwak/featurestore/source/repository;source_repositoryb\x06proto3')
 
-
-
-_PLATFORMSETTINGS = DESCRIPTOR.message_types_by_name['PlatformSettings']
-_REPOSITORYSETTING = DESCRIPTOR.message_types_by_name['RepositorySetting']
-_PROJECTSETTING = DESCRIPTOR.message_types_by_name['ProjectSetting']
-PlatformSettings = _reflection.GeneratedProtocolMessageType('PlatformSettings', (_message.Message,), {
-  'DESCRIPTOR' : _PLATFORMSETTINGS,
-  '__module__' : 'qwak.feature_store.repository.common.platform_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.repository.common.PlatformSettings)
-  })
-_sym_db.RegisterMessage(PlatformSettings)
-
-RepositorySetting = _reflection.GeneratedProtocolMessageType('RepositorySetting', (_message.Message,), {
-  'DESCRIPTOR' : _REPOSITORYSETTING,
-  '__module__' : 'qwak.feature_store.repository.common.platform_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.repository.common.RepositorySetting)
-  })
-_sym_db.RegisterMessage(RepositorySetting)
-
-ProjectSetting = _reflection.GeneratedProtocolMessageType('ProjectSetting', (_message.Message,), {
-  'DESCRIPTOR' : _PROJECTSETTING,
-  '__module__' : 'qwak.feature_store.repository.common.platform_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.repository.common.ProjectSetting)
-  })
-_sym_db.RegisterMessage(ProjectSetting)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.repository.common.platform_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n/com.qwak.ai.feature.store.repository.common.apiP\001Z5qwak/featurestore/source/repository;source_repository'
-  _PLATFORMSETTINGS._serialized_start=94
-  _PLATFORMSETTINGS._serialized_end=276
-  _REPOSITORYSETTING._serialized_start=278
-  _REPOSITORYSETTING._serialized_end=321
-  _PROJECTSETTING._serialized_start=323
-  _PROJECTSETTING._serialized_end=384
+  _globals['_PLATFORMSETTINGS']._serialized_start=94
+  _globals['_PLATFORMSETTINGS']._serialized_end=276
+  _globals['_REPOSITORYSETTING']._serialized_start=278
+  _globals['_REPOSITORYSETTING']._serialized_end=321
+  _globals['_PROJECTSETTING']._serialized_start=323
+  _globals['_PROJECTSETTING']._serialized_end=384
 # @@protoc_insertion_point(module_scope)

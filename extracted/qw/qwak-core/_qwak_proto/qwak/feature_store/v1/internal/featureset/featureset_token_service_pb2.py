@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,33 +15,17 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHqwak/feature_store/v1/internal/featureset/featureset_token_service.proto\x12\x34qwak.feature.store.management.v1.internal.featureset\"P\n#GetAuthTokenIdByFeaturesetIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\x12\x12\n\naccount_id\x18\x02 \x01(\t\"8\n$GetAuthTokenIdByFeaturesetIdResponse\x12\x10\n\x08token_id\x18\x01 \x01(\t2\xef\x01\n\x15\x46\x65\x61turesetAuthService\x12\xd5\x01\n\x1cGetAuthTokenIdByFeaturesetId\x12Y.qwak.feature.store.management.v1.internal.featureset.GetAuthTokenIdByFeaturesetIdRequest\x1aZ.qwak.feature.store.management.v1.internal.featureset.GetAuthTokenIdByFeaturesetIdResponseBC\n?com.qwak.ai.feature.store.management.v1.api.internal.featuresetP\x01\x62\x06proto3')
 
-
-
-_GETAUTHTOKENIDBYFEATURESETIDREQUEST = DESCRIPTOR.message_types_by_name['GetAuthTokenIdByFeaturesetIdRequest']
-_GETAUTHTOKENIDBYFEATURESETIDRESPONSE = DESCRIPTOR.message_types_by_name['GetAuthTokenIdByFeaturesetIdResponse']
-GetAuthTokenIdByFeaturesetIdRequest = _reflection.GeneratedProtocolMessageType('GetAuthTokenIdByFeaturesetIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETAUTHTOKENIDBYFEATURESETIDREQUEST,
-  '__module__' : 'qwak.feature_store.v1.internal.featureset.featureset_token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.featureset.GetAuthTokenIdByFeaturesetIdRequest)
-  })
-_sym_db.RegisterMessage(GetAuthTokenIdByFeaturesetIdRequest)
-
-GetAuthTokenIdByFeaturesetIdResponse = _reflection.GeneratedProtocolMessageType('GetAuthTokenIdByFeaturesetIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETAUTHTOKENIDBYFEATURESETIDRESPONSE,
-  '__module__' : 'qwak.feature_store.v1.internal.featureset.featureset_token_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.management.v1.internal.featureset.GetAuthTokenIdByFeaturesetIdResponse)
-  })
-_sym_db.RegisterMessage(GetAuthTokenIdByFeaturesetIdResponse)
-
-_FEATURESETAUTHSERVICE = DESCRIPTOR.services_by_name['FeaturesetAuthService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.v1.internal.featureset.featureset_token_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n?com.qwak.ai.feature.store.management.v1.api.internal.featuresetP\001'
-  _GETAUTHTOKENIDBYFEATURESETIDREQUEST._serialized_start=130
-  _GETAUTHTOKENIDBYFEATURESETIDREQUEST._serialized_end=210
-  _GETAUTHTOKENIDBYFEATURESETIDRESPONSE._serialized_start=212
-  _GETAUTHTOKENIDBYFEATURESETIDRESPONSE._serialized_end=268
-  _FEATURESETAUTHSERVICE._serialized_start=271
-  _FEATURESETAUTHSERVICE._serialized_end=510
+  _globals['_GETAUTHTOKENIDBYFEATURESETIDREQUEST']._serialized_start=130
+  _globals['_GETAUTHTOKENIDBYFEATURESETIDREQUEST']._serialized_end=210
+  _globals['_GETAUTHTOKENIDBYFEATURESETIDRESPONSE']._serialized_start=212
+  _globals['_GETAUTHTOKENIDBYFEATURESETIDRESPONSE']._serialized_end=268
+  _globals['_FEATURESETAUTHSERVICE']._serialized_start=271
+  _globals['_FEATURESETAUTHSERVICE']._serialized_end=510
 # @@protoc_insertion_point(module_scope)

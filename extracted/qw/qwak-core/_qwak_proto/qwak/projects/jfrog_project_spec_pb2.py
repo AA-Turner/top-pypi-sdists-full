@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,20 +15,13 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&qwak/projects/jfrog_project_spec.proto\x12\x18qwak.projects.management\"S\n\x18ModelRepositoryJFrogSpec\x12\x1b\n\x11jfrog_project_key\x18\x01 \x01(\tH\x00\x42\x1a\n\x18jfrog_project_identifierB\'\n#com.qwak.ai.management.projects.apiP\x01\x62\x06proto3')
 
-
-
-_MODELREPOSITORYJFROGSPEC = DESCRIPTOR.message_types_by_name['ModelRepositoryJFrogSpec']
-ModelRepositoryJFrogSpec = _reflection.GeneratedProtocolMessageType('ModelRepositoryJFrogSpec', (_message.Message,), {
-  'DESCRIPTOR' : _MODELREPOSITORYJFROGSPEC,
-  '__module__' : 'qwak.projects.jfrog_project_spec_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ModelRepositoryJFrogSpec)
-  })
-_sym_db.RegisterMessage(ModelRepositoryJFrogSpec)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.projects.jfrog_project_spec_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.management.projects.apiP\001'
-  _MODELREPOSITORYJFROGSPEC._serialized_start=68
-  _MODELREPOSITORYJFROGSPEC._serialized_end=151
+  _globals['_MODELREPOSITORYJFROGSPEC']._serialized_start=68
+  _globals['_MODELREPOSITORYJFROGSPEC']._serialized_end=151
 # @@protoc_insertion_point(module_scope)

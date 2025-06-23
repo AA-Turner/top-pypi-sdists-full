@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: diff_cover
-Version: 9.3.2
+Version: 9.4.0
 Summary: Run coverage and linting reports on diffs
 License: Apache-2.0
 Author: See Contributors

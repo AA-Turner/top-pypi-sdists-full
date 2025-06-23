@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,40 +17,17 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.external import vi
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nGqwak/administration/runtime_configuration/v0/observability_config.proto\x12\x41qwak.administration.runtime_configuration.v0.observability_config\x1aMqwak/administration/runtime_configuration/v0/external/prometheus_config.proto\x1aRqwak/administration/runtime_configuration/v0/external/victoriametrics_config.proto\"\x83\x02\n\x1aObservabilityConfiguration\x12n\n\nmonitoring\x18\x01 \x01(\x0b\x32Z.qwak.administration.runtime_configuration.v0.observability_config.MonitoringConfiguration\x12u\n\x08\x61lerting\x18\x02 \x01(\x0b\x32\x63.qwak.administration.runtime_configuration.v0.observability_config.AlertingIntegrationConfiguration\"\xa2\x02\n\x17MonitoringConfiguration\x12v\n\nprometheus\x18\x01 \x01(\x0b\x32`.qwak.administration.runtime_configuration.v0.external.prometheus_config.PrometheusConfigurationH\x00\x12\x86\x01\n\x10victoria_metrics\x18\x02 \x01(\x0b\x32j.qwak.administration.runtime_configuration.v0.external.victoriametrics_config.VictoriaMetricsConfigurationH\x00\x42\x06\n\x04type\"\xab\x02\n AlertingIntegrationConfiguration\x12v\n\nprometheus\x18\x01 \x01(\x0b\x32`.qwak.administration.runtime_configuration.v0.external.prometheus_config.PrometheusConfigurationH\x00\x12\x86\x01\n\x10victoria_metrics\x18\x02 \x01(\x0b\x32j.qwak.administration.runtime_configuration.v0.external.victoriametrics_config.VictoriaMetricsConfigurationH\x00\x42\x06\n\x04typeB\xe1\x01\n:com.jfrog.ml.runtime_configuration.v0.observability_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_OBSERVABILITYCONFIGURATION = DESCRIPTOR.message_types_by_name['ObservabilityConfiguration']
-_MONITORINGCONFIGURATION = DESCRIPTOR.message_types_by_name['MonitoringConfiguration']
-_ALERTINGINTEGRATIONCONFIGURATION = DESCRIPTOR.message_types_by_name['AlertingIntegrationConfiguration']
-ObservabilityConfiguration = _reflection.GeneratedProtocolMessageType('ObservabilityConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _OBSERVABILITYCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.observability_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.observability_config.ObservabilityConfiguration)
-  })
-_sym_db.RegisterMessage(ObservabilityConfiguration)
-
-MonitoringConfiguration = _reflection.GeneratedProtocolMessageType('MonitoringConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _MONITORINGCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.observability_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.observability_config.MonitoringConfiguration)
-  })
-_sym_db.RegisterMessage(MonitoringConfiguration)
-
-AlertingIntegrationConfiguration = _reflection.GeneratedProtocolMessageType('AlertingIntegrationConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _ALERTINGINTEGRATIONCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.observability_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.observability_config.AlertingIntegrationConfiguration)
-  })
-_sym_db.RegisterMessage(AlertingIntegrationConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.observability_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n:com.jfrog.ml.runtime_configuration.v0.observability_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _OBSERVABILITYCONFIGURATION._serialized_start=306
-  _OBSERVABILITYCONFIGURATION._serialized_end=565
-  _MONITORINGCONFIGURATION._serialized_start=568
-  _MONITORINGCONFIGURATION._serialized_end=858
-  _ALERTINGINTEGRATIONCONFIGURATION._serialized_start=861
-  _ALERTINGINTEGRATIONCONFIGURATION._serialized_end=1160
+  _globals['_OBSERVABILITYCONFIGURATION']._serialized_start=306
+  _globals['_OBSERVABILITYCONFIGURATION']._serialized_end=565
+  _globals['_MONITORINGCONFIGURATION']._serialized_start=568
+  _globals['_MONITORINGCONFIGURATION']._serialized_end=858
+  _globals['_ALERTINGINTEGRATIONCONFIGURATION']._serialized_start=861
+  _globals['_ALERTINGINTEGRATIONCONFIGURATION']._serialized_end=1160
 # @@protoc_insertion_point(module_scope)

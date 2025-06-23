@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,53 +17,21 @@ from _qwak_proto.qwak.model_group import model_group_repository_details_pb2 as q
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/model_group/model_group.proto\x12\x1cqwak.model_groups.management\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x35qwak/model_group/model_group_repository_details.proto\"Y\n\"CreateIfNotExistsModelGroupRequest\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11jfrog_project_key\x18\x02 \x01(\t\"\xdf\x01\n\x1bModelGroupBriefInfoResponse\x12\x16\n\x0emodel_group_id\x18\x01 \x01(\t\x12\x1f\n\x17model_group_description\x18\x02 \x01(\t\x12:\n\x16model_group_created_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12K\n\x12repository_details\x18\x04 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails\"\x95\x01\n&CreateRepositoriesForModelGroupRequest\x12\x18\n\x10model_group_uuid\x18\x01 \x01(\t\x12Q\n\x12repository_details\x18\x02 \x03(\x0b\x32\x35.qwak.model_groups.management.RemoteRepositoryDetails\"\x82\x01\n\'CreateRepositoriesForModelGroupResponse\x12W\n\x1e\x61rtifactory_repository_details\x18\x01 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails2\xeb\x02\n\x1bModelGroupManagementService\x12\x9a\x01\n\x1b\x43reateIfNotExistsModelGroup\x12@.qwak.model_groups.management.CreateIfNotExistsModelGroupRequest\x1a\x39.qwak.model_groups.management.ModelGroupBriefInfoResponse\x12\xae\x01\n\x1f\x43reateRepositoriesForModelGroup\x12\x44.qwak.model_groups.management.CreateRepositoriesForModelGroupRequest\x1a\x45.qwak.model_groups.management.CreateRepositoriesForModelGroupResponseBL\n&com.qwak.ai.management.model.group.apiB ModelGroupManagementServiceProtoP\x01\x62\x06proto3')
 
-
-
-_CREATEIFNOTEXISTSMODELGROUPREQUEST = DESCRIPTOR.message_types_by_name['CreateIfNotExistsModelGroupRequest']
-_MODELGROUPBRIEFINFORESPONSE = DESCRIPTOR.message_types_by_name['ModelGroupBriefInfoResponse']
-_CREATEREPOSITORIESFORMODELGROUPREQUEST = DESCRIPTOR.message_types_by_name['CreateRepositoriesForModelGroupRequest']
-_CREATEREPOSITORIESFORMODELGROUPRESPONSE = DESCRIPTOR.message_types_by_name['CreateRepositoriesForModelGroupResponse']
-CreateIfNotExistsModelGroupRequest = _reflection.GeneratedProtocolMessageType('CreateIfNotExistsModelGroupRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEIFNOTEXISTSMODELGROUPREQUEST,
-  '__module__' : 'qwak.model_group.model_group_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.CreateIfNotExistsModelGroupRequest)
-  })
-_sym_db.RegisterMessage(CreateIfNotExistsModelGroupRequest)
-
-ModelGroupBriefInfoResponse = _reflection.GeneratedProtocolMessageType('ModelGroupBriefInfoResponse', (_message.Message,), {
-  'DESCRIPTOR' : _MODELGROUPBRIEFINFORESPONSE,
-  '__module__' : 'qwak.model_group.model_group_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.ModelGroupBriefInfoResponse)
-  })
-_sym_db.RegisterMessage(ModelGroupBriefInfoResponse)
-
-CreateRepositoriesForModelGroupRequest = _reflection.GeneratedProtocolMessageType('CreateRepositoriesForModelGroupRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEREPOSITORIESFORMODELGROUPREQUEST,
-  '__module__' : 'qwak.model_group.model_group_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.CreateRepositoriesForModelGroupRequest)
-  })
-_sym_db.RegisterMessage(CreateRepositoriesForModelGroupRequest)
-
-CreateRepositoriesForModelGroupResponse = _reflection.GeneratedProtocolMessageType('CreateRepositoriesForModelGroupResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEREPOSITORIESFORMODELGROUPRESPONSE,
-  '__module__' : 'qwak.model_group.model_group_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.CreateRepositoriesForModelGroupResponse)
-  })
-_sym_db.RegisterMessage(CreateRepositoriesForModelGroupResponse)
-
-_MODELGROUPMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['ModelGroupManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.model_group.model_group_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.model.group.apiB ModelGroupManagementServiceProtoP\001'
-  _CREATEIFNOTEXISTSMODELGROUPREQUEST._serialized_start=156
-  _CREATEIFNOTEXISTSMODELGROUPREQUEST._serialized_end=245
-  _MODELGROUPBRIEFINFORESPONSE._serialized_start=248
-  _MODELGROUPBRIEFINFORESPONSE._serialized_end=471
-  _CREATEREPOSITORIESFORMODELGROUPREQUEST._serialized_start=474
-  _CREATEREPOSITORIESFORMODELGROUPREQUEST._serialized_end=623
-  _CREATEREPOSITORIESFORMODELGROUPRESPONSE._serialized_start=626
-  _CREATEREPOSITORIESFORMODELGROUPRESPONSE._serialized_end=756
-  _MODELGROUPMANAGEMENTSERVICE._serialized_start=759
-  _MODELGROUPMANAGEMENTSERVICE._serialized_end=1122
+  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_start=156
+  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_end=245
+  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_start=248
+  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_end=471
+  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_start=474
+  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_end=623
+  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_start=626
+  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_end=756
+  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_start=759
+  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_end=1122
 # @@protoc_insertion_point(module_scope)

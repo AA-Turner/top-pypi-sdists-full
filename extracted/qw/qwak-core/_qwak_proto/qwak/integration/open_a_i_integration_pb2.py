@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,70 +15,23 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n+qwak/integration/open_a_i_integration.proto\x12\x1bqwak.integration.management\"\x8f\x01\n\x11OpenAIIntegration\x12r\n\'openai_api_key_system_secret_descriptor\x18\x01 \x01(\x0b\x32?.qwak.integration.management.OpenAIApiKeySystemSecretDescriptorH\x00\x42\x06\n\x04\x61uth\"z\n\x15OpenAIIntegrationSpec\x12Y\n\x1aopenai_api_key_auth_config\x18\x01 \x01(\x0b\x32\x33.qwak.integration.management.OpenAIApiKeyAuthConfigH\x00\x42\x06\n\x04\x61uth\")\n\x16OpenAIApiKeyAuthConfig\x12\x0f\n\x07\x61pi_key\x18\x01 \x01(\t\"U\n\"OpenAIApiKeySystemSecretDescriptor\x12\x13\n\x0bsecret_name\x18\x01 \x01(\t\x12\x1a\n\x12\x61pi_key_secret_key\x18\x02 \x01(\t\"y\n\x14OpenAIValidationSpec\x12Y\n\x1aopenai_api_key_auth_config\x18\x01 \x01(\x0b\x32\x33.qwak.integration.management.OpenAIApiKeyAuthConfigH\x00\x42\x06\n\x04\x61uth\"\x1a\n\x18OpenAIIntegrationOptionsBH\n&com.qwak.ai.management.integration.apiP\x01Z\x1cqwak/integration;integrationb\x06proto3')
 
-
-
-_OPENAIINTEGRATION = DESCRIPTOR.message_types_by_name['OpenAIIntegration']
-_OPENAIINTEGRATIONSPEC = DESCRIPTOR.message_types_by_name['OpenAIIntegrationSpec']
-_OPENAIAPIKEYAUTHCONFIG = DESCRIPTOR.message_types_by_name['OpenAIApiKeyAuthConfig']
-_OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['OpenAIApiKeySystemSecretDescriptor']
-_OPENAIVALIDATIONSPEC = DESCRIPTOR.message_types_by_name['OpenAIValidationSpec']
-_OPENAIINTEGRATIONOPTIONS = DESCRIPTOR.message_types_by_name['OpenAIIntegrationOptions']
-OpenAIIntegration = _reflection.GeneratedProtocolMessageType('OpenAIIntegration', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIINTEGRATION,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIIntegration)
-  })
-_sym_db.RegisterMessage(OpenAIIntegration)
-
-OpenAIIntegrationSpec = _reflection.GeneratedProtocolMessageType('OpenAIIntegrationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIINTEGRATIONSPEC,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIIntegrationSpec)
-  })
-_sym_db.RegisterMessage(OpenAIIntegrationSpec)
-
-OpenAIApiKeyAuthConfig = _reflection.GeneratedProtocolMessageType('OpenAIApiKeyAuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIAPIKEYAUTHCONFIG,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIApiKeyAuthConfig)
-  })
-_sym_db.RegisterMessage(OpenAIApiKeyAuthConfig)
-
-OpenAIApiKeySystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('OpenAIApiKeySystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIApiKeySystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(OpenAIApiKeySystemSecretDescriptor)
-
-OpenAIValidationSpec = _reflection.GeneratedProtocolMessageType('OpenAIValidationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIVALIDATIONSPEC,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIValidationSpec)
-  })
-_sym_db.RegisterMessage(OpenAIValidationSpec)
-
-OpenAIIntegrationOptions = _reflection.GeneratedProtocolMessageType('OpenAIIntegrationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIINTEGRATIONOPTIONS,
-  '__module__' : 'qwak.integration.open_a_i_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.OpenAIIntegrationOptions)
-  })
-_sym_db.RegisterMessage(OpenAIIntegrationOptions)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.integration.open_a_i_integration_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.integration.apiP\001Z\034qwak/integration;integration'
-  _OPENAIINTEGRATION._serialized_start=77
-  _OPENAIINTEGRATION._serialized_end=220
-  _OPENAIINTEGRATIONSPEC._serialized_start=222
-  _OPENAIINTEGRATIONSPEC._serialized_end=344
-  _OPENAIAPIKEYAUTHCONFIG._serialized_start=346
-  _OPENAIAPIKEYAUTHCONFIG._serialized_end=387
-  _OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR._serialized_start=389
-  _OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR._serialized_end=474
-  _OPENAIVALIDATIONSPEC._serialized_start=476
-  _OPENAIVALIDATIONSPEC._serialized_end=597
-  _OPENAIINTEGRATIONOPTIONS._serialized_start=599
-  _OPENAIINTEGRATIONOPTIONS._serialized_end=625
+  _globals['_OPENAIINTEGRATION']._serialized_start=77
+  _globals['_OPENAIINTEGRATION']._serialized_end=220
+  _globals['_OPENAIINTEGRATIONSPEC']._serialized_start=222
+  _globals['_OPENAIINTEGRATIONSPEC']._serialized_end=344
+  _globals['_OPENAIAPIKEYAUTHCONFIG']._serialized_start=346
+  _globals['_OPENAIAPIKEYAUTHCONFIG']._serialized_end=387
+  _globals['_OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR']._serialized_start=389
+  _globals['_OPENAIAPIKEYSYSTEMSECRETDESCRIPTOR']._serialized_end=474
+  _globals['_OPENAIVALIDATIONSPEC']._serialized_start=476
+  _globals['_OPENAIVALIDATIONSPEC']._serialized_end=597
+  _globals['_OPENAIINTEGRATIONOPTIONS']._serialized_start=599
+  _globals['_OPENAIINTEGRATIONOPTIONS']._serialized_end=625
 # @@protoc_insertion_point(module_scope)

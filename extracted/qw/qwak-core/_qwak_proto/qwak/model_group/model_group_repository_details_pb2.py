@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,80 +15,25 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/model_group/model_group_repository_details.proto\x12\x1cqwak.model_groups.management\"r\n\x11RepositoryDetails\x12\x45\n\x0frepository_type\x18\x01 \x01(\x0b\x32,.qwak.model_groups.management.RepositoryType\x12\x16\n\x0erepository_key\x18\x02 \x01(\t\"\xf0\x01\n\x17RemoteRepositoryDetails\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x02 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x12\x1d\n\x15repository_remote_url\x18\x03 \x01(\tB\x11\n\x0frepository_type\"\x12\n\x10\x44ockerRepository\"\x13\n\x11\x44\x61tasetRepository\"\x14\n\x12\x41rtifactRepository\"\x17\n\x15HuggingFaceRepository\"\xdd\x02\n\x0eRepositoryType\x12K\n\x11\x64ocker_repository\x18\x01 \x01(\x0b\x32..qwak.model_groups.management.DockerRepositoryH\x00\x12M\n\x12\x64\x61taset_repository\x18\x02 \x01(\x0b\x32/.qwak.model_groups.management.DatasetRepositoryH\x00\x12O\n\x13\x61rtifact_repository\x18\x03 \x01(\x0b\x32\x30.qwak.model_groups.management.ArtifactRepositoryH\x00\x12V\n\x17hugging_face_repository\x18\x04 \x01(\x0b\x32\x33.qwak.model_groups.management.HuggingFaceRepositoryH\x00\x42\x06\n\x04typeBN\n&com.qwak.ai.management.model.group.apiB\"ModelGroupRepositoriesDetailsProtoP\x01\x62\x06proto3')
 
-
-
-_REPOSITORYDETAILS = DESCRIPTOR.message_types_by_name['RepositoryDetails']
-_REMOTEREPOSITORYDETAILS = DESCRIPTOR.message_types_by_name['RemoteRepositoryDetails']
-_DOCKERREPOSITORY = DESCRIPTOR.message_types_by_name['DockerRepository']
-_DATASETREPOSITORY = DESCRIPTOR.message_types_by_name['DatasetRepository']
-_ARTIFACTREPOSITORY = DESCRIPTOR.message_types_by_name['ArtifactRepository']
-_HUGGINGFACEREPOSITORY = DESCRIPTOR.message_types_by_name['HuggingFaceRepository']
-_REPOSITORYTYPE = DESCRIPTOR.message_types_by_name['RepositoryType']
-RepositoryDetails = _reflection.GeneratedProtocolMessageType('RepositoryDetails', (_message.Message,), {
-  'DESCRIPTOR' : _REPOSITORYDETAILS,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.RepositoryDetails)
-  })
-_sym_db.RegisterMessage(RepositoryDetails)
-
-RemoteRepositoryDetails = _reflection.GeneratedProtocolMessageType('RemoteRepositoryDetails', (_message.Message,), {
-  'DESCRIPTOR' : _REMOTEREPOSITORYDETAILS,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.RemoteRepositoryDetails)
-  })
-_sym_db.RegisterMessage(RemoteRepositoryDetails)
-
-DockerRepository = _reflection.GeneratedProtocolMessageType('DockerRepository', (_message.Message,), {
-  'DESCRIPTOR' : _DOCKERREPOSITORY,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.DockerRepository)
-  })
-_sym_db.RegisterMessage(DockerRepository)
-
-DatasetRepository = _reflection.GeneratedProtocolMessageType('DatasetRepository', (_message.Message,), {
-  'DESCRIPTOR' : _DATASETREPOSITORY,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.DatasetRepository)
-  })
-_sym_db.RegisterMessage(DatasetRepository)
-
-ArtifactRepository = _reflection.GeneratedProtocolMessageType('ArtifactRepository', (_message.Message,), {
-  'DESCRIPTOR' : _ARTIFACTREPOSITORY,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.ArtifactRepository)
-  })
-_sym_db.RegisterMessage(ArtifactRepository)
-
-HuggingFaceRepository = _reflection.GeneratedProtocolMessageType('HuggingFaceRepository', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEREPOSITORY,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.HuggingFaceRepository)
-  })
-_sym_db.RegisterMessage(HuggingFaceRepository)
-
-RepositoryType = _reflection.GeneratedProtocolMessageType('RepositoryType', (_message.Message,), {
-  'DESCRIPTOR' : _REPOSITORYTYPE,
-  '__module__' : 'qwak.model_group.model_group_repository_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.model_groups.management.RepositoryType)
-  })
-_sym_db.RegisterMessage(RepositoryType)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.model_group.model_group_repository_details_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.model.group.apiB\"ModelGroupRepositoriesDetailsProtoP\001'
-  _REPOSITORYDETAILS._serialized_start=87
-  _REPOSITORYDETAILS._serialized_end=201
-  _REMOTEREPOSITORYDETAILS._serialized_start=204
-  _REMOTEREPOSITORYDETAILS._serialized_end=444
-  _DOCKERREPOSITORY._serialized_start=446
-  _DOCKERREPOSITORY._serialized_end=464
-  _DATASETREPOSITORY._serialized_start=466
-  _DATASETREPOSITORY._serialized_end=485
-  _ARTIFACTREPOSITORY._serialized_start=487
-  _ARTIFACTREPOSITORY._serialized_end=507
-  _HUGGINGFACEREPOSITORY._serialized_start=509
-  _HUGGINGFACEREPOSITORY._serialized_end=532
-  _REPOSITORYTYPE._serialized_start=535
-  _REPOSITORYTYPE._serialized_end=884
+  _globals['_REPOSITORYDETAILS']._serialized_start=87
+  _globals['_REPOSITORYDETAILS']._serialized_end=201
+  _globals['_REMOTEREPOSITORYDETAILS']._serialized_start=204
+  _globals['_REMOTEREPOSITORYDETAILS']._serialized_end=444
+  _globals['_DOCKERREPOSITORY']._serialized_start=446
+  _globals['_DOCKERREPOSITORY']._serialized_end=464
+  _globals['_DATASETREPOSITORY']._serialized_start=466
+  _globals['_DATASETREPOSITORY']._serialized_end=485
+  _globals['_ARTIFACTREPOSITORY']._serialized_start=487
+  _globals['_ARTIFACTREPOSITORY']._serialized_end=507
+  _globals['_HUGGINGFACEREPOSITORY']._serialized_start=509
+  _globals['_HUGGINGFACEREPOSITORY']._serialized_end=532
+  _globals['_REPOSITORYTYPE']._serialized_start=535
+  _globals['_REPOSITORYTYPE']._serialized_end=884
 # @@protoc_insertion_point(module_scope)

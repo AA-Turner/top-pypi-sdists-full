@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,341 +17,9 @@ from _qwak_proto.qwak.auto_scaling.v1 import auto_scaling_pb2 as qwak_dot_auto__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(qwak/deployment/deployment_service.proto\x12\x1aqwak.deployment.management\x1a qwak/deployment/deployment.proto\x1a\'qwak/auto_scaling/v1/auto_scaling.proto\"\x86\x03\n\x12\x44\x65ployModelRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\tbranch_id\x18\x02 \x01(\tB\x02\x18\x01\x12\x14\n\x08\x62uild_id\x18\x03 \x01(\tB\x02\x18\x01\x12G\n\x0fhosting_service\x18\x04 \x01(\x0b\x32*.qwak.deployment.management.HostingServiceB\x02\x18\x01\x12n\n\x19\x65nvironment_to_deployment\x18\x05 \x03(\x0b\x32K.qwak.deployment.management.DeployModelRequest.EnvironmentToDeploymentEntry\x1ax\n\x1c\x45nvironmentToDeploymentEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12G\n\x05value\x18\x02 \x01(\x0b\x32\x38.qwak.deployment.management.EnvironmentDeploymentMessage:\x02\x38\x01\"\x94\x03\n\x13\x44\x65ployModelResponse\x12\x1f\n\x13\x64\x65ployment_named_id\x18\x01 \x01(\tB\x02\x18\x01\x12\x45\n\x06status\x18\x02 \x01(\x0e\x32\x31.qwak.deployment.management.ModelDeploymentStatusB\x02\x18\x01\x12\x10\n\x04info\x18\x03 \x01(\tB\x02\x18\x01\x12|\n environment_to_deployment_result\x18\x04 \x03(\x0b\x32R.qwak.deployment.management.DeployModelResponse.EnvironmentToDeploymentResultEntry\x1a\x84\x01\n\"EnvironmentToDeploymentResultEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12M\n\x05value\x18\x02 \x01(\x0b\x32>.qwak.deployment.management.EnvironmentDeploymentResultMessage:\x02\x38\x01\"\x86\x04\n\x14UndeployModelRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\tbranch_id\x18\x02 \x01(\tB\x02\x18\x01\x12Z\n\x14hosting_service_type\x18\x03 \x01(\x0e\x32\x38.qwak.deployment.management.DeploymentHostingServiceTypeB\x02\x18\x01\x12\x45\n\x0etraffic_config\x18\x04 \x01(\x0b\x32).qwak.deployment.management.TrafficConfigB\x02\x18\x01\x12\x1a\n\x0evariation_name\x18\x05 \x01(\tB\x02\x18\x01\x12t\n\x1b\x65nvironment_to_undeployment\x18\x06 \x03(\x0b\x32O.qwak.deployment.management.UndeployModelRequest.EnvironmentToUndeploymentEntry\x12\x12\n\nmodel_uuid\x18\x07 \x01(\t\x1a|\n\x1e\x45nvironmentToUndeploymentEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12I\n\x05value\x18\x02 \x01(\x0b\x32:.qwak.deployment.management.EnvironmentUndeploymentMessage:\x02\x38\x01\"\x80\x03\n\x15UndeployModelResponse\x12\x45\n\x06status\x18\x01 \x01(\x0e\x32\x31.qwak.deployment.management.ModelDeploymentStatusB\x02\x18\x01\x12\x10\n\x04info\x18\x02 \x01(\tB\x02\x18\x01\x12\x82\x01\n\"environment_to_undeployment_result\x18\x03 \x03(\x0b\x32V.qwak.deployment.management.UndeployModelResponse.EnvironmentToUndeploymentResultEntry\x1a\x88\x01\n$EnvironmentToUndeploymentResultEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12O\n\x05value\x18\x02 \x01(\x0b\x32@.qwak.deployment.management.EnvironmentUndeploymentResultMessage:\x02\x38\x01\"-\n\x14GetDeploymentRequest\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\"\xbb\x01\n\x15GetDeploymentResponse\x12J\n\x13\x64\x65ployments_details\x18\x01 \x01(\x0b\x32-.qwak.deployment.management.DeploymentDetails\x12V\n\x19\x64\x65ployment_phases_details\x18\x02 \x01(\x0b\x32\x33.qwak.deployment.management.DeploymentPhasesDetails\"\x95\x01\n\x1aGetDeploymentStatusRequest\x12\x1b\n\x13\x64\x65ployment_named_id\x18\x01 \x01(\t\x12Z\n\x14hosting_service_type\x18\x02 \x01(\x0e\x32\x38.qwak.deployment.management.DeploymentHostingServiceTypeB\x02\x18\x01\"`\n\x1bGetDeploymentStatusResponse\x12\x41\n\x06status\x18\x01 \x01(\x0e\x32\x31.qwak.deployment.management.ModelDeploymentStatus\"\x97\x04\n&UpdateDeploymentRuntimeSettingsRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\tbranch_id\x18\x02 \x01(\tB\x02\x18\x01\x12V\n\x13\x64\x65ployment_settings\x18\x03 \x01(\x0b\x32\x35.qwak.deployment.management.RuntimeDeploymentSettingsB\x02\x18\x01\x12\x1a\n\x0evariation_name\x18\x04 \x01(\tB\x02\x18\x01\x12\xa2\x01\n*environment_to_runtime_deployment_settings\x18\x05 \x03(\x0b\x32n.qwak.deployment.management.UpdateDeploymentRuntimeSettingsRequest.EnvironmentToRuntimeDeploymentSettingsEntry\x12\x12\n\nmodel_uuid\x18\x06 \x01(\t\x1a\x96\x01\n+EnvironmentToRuntimeDeploymentSettingsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12V\n\x05value\x18\x02 \x01(\x0b\x32G.qwak.deployment.management.EnvironmentRuntimeDeploymentSettingsMessage:\x02\x38\x01\"\x87\x03\n\'UpdateDeploymentRuntimeSettingsResponse\x12\xb4\x01\n3environment_to_runtime_deployment_settings_response\x18\x01 \x03(\x0b\x32w.qwak.deployment.management.UpdateDeploymentRuntimeSettingsResponse.EnvironmentToRuntimeDeploymentSettingsResponseEntry\x1a\xa4\x01\n3EnvironmentToRuntimeDeploymentSettingsResponseEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\\\n\x05value\x18\x02 \x01(\x0b\x32M.qwak.deployment.management.EnvironmentRuntimeDeploymentSettingsResultMessage:\x02\x38\x01\"Z\n\x1bGetDeploymentDetailsRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\tbranch_id\x18\x02 \x01(\tB\x02\x18\x01\x12\x12\n\nmodel_uuid\x18\x03 \x01(\t\"\xec\x06\n\x1cGetDeploymentDetailsResponse\x12U\n\x1a\x63urrent_deployment_details\x18\x01 \x01(\x0b\x32-.qwak.deployment.management.DeploymentDetailsB\x02\x18\x01\x12N\n\x15last_deployment_brief\x18\x02 \x01(\x0b\x32+.qwak.deployment.management.DeploymentBriefB\x02\x18\x01\x12V\n\x1b\x63urrent_deployments_details\x18\x03 \x03(\x0b\x32-.qwak.deployment.management.DeploymentDetailsB\x02\x18\x01\x12\x87\x01\n!environment_to_deployment_details\x18\x04 \x03(\x0b\x32\\.qwak.deployment.management.GetDeploymentDetailsResponse.EnvironmentToDeploymentDetailsEntry\x12\x1d\n\x11multi_env_support\x18\x05 \x01(\x08\x42\x02\x18\x01\x12\x90\x01\n&build_to_environment_deployment_status\x18\x06 \x03(\x0b\x32`.qwak.deployment.management.GetDeploymentDetailsResponse.BuildToEnvironmentDeploymentStatusEntry\x1a\x86\x01\n#EnvironmentToDeploymentDetailsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12N\n\x05value\x18\x02 \x01(\x0b\x32?.qwak.deployment.management.EnvironmentDeploymentDetailsMessage:\x02\x38\x01\x1a\x87\x01\n\'BuildToEnvironmentDeploymentStatusEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12K\n\x05value\x18\x02 \x01(\x0b\x32<.qwak.deployment.management.BuildDeploymentEnvironmentStatus:\x02\x38\x01\"k\n\x1bGetDeploymentHistoryRequest\x12\x15\n\tbranch_id\x18\x01 \x01(\tB\x02\x18\x01\x12\x14\n\nmodel_uuid\x18\x02 \x01(\tH\x00\x12\x12\n\x08\x62uild_id\x18\x03 \x01(\tH\x00\x42\x0b\n\tfilter_by\"\xf7\x02\n\x1cGetDeploymentHistoryResponse\x12@\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32+.qwak.deployment.management.DeploymentBrief\x12\x8b\x01\n!environment_to_deployment_history\x18\x02 \x03(\x0b\x32\\.qwak.deployment.management.GetDeploymentHistoryResponse.EnvironmentToDeploymentHistoryEntryB\x02\x18\x01\x1a\x86\x01\n#EnvironmentToDeploymentHistoryEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12N\n\x05value\x18\x02 \x01(\x0b\x32?.qwak.deployment.management.EnvironmentDeploymentHistoryMessage:\x02\x38\x01\"\x95\x01\n%PushEnvironmentDeploymentStateRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\x12T\n\x10\x64\x65ployment_state\x18\x02 \x03(\x0b\x32:.qwak.deployment.management.KubernetesModelDeploymentState\"(\n&PushEnvironmentDeploymentStateResponse\"\x80\x01\n\x18\x41pplyModelTrafficRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x39\n\nvariations\x18\x02 \x03(\x0b\x32%.qwak.deployment.management.Variation\x12\x17\n\x0f\x65nvironment_ids\x18\x03 \x03(\t\"\xc6\x02\n\x19\x41pplyModelTrafficResponse\x12\x96\x01\n+environment_to_apply_model_traffic_response\x18\x01 \x03(\x0b\x32\x61.qwak.deployment.management.ApplyModelTrafficResponse.EnvironmentToApplyModelTrafficResponseEntry\x1a\x8f\x01\n+EnvironmentToApplyModelTrafficResponseEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12O\n\x05value\x18\x02 \x01(\x0b\x32@.qwak.deployment.management.EnvironmentApplyModelTrafficResponse:\x02\x38\x01\"*\n\x16GetModelTrafficRequest\x12\x10\n\x08model_id\x18\x01 \x01(\t\"\xea\x02\n\x17GetModelTrafficResponse\x12=\n\nvariations\x18\x01 \x03(\x0b\x32%.qwak.deployment.management.VariationB\x02\x18\x01\x12x\n\x1c\x65nvironment_to_model_traffic\x18\x02 \x03(\x0b\x32R.qwak.deployment.management.GetModelTrafficResponse.EnvironmentToModelTrafficEntry\x12\x1d\n\x11multi_env_support\x18\x03 \x01(\x08\x42\x02\x18\x01\x1aw\n\x1e\x45nvironmentToModelTrafficEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.qwak.deployment.management.EnvironmentTrafficMessage:\x02\x38\x01\"-\n\x16IsBuildDeployedRequest\x12\x13\n\x0b\x62uild_uuids\x18\x01 \x03(\t\"a\n\x17IsBuildDeployedResponse\x12\x46\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x31.qwak.deployment.management.BuildDeploymentStatus\"*\n\x13IsBuildInUseRequest\x12\x13\n\x0b\x62uild_uuids\x18\x01 \x03(\t\"^\n\x14IsBuildInUseResponse\x12\x46\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32\x31.qwak.deployment.management.BuildDeploymentStatus\"D\n\x18\x43\x61ncelDeploymentsRequest\x12\x16\n\x0e\x64\x65ployment_ids\x18\x01 \x03(\t\x12\x10\n\x08model_id\x18\x02 \x01(\t\"\x81\x02\n\x19\x43\x61ncelDeploymentsResponse\x12m\n\x15\x63\x61ncel_request_status\x18\x01 \x03(\x0b\x32N.qwak.deployment.management.CancelDeploymentsResponse.CancelRequestStatusEntry\x1au\n\x18\x43\x61ncelRequestStatusEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12H\n\x05value\x18\x02 \x01(\x0b\x32\x39.qwak.deployment.management.CancelDeploymentRequestStatus:\x02\x38\x01\"6\n ListLiveModelsDeploymentsRequest\x12\x12\n\nmodel_uuid\x18\x01 \x01(\t\"g\n!ListLiveModelsDeploymentsResponse\x12\x42\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32-.qwak.deployment.management.DeploymentDetails2\x87\x0f\n\x1b\x44\x65ploymentManagementService\x12n\n\x0b\x44\x65ployModel\x12..qwak.deployment.management.DeployModelRequest\x1a/.qwak.deployment.management.DeployModelResponse\x12t\n\rUndeployModel\x12\x30.qwak.deployment.management.UndeployModelRequest\x1a\x31.qwak.deployment.management.UndeployModelResponse\x12\x86\x01\n\x13GetDeploymentStatus\x12\x36.qwak.deployment.management.GetDeploymentStatusRequest\x1a\x37.qwak.deployment.management.GetDeploymentStatusResponse\x12\x89\x01\n\x14GetDeploymentDetails\x12\x37.qwak.deployment.management.GetDeploymentDetailsRequest\x1a\x38.qwak.deployment.management.GetDeploymentDetailsResponse\x12\xaa\x01\n\x1fUpdateDeploymentRuntimeSettings\x12\x42.qwak.deployment.management.UpdateDeploymentRuntimeSettingsRequest\x1a\x43.qwak.deployment.management.UpdateDeploymentRuntimeSettingsResponse\x12\x89\x01\n\x14GetDeploymentHistory\x12\x37.qwak.deployment.management.GetDeploymentHistoryRequest\x1a\x38.qwak.deployment.management.GetDeploymentHistoryResponse\x12\xa7\x01\n\x1ePushEnvironmentDeploymentState\x12\x41.qwak.deployment.management.PushEnvironmentDeploymentStateRequest\x1a\x42.qwak.deployment.management.PushEnvironmentDeploymentStateResponse\x12\x85\x01\n\x11\x41pplyModelTraffic\x12\x34.qwak.deployment.management.ApplyModelTrafficRequest\x1a\x35.qwak.deployment.management.ApplyModelTrafficResponse\"\x03\x88\x02\x01\x12\x7f\n\x0fGetModelTraffic\x12\x32.qwak.deployment.management.GetModelTrafficRequest\x1a\x33.qwak.deployment.management.GetModelTrafficResponse\"\x03\x88\x02\x01\x12z\n\x0fIsBuildDeployed\x12\x32.qwak.deployment.management.IsBuildDeployedRequest\x1a\x33.qwak.deployment.management.IsBuildDeployedResponse\x12q\n\x0cIsBuildInUse\x12/.qwak.deployment.management.IsBuildInUseRequest\x1a\x30.qwak.deployment.management.IsBuildInUseResponse\x12t\n\rGetDeployment\x12\x30.qwak.deployment.management.GetDeploymentRequest\x1a\x31.qwak.deployment.management.GetDeploymentResponse\x12\x80\x01\n\x11\x43\x61ncelDeployments\x12\x34.qwak.deployment.management.CancelDeploymentsRequest\x1a\x35.qwak.deployment.management.CancelDeploymentsResponse\x12\x98\x01\n\x19ListLiveModelsDeployments\x12<.qwak.deployment.management.ListLiveModelsDeploymentsRequest\x1a=.qwak.deployment.management.ListLiveModelsDeploymentsResponseBE\n%com.qwak.ai.management.deployment.apiP\x01Z\x1aqwak/deployment;deploymentb\x06proto3')
 
-
-
-_DEPLOYMODELREQUEST = DESCRIPTOR.message_types_by_name['DeployModelRequest']
-_DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY = _DEPLOYMODELREQUEST.nested_types_by_name['EnvironmentToDeploymentEntry']
-_DEPLOYMODELRESPONSE = DESCRIPTOR.message_types_by_name['DeployModelResponse']
-_DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY = _DEPLOYMODELRESPONSE.nested_types_by_name['EnvironmentToDeploymentResultEntry']
-_UNDEPLOYMODELREQUEST = DESCRIPTOR.message_types_by_name['UndeployModelRequest']
-_UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY = _UNDEPLOYMODELREQUEST.nested_types_by_name['EnvironmentToUndeploymentEntry']
-_UNDEPLOYMODELRESPONSE = DESCRIPTOR.message_types_by_name['UndeployModelResponse']
-_UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY = _UNDEPLOYMODELRESPONSE.nested_types_by_name['EnvironmentToUndeploymentResultEntry']
-_GETDEPLOYMENTREQUEST = DESCRIPTOR.message_types_by_name['GetDeploymentRequest']
-_GETDEPLOYMENTRESPONSE = DESCRIPTOR.message_types_by_name['GetDeploymentResponse']
-_GETDEPLOYMENTSTATUSREQUEST = DESCRIPTOR.message_types_by_name['GetDeploymentStatusRequest']
-_GETDEPLOYMENTSTATUSRESPONSE = DESCRIPTOR.message_types_by_name['GetDeploymentStatusResponse']
-_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST = DESCRIPTOR.message_types_by_name['UpdateDeploymentRuntimeSettingsRequest']
-_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY = _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST.nested_types_by_name['EnvironmentToRuntimeDeploymentSettingsEntry']
-_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['UpdateDeploymentRuntimeSettingsResponse']
-_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY = _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE.nested_types_by_name['EnvironmentToRuntimeDeploymentSettingsResponseEntry']
-_GETDEPLOYMENTDETAILSREQUEST = DESCRIPTOR.message_types_by_name['GetDeploymentDetailsRequest']
-_GETDEPLOYMENTDETAILSRESPONSE = DESCRIPTOR.message_types_by_name['GetDeploymentDetailsResponse']
-_GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY = _GETDEPLOYMENTDETAILSRESPONSE.nested_types_by_name['EnvironmentToDeploymentDetailsEntry']
-_GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY = _GETDEPLOYMENTDETAILSRESPONSE.nested_types_by_name['BuildToEnvironmentDeploymentStatusEntry']
-_GETDEPLOYMENTHISTORYREQUEST = DESCRIPTOR.message_types_by_name['GetDeploymentHistoryRequest']
-_GETDEPLOYMENTHISTORYRESPONSE = DESCRIPTOR.message_types_by_name['GetDeploymentHistoryResponse']
-_GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY = _GETDEPLOYMENTHISTORYRESPONSE.nested_types_by_name['EnvironmentToDeploymentHistoryEntry']
-_PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST = DESCRIPTOR.message_types_by_name['PushEnvironmentDeploymentStateRequest']
-_PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE = DESCRIPTOR.message_types_by_name['PushEnvironmentDeploymentStateResponse']
-_APPLYMODELTRAFFICREQUEST = DESCRIPTOR.message_types_by_name['ApplyModelTrafficRequest']
-_APPLYMODELTRAFFICRESPONSE = DESCRIPTOR.message_types_by_name['ApplyModelTrafficResponse']
-_APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY = _APPLYMODELTRAFFICRESPONSE.nested_types_by_name['EnvironmentToApplyModelTrafficResponseEntry']
-_GETMODELTRAFFICREQUEST = DESCRIPTOR.message_types_by_name['GetModelTrafficRequest']
-_GETMODELTRAFFICRESPONSE = DESCRIPTOR.message_types_by_name['GetModelTrafficResponse']
-_GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY = _GETMODELTRAFFICRESPONSE.nested_types_by_name['EnvironmentToModelTrafficEntry']
-_ISBUILDDEPLOYEDREQUEST = DESCRIPTOR.message_types_by_name['IsBuildDeployedRequest']
-_ISBUILDDEPLOYEDRESPONSE = DESCRIPTOR.message_types_by_name['IsBuildDeployedResponse']
-_ISBUILDINUSEREQUEST = DESCRIPTOR.message_types_by_name['IsBuildInUseRequest']
-_ISBUILDINUSERESPONSE = DESCRIPTOR.message_types_by_name['IsBuildInUseResponse']
-_CANCELDEPLOYMENTSREQUEST = DESCRIPTOR.message_types_by_name['CancelDeploymentsRequest']
-_CANCELDEPLOYMENTSRESPONSE = DESCRIPTOR.message_types_by_name['CancelDeploymentsResponse']
-_CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY = _CANCELDEPLOYMENTSRESPONSE.nested_types_by_name['CancelRequestStatusEntry']
-_LISTLIVEMODELSDEPLOYMENTSREQUEST = DESCRIPTOR.message_types_by_name['ListLiveModelsDeploymentsRequest']
-_LISTLIVEMODELSDEPLOYMENTSRESPONSE = DESCRIPTOR.message_types_by_name['ListLiveModelsDeploymentsResponse']
-DeployModelRequest = _reflection.GeneratedProtocolMessageType('DeployModelRequest', (_message.Message,), {
-
-  'EnvironmentToDeploymentEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToDeploymentEntry', (_message.Message,), {
-    'DESCRIPTOR' : _DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.DeployModelRequest.EnvironmentToDeploymentEntry)
-    })
-  ,
-  'DESCRIPTOR' : _DEPLOYMODELREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.DeployModelRequest)
-  })
-_sym_db.RegisterMessage(DeployModelRequest)
-_sym_db.RegisterMessage(DeployModelRequest.EnvironmentToDeploymentEntry)
-
-DeployModelResponse = _reflection.GeneratedProtocolMessageType('DeployModelResponse', (_message.Message,), {
-
-  'EnvironmentToDeploymentResultEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToDeploymentResultEntry', (_message.Message,), {
-    'DESCRIPTOR' : _DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.DeployModelResponse.EnvironmentToDeploymentResultEntry)
-    })
-  ,
-  'DESCRIPTOR' : _DEPLOYMODELRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.DeployModelResponse)
-  })
-_sym_db.RegisterMessage(DeployModelResponse)
-_sym_db.RegisterMessage(DeployModelResponse.EnvironmentToDeploymentResultEntry)
-
-UndeployModelRequest = _reflection.GeneratedProtocolMessageType('UndeployModelRequest', (_message.Message,), {
-
-  'EnvironmentToUndeploymentEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToUndeploymentEntry', (_message.Message,), {
-    'DESCRIPTOR' : _UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.UndeployModelRequest.EnvironmentToUndeploymentEntry)
-    })
-  ,
-  'DESCRIPTOR' : _UNDEPLOYMODELREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.UndeployModelRequest)
-  })
-_sym_db.RegisterMessage(UndeployModelRequest)
-_sym_db.RegisterMessage(UndeployModelRequest.EnvironmentToUndeploymentEntry)
-
-UndeployModelResponse = _reflection.GeneratedProtocolMessageType('UndeployModelResponse', (_message.Message,), {
-
-  'EnvironmentToUndeploymentResultEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToUndeploymentResultEntry', (_message.Message,), {
-    'DESCRIPTOR' : _UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.UndeployModelResponse.EnvironmentToUndeploymentResultEntry)
-    })
-  ,
-  'DESCRIPTOR' : _UNDEPLOYMODELRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.UndeployModelResponse)
-  })
-_sym_db.RegisterMessage(UndeployModelResponse)
-_sym_db.RegisterMessage(UndeployModelResponse.EnvironmentToUndeploymentResultEntry)
-
-GetDeploymentRequest = _reflection.GeneratedProtocolMessageType('GetDeploymentRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentRequest)
-  })
-_sym_db.RegisterMessage(GetDeploymentRequest)
-
-GetDeploymentResponse = _reflection.GeneratedProtocolMessageType('GetDeploymentResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentResponse)
-  })
-_sym_db.RegisterMessage(GetDeploymentResponse)
-
-GetDeploymentStatusRequest = _reflection.GeneratedProtocolMessageType('GetDeploymentStatusRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTSTATUSREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentStatusRequest)
-  })
-_sym_db.RegisterMessage(GetDeploymentStatusRequest)
-
-GetDeploymentStatusResponse = _reflection.GeneratedProtocolMessageType('GetDeploymentStatusResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTSTATUSRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentStatusResponse)
-  })
-_sym_db.RegisterMessage(GetDeploymentStatusResponse)
-
-UpdateDeploymentRuntimeSettingsRequest = _reflection.GeneratedProtocolMessageType('UpdateDeploymentRuntimeSettingsRequest', (_message.Message,), {
-
-  'EnvironmentToRuntimeDeploymentSettingsEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToRuntimeDeploymentSettingsEntry', (_message.Message,), {
-    'DESCRIPTOR' : _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.UpdateDeploymentRuntimeSettingsRequest.EnvironmentToRuntimeDeploymentSettingsEntry)
-    })
-  ,
-  'DESCRIPTOR' : _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.UpdateDeploymentRuntimeSettingsRequest)
-  })
-_sym_db.RegisterMessage(UpdateDeploymentRuntimeSettingsRequest)
-_sym_db.RegisterMessage(UpdateDeploymentRuntimeSettingsRequest.EnvironmentToRuntimeDeploymentSettingsEntry)
-
-UpdateDeploymentRuntimeSettingsResponse = _reflection.GeneratedProtocolMessageType('UpdateDeploymentRuntimeSettingsResponse', (_message.Message,), {
-
-  'EnvironmentToRuntimeDeploymentSettingsResponseEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToRuntimeDeploymentSettingsResponseEntry', (_message.Message,), {
-    'DESCRIPTOR' : _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.UpdateDeploymentRuntimeSettingsResponse.EnvironmentToRuntimeDeploymentSettingsResponseEntry)
-    })
-  ,
-  'DESCRIPTOR' : _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.UpdateDeploymentRuntimeSettingsResponse)
-  })
-_sym_db.RegisterMessage(UpdateDeploymentRuntimeSettingsResponse)
-_sym_db.RegisterMessage(UpdateDeploymentRuntimeSettingsResponse.EnvironmentToRuntimeDeploymentSettingsResponseEntry)
-
-GetDeploymentDetailsRequest = _reflection.GeneratedProtocolMessageType('GetDeploymentDetailsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTDETAILSREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentDetailsRequest)
-  })
-_sym_db.RegisterMessage(GetDeploymentDetailsRequest)
-
-GetDeploymentDetailsResponse = _reflection.GeneratedProtocolMessageType('GetDeploymentDetailsResponse', (_message.Message,), {
-
-  'EnvironmentToDeploymentDetailsEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToDeploymentDetailsEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentDetailsResponse.EnvironmentToDeploymentDetailsEntry)
-    })
-  ,
-
-  'BuildToEnvironmentDeploymentStatusEntry' : _reflection.GeneratedProtocolMessageType('BuildToEnvironmentDeploymentStatusEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentDetailsResponse.BuildToEnvironmentDeploymentStatusEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETDEPLOYMENTDETAILSRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentDetailsResponse)
-  })
-_sym_db.RegisterMessage(GetDeploymentDetailsResponse)
-_sym_db.RegisterMessage(GetDeploymentDetailsResponse.EnvironmentToDeploymentDetailsEntry)
-_sym_db.RegisterMessage(GetDeploymentDetailsResponse.BuildToEnvironmentDeploymentStatusEntry)
-
-GetDeploymentHistoryRequest = _reflection.GeneratedProtocolMessageType('GetDeploymentHistoryRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETDEPLOYMENTHISTORYREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentHistoryRequest)
-  })
-_sym_db.RegisterMessage(GetDeploymentHistoryRequest)
-
-GetDeploymentHistoryResponse = _reflection.GeneratedProtocolMessageType('GetDeploymentHistoryResponse', (_message.Message,), {
-
-  'EnvironmentToDeploymentHistoryEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToDeploymentHistoryEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentHistoryResponse.EnvironmentToDeploymentHistoryEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETDEPLOYMENTHISTORYRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetDeploymentHistoryResponse)
-  })
-_sym_db.RegisterMessage(GetDeploymentHistoryResponse)
-_sym_db.RegisterMessage(GetDeploymentHistoryResponse.EnvironmentToDeploymentHistoryEntry)
-
-PushEnvironmentDeploymentStateRequest = _reflection.GeneratedProtocolMessageType('PushEnvironmentDeploymentStateRequest', (_message.Message,), {
-  'DESCRIPTOR' : _PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.PushEnvironmentDeploymentStateRequest)
-  })
-_sym_db.RegisterMessage(PushEnvironmentDeploymentStateRequest)
-
-PushEnvironmentDeploymentStateResponse = _reflection.GeneratedProtocolMessageType('PushEnvironmentDeploymentStateResponse', (_message.Message,), {
-  'DESCRIPTOR' : _PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.PushEnvironmentDeploymentStateResponse)
-  })
-_sym_db.RegisterMessage(PushEnvironmentDeploymentStateResponse)
-
-ApplyModelTrafficRequest = _reflection.GeneratedProtocolMessageType('ApplyModelTrafficRequest', (_message.Message,), {
-  'DESCRIPTOR' : _APPLYMODELTRAFFICREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.ApplyModelTrafficRequest)
-  })
-_sym_db.RegisterMessage(ApplyModelTrafficRequest)
-
-ApplyModelTrafficResponse = _reflection.GeneratedProtocolMessageType('ApplyModelTrafficResponse', (_message.Message,), {
-
-  'EnvironmentToApplyModelTrafficResponseEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToApplyModelTrafficResponseEntry', (_message.Message,), {
-    'DESCRIPTOR' : _APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.ApplyModelTrafficResponse.EnvironmentToApplyModelTrafficResponseEntry)
-    })
-  ,
-  'DESCRIPTOR' : _APPLYMODELTRAFFICRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.ApplyModelTrafficResponse)
-  })
-_sym_db.RegisterMessage(ApplyModelTrafficResponse)
-_sym_db.RegisterMessage(ApplyModelTrafficResponse.EnvironmentToApplyModelTrafficResponseEntry)
-
-GetModelTrafficRequest = _reflection.GeneratedProtocolMessageType('GetModelTrafficRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETMODELTRAFFICREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetModelTrafficRequest)
-  })
-_sym_db.RegisterMessage(GetModelTrafficRequest)
-
-GetModelTrafficResponse = _reflection.GeneratedProtocolMessageType('GetModelTrafficResponse', (_message.Message,), {
-
-  'EnvironmentToModelTrafficEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentToModelTrafficEntry', (_message.Message,), {
-    'DESCRIPTOR' : _GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetModelTrafficResponse.EnvironmentToModelTrafficEntry)
-    })
-  ,
-  'DESCRIPTOR' : _GETMODELTRAFFICRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.GetModelTrafficResponse)
-  })
-_sym_db.RegisterMessage(GetModelTrafficResponse)
-_sym_db.RegisterMessage(GetModelTrafficResponse.EnvironmentToModelTrafficEntry)
-
-IsBuildDeployedRequest = _reflection.GeneratedProtocolMessageType('IsBuildDeployedRequest', (_message.Message,), {
-  'DESCRIPTOR' : _ISBUILDDEPLOYEDREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.IsBuildDeployedRequest)
-  })
-_sym_db.RegisterMessage(IsBuildDeployedRequest)
-
-IsBuildDeployedResponse = _reflection.GeneratedProtocolMessageType('IsBuildDeployedResponse', (_message.Message,), {
-  'DESCRIPTOR' : _ISBUILDDEPLOYEDRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.IsBuildDeployedResponse)
-  })
-_sym_db.RegisterMessage(IsBuildDeployedResponse)
-
-IsBuildInUseRequest = _reflection.GeneratedProtocolMessageType('IsBuildInUseRequest', (_message.Message,), {
-  'DESCRIPTOR' : _ISBUILDINUSEREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.IsBuildInUseRequest)
-  })
-_sym_db.RegisterMessage(IsBuildInUseRequest)
-
-IsBuildInUseResponse = _reflection.GeneratedProtocolMessageType('IsBuildInUseResponse', (_message.Message,), {
-  'DESCRIPTOR' : _ISBUILDINUSERESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.IsBuildInUseResponse)
-  })
-_sym_db.RegisterMessage(IsBuildInUseResponse)
-
-CancelDeploymentsRequest = _reflection.GeneratedProtocolMessageType('CancelDeploymentsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CANCELDEPLOYMENTSREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.CancelDeploymentsRequest)
-  })
-_sym_db.RegisterMessage(CancelDeploymentsRequest)
-
-CancelDeploymentsResponse = _reflection.GeneratedProtocolMessageType('CancelDeploymentsResponse', (_message.Message,), {
-
-  'CancelRequestStatusEntry' : _reflection.GeneratedProtocolMessageType('CancelRequestStatusEntry', (_message.Message,), {
-    'DESCRIPTOR' : _CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY,
-    '__module__' : 'qwak.deployment.deployment_service_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.deployment.management.CancelDeploymentsResponse.CancelRequestStatusEntry)
-    })
-  ,
-  'DESCRIPTOR' : _CANCELDEPLOYMENTSRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.CancelDeploymentsResponse)
-  })
-_sym_db.RegisterMessage(CancelDeploymentsResponse)
-_sym_db.RegisterMessage(CancelDeploymentsResponse.CancelRequestStatusEntry)
-
-ListLiveModelsDeploymentsRequest = _reflection.GeneratedProtocolMessageType('ListLiveModelsDeploymentsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTLIVEMODELSDEPLOYMENTSREQUEST,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.ListLiveModelsDeploymentsRequest)
-  })
-_sym_db.RegisterMessage(ListLiveModelsDeploymentsRequest)
-
-ListLiveModelsDeploymentsResponse = _reflection.GeneratedProtocolMessageType('ListLiveModelsDeploymentsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTLIVEMODELSDEPLOYMENTSRESPONSE,
-  '__module__' : 'qwak.deployment.deployment_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.deployment.management.ListLiveModelsDeploymentsResponse)
-  })
-_sym_db.RegisterMessage(ListLiveModelsDeploymentsResponse)
-
-_DEPLOYMENTMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['DeploymentManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.deployment.deployment_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -435,86 +102,86 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DEPLOYMENTMANAGEMENTSERVICE.methods_by_name['ApplyModelTraffic']._serialized_options = b'\210\002\001'
   _DEPLOYMENTMANAGEMENTSERVICE.methods_by_name['GetModelTraffic']._options = None
   _DEPLOYMENTMANAGEMENTSERVICE.methods_by_name['GetModelTraffic']._serialized_options = b'\210\002\001'
-  _DEPLOYMODELREQUEST._serialized_start=148
-  _DEPLOYMODELREQUEST._serialized_end=538
-  _DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY._serialized_start=418
-  _DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY._serialized_end=538
-  _DEPLOYMODELRESPONSE._serialized_start=541
-  _DEPLOYMODELRESPONSE._serialized_end=945
-  _DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY._serialized_start=813
-  _DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY._serialized_end=945
-  _UNDEPLOYMODELREQUEST._serialized_start=948
-  _UNDEPLOYMODELREQUEST._serialized_end=1466
-  _UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY._serialized_start=1342
-  _UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY._serialized_end=1466
-  _UNDEPLOYMODELRESPONSE._serialized_start=1469
-  _UNDEPLOYMODELRESPONSE._serialized_end=1853
-  _UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY._serialized_start=1717
-  _UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY._serialized_end=1853
-  _GETDEPLOYMENTREQUEST._serialized_start=1855
-  _GETDEPLOYMENTREQUEST._serialized_end=1900
-  _GETDEPLOYMENTRESPONSE._serialized_start=1903
-  _GETDEPLOYMENTRESPONSE._serialized_end=2090
-  _GETDEPLOYMENTSTATUSREQUEST._serialized_start=2093
-  _GETDEPLOYMENTSTATUSREQUEST._serialized_end=2242
-  _GETDEPLOYMENTSTATUSRESPONSE._serialized_start=2244
-  _GETDEPLOYMENTSTATUSRESPONSE._serialized_end=2340
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST._serialized_start=2343
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST._serialized_end=2878
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY._serialized_start=2728
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY._serialized_end=2878
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE._serialized_start=2881
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE._serialized_end=3272
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY._serialized_start=3108
-  _UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY._serialized_end=3272
-  _GETDEPLOYMENTDETAILSREQUEST._serialized_start=3274
-  _GETDEPLOYMENTDETAILSREQUEST._serialized_end=3364
-  _GETDEPLOYMENTDETAILSRESPONSE._serialized_start=3367
-  _GETDEPLOYMENTDETAILSRESPONSE._serialized_end=4243
-  _GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY._serialized_start=3971
-  _GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY._serialized_end=4105
-  _GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY._serialized_start=4108
-  _GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY._serialized_end=4243
-  _GETDEPLOYMENTHISTORYREQUEST._serialized_start=4245
-  _GETDEPLOYMENTHISTORYREQUEST._serialized_end=4352
-  _GETDEPLOYMENTHISTORYRESPONSE._serialized_start=4355
-  _GETDEPLOYMENTHISTORYRESPONSE._serialized_end=4730
-  _GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY._serialized_start=4596
-  _GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY._serialized_end=4730
-  _PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST._serialized_start=4733
-  _PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST._serialized_end=4882
-  _PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE._serialized_start=4884
-  _PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE._serialized_end=4924
-  _APPLYMODELTRAFFICREQUEST._serialized_start=4927
-  _APPLYMODELTRAFFICREQUEST._serialized_end=5055
-  _APPLYMODELTRAFFICRESPONSE._serialized_start=5058
-  _APPLYMODELTRAFFICRESPONSE._serialized_end=5384
-  _APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY._serialized_start=5241
-  _APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY._serialized_end=5384
-  _GETMODELTRAFFICREQUEST._serialized_start=5386
-  _GETMODELTRAFFICREQUEST._serialized_end=5428
-  _GETMODELTRAFFICRESPONSE._serialized_start=5431
-  _GETMODELTRAFFICRESPONSE._serialized_end=5793
-  _GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY._serialized_start=5674
-  _GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY._serialized_end=5793
-  _ISBUILDDEPLOYEDREQUEST._serialized_start=5795
-  _ISBUILDDEPLOYEDREQUEST._serialized_end=5840
-  _ISBUILDDEPLOYEDRESPONSE._serialized_start=5842
-  _ISBUILDDEPLOYEDRESPONSE._serialized_end=5939
-  _ISBUILDINUSEREQUEST._serialized_start=5941
-  _ISBUILDINUSEREQUEST._serialized_end=5983
-  _ISBUILDINUSERESPONSE._serialized_start=5985
-  _ISBUILDINUSERESPONSE._serialized_end=6079
-  _CANCELDEPLOYMENTSREQUEST._serialized_start=6081
-  _CANCELDEPLOYMENTSREQUEST._serialized_end=6149
-  _CANCELDEPLOYMENTSRESPONSE._serialized_start=6152
-  _CANCELDEPLOYMENTSRESPONSE._serialized_end=6409
-  _CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY._serialized_start=6292
-  _CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY._serialized_end=6409
-  _LISTLIVEMODELSDEPLOYMENTSREQUEST._serialized_start=6411
-  _LISTLIVEMODELSDEPLOYMENTSREQUEST._serialized_end=6465
-  _LISTLIVEMODELSDEPLOYMENTSRESPONSE._serialized_start=6467
-  _LISTLIVEMODELSDEPLOYMENTSRESPONSE._serialized_end=6570
-  _DEPLOYMENTMANAGEMENTSERVICE._serialized_start=6573
-  _DEPLOYMENTMANAGEMENTSERVICE._serialized_end=8500
+  _globals['_DEPLOYMODELREQUEST']._serialized_start=148
+  _globals['_DEPLOYMODELREQUEST']._serialized_end=538
+  _globals['_DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY']._serialized_start=418
+  _globals['_DEPLOYMODELREQUEST_ENVIRONMENTTODEPLOYMENTENTRY']._serialized_end=538
+  _globals['_DEPLOYMODELRESPONSE']._serialized_start=541
+  _globals['_DEPLOYMODELRESPONSE']._serialized_end=945
+  _globals['_DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY']._serialized_start=813
+  _globals['_DEPLOYMODELRESPONSE_ENVIRONMENTTODEPLOYMENTRESULTENTRY']._serialized_end=945
+  _globals['_UNDEPLOYMODELREQUEST']._serialized_start=948
+  _globals['_UNDEPLOYMODELREQUEST']._serialized_end=1466
+  _globals['_UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY']._serialized_start=1342
+  _globals['_UNDEPLOYMODELREQUEST_ENVIRONMENTTOUNDEPLOYMENTENTRY']._serialized_end=1466
+  _globals['_UNDEPLOYMODELRESPONSE']._serialized_start=1469
+  _globals['_UNDEPLOYMODELRESPONSE']._serialized_end=1853
+  _globals['_UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY']._serialized_start=1717
+  _globals['_UNDEPLOYMODELRESPONSE_ENVIRONMENTTOUNDEPLOYMENTRESULTENTRY']._serialized_end=1853
+  _globals['_GETDEPLOYMENTREQUEST']._serialized_start=1855
+  _globals['_GETDEPLOYMENTREQUEST']._serialized_end=1900
+  _globals['_GETDEPLOYMENTRESPONSE']._serialized_start=1903
+  _globals['_GETDEPLOYMENTRESPONSE']._serialized_end=2090
+  _globals['_GETDEPLOYMENTSTATUSREQUEST']._serialized_start=2093
+  _globals['_GETDEPLOYMENTSTATUSREQUEST']._serialized_end=2242
+  _globals['_GETDEPLOYMENTSTATUSRESPONSE']._serialized_start=2244
+  _globals['_GETDEPLOYMENTSTATUSRESPONSE']._serialized_end=2340
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST']._serialized_start=2343
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST']._serialized_end=2878
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY']._serialized_start=2728
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSREQUEST_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSENTRY']._serialized_end=2878
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE']._serialized_start=2881
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE']._serialized_end=3272
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY']._serialized_start=3108
+  _globals['_UPDATEDEPLOYMENTRUNTIMESETTINGSRESPONSE_ENVIRONMENTTORUNTIMEDEPLOYMENTSETTINGSRESPONSEENTRY']._serialized_end=3272
+  _globals['_GETDEPLOYMENTDETAILSREQUEST']._serialized_start=3274
+  _globals['_GETDEPLOYMENTDETAILSREQUEST']._serialized_end=3364
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE']._serialized_start=3367
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE']._serialized_end=4243
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY']._serialized_start=3971
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE_ENVIRONMENTTODEPLOYMENTDETAILSENTRY']._serialized_end=4105
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY']._serialized_start=4108
+  _globals['_GETDEPLOYMENTDETAILSRESPONSE_BUILDTOENVIRONMENTDEPLOYMENTSTATUSENTRY']._serialized_end=4243
+  _globals['_GETDEPLOYMENTHISTORYREQUEST']._serialized_start=4245
+  _globals['_GETDEPLOYMENTHISTORYREQUEST']._serialized_end=4352
+  _globals['_GETDEPLOYMENTHISTORYRESPONSE']._serialized_start=4355
+  _globals['_GETDEPLOYMENTHISTORYRESPONSE']._serialized_end=4730
+  _globals['_GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY']._serialized_start=4596
+  _globals['_GETDEPLOYMENTHISTORYRESPONSE_ENVIRONMENTTODEPLOYMENTHISTORYENTRY']._serialized_end=4730
+  _globals['_PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST']._serialized_start=4733
+  _globals['_PUSHENVIRONMENTDEPLOYMENTSTATEREQUEST']._serialized_end=4882
+  _globals['_PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE']._serialized_start=4884
+  _globals['_PUSHENVIRONMENTDEPLOYMENTSTATERESPONSE']._serialized_end=4924
+  _globals['_APPLYMODELTRAFFICREQUEST']._serialized_start=4927
+  _globals['_APPLYMODELTRAFFICREQUEST']._serialized_end=5055
+  _globals['_APPLYMODELTRAFFICRESPONSE']._serialized_start=5058
+  _globals['_APPLYMODELTRAFFICRESPONSE']._serialized_end=5384
+  _globals['_APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY']._serialized_start=5241
+  _globals['_APPLYMODELTRAFFICRESPONSE_ENVIRONMENTTOAPPLYMODELTRAFFICRESPONSEENTRY']._serialized_end=5384
+  _globals['_GETMODELTRAFFICREQUEST']._serialized_start=5386
+  _globals['_GETMODELTRAFFICREQUEST']._serialized_end=5428
+  _globals['_GETMODELTRAFFICRESPONSE']._serialized_start=5431
+  _globals['_GETMODELTRAFFICRESPONSE']._serialized_end=5793
+  _globals['_GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY']._serialized_start=5674
+  _globals['_GETMODELTRAFFICRESPONSE_ENVIRONMENTTOMODELTRAFFICENTRY']._serialized_end=5793
+  _globals['_ISBUILDDEPLOYEDREQUEST']._serialized_start=5795
+  _globals['_ISBUILDDEPLOYEDREQUEST']._serialized_end=5840
+  _globals['_ISBUILDDEPLOYEDRESPONSE']._serialized_start=5842
+  _globals['_ISBUILDDEPLOYEDRESPONSE']._serialized_end=5939
+  _globals['_ISBUILDINUSEREQUEST']._serialized_start=5941
+  _globals['_ISBUILDINUSEREQUEST']._serialized_end=5983
+  _globals['_ISBUILDINUSERESPONSE']._serialized_start=5985
+  _globals['_ISBUILDINUSERESPONSE']._serialized_end=6079
+  _globals['_CANCELDEPLOYMENTSREQUEST']._serialized_start=6081
+  _globals['_CANCELDEPLOYMENTSREQUEST']._serialized_end=6149
+  _globals['_CANCELDEPLOYMENTSRESPONSE']._serialized_start=6152
+  _globals['_CANCELDEPLOYMENTSRESPONSE']._serialized_end=6409
+  _globals['_CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY']._serialized_start=6292
+  _globals['_CANCELDEPLOYMENTSRESPONSE_CANCELREQUESTSTATUSENTRY']._serialized_end=6409
+  _globals['_LISTLIVEMODELSDEPLOYMENTSREQUEST']._serialized_start=6411
+  _globals['_LISTLIVEMODELSDEPLOYMENTSREQUEST']._serialized_end=6465
+  _globals['_LISTLIVEMODELSDEPLOYMENTSRESPONSE']._serialized_start=6467
+  _globals['_LISTLIVEMODELSDEPLOYMENTSRESPONSE']._serialized_end=6570
+  _globals['_DEPLOYMENTMANAGEMENTSERVICE']._serialized_start=6573
+  _globals['_DEPLOYMENTMANAGEMENTSERVICE']._serialized_end=8500
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,30 +15,15 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?qwak/administration/runtime_configuration/v0/creds/secret.proto\x12\x39qwak.administration.runtime_configuration.v0.creds.secret\"\x8e\x01\n\x0cSecretKeyRef\x12v\n\x19kubernetes_secret_key_ref\x18\x01 \x01(\x0b\x32Q.qwak.administration.runtime_configuration.v0.creds.secret.KubernetesSecretKeyRefH\x00\x42\x06\n\x04type\"3\n\x16KubernetesSecretKeyRef\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\tB\xe5\x01\n2com.jfrog.ml.runtime_configuration.v0.creds.secretP\x01Z\xac\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0/creds;runtime_configuration_v0_credsb\x06proto3')
 
-
-
-_SECRETKEYREF = DESCRIPTOR.message_types_by_name['SecretKeyRef']
-_KUBERNETESSECRETKEYREF = DESCRIPTOR.message_types_by_name['KubernetesSecretKeyRef']
-SecretKeyRef = _reflection.GeneratedProtocolMessageType('SecretKeyRef', (_message.Message,), {
-  'DESCRIPTOR' : _SECRETKEYREF,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.creds.secret_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRef)
-  })
-_sym_db.RegisterMessage(SecretKeyRef)
-
-KubernetesSecretKeyRef = _reflection.GeneratedProtocolMessageType('KubernetesSecretKeyRef', (_message.Message,), {
-  'DESCRIPTOR' : _KUBERNETESSECRETKEYREF,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.creds.secret_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.creds.secret.KubernetesSecretKeyRef)
-  })
-_sym_db.RegisterMessage(KubernetesSecretKeyRef)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.creds.secret_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n2com.jfrog.ml.runtime_configuration.v0.creds.secretP\001Z\254\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0/creds;runtime_configuration_v0_creds'
-  _SECRETKEYREF._serialized_start=127
-  _SECRETKEYREF._serialized_end=269
-  _KUBERNETESSECRETKEYREF._serialized_start=271
-  _KUBERNETESSECRETKEYREF._serialized_end=322
+  _globals['_SECRETKEYREF']._serialized_start=127
+  _globals['_SECRETKEYREF']._serialized_end=269
+  _globals['_KUBERNETESSECRETKEYREF']._serialized_start=271
+  _globals['_KUBERNETESSECRETKEYREF']._serialized_end=322
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,20 +16,13 @@ from _qwak_proto.qwak.administration.account.v1 import personalization_pb2 as qw
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n0qwak/administration/account/v1/preferences.proto\x12\x1bqwak.administration.account\x1a\x34qwak/administration/account/v1/personalization.proto\"b\n\x12\x41\x63\x63ountPreferences\x12L\n\x0fpersonalization\x18\x02 \x01(\x0b\x32\x33.qwak.administration.account.AccountPersonalizationB\xb4\x01\n)com.qwak.ai.administration.api.account.v1P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0b\x06proto3')
 
-
-
-_ACCOUNTPREFERENCES = DESCRIPTOR.message_types_by_name['AccountPreferences']
-AccountPreferences = _reflection.GeneratedProtocolMessageType('AccountPreferences', (_message.Message,), {
-  'DESCRIPTOR' : _ACCOUNTPREFERENCES,
-  '__module__' : 'qwak.administration.account.v1.preferences_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.AccountPreferences)
-  })
-_sym_db.RegisterMessage(AccountPreferences)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.account.v1.preferences_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.administration.api.account.v1P\001Z\204\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0'
-  _ACCOUNTPREFERENCES._serialized_start=135
-  _ACCOUNTPREFERENCES._serialized_end=233
+  _globals['_ACCOUNTPREFERENCES']._serialized_start=135
+  _globals['_ACCOUNTPREFERENCES']._serialized_end=233
 # @@protoc_insertion_point(module_scope)

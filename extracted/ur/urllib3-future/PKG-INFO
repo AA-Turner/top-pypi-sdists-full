@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urllib3-future
-Version: 2.12.922
+Version: 2.13.900
 Summary: urllib3.future is a powerful HTTP 1.1, 2, and 3 client with both sync and async interfaces
 Project-URL: Changelog, https://github.com/jawah/urllib3.future/blob/main/CHANGES.rst
 Project-URL: Documentation, https://urllib3future.readthedocs.io
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -32,12 +33,12 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
 Requires-Dist: h11<1.0.0,>=0.11.0
 Requires-Dist: jh2<6.0.0,>=5.0.3
-Requires-Dist: qh3<2.0.0,>=1.2.0; (platform_python_implementation != 'CPython' or python_full_version > '3.7.10') and (platform_system == 'Darwin' or platform_system == 'Windows' or platform_system == 'Linux') and (platform_machine == 'x86_64' or platform_machine == 's390x' or platform_machine == 'armv7l' or platform_machine == 'ppc64le' or platform_machine == 'ppc64' or platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ARM64' or platform_machine == 'x86' or platform_machine == 'i686') and (platform_python_implementation == 'CPython' or (platform_python_implementation == 'PyPy' and python_version < '3.12'))
+Requires-Dist: qh3<2.0.0,>=1.5.3; (platform_python_implementation != 'CPython' or python_full_version > '3.7.10') and (platform_system == 'Darwin' or platform_system == 'Windows' or platform_system == 'Linux') and (platform_machine == 'x86_64' or platform_machine == 's390x' or platform_machine == 'armv7l' or platform_machine == 'ppc64le' or platform_machine == 'ppc64' or platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ARM64' or platform_machine == 'x86' or platform_machine == 'i686') and (platform_python_implementation == 'CPython' or (platform_python_implementation == 'PyPy' and python_version < '3.12'))
 Provides-Extra: brotli
 Requires-Dist: brotli>=1.0.9; (platform_python_implementation == 'CPython') and extra == 'brotli'
 Requires-Dist: brotlicffi>=0.8.0; (platform_python_implementation != 'CPython') and extra == 'brotli'
 Provides-Extra: qh3
-Requires-Dist: qh3<2.0.0,>=1.2.0; extra == 'qh3'
+Requires-Dist: qh3<2.0.0,>=1.5.3; extra == 'qh3'
 Provides-Extra: secure
 Provides-Extra: socks
 Requires-Dist: python-socks<=2.6.1,>=2.0; extra == 'socks'

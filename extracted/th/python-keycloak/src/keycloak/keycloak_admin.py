@@ -2910,7 +2910,9 @@ class KeycloakAdmin:
         )
         return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
 
-    def get_realm_roles(self, brief_representation: bool = True, search_text: str = "") -> list:
+    def get_realm_roles(
+        self, brief_representation: bool = True, search_text: str = "", query: dict | None = None
+    ) -> list:
         """
         Get all roles for the realm or client.
 
@@ -2921,20 +2923,23 @@ class KeycloakAdmin:
         :type brief_representation: bool
         :param search_text: optional search text to limit the returned result.
         :type search_text: str
+        :param query: Query parameters (optional)
+        :type query: dict
         :return: Keycloak server response (RoleRepresentation)
         :rtype: list
         """
+        query = query or {}
         params_path = {"realm-name": self.connection.realm_name}
         params = {"briefRepresentation": brief_representation}
+        url = urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path)
 
         if search_text is not None and search_text.strip() != "":
             params["search"] = search_text
 
-        data_raw = self.connection.raw_get(
-            urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path),
-            **params,
-        )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        if "first" in query and "max" in query:
+            return self.__fetch_paginated(url, query)
+
+        return self.__fetch_all(url, params)
 
     def get_realm_role_groups(
         self,
@@ -5197,7 +5202,7 @@ class KeycloakAdmin:
         )
         return raise_error_from_response(data_raw, KeycloakPostError)
 
-    def get_client_secrets(self, client_id: str) -> list:
+    def get_client_secrets(self, client_id: str) -> dict:
         """
         Get representation of the client secrets.
 
@@ -5206,7 +5211,7 @@ class KeycloakAdmin:
         :param client_id:  id of client (not client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = self.connection.raw_get(
@@ -8176,9 +8181,7 @@ class KeycloakAdmin:
         return raise_error_from_response(data_raw, KeycloakGetError, expected_codes=[HTTP_OK])
 
     async def a_get_realm_roles(
-        self,
-        brief_representation: bool = True,
-        search_text: str = "",
+        self, brief_representation: bool = True, search_text: str = "", query: dict | None = None
     ) -> list:
         """
         Get all roles for the realm or client asynchronously.
@@ -8190,20 +8193,23 @@ class KeycloakAdmin:
         :type brief_representation: bool
         :param search_text: optional search text to limit the returned result.
         :type search_text: str
+        :param query: Query parameters (optional)
+        :type query: dict
         :return: Keycloak server response (RoleRepresentation)
         :rtype: list
         """
+        query = query or {}
         params_path = {"realm-name": self.connection.realm_name}
         params = {"briefRepresentation": brief_representation}
+        url = urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path)
 
         if search_text is not None and search_text.strip() != "":
             params["search"] = search_text
 
-        data_raw = await self.connection.a_raw_get(
-            urls_patterns.URL_ADMIN_REALM_ROLES.format(**params_path),
-            **params,
-        )
-        return raise_error_from_response(data_raw, KeycloakGetError)
+        if "first" in query and "max" in query:
+            return await self.a___fetch_paginated(url, query)
+
+        return await self.a___fetch_all(url, params)
 
     async def a_get_realm_role_groups(
         self,
@@ -10418,7 +10424,7 @@ class KeycloakAdmin:
         )
         return raise_error_from_response(data_raw, KeycloakPostError)
 
-    async def a_get_client_secrets(self, client_id: str) -> list:
+    async def a_get_client_secrets(self, client_id: str) -> dict:
         """
         Get representation of the client secrets asynchronously.
 
@@ -10427,7 +10433,7 @@ class KeycloakAdmin:
         :param client_id:  id of client (not client-id)
         :type client_id: str
         :return: Keycloak server response (ClientRepresentation)
-        :rtype: list
+        :rtype: dict
         """
         params_path = {"realm-name": self.connection.realm_name, "id": client_id}
         data_raw = await self.connection.a_raw_get(

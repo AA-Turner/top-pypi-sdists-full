@@ -1,23 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: junitparser
-Version: 3.2.0
+Version: 4.0.0
 Summary: Manipulates JUnit/xUnit Result XML files
-Home-page: https://github.com/weiwei/junitparser
-Author: Weiwei Wang
-Author-email: gastlygem@gmail.com
-License: Apache 2.0
-Keywords: junit xunit xml parser
+Author-email: Weiwei Wang <gastlygem@gmail.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/weiwei/junitparser
+Project-URL: Issues, https://github.com/weiwei/junitparser/issues
+Project-URL: Documentation, https://junitparser.readthedocs.io/
+Keywords: junit,xunit,xml,parser
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Text Processing
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 junitparser -- Pythonic JUnit/xUnit Result XML Parser
 ======================================================
 
-.. image:: https://github.com/weiwei/junitparser/workflows/build/badge.svg?branch=master
+.. image:: https://github.com/weiwei/junitparser/actions/workflows/ci.yml/badge.svg?branch=master
    :target: https://github.com/weiwei/junitparser/actions
 .. image:: https://codecov.io/gh/weiwei/junitparser/branch/master/graph/badge.svg?token=UotlfRXNnK
    :target: https://codecov.io/gh/weiwei/junitparser
@@ -157,8 +161,7 @@ Junitparser also support extra schemas:
 
 .. code-block:: python
 
-    from junitparser.xunit2 import JUnitParser, TestCase, TestSuite, \
-        RerunFailure
+    from junitparser.xunit2 import TestCase, TestSuite, RerunFailure
     # These classes are redefined to support extra properties and attributes
     # of the xunit2 schema.
     suite = TestSuite("mySuite")
@@ -168,7 +171,7 @@ Junitparser also support extra schemas:
     rerun_failure.stack_trace = "Stack"
     rerun_failure.system_err = "E404"
     rerun_failure.system_out = "NOT FOUND"
-    case.add_rerun_result(rerun_failure)
+    case.add_interim_result(rerun_failure)
 
 Currently supported schemas including:
 
@@ -295,9 +298,18 @@ Command Line
 Test
 ----
 
-The tests are written with python ``unittest``, to run them, use pytest::
+The tests are written with python ``unittest``, to run them, use
+`pytest <https://pypi.org/project/pytest/>`_::
 
-    pytest test.py
+    pytest
+
+If you get a failure like ``unsupported locale setting`` you may need to add
+extra locales that the tests use. Refer to the steps used in the
+`CI build workflow <.github/workflows/build.yml>`_::
+
+        sudo locale-gen en_US.UTF-8
+        sudo locale-gen de_DE.UTF-8
+        sudo update-locale
 
 Contribute
 ----------

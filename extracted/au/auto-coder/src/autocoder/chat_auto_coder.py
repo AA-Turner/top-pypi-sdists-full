@@ -18,6 +18,11 @@ from autocoder.plugins import PluginManager
 from autocoder.events.event_manager_singleton import gengerate_event_file_path
 from autocoder.common.global_cancel import global_cancel
 from autocoder.chat.models_command import handle_models_command
+from autocoder.common.conversations.get_conversation_manager import (
+    get_conversation_manager,
+    get_conversation_manager_config,
+    reset_conversation_manager
+)
 from autocoder.auto_coder_runner import (
     auto_command,    
     configure, # Keep configure if it's used elsewhere or by handle_conf_command internally (though we adapted handle_conf_command not to)
@@ -666,7 +671,7 @@ def main():
                         else:
                             execute_shell_command(command)
                 else:
-                    if user_input:
+                    if user_input and user_input.strip():
                         auto_command(user_input)
 
         except KeyboardInterrupt:

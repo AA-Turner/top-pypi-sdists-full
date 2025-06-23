@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,20 +15,13 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\'qwak/self_service/user/v1/api_key.proto\x12\x19qwak.self_service.user.v1\"\x1f\n\rApiKeyDetails\x12\x0e\n\x06\x65xists\x18\x01 \x01(\x08\x42\xaf\x01\n\x1f\x63om.qwak.ai.self_service.v1.apiP\x01Z\x89\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/user/v1;self_service_user_v1b\x06proto3')
 
-
-
-_APIKEYDETAILS = DESCRIPTOR.message_types_by_name['ApiKeyDetails']
-ApiKeyDetails = _reflection.GeneratedProtocolMessageType('ApiKeyDetails', (_message.Message,), {
-  'DESCRIPTOR' : _APIKEYDETAILS,
-  '__module__' : 'qwak.self_service.user.v1.api_key_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.self_service.user.v1.ApiKeyDetails)
-  })
-_sym_db.RegisterMessage(ApiKeyDetails)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.self_service.user.v1.api_key_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\037com.qwak.ai.self_service.v1.apiP\001Z\211\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/user/v1;self_service_user_v1'
-  _APIKEYDETAILS._serialized_start=70
-  _APIKEYDETAILS._serialized_end=101
+  _globals['_APIKEYDETAILS']._serialized_start=70
+  _globals['_APIKEYDETAILS']._serialized_end=101
 # @@protoc_insertion_point(module_scope)

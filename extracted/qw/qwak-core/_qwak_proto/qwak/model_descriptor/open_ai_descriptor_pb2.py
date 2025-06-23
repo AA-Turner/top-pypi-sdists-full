@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,80 +16,25 @@ from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n.qwak/model_descriptor/open_ai_descriptor.proto\x12#qwak.llmops.model_descriptor.openai\x1a\x1cgoogle/protobuf/struct.proto\"f\n\x18OpenAIProviderDescriptor\x12J\n\x06models\x18\x01 \x03(\x0b\x32:.qwak.llmops.model_descriptor.openai.OpenAIModelDescriptor\"x\n\x15OpenAIModelDescriptor\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12M\n\x0c\x63\x61pabilities\x18\x02 \x01(\x0b\x32\x37.qwak.llmops.model_descriptor.openai.OpenAICapabilities\"\xaf\x06\n\x15OpenAIChatModelParams\x12\x1b\n\x11\x66requency_penalty\x18\x01 \x01(\x01H\x00\x12-\n\nlogit_bias\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x01\x12\x12\n\x08logprobs\x18\x03 \x01(\x08H\x02\x12\x14\n\nmax_tokens\x18\x04 \x01(\x03H\x03\x12\x0b\n\x01n\x18\x05 \x01(\x05H\x04\x12\x1a\n\x10presence_penalty\x18\x06 \x01(\x01H\x05\x12\x19\n\x0fresponse_format\x18\x07 \x01(\tH\x06\x12\x0e\n\x04seed\x18\x08 \x01(\x05H\x07\x12*\n\x04stop\x18\t \x01(\x0b\x32\x1a.google.protobuf.ListValueH\x08\x12\x15\n\x0btemperature\x18\n \x01(\x01H\t\x12\x46\n\x0btool_choice\x18\x0b \x01(\x0b\x32/.qwak.llmops.model_descriptor.openai.ToolChoiceH\n\x12@\n\ntools_spec\x18\x0c \x01(\x0b\x32*.qwak.llmops.model_descriptor.openai.ToolsH\x0b\x12\x16\n\x0ctop_logprobs\x18\r \x01(\x05H\x0c\x12\x0f\n\x05top_p\x18\x0e \x01(\x01H\r\x12\x0e\n\x04user\x18\x0f \x01(\tH\x0e\x42\x1c\n\x1aoptional_frequency_penaltyB\x15\n\x13optional_logit_biasB\x13\n\x11optional_logprobsB\x15\n\x13optional_max_tokensB\x0c\n\noptional_nB\x1b\n\x19optional_presence_penaltyB\x1a\n\x18optional_response_formatB\x0f\n\roptional_seedB\x0f\n\roptional_stopB\x16\n\x14optional_temperatureB\x16\n\x14optional_tool_choiceB\x10\n\x0eoptional_toolsB\x17\n\x15optional_top_logprobsB\x10\n\x0eoptional_top_pB\x0f\n\roptional_user\"/\n\x05Tools\x12&\n\x05tools\x18\x01 \x03(\x0b\x32\x17.google.protobuf.Struct\"V\n\nToolChoice\x12\'\n\x04json\x18\x01 \x01(\x0b\x32\x17.google.protobuf.StructH\x00\x12\x11\n\x07literal\x18\x02 \x01(\tH\x00\x42\x0c\n\nvalue_type\"m\n\x12OpenAICapabilities\x12\x46\n\x08\x63hat_api\x18\x01 \x01(\x0b\x32\x32.qwak.llmops.model_descriptor.openai.OpenAIChatAPIH\x00\x42\x0f\n\roptional_chat\"z\n\rOpenAIChatAPI\x12Q\n\x0b\x63hat_params\x18\x01 \x01(\x0b\x32:.qwak.llmops.model_descriptor.openai.OpenAIChatModelParamsH\x00\x42\x16\n\x14optional_chat_paramsB.\n*com.qwak.ai.llmops.model_descriptor.openaiP\x01\x62\x06proto3')
 
-
-
-_OPENAIPROVIDERDESCRIPTOR = DESCRIPTOR.message_types_by_name['OpenAIProviderDescriptor']
-_OPENAIMODELDESCRIPTOR = DESCRIPTOR.message_types_by_name['OpenAIModelDescriptor']
-_OPENAICHATMODELPARAMS = DESCRIPTOR.message_types_by_name['OpenAIChatModelParams']
-_TOOLS = DESCRIPTOR.message_types_by_name['Tools']
-_TOOLCHOICE = DESCRIPTOR.message_types_by_name['ToolChoice']
-_OPENAICAPABILITIES = DESCRIPTOR.message_types_by_name['OpenAICapabilities']
-_OPENAICHATAPI = DESCRIPTOR.message_types_by_name['OpenAIChatAPI']
-OpenAIProviderDescriptor = _reflection.GeneratedProtocolMessageType('OpenAIProviderDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIPROVIDERDESCRIPTOR,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.OpenAIProviderDescriptor)
-  })
-_sym_db.RegisterMessage(OpenAIProviderDescriptor)
-
-OpenAIModelDescriptor = _reflection.GeneratedProtocolMessageType('OpenAIModelDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAIMODELDESCRIPTOR,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.OpenAIModelDescriptor)
-  })
-_sym_db.RegisterMessage(OpenAIModelDescriptor)
-
-OpenAIChatModelParams = _reflection.GeneratedProtocolMessageType('OpenAIChatModelParams', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAICHATMODELPARAMS,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.OpenAIChatModelParams)
-  })
-_sym_db.RegisterMessage(OpenAIChatModelParams)
-
-Tools = _reflection.GeneratedProtocolMessageType('Tools', (_message.Message,), {
-  'DESCRIPTOR' : _TOOLS,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.Tools)
-  })
-_sym_db.RegisterMessage(Tools)
-
-ToolChoice = _reflection.GeneratedProtocolMessageType('ToolChoice', (_message.Message,), {
-  'DESCRIPTOR' : _TOOLCHOICE,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.ToolChoice)
-  })
-_sym_db.RegisterMessage(ToolChoice)
-
-OpenAICapabilities = _reflection.GeneratedProtocolMessageType('OpenAICapabilities', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAICAPABILITIES,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.OpenAICapabilities)
-  })
-_sym_db.RegisterMessage(OpenAICapabilities)
-
-OpenAIChatAPI = _reflection.GeneratedProtocolMessageType('OpenAIChatAPI', (_message.Message,), {
-  'DESCRIPTOR' : _OPENAICHATAPI,
-  '__module__' : 'qwak.model_descriptor.open_ai_descriptor_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.llmops.model_descriptor.openai.OpenAIChatAPI)
-  })
-_sym_db.RegisterMessage(OpenAIChatAPI)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.model_descriptor.open_ai_descriptor_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n*com.qwak.ai.llmops.model_descriptor.openaiP\001'
-  _OPENAIPROVIDERDESCRIPTOR._serialized_start=117
-  _OPENAIPROVIDERDESCRIPTOR._serialized_end=219
-  _OPENAIMODELDESCRIPTOR._serialized_start=221
-  _OPENAIMODELDESCRIPTOR._serialized_end=341
-  _OPENAICHATMODELPARAMS._serialized_start=344
-  _OPENAICHATMODELPARAMS._serialized_end=1159
-  _TOOLS._serialized_start=1161
-  _TOOLS._serialized_end=1208
-  _TOOLCHOICE._serialized_start=1210
-  _TOOLCHOICE._serialized_end=1296
-  _OPENAICAPABILITIES._serialized_start=1298
-  _OPENAICAPABILITIES._serialized_end=1407
-  _OPENAICHATAPI._serialized_start=1409
-  _OPENAICHATAPI._serialized_end=1531
+  _globals['_OPENAIPROVIDERDESCRIPTOR']._serialized_start=117
+  _globals['_OPENAIPROVIDERDESCRIPTOR']._serialized_end=219
+  _globals['_OPENAIMODELDESCRIPTOR']._serialized_start=221
+  _globals['_OPENAIMODELDESCRIPTOR']._serialized_end=341
+  _globals['_OPENAICHATMODELPARAMS']._serialized_start=344
+  _globals['_OPENAICHATMODELPARAMS']._serialized_end=1159
+  _globals['_TOOLS']._serialized_start=1161
+  _globals['_TOOLS']._serialized_end=1208
+  _globals['_TOOLCHOICE']._serialized_start=1210
+  _globals['_TOOLCHOICE']._serialized_end=1296
+  _globals['_OPENAICAPABILITIES']._serialized_start=1298
+  _globals['_OPENAICAPABILITIES']._serialized_end=1407
+  _globals['_OPENAICHATAPI']._serialized_start=1409
+  _globals['_OPENAICHATAPI']._serialized_end=1531
 # @@protoc_insertion_point(module_scope)

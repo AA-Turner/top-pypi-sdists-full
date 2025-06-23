@@ -2,7 +2,6 @@
 import torch
 
 from nequip.data import AtomicDataDict
-from nequip.data._key_registry import get_dynamic_shapes
 from .graph_model import GraphModel
 from ._graph_mixin import GraphModuleMixin
 from nequip.utils.dtype import (
@@ -11,7 +10,7 @@ from nequip.utils.dtype import (
 )
 from nequip.utils.fx import nequip_make_fx
 from nequip.utils.dtype import dtype_to_name
-from typing import Dict, Sequence, List, Optional, Any
+from typing import Dict, Sequence, List, Optional, Any, Final
 
 
 def _list_to_dict(
@@ -97,6 +96,9 @@ class ListInputOutputStateDictWrapper(ListInputOutputWrapper):
 class CompileGraphModel(GraphModel):
     """Wrapper that uses ``torch.compile`` to optimize the wrapped module while allowing it to be trained."""
 
+    is_compile_graph_model: Final[bool] = True
+    # ^ to identify `GraphModel` types from `nequip-package`d models (see https://pytorch.org/docs/stable/package.html#torch-package-sharp-edges)
+
     def __init__(
         self,
         model: GraphModuleMixin,
@@ -104,13 +106,14 @@ class CompileGraphModel(GraphModel):
         model_input_fields: Dict[str, Any] = {},
     ) -> None:
         super().__init__(model, model_config, model_input_fields)
-        # save model param and buffer names
-        self.weight_names = [n for n, _ in self.model.named_parameters()]
-        self.buffer_names = [n for n, _ in self.model.named_buffers()]
         # these will be updated when the model is compiled
         self._compiled_model = ()
         self.input_fields = None
         self.output_fields = None
+        # weights and buffers should be done lazily because model modification can happen after instantiation
+        # such that parameters and buffers may change between class instantiation and the lazy compilation in the `forward`
+        self.weight_names = None
+        self.buffer_names = None
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
 
@@ -132,6 +135,11 @@ class CompileGraphModel(GraphModel):
         # === compile ===
         # compilation happens on the first data pass when there are at least two atoms (hard to pre-emp pathological data)
         if not self._compiled_model:
+
+            # get weight names and buffers
+            self.weight_names = [n for n, _ in self.model.named_parameters()]
+            self.buffer_names = [n for n, _ in self.model.named_buffers()]
+
             # == get input and output fields ==
             # use intersection of data keys and GraphModel input/outputs, which assumes
             # - correctness of irreps registration system
@@ -156,22 +164,6 @@ class CompileGraphModel(GraphModel):
                 fields=self.input_fields,
                 extra_inputs=weights + buffers,
             )
-
-            # == export with dynamic shape specification ==
-            # TODO: (maybe) include range for dynamic dims
-            batch_map = {
-                "graph": torch.export.dynamic_shapes.Dim("graph"),
-                "node": torch.export.dynamic_shapes.Dim("node"),
-                "edge": torch.export.dynamic_shapes.Dim("edge"),
-            }
-            dynamic_shapes = get_dynamic_shapes(
-                self.input_fields + self.weight_names + self.buffer_names, batch_map
-            )
-            exported = torch.export.export(
-                fx_model,
-                (*([data[k] for k in self.input_fields] + weights + buffers),),
-                dynamic_shapes=dynamic_shapes,
-            )
             del weights, buffers
 
             # == compile exported program ==
@@ -179,7 +171,7 @@ class CompileGraphModel(GraphModel):
             # TODO: compile options
             self._compiled_model = (
                 torch.compile(
-                    exported.module(),
+                    fx_model,
                     dynamic=True,
                     fullgraph=True,
                 ),

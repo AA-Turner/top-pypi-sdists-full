@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,89 +17,9 @@ from _qwak_proto.qwak.vectors.v1 import filters_pb2 as qwak_dot_vectors_dot_v1_d
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$qwak/vectors/v1/vector_service.proto\x12\x1cqwak.vector.store.serving.v1\x1a\x1cqwak/vectors/v1/vector.proto\x1a\x1dqwak/vectors/v1/filters.proto\"\xd9\x02\n\x1bSearchSimilarVectorsRequest\x12\x17\n\x0f\x63ollection_name\x18\x01 \x01(\t\x12\x44\n\x10reference_vector\x18\x02 \x01(\x0b\x32*.qwak.vector.store.serving.v1.DoubleVector\x12\x12\n\nproperties\x18\x03 \x03(\t\x12\x36\n\x06\x66ilter\x18\x04 \x01(\x0b\x32$.qwak.vector.store.serving.v1.FilterH\x00\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x12\x16\n\x0einclude_vector\x18\x06 \x01(\x08\x12\x18\n\x10include_distance\x18\x07 \x01(\x08\x12\x12\n\ninclude_id\x18\x08 \x01(\x08\x12\x13\n\ttenant_id\x18\t \x01(\tH\x01\x42\x0c\n\nfilter_optB\x11\n\x0foptional_tenant\"b\n\x1cSearchSimilarVectorsResponse\x12\x42\n\x0esearch_results\x18\x01 \x03(\x0b\x32*.qwak.vector.store.serving.v1.SearchResult\"\x86\x01\n\x16GetVectorSampleRequest\x12\x17\n\x0f\x63ollection_name\x18\x01 \x01(\t\x12\x13\n\x0bnum_samples\x18\x02 \x01(\x05\x12\x16\n\x0einclude_vector\x18\x03 \x01(\x08\x12\x13\n\ttenant_id\x18\t \x01(\tH\x00\x42\x11\n\x0foptional_tenant\"V\n\x17GetVectorSampleResponse\x12;\n\x07vectors\x18\x01 \x03(\x0b\x32*.qwak.vector.store.serving.v1.StoredVector\"k\n\x14UpsertVectorsRequest\x12\x17\n\x0f\x63ollection_name\x18\x01 \x01(\t\x12:\n\x06vector\x18\x02 \x03(\x0b\x32*.qwak.vector.store.serving.v1.StoredVector\"-\n\x15UpsertVectorsResponse\x12\x14\n\x0cnum_affected\x18\x01 \x01(\x05\"\x92\x01\n\x14\x44\x65leteVectorsRequest\x12\x17\n\x0f\x63ollection_name\x18\x01 \x01(\t\x12\x15\n\tvector_id\x18\x02 \x03(\tB\x02\x18\x01\x12J\n\x12vector_identifiers\x18\x03 \x03(\x0b\x32..qwak.vector.store.serving.v1.VectorIdentifier\"4\n\x15\x44\x65leteVectorsResponse\x12\x1b\n\x13num_vectors_deleted\x18\x01 \x01(\x03\"\x8f\x01\n\x12\x46\x65tchVectorRequest\x12\x17\n\x0f\x63ollection_name\x18\x01 \x01(\t\x12\x15\n\tvector_id\x18\x02 \x01(\tB\x02\x18\x01\x12I\n\x11vector_identifier\x18\x03 \x01(\x0b\x32..qwak.vector.store.serving.v1.VectorIdentifier\"Q\n\x13\x46\x65tchVectorResponse\x12:\n\x06vector\x18\x01 \x01(\x0b\x32*.qwak.vector.store.serving.v1.StoredVector2\x87\x05\n\rVectorService\x12\x8d\x01\n\x14SearchSimilarVectors\x12\x39.qwak.vector.store.serving.v1.SearchSimilarVectorsRequest\x1a:.qwak.vector.store.serving.v1.SearchSimilarVectorsResponse\x12~\n\x0fGetVectorSample\x12\x34.qwak.vector.store.serving.v1.GetVectorSampleRequest\x1a\x35.qwak.vector.store.serving.v1.GetVectorSampleResponse\x12r\n\x0b\x46\x65tchVector\x12\x30.qwak.vector.store.serving.v1.FetchVectorRequest\x1a\x31.qwak.vector.store.serving.v1.FetchVectorResponse\x12x\n\rUpsertVectors\x12\x32.qwak.vector.store.serving.v1.UpsertVectorsRequest\x1a\x33.qwak.vector.store.serving.v1.UpsertVectorsResponse\x12x\n\rDeleteVectors\x12\x32.qwak.vector.store.serving.v1.DeleteVectorsRequest\x1a\x33.qwak.vector.store.serving.v1.DeleteVectorsResponseB\x1e\n\x1a\x63om.qwak.ai.vectors.api.v1P\x01\x62\x06proto3')
 
-
-
-_SEARCHSIMILARVECTORSREQUEST = DESCRIPTOR.message_types_by_name['SearchSimilarVectorsRequest']
-_SEARCHSIMILARVECTORSRESPONSE = DESCRIPTOR.message_types_by_name['SearchSimilarVectorsResponse']
-_GETVECTORSAMPLEREQUEST = DESCRIPTOR.message_types_by_name['GetVectorSampleRequest']
-_GETVECTORSAMPLERESPONSE = DESCRIPTOR.message_types_by_name['GetVectorSampleResponse']
-_UPSERTVECTORSREQUEST = DESCRIPTOR.message_types_by_name['UpsertVectorsRequest']
-_UPSERTVECTORSRESPONSE = DESCRIPTOR.message_types_by_name['UpsertVectorsResponse']
-_DELETEVECTORSREQUEST = DESCRIPTOR.message_types_by_name['DeleteVectorsRequest']
-_DELETEVECTORSRESPONSE = DESCRIPTOR.message_types_by_name['DeleteVectorsResponse']
-_FETCHVECTORREQUEST = DESCRIPTOR.message_types_by_name['FetchVectorRequest']
-_FETCHVECTORRESPONSE = DESCRIPTOR.message_types_by_name['FetchVectorResponse']
-SearchSimilarVectorsRequest = _reflection.GeneratedProtocolMessageType('SearchSimilarVectorsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SEARCHSIMILARVECTORSREQUEST,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.SearchSimilarVectorsRequest)
-  })
-_sym_db.RegisterMessage(SearchSimilarVectorsRequest)
-
-SearchSimilarVectorsResponse = _reflection.GeneratedProtocolMessageType('SearchSimilarVectorsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SEARCHSIMILARVECTORSRESPONSE,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.SearchSimilarVectorsResponse)
-  })
-_sym_db.RegisterMessage(SearchSimilarVectorsResponse)
-
-GetVectorSampleRequest = _reflection.GeneratedProtocolMessageType('GetVectorSampleRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETVECTORSAMPLEREQUEST,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.GetVectorSampleRequest)
-  })
-_sym_db.RegisterMessage(GetVectorSampleRequest)
-
-GetVectorSampleResponse = _reflection.GeneratedProtocolMessageType('GetVectorSampleResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETVECTORSAMPLERESPONSE,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.GetVectorSampleResponse)
-  })
-_sym_db.RegisterMessage(GetVectorSampleResponse)
-
-UpsertVectorsRequest = _reflection.GeneratedProtocolMessageType('UpsertVectorsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPSERTVECTORSREQUEST,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.UpsertVectorsRequest)
-  })
-_sym_db.RegisterMessage(UpsertVectorsRequest)
-
-UpsertVectorsResponse = _reflection.GeneratedProtocolMessageType('UpsertVectorsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPSERTVECTORSRESPONSE,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.UpsertVectorsResponse)
-  })
-_sym_db.RegisterMessage(UpsertVectorsResponse)
-
-DeleteVectorsRequest = _reflection.GeneratedProtocolMessageType('DeleteVectorsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEVECTORSREQUEST,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.DeleteVectorsRequest)
-  })
-_sym_db.RegisterMessage(DeleteVectorsRequest)
-
-DeleteVectorsResponse = _reflection.GeneratedProtocolMessageType('DeleteVectorsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEVECTORSRESPONSE,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.DeleteVectorsResponse)
-  })
-_sym_db.RegisterMessage(DeleteVectorsResponse)
-
-FetchVectorRequest = _reflection.GeneratedProtocolMessageType('FetchVectorRequest', (_message.Message,), {
-  'DESCRIPTOR' : _FETCHVECTORREQUEST,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.FetchVectorRequest)
-  })
-_sym_db.RegisterMessage(FetchVectorRequest)
-
-FetchVectorResponse = _reflection.GeneratedProtocolMessageType('FetchVectorResponse', (_message.Message,), {
-  'DESCRIPTOR' : _FETCHVECTORRESPONSE,
-  '__module__' : 'qwak.vectors.v1.vector_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.serving.v1.FetchVectorResponse)
-  })
-_sym_db.RegisterMessage(FetchVectorResponse)
-
-_VECTORSERVICE = DESCRIPTOR.services_by_name['VectorService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.vectors.v1.vector_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -109,26 +28,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DELETEVECTORSREQUEST.fields_by_name['vector_id']._serialized_options = b'\030\001'
   _FETCHVECTORREQUEST.fields_by_name['vector_id']._options = None
   _FETCHVECTORREQUEST.fields_by_name['vector_id']._serialized_options = b'\030\001'
-  _SEARCHSIMILARVECTORSREQUEST._serialized_start=132
-  _SEARCHSIMILARVECTORSREQUEST._serialized_end=477
-  _SEARCHSIMILARVECTORSRESPONSE._serialized_start=479
-  _SEARCHSIMILARVECTORSRESPONSE._serialized_end=577
-  _GETVECTORSAMPLEREQUEST._serialized_start=580
-  _GETVECTORSAMPLEREQUEST._serialized_end=714
-  _GETVECTORSAMPLERESPONSE._serialized_start=716
-  _GETVECTORSAMPLERESPONSE._serialized_end=802
-  _UPSERTVECTORSREQUEST._serialized_start=804
-  _UPSERTVECTORSREQUEST._serialized_end=911
-  _UPSERTVECTORSRESPONSE._serialized_start=913
-  _UPSERTVECTORSRESPONSE._serialized_end=958
-  _DELETEVECTORSREQUEST._serialized_start=961
-  _DELETEVECTORSREQUEST._serialized_end=1107
-  _DELETEVECTORSRESPONSE._serialized_start=1109
-  _DELETEVECTORSRESPONSE._serialized_end=1161
-  _FETCHVECTORREQUEST._serialized_start=1164
-  _FETCHVECTORREQUEST._serialized_end=1307
-  _FETCHVECTORRESPONSE._serialized_start=1309
-  _FETCHVECTORRESPONSE._serialized_end=1390
-  _VECTORSERVICE._serialized_start=1393
-  _VECTORSERVICE._serialized_end=2040
+  _globals['_SEARCHSIMILARVECTORSREQUEST']._serialized_start=132
+  _globals['_SEARCHSIMILARVECTORSREQUEST']._serialized_end=477
+  _globals['_SEARCHSIMILARVECTORSRESPONSE']._serialized_start=479
+  _globals['_SEARCHSIMILARVECTORSRESPONSE']._serialized_end=577
+  _globals['_GETVECTORSAMPLEREQUEST']._serialized_start=580
+  _globals['_GETVECTORSAMPLEREQUEST']._serialized_end=714
+  _globals['_GETVECTORSAMPLERESPONSE']._serialized_start=716
+  _globals['_GETVECTORSAMPLERESPONSE']._serialized_end=802
+  _globals['_UPSERTVECTORSREQUEST']._serialized_start=804
+  _globals['_UPSERTVECTORSREQUEST']._serialized_end=911
+  _globals['_UPSERTVECTORSRESPONSE']._serialized_start=913
+  _globals['_UPSERTVECTORSRESPONSE']._serialized_end=958
+  _globals['_DELETEVECTORSREQUEST']._serialized_start=961
+  _globals['_DELETEVECTORSREQUEST']._serialized_end=1107
+  _globals['_DELETEVECTORSRESPONSE']._serialized_start=1109
+  _globals['_DELETEVECTORSRESPONSE']._serialized_end=1161
+  _globals['_FETCHVECTORREQUEST']._serialized_start=1164
+  _globals['_FETCHVECTORREQUEST']._serialized_end=1307
+  _globals['_FETCHVECTORRESPONSE']._serialized_start=1309
+  _globals['_FETCHVECTORRESPONSE']._serialized_end=1390
+  _globals['_VECTORSERVICE']._serialized_start=1393
+  _globals['_VECTORSERVICE']._serialized_end=2040
 # @@protoc_insertion_point(module_scope)

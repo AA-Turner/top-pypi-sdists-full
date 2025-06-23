@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,40 +16,17 @@ from _qwak_proto.qwak.feature_store.v1.common.jfrog_artifact import jfrog_artifa
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n:qwak/feature_store/v1/common/source_code/source_code.proto\x12(qwak.feature.store.v1.common.source_code\x1a@qwak/feature_store/v1/common/jfrog_artifact/jfrog_artifact.proto\"`\n\x0eSourceCodeSpec\x12N\n\x08\x61rtifact\x18\x01 \x01(\x0b\x32<.qwak.feature.store.v1.common.source_code.SourceCodeArtifact\"k\n\x12SourceCodeArtifact\x12M\n\x0czip_artifact\x18\x01 \x01(\x0b\x32\x35.qwak.feature.store.v1.common.source_code.ZipArtifactH\x00\x42\x06\n\x04type\"\x98\x01\n\x0bZipArtifact\x12\x0e\n\x04path\x18\x01 \x01(\tH\x00\x12Y\n\x13jfrog_artifact_path\x18\x03 \x01(\x0b\x32:.qwak.feature.store.v1.common.jfrog_artifact.JfrogArtifactH\x00\x12\x11\n\tmain_file\x18\x02 \x01(\tB\x0b\n\tpath_typeBg\n/com.qwak.ai.feature.store.v1.common.source_codeP\x01Z2qwak/featurestore/v1/common/source_code;sourcecodeb\x06proto3')
 
-
-
-_SOURCECODESPEC = DESCRIPTOR.message_types_by_name['SourceCodeSpec']
-_SOURCECODEARTIFACT = DESCRIPTOR.message_types_by_name['SourceCodeArtifact']
-_ZIPARTIFACT = DESCRIPTOR.message_types_by_name['ZipArtifact']
-SourceCodeSpec = _reflection.GeneratedProtocolMessageType('SourceCodeSpec', (_message.Message,), {
-  'DESCRIPTOR' : _SOURCECODESPEC,
-  '__module__' : 'qwak.feature_store.v1.common.source_code.source_code_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.v1.common.source_code.SourceCodeSpec)
-  })
-_sym_db.RegisterMessage(SourceCodeSpec)
-
-SourceCodeArtifact = _reflection.GeneratedProtocolMessageType('SourceCodeArtifact', (_message.Message,), {
-  'DESCRIPTOR' : _SOURCECODEARTIFACT,
-  '__module__' : 'qwak.feature_store.v1.common.source_code.source_code_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.v1.common.source_code.SourceCodeArtifact)
-  })
-_sym_db.RegisterMessage(SourceCodeArtifact)
-
-ZipArtifact = _reflection.GeneratedProtocolMessageType('ZipArtifact', (_message.Message,), {
-  'DESCRIPTOR' : _ZIPARTIFACT,
-  '__module__' : 'qwak.feature_store.v1.common.source_code.source_code_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.v1.common.source_code.ZipArtifact)
-  })
-_sym_db.RegisterMessage(ZipArtifact)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.v1.common.source_code.source_code_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n/com.qwak.ai.feature.store.v1.common.source_codeP\001Z2qwak/featurestore/v1/common/source_code;sourcecode'
-  _SOURCECODESPEC._serialized_start=170
-  _SOURCECODESPEC._serialized_end=266
-  _SOURCECODEARTIFACT._serialized_start=268
-  _SOURCECODEARTIFACT._serialized_end=375
-  _ZIPARTIFACT._serialized_start=378
-  _ZIPARTIFACT._serialized_end=530
+  _globals['_SOURCECODESPEC']._serialized_start=170
+  _globals['_SOURCECODESPEC']._serialized_end=266
+  _globals['_SOURCECODEARTIFACT']._serialized_start=268
+  _globals['_SOURCECODEARTIFACT']._serialized_end=375
+  _globals['_ZIPARTIFACT']._serialized_start=378
+  _globals['_ZIPARTIFACT']._serialized_end=530
 # @@protoc_insertion_point(module_scope)

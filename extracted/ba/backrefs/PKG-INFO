@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: backrefs
-Version: 5.8
+Version: 5.9
 Summary: A wrapper around re and regex that adds additional back references.
 Project-URL: Homepage, https://github.com/facelessuser/backrefs
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
@@ -26,13 +27,12 @@ Requires-Dist: regex; extra == 'extras'
 Description-Content-Type: text/markdown
 
 [![Donate via PayPal][donate-image]][donate-link]
-[![Discord][discord-image]][discord-link]
 [![Build][github-ci-image]][github-ci-link]
 [![Coverage Status][codecov-image]][codecov-link]
 [![PyPI Version][pypi-image]][pypi-link]
 [![PyPI Downloads][pypi-down]][pypi-link]
 [![PyPI - Python Version][python-image]][pypi-link]
-![License][license-image-mit]
+[![License][license-image-mit]][license-link]
 
 # Backrefs
 
@@ -42,7 +42,7 @@ Python's Re and/or Regex.  The supported back references actually vary depending
 used as the engine may already have support for some.
 
 ```python
-from backrefs import bre
+>>> from backrefs import bre
 >>> pattern = bre.compile(r'(\p{Letter}+)')
 >>> pattern.sub(r'\C\1\E', 'sometext')
 'SOMETEXT'
@@ -56,10 +56,8 @@ https://facelessuser.github.io/backrefs/
 
 MIT
 
-[github-ci-image]: https://github.com/facelessuser/backrefs/workflows/build/badge.svg?branch=master&event=push
+[github-ci-image]: https://github.com/facelessuser/backrefs/workflows/build/badge.svg
 [github-ci-link]: https://github.com/facelessuser/backrefs/actions?query=workflow%3Abuild+branch%3Amaster
-[discord-image]: https://img.shields.io/discord/678289859768745989?logo=discord&logoColor=aaaaaa&color=mediumpurple&labelColor=333333
-[discord-link]:https://discord.gg/TWs8Tgr
 [codecov-image]: https://img.shields.io/codecov/c/github/facelessuser/backrefs/master.svg?logo=codecov&logoColor=aaaaaa&labelColor=333333
 [codecov-link]: https://codecov.io/github/facelessuser/backrefs
 [pypi-image]: https://img.shields.io/pypi/v/backrefs.svg?logo=pypi&logoColor=aaaaaa&labelColor=333333
@@ -67,6 +65,7 @@ MIT
 [pypi-link]: https://pypi.python.org/pypi/backrefs
 [python-image]: https://img.shields.io/pypi/pyversions/backrefs?logo=python&logoColor=aaaaaa&labelColor=333333
 [license-image-mit]: https://img.shields.io/badge/license-MIT-blue.svg?labelColor=333333
+[license-link]: https://github.com/facelessuser/backrefs/blob/main/LICENSE.md
 [donate-image]: https://img.shields.io/badge/Donate-PayPal-3fabd1?logo=paypal
 [donate-link]: https://www.paypal.me/facelessuser
 

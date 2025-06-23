@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,253 +17,61 @@ from _qwak_proto.qwak.execution.v1.jobs import job_pb2 as qwak_dot_execution_dot
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(qwak/execution/v1/jobs/job_service.proto\x12$qwak.feature.store.execution.v1.jobs\x1a\x1fgoogle/protobuf/timestamp.proto\x1a qwak/execution/v1/jobs/job.proto\"\\\n\x15\x41pplyJobRecordRequest\x12\x43\n\njob_record\x18\x01 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\"\x18\n\x16\x41pplyJobRecordResponse\".\n\x15InitPaginationRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"E\n\x16InitPaginationResponse\x12\x14\n\x0crecord_count\x18\x01 \x01(\x03\x12\x15\n\rmax_record_id\x18\x02 \x01(\x03\"g\n\x0fListJobsRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x13\n\x0bpage_number\x18\x03 \x01(\x05\x12\x15\n\rmax_record_id\x18\x04 \x01(\x03\"X\n\x10ListJobsResponse\x12\x44\n\x0bjob_records\x18\x01 \x03(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\":\n\"InitPaginationByExecutionIdRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"R\n#InitPaginationByExecutionIdResponse\x12\x14\n\x0crecord_count\x18\x01 \x01(\x03\x12\x15\n\rmax_record_id\x18\x02 \x01(\x03\"s\n\x1cListJobsByExecutionIdRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x13\n\x0bpage_number\x18\x03 \x01(\x05\x12\x15\n\rmax_record_id\x18\x04 \x01(\x03\"e\n\x1dListJobsByExecutionIdResponse\x12\x44\n\x0bjob_records\x18\x01 \x03(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\"4\n\x1b\x44\x65leteFeaturesetJobsRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"@\n\x1c\x44\x65leteFeaturesetJobsResponse\x12 \n\x18\x64\x65leted_job_record_count\x18\x01 \x01(\x03\"D\n+GetLatestSuccessfulJobByFeaturesetIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"\x88\x01\n,GetLatestSuccessfulJobByFeaturesetIdResponse\x12\x45\n\njob_record\x18\x01 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecordH\x00\x42\x11\n\x0fjob_record_resp\"-\n+GetAllFeaturesetLatestSuccessfulJobsRequest\"t\n,GetAllFeaturesetLatestSuccessfulJobsResponse\x12\x44\n\x0bjob_records\x18\x01 \x03(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\"\xa3\x01\n$GetAllFeaturesetJobsSummariesRequest\x12\x34\n\x10lower_time_bound\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x36\n\x10upper_time_bound\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x42\r\n\x0bupper_bound\"|\n%GetAllFeaturesetJobsSummariesResponse\x12S\n\x0ejobs_summaries\x18\x01 \x03(\x0b\x32;.qwak.feature.store.execution.v1.jobs.FeaturesetJobsSummary\"K\n\x15\x46\x65\x61turesetJobsSummary\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\x12\x1b\n\x13total_affected_rows\x18\x02 \x01(\x03\":\n\"GetJobsSummaryByExecutionIdRequest\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\"\x80\x02\n#GetJobsSummaryByExecutionIdResponse\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x11\n\tjob_count\x18\x02 \x01(\x03\x12\x1b\n\x13total_affected_rows\x18\x03 \x01(\x03\x12I\n\x10\x66irst_job_record\x18\x04 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\x12H\n\x0flast_job_record\x18\x05 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecord\"=\n$GetJobSummariesByExecutionIdsRequest\x12\x15\n\rexecution_ids\x18\x01 \x03(\t\"\x80\x01\n%GetJobSummariesByExecutionIdsResponse\x12W\n\x13\x65xecution_summaries\x18\x01 \x03(\x0b\x32:.qwak.feature.store.execution.v1.jobs.ExecutionJobsSummary\"\xa4\x02\n\x14\x45xecutionJobsSummary\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x11\n\tjob_count\x18\x02 \x01(\x03\x12\x1b\n\x13total_affected_rows\x18\x03 \x01(\x03\x12K\n\x10\x66irst_job_record\x18\x04 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecordH\x00\x12J\n\x0flast_job_record\x18\x05 \x01(\x0b\x32/.qwak.feature.store.execution.v1.jobs.JobRecordH\x01\x42\x16\n\x14\x66irst_job_record_optB\x15\n\x13last_job_record_opt2\xe6\x0e\n\nJobService\x12\x8b\x01\n\x0e\x41pplyJobRecord\x12;.qwak.feature.store.execution.v1.jobs.ApplyJobRecordRequest\x1a<.qwak.feature.store.execution.v1.jobs.ApplyJobRecordResponse\x12\x8b\x01\n\x0eInitPagination\x12;.qwak.feature.store.execution.v1.jobs.InitPaginationRequest\x1a<.qwak.feature.store.execution.v1.jobs.InitPaginationResponse\x12y\n\x08ListJobs\x12\x35.qwak.feature.store.execution.v1.jobs.ListJobsRequest\x1a\x36.qwak.feature.store.execution.v1.jobs.ListJobsResponse\x12\xb2\x01\n\x1bInitPaginationByExecutionId\x12H.qwak.feature.store.execution.v1.jobs.InitPaginationByExecutionIdRequest\x1aI.qwak.feature.store.execution.v1.jobs.InitPaginationByExecutionIdResponse\x12\xa0\x01\n\x15ListJobsByExecutionId\x12\x42.qwak.feature.store.execution.v1.jobs.ListJobsByExecutionIdRequest\x1a\x43.qwak.feature.store.execution.v1.jobs.ListJobsByExecutionIdResponse\x12\x9d\x01\n\x14\x44\x65leteFeaturesetJobs\x12\x41.qwak.feature.store.execution.v1.jobs.DeleteFeaturesetJobsRequest\x1a\x42.qwak.feature.store.execution.v1.jobs.DeleteFeaturesetJobsResponse\x12\xcd\x01\n$GetLatestSuccessfulJobByFeaturesetId\x12Q.qwak.feature.store.execution.v1.jobs.GetLatestSuccessfulJobByFeaturesetIdRequest\x1aR.qwak.feature.store.execution.v1.jobs.GetLatestSuccessfulJobByFeaturesetIdResponse\x12\xcd\x01\n$GetAllFeaturesetLatestSuccessfulJobs\x12Q.qwak.feature.store.execution.v1.jobs.GetAllFeaturesetLatestSuccessfulJobsRequest\x1aR.qwak.feature.store.execution.v1.jobs.GetAllFeaturesetLatestSuccessfulJobsResponse\x12\xb8\x01\n\x1dGetAllFeaturesetJobsSummaries\x12J.qwak.feature.store.execution.v1.jobs.GetAllFeaturesetJobsSummariesRequest\x1aK.qwak.feature.store.execution.v1.jobs.GetAllFeaturesetJobsSummariesResponse\x12\xb2\x01\n\x1bGetJobsSummaryByExecutionId\x12H.qwak.feature.store.execution.v1.jobs.GetJobsSummaryByExecutionIdRequest\x1aI.qwak.feature.store.execution.v1.jobs.GetJobsSummaryByExecutionIdResponse\x12\xb8\x01\n\x1dGetJobSummariesByExecutionIds\x12J.qwak.feature.store.execution.v1.jobs.GetJobSummariesByExecutionIdsRequest\x1aK.qwak.feature.store.execution.v1.jobs.GetJobSummariesByExecutionIdsResponseBG\n*com.qwak.ai.features.execution.api.v1.jobsP\x01Z\x17qwak/fsexecution;fsjobsb\x06proto3')
 
-
-
-_APPLYJOBRECORDREQUEST = DESCRIPTOR.message_types_by_name['ApplyJobRecordRequest']
-_APPLYJOBRECORDRESPONSE = DESCRIPTOR.message_types_by_name['ApplyJobRecordResponse']
-_INITPAGINATIONREQUEST = DESCRIPTOR.message_types_by_name['InitPaginationRequest']
-_INITPAGINATIONRESPONSE = DESCRIPTOR.message_types_by_name['InitPaginationResponse']
-_LISTJOBSREQUEST = DESCRIPTOR.message_types_by_name['ListJobsRequest']
-_LISTJOBSRESPONSE = DESCRIPTOR.message_types_by_name['ListJobsResponse']
-_INITPAGINATIONBYEXECUTIONIDREQUEST = DESCRIPTOR.message_types_by_name['InitPaginationByExecutionIdRequest']
-_INITPAGINATIONBYEXECUTIONIDRESPONSE = DESCRIPTOR.message_types_by_name['InitPaginationByExecutionIdResponse']
-_LISTJOBSBYEXECUTIONIDREQUEST = DESCRIPTOR.message_types_by_name['ListJobsByExecutionIdRequest']
-_LISTJOBSBYEXECUTIONIDRESPONSE = DESCRIPTOR.message_types_by_name['ListJobsByExecutionIdResponse']
-_DELETEFEATURESETJOBSREQUEST = DESCRIPTOR.message_types_by_name['DeleteFeaturesetJobsRequest']
-_DELETEFEATURESETJOBSRESPONSE = DESCRIPTOR.message_types_by_name['DeleteFeaturesetJobsResponse']
-_GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST = DESCRIPTOR.message_types_by_name['GetLatestSuccessfulJobByFeaturesetIdRequest']
-_GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE = DESCRIPTOR.message_types_by_name['GetLatestSuccessfulJobByFeaturesetIdResponse']
-_GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST = DESCRIPTOR.message_types_by_name['GetAllFeaturesetLatestSuccessfulJobsRequest']
-_GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE = DESCRIPTOR.message_types_by_name['GetAllFeaturesetLatestSuccessfulJobsResponse']
-_GETALLFEATURESETJOBSSUMMARIESREQUEST = DESCRIPTOR.message_types_by_name['GetAllFeaturesetJobsSummariesRequest']
-_GETALLFEATURESETJOBSSUMMARIESRESPONSE = DESCRIPTOR.message_types_by_name['GetAllFeaturesetJobsSummariesResponse']
-_FEATURESETJOBSSUMMARY = DESCRIPTOR.message_types_by_name['FeaturesetJobsSummary']
-_GETJOBSSUMMARYBYEXECUTIONIDREQUEST = DESCRIPTOR.message_types_by_name['GetJobsSummaryByExecutionIdRequest']
-_GETJOBSSUMMARYBYEXECUTIONIDRESPONSE = DESCRIPTOR.message_types_by_name['GetJobsSummaryByExecutionIdResponse']
-_GETJOBSUMMARIESBYEXECUTIONIDSREQUEST = DESCRIPTOR.message_types_by_name['GetJobSummariesByExecutionIdsRequest']
-_GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE = DESCRIPTOR.message_types_by_name['GetJobSummariesByExecutionIdsResponse']
-_EXECUTIONJOBSSUMMARY = DESCRIPTOR.message_types_by_name['ExecutionJobsSummary']
-ApplyJobRecordRequest = _reflection.GeneratedProtocolMessageType('ApplyJobRecordRequest', (_message.Message,), {
-  'DESCRIPTOR' : _APPLYJOBRECORDREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ApplyJobRecordRequest)
-  })
-_sym_db.RegisterMessage(ApplyJobRecordRequest)
-
-ApplyJobRecordResponse = _reflection.GeneratedProtocolMessageType('ApplyJobRecordResponse', (_message.Message,), {
-  'DESCRIPTOR' : _APPLYJOBRECORDRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ApplyJobRecordResponse)
-  })
-_sym_db.RegisterMessage(ApplyJobRecordResponse)
-
-InitPaginationRequest = _reflection.GeneratedProtocolMessageType('InitPaginationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.InitPaginationRequest)
-  })
-_sym_db.RegisterMessage(InitPaginationRequest)
-
-InitPaginationResponse = _reflection.GeneratedProtocolMessageType('InitPaginationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.InitPaginationResponse)
-  })
-_sym_db.RegisterMessage(InitPaginationResponse)
-
-ListJobsRequest = _reflection.GeneratedProtocolMessageType('ListJobsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTJOBSREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ListJobsRequest)
-  })
-_sym_db.RegisterMessage(ListJobsRequest)
-
-ListJobsResponse = _reflection.GeneratedProtocolMessageType('ListJobsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTJOBSRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ListJobsResponse)
-  })
-_sym_db.RegisterMessage(ListJobsResponse)
-
-InitPaginationByExecutionIdRequest = _reflection.GeneratedProtocolMessageType('InitPaginationByExecutionIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYEXECUTIONIDREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.InitPaginationByExecutionIdRequest)
-  })
-_sym_db.RegisterMessage(InitPaginationByExecutionIdRequest)
-
-InitPaginationByExecutionIdResponse = _reflection.GeneratedProtocolMessageType('InitPaginationByExecutionIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _INITPAGINATIONBYEXECUTIONIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.InitPaginationByExecutionIdResponse)
-  })
-_sym_db.RegisterMessage(InitPaginationByExecutionIdResponse)
-
-ListJobsByExecutionIdRequest = _reflection.GeneratedProtocolMessageType('ListJobsByExecutionIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTJOBSBYEXECUTIONIDREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ListJobsByExecutionIdRequest)
-  })
-_sym_db.RegisterMessage(ListJobsByExecutionIdRequest)
-
-ListJobsByExecutionIdResponse = _reflection.GeneratedProtocolMessageType('ListJobsByExecutionIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTJOBSBYEXECUTIONIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ListJobsByExecutionIdResponse)
-  })
-_sym_db.RegisterMessage(ListJobsByExecutionIdResponse)
-
-DeleteFeaturesetJobsRequest = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetJobsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETJOBSREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.DeleteFeaturesetJobsRequest)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetJobsRequest)
-
-DeleteFeaturesetJobsResponse = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetJobsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETJOBSRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.DeleteFeaturesetJobsResponse)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetJobsResponse)
-
-GetLatestSuccessfulJobByFeaturesetIdRequest = _reflection.GeneratedProtocolMessageType('GetLatestSuccessfulJobByFeaturesetIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetLatestSuccessfulJobByFeaturesetIdRequest)
-  })
-_sym_db.RegisterMessage(GetLatestSuccessfulJobByFeaturesetIdRequest)
-
-GetLatestSuccessfulJobByFeaturesetIdResponse = _reflection.GeneratedProtocolMessageType('GetLatestSuccessfulJobByFeaturesetIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetLatestSuccessfulJobByFeaturesetIdResponse)
-  })
-_sym_db.RegisterMessage(GetLatestSuccessfulJobByFeaturesetIdResponse)
-
-GetAllFeaturesetLatestSuccessfulJobsRequest = _reflection.GeneratedProtocolMessageType('GetAllFeaturesetLatestSuccessfulJobsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetAllFeaturesetLatestSuccessfulJobsRequest)
-  })
-_sym_db.RegisterMessage(GetAllFeaturesetLatestSuccessfulJobsRequest)
-
-GetAllFeaturesetLatestSuccessfulJobsResponse = _reflection.GeneratedProtocolMessageType('GetAllFeaturesetLatestSuccessfulJobsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetAllFeaturesetLatestSuccessfulJobsResponse)
-  })
-_sym_db.RegisterMessage(GetAllFeaturesetLatestSuccessfulJobsResponse)
-
-GetAllFeaturesetJobsSummariesRequest = _reflection.GeneratedProtocolMessageType('GetAllFeaturesetJobsSummariesRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETALLFEATURESETJOBSSUMMARIESREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetAllFeaturesetJobsSummariesRequest)
-  })
-_sym_db.RegisterMessage(GetAllFeaturesetJobsSummariesRequest)
-
-GetAllFeaturesetJobsSummariesResponse = _reflection.GeneratedProtocolMessageType('GetAllFeaturesetJobsSummariesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETALLFEATURESETJOBSSUMMARIESRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetAllFeaturesetJobsSummariesResponse)
-  })
-_sym_db.RegisterMessage(GetAllFeaturesetJobsSummariesResponse)
-
-FeaturesetJobsSummary = _reflection.GeneratedProtocolMessageType('FeaturesetJobsSummary', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESETJOBSSUMMARY,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.FeaturesetJobsSummary)
-  })
-_sym_db.RegisterMessage(FeaturesetJobsSummary)
-
-GetJobsSummaryByExecutionIdRequest = _reflection.GeneratedProtocolMessageType('GetJobsSummaryByExecutionIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETJOBSSUMMARYBYEXECUTIONIDREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetJobsSummaryByExecutionIdRequest)
-  })
-_sym_db.RegisterMessage(GetJobsSummaryByExecutionIdRequest)
-
-GetJobsSummaryByExecutionIdResponse = _reflection.GeneratedProtocolMessageType('GetJobsSummaryByExecutionIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETJOBSSUMMARYBYEXECUTIONIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetJobsSummaryByExecutionIdResponse)
-  })
-_sym_db.RegisterMessage(GetJobsSummaryByExecutionIdResponse)
-
-GetJobSummariesByExecutionIdsRequest = _reflection.GeneratedProtocolMessageType('GetJobSummariesByExecutionIdsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETJOBSUMMARIESBYEXECUTIONIDSREQUEST,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetJobSummariesByExecutionIdsRequest)
-  })
-_sym_db.RegisterMessage(GetJobSummariesByExecutionIdsRequest)
-
-GetJobSummariesByExecutionIdsResponse = _reflection.GeneratedProtocolMessageType('GetJobSummariesByExecutionIdsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.GetJobSummariesByExecutionIdsResponse)
-  })
-_sym_db.RegisterMessage(GetJobSummariesByExecutionIdsResponse)
-
-ExecutionJobsSummary = _reflection.GeneratedProtocolMessageType('ExecutionJobsSummary', (_message.Message,), {
-  'DESCRIPTOR' : _EXECUTIONJOBSSUMMARY,
-  '__module__' : 'qwak.execution.v1.jobs.job_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.jobs.ExecutionJobsSummary)
-  })
-_sym_db.RegisterMessage(ExecutionJobsSummary)
-
-_JOBSERVICE = DESCRIPTOR.services_by_name['JobService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.jobs.job_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n*com.qwak.ai.features.execution.api.v1.jobsP\001Z\027qwak/fsexecution;fsjobs'
-  _APPLYJOBRECORDREQUEST._serialized_start=149
-  _APPLYJOBRECORDREQUEST._serialized_end=241
-  _APPLYJOBRECORDRESPONSE._serialized_start=243
-  _APPLYJOBRECORDRESPONSE._serialized_end=267
-  _INITPAGINATIONREQUEST._serialized_start=269
-  _INITPAGINATIONREQUEST._serialized_end=315
-  _INITPAGINATIONRESPONSE._serialized_start=317
-  _INITPAGINATIONRESPONSE._serialized_end=386
-  _LISTJOBSREQUEST._serialized_start=388
-  _LISTJOBSREQUEST._serialized_end=491
-  _LISTJOBSRESPONSE._serialized_start=493
-  _LISTJOBSRESPONSE._serialized_end=581
-  _INITPAGINATIONBYEXECUTIONIDREQUEST._serialized_start=583
-  _INITPAGINATIONBYEXECUTIONIDREQUEST._serialized_end=641
-  _INITPAGINATIONBYEXECUTIONIDRESPONSE._serialized_start=643
-  _INITPAGINATIONBYEXECUTIONIDRESPONSE._serialized_end=725
-  _LISTJOBSBYEXECUTIONIDREQUEST._serialized_start=727
-  _LISTJOBSBYEXECUTIONIDREQUEST._serialized_end=842
-  _LISTJOBSBYEXECUTIONIDRESPONSE._serialized_start=844
-  _LISTJOBSBYEXECUTIONIDRESPONSE._serialized_end=945
-  _DELETEFEATURESETJOBSREQUEST._serialized_start=947
-  _DELETEFEATURESETJOBSREQUEST._serialized_end=999
-  _DELETEFEATURESETJOBSRESPONSE._serialized_start=1001
-  _DELETEFEATURESETJOBSRESPONSE._serialized_end=1065
-  _GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST._serialized_start=1067
-  _GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST._serialized_end=1135
-  _GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE._serialized_start=1138
-  _GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE._serialized_end=1274
-  _GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST._serialized_start=1276
-  _GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST._serialized_end=1321
-  _GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE._serialized_start=1323
-  _GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE._serialized_end=1439
-  _GETALLFEATURESETJOBSSUMMARIESREQUEST._serialized_start=1442
-  _GETALLFEATURESETJOBSSUMMARIESREQUEST._serialized_end=1605
-  _GETALLFEATURESETJOBSSUMMARIESRESPONSE._serialized_start=1607
-  _GETALLFEATURESETJOBSSUMMARIESRESPONSE._serialized_end=1731
-  _FEATURESETJOBSSUMMARY._serialized_start=1733
-  _FEATURESETJOBSSUMMARY._serialized_end=1808
-  _GETJOBSSUMMARYBYEXECUTIONIDREQUEST._serialized_start=1810
-  _GETJOBSSUMMARYBYEXECUTIONIDREQUEST._serialized_end=1868
-  _GETJOBSSUMMARYBYEXECUTIONIDRESPONSE._serialized_start=1871
-  _GETJOBSSUMMARYBYEXECUTIONIDRESPONSE._serialized_end=2127
-  _GETJOBSUMMARIESBYEXECUTIONIDSREQUEST._serialized_start=2129
-  _GETJOBSUMMARIESBYEXECUTIONIDSREQUEST._serialized_end=2190
-  _GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE._serialized_start=2193
-  _GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE._serialized_end=2321
-  _EXECUTIONJOBSSUMMARY._serialized_start=2324
-  _EXECUTIONJOBSSUMMARY._serialized_end=2616
-  _JOBSERVICE._serialized_start=2619
-  _JOBSERVICE._serialized_end=4513
+  _globals['_APPLYJOBRECORDREQUEST']._serialized_start=149
+  _globals['_APPLYJOBRECORDREQUEST']._serialized_end=241
+  _globals['_APPLYJOBRECORDRESPONSE']._serialized_start=243
+  _globals['_APPLYJOBRECORDRESPONSE']._serialized_end=267
+  _globals['_INITPAGINATIONREQUEST']._serialized_start=269
+  _globals['_INITPAGINATIONREQUEST']._serialized_end=315
+  _globals['_INITPAGINATIONRESPONSE']._serialized_start=317
+  _globals['_INITPAGINATIONRESPONSE']._serialized_end=386
+  _globals['_LISTJOBSREQUEST']._serialized_start=388
+  _globals['_LISTJOBSREQUEST']._serialized_end=491
+  _globals['_LISTJOBSRESPONSE']._serialized_start=493
+  _globals['_LISTJOBSRESPONSE']._serialized_end=581
+  _globals['_INITPAGINATIONBYEXECUTIONIDREQUEST']._serialized_start=583
+  _globals['_INITPAGINATIONBYEXECUTIONIDREQUEST']._serialized_end=641
+  _globals['_INITPAGINATIONBYEXECUTIONIDRESPONSE']._serialized_start=643
+  _globals['_INITPAGINATIONBYEXECUTIONIDRESPONSE']._serialized_end=725
+  _globals['_LISTJOBSBYEXECUTIONIDREQUEST']._serialized_start=727
+  _globals['_LISTJOBSBYEXECUTIONIDREQUEST']._serialized_end=842
+  _globals['_LISTJOBSBYEXECUTIONIDRESPONSE']._serialized_start=844
+  _globals['_LISTJOBSBYEXECUTIONIDRESPONSE']._serialized_end=945
+  _globals['_DELETEFEATURESETJOBSREQUEST']._serialized_start=947
+  _globals['_DELETEFEATURESETJOBSREQUEST']._serialized_end=999
+  _globals['_DELETEFEATURESETJOBSRESPONSE']._serialized_start=1001
+  _globals['_DELETEFEATURESETJOBSRESPONSE']._serialized_end=1065
+  _globals['_GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST']._serialized_start=1067
+  _globals['_GETLATESTSUCCESSFULJOBBYFEATURESETIDREQUEST']._serialized_end=1135
+  _globals['_GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE']._serialized_start=1138
+  _globals['_GETLATESTSUCCESSFULJOBBYFEATURESETIDRESPONSE']._serialized_end=1274
+  _globals['_GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST']._serialized_start=1276
+  _globals['_GETALLFEATURESETLATESTSUCCESSFULJOBSREQUEST']._serialized_end=1321
+  _globals['_GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE']._serialized_start=1323
+  _globals['_GETALLFEATURESETLATESTSUCCESSFULJOBSRESPONSE']._serialized_end=1439
+  _globals['_GETALLFEATURESETJOBSSUMMARIESREQUEST']._serialized_start=1442
+  _globals['_GETALLFEATURESETJOBSSUMMARIESREQUEST']._serialized_end=1605
+  _globals['_GETALLFEATURESETJOBSSUMMARIESRESPONSE']._serialized_start=1607
+  _globals['_GETALLFEATURESETJOBSSUMMARIESRESPONSE']._serialized_end=1731
+  _globals['_FEATURESETJOBSSUMMARY']._serialized_start=1733
+  _globals['_FEATURESETJOBSSUMMARY']._serialized_end=1808
+  _globals['_GETJOBSSUMMARYBYEXECUTIONIDREQUEST']._serialized_start=1810
+  _globals['_GETJOBSSUMMARYBYEXECUTIONIDREQUEST']._serialized_end=1868
+  _globals['_GETJOBSSUMMARYBYEXECUTIONIDRESPONSE']._serialized_start=1871
+  _globals['_GETJOBSSUMMARYBYEXECUTIONIDRESPONSE']._serialized_end=2127
+  _globals['_GETJOBSUMMARIESBYEXECUTIONIDSREQUEST']._serialized_start=2129
+  _globals['_GETJOBSUMMARIESBYEXECUTIONIDSREQUEST']._serialized_end=2190
+  _globals['_GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE']._serialized_start=2193
+  _globals['_GETJOBSUMMARIESBYEXECUTIONIDSRESPONSE']._serialized_end=2321
+  _globals['_EXECUTIONJOBSSUMMARY']._serialized_start=2324
+  _globals['_EXECUTIONJOBSSUMMARY']._serialized_end=2616
+  _globals['_JOBSERVICE']._serialized_start=2619
+  _globals['_JOBSERVICE']._serialized_end=4513
 # @@protoc_insertion_point(module_scope)

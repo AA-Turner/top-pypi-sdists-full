@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch
-Version: 0.2.3
+Version: 0.2.4
 Summary: LangWatch Python SDK, for monitoring your LLMs
 Author-email: Langwatch Engineers <engineering@langwatch.ai>
 License: MIT
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: !=3.9.7,<3.13,>=3.9
 Requires-Dist: coolname>=2.2.0
+Requires-Dist: deprecated>=1.2.18
 Requires-Dist: dspy-ai<3.0.0,>=2.5.2
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: litellm>=1.52.1

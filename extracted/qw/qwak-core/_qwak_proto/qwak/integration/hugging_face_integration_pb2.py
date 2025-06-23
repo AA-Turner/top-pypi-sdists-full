@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,70 +15,23 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n/qwak/integration/hugging_face_integration.proto\x12\x1bqwak.integration.management\"\xa4\x01\n\x16HuggingFaceIntegration\x12\x81\x01\n/hugging_face_api_token_system_secret_descriptor\x18\x01 \x01(\x0b\x32\x46.qwak.integration.management.HuggingFaceApiTokenSystemSecretDescriptorH\x00\x42\x06\n\x04\x61uth\"\x8e\x01\n\x1aHuggingFaceIntegrationSpec\x12h\n\"hugging_face_api_token_auth_config\x18\x01 \x01(\x0b\x32:.qwak.integration.management.HuggingFaceApiTokenAuthConfigH\x00\x42\x06\n\x04\x61uth\"\x8d\x01\n\x19HuggingFaceValidationSpec\x12h\n\"hugging_face_api_token_auth_config\x18\x01 \x01(\x0b\x32:.qwak.integration.management.HuggingFaceApiTokenAuthConfigH\x00\x42\x06\n\x04\x61uth\"2\n\x1dHuggingFaceApiTokenAuthConfig\x12\x11\n\tapi_token\x18\x01 \x01(\t\"^\n)HuggingFaceApiTokenSystemSecretDescriptor\x12\x13\n\x0bsecret_name\x18\x01 \x01(\t\x12\x1c\n\x14\x61pi_token_secret_key\x18\x02 \x01(\t\"\x1f\n\x1dHuggingFaceIntegrationOptionsBH\n&com.qwak.ai.management.integration.apiP\x01Z\x1cqwak/integration;integrationb\x06proto3')
 
-
-
-_HUGGINGFACEINTEGRATION = DESCRIPTOR.message_types_by_name['HuggingFaceIntegration']
-_HUGGINGFACEINTEGRATIONSPEC = DESCRIPTOR.message_types_by_name['HuggingFaceIntegrationSpec']
-_HUGGINGFACEVALIDATIONSPEC = DESCRIPTOR.message_types_by_name['HuggingFaceValidationSpec']
-_HUGGINGFACEAPITOKENAUTHCONFIG = DESCRIPTOR.message_types_by_name['HuggingFaceApiTokenAuthConfig']
-_HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['HuggingFaceApiTokenSystemSecretDescriptor']
-_HUGGINGFACEINTEGRATIONOPTIONS = DESCRIPTOR.message_types_by_name['HuggingFaceIntegrationOptions']
-HuggingFaceIntegration = _reflection.GeneratedProtocolMessageType('HuggingFaceIntegration', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEINTEGRATION,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceIntegration)
-  })
-_sym_db.RegisterMessage(HuggingFaceIntegration)
-
-HuggingFaceIntegrationSpec = _reflection.GeneratedProtocolMessageType('HuggingFaceIntegrationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEINTEGRATIONSPEC,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceIntegrationSpec)
-  })
-_sym_db.RegisterMessage(HuggingFaceIntegrationSpec)
-
-HuggingFaceValidationSpec = _reflection.GeneratedProtocolMessageType('HuggingFaceValidationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEVALIDATIONSPEC,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceValidationSpec)
-  })
-_sym_db.RegisterMessage(HuggingFaceValidationSpec)
-
-HuggingFaceApiTokenAuthConfig = _reflection.GeneratedProtocolMessageType('HuggingFaceApiTokenAuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEAPITOKENAUTHCONFIG,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceApiTokenAuthConfig)
-  })
-_sym_db.RegisterMessage(HuggingFaceApiTokenAuthConfig)
-
-HuggingFaceApiTokenSystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('HuggingFaceApiTokenSystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceApiTokenSystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(HuggingFaceApiTokenSystemSecretDescriptor)
-
-HuggingFaceIntegrationOptions = _reflection.GeneratedProtocolMessageType('HuggingFaceIntegrationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _HUGGINGFACEINTEGRATIONOPTIONS,
-  '__module__' : 'qwak.integration.hugging_face_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.HuggingFaceIntegrationOptions)
-  })
-_sym_db.RegisterMessage(HuggingFaceIntegrationOptions)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.integration.hugging_face_integration_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.integration.apiP\001Z\034qwak/integration;integration'
-  _HUGGINGFACEINTEGRATION._serialized_start=81
-  _HUGGINGFACEINTEGRATION._serialized_end=245
-  _HUGGINGFACEINTEGRATIONSPEC._serialized_start=248
-  _HUGGINGFACEINTEGRATIONSPEC._serialized_end=390
-  _HUGGINGFACEVALIDATIONSPEC._serialized_start=393
-  _HUGGINGFACEVALIDATIONSPEC._serialized_end=534
-  _HUGGINGFACEAPITOKENAUTHCONFIG._serialized_start=536
-  _HUGGINGFACEAPITOKENAUTHCONFIG._serialized_end=586
-  _HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR._serialized_start=588
-  _HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR._serialized_end=682
-  _HUGGINGFACEINTEGRATIONOPTIONS._serialized_start=684
-  _HUGGINGFACEINTEGRATIONOPTIONS._serialized_end=715
+  _globals['_HUGGINGFACEINTEGRATION']._serialized_start=81
+  _globals['_HUGGINGFACEINTEGRATION']._serialized_end=245
+  _globals['_HUGGINGFACEINTEGRATIONSPEC']._serialized_start=248
+  _globals['_HUGGINGFACEINTEGRATIONSPEC']._serialized_end=390
+  _globals['_HUGGINGFACEVALIDATIONSPEC']._serialized_start=393
+  _globals['_HUGGINGFACEVALIDATIONSPEC']._serialized_end=534
+  _globals['_HUGGINGFACEAPITOKENAUTHCONFIG']._serialized_start=536
+  _globals['_HUGGINGFACEAPITOKENAUTHCONFIG']._serialized_end=586
+  _globals['_HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR']._serialized_start=588
+  _globals['_HUGGINGFACEAPITOKENSYSTEMSECRETDESCRIPTOR']._serialized_end=682
+  _globals['_HUGGINGFACEINTEGRATIONOPTIONS']._serialized_start=684
+  _globals['_HUGGINGFACEINTEGRATIONOPTIONS']._serialized_end=715
 # @@protoc_insertion_point(module_scope)

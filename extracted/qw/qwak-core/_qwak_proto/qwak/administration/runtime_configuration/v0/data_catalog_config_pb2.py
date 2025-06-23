@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,40 +15,17 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFqwak/administration/runtime_configuration/v0/data_catalog_config.proto\x12@qwak.administration.runtime_configuration.v0.data_catalog_config\"\xf3\x01\n\x18\x44\x61taCatalogConfiguration\x12\x63\n\x04glue\x18\x01 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.data_catalog_config.GlueConfigurationH\x00\x12j\n\x08\x62ig_lake\x18\x02 \x01(\x0b\x32V.qwak.administration.runtime_configuration.v0.data_catalog_config.BigLakeConfigurationH\x00\x42\x06\n\x04type\"}\n\x14\x42igLakeConfiguration\x12\x12\n\nproject_id\x18\x01 \x01(\t\x12 \n\x18\x62ig_lake_connection_name\x18\x02 \x01(\t\x12\x19\n\x11\x62ig_lake_location\x18\x03 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x04 \x01(\t\"\x13\n\x11GlueConfigurationB\xe0\x01\n9com.jfrog.ml.runtime_configuration.v0.data_catalog_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_DATACATALOGCONFIGURATION = DESCRIPTOR.message_types_by_name['DataCatalogConfiguration']
-_BIGLAKECONFIGURATION = DESCRIPTOR.message_types_by_name['BigLakeConfiguration']
-_GLUECONFIGURATION = DESCRIPTOR.message_types_by_name['GlueConfiguration']
-DataCatalogConfiguration = _reflection.GeneratedProtocolMessageType('DataCatalogConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _DATACATALOGCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.data_catalog_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.data_catalog_config.DataCatalogConfiguration)
-  })
-_sym_db.RegisterMessage(DataCatalogConfiguration)
-
-BigLakeConfiguration = _reflection.GeneratedProtocolMessageType('BigLakeConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _BIGLAKECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.data_catalog_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.data_catalog_config.BigLakeConfiguration)
-  })
-_sym_db.RegisterMessage(BigLakeConfiguration)
-
-GlueConfiguration = _reflection.GeneratedProtocolMessageType('GlueConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _GLUECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.data_catalog_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.data_catalog_config.GlueConfiguration)
-  })
-_sym_db.RegisterMessage(GlueConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.data_catalog_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n9com.jfrog.ml.runtime_configuration.v0.data_catalog_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _DATACATALOGCONFIGURATION._serialized_start=141
-  _DATACATALOGCONFIGURATION._serialized_end=384
-  _BIGLAKECONFIGURATION._serialized_start=386
-  _BIGLAKECONFIGURATION._serialized_end=511
-  _GLUECONFIGURATION._serialized_start=513
-  _GLUECONFIGURATION._serialized_end=532
+  _globals['_DATACATALOGCONFIGURATION']._serialized_start=141
+  _globals['_DATACATALOGCONFIGURATION']._serialized_end=384
+  _globals['_BIGLAKECONFIGURATION']._serialized_start=386
+  _globals['_BIGLAKECONFIGURATION']._serialized_end=511
+  _globals['_GLUECONFIGURATION']._serialized_start=513
+  _globals['_GLUECONFIGURATION']._serialized_end=532
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -21,48 +20,9 @@ from _qwak_proto.qwak.feature_store.v1.common.source_code import source_code_pb2
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,qwak/feature_store/sources/data_source.proto\x12\x1aqwak.feature.store.sources\x1a\x1fgoogle/protobuf/timestamp.proto\x1a&qwak/feature_store/sources/batch.proto\x1a*qwak/feature_store/sources/streaming.proto\x1a\x36qwak/feature_store/sources/data_source_attribute.proto\x1a:qwak/feature_store/v1/common/source_code/source_code.proto\"\xe3\x01\n\nDataSource\x12P\n\x16\x64\x61ta_source_definition\x18\x01 \x01(\x0b\x32\x30.qwak.feature.store.sources.DataSourceDefinition\x12@\n\x08metadata\x18\x02 \x01(\x0b\x32..qwak.feature.store.sources.DataSourceMetadata\x12\x41\n\x0c\x66\x65\x61ture_sets\x18\x03 \x03(\x0b\x32+.qwak.feature.store.sources.FeatureSetBrief\"t\n\x14\x44\x61taSourceDefinition\x12\x16\n\x0e\x64\x61ta_source_id\x18\x01 \x01(\t\x12\x44\n\x10\x64\x61ta_source_spec\x18\x02 \x01(\x0b\x32*.qwak.feature.store.sources.DataSourceSpec\"\xa8\x01\n\x12\x44\x61taSourceMetadata\x12.\n\ncreated_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\x02 \x01(\t\x12\x34\n\x10last_modified_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x18\n\x10last_modified_by\x18\x04 \x01(\t\"\xe3\x03\n\x0e\x44\x61taSourceSpec\x12?\n\x0c\x62\x61tch_source\x18\x01 \x01(\x0b\x32\'.qwak.feature.store.sources.BatchSourceH\x00\x12\x44\n\rstream_source\x18\x02 \x01(\x0b\x32+.qwak.feature.store.sources.StreamingSourceH\x00\x12V\n\x10source_code_spec\x18\x03 \x01(\x0b\x32\x38.qwak.feature.store.v1.common.source_code.SourceCodeSpecB\x02\x18\x01\x12P\n\x16\x64\x61ta_source_attributes\x18\x04 \x01(\x0b\x32\x30.qwak.feature.store.sources.DataSourceAttributes\x12(\n\x1a\x66\x65\x61tureset_repository_name\x18\x05 \x01(\tB\x02\x18\x01H\x01\x12%\n\x1b\x64\x61ta_source_repository_name\x18\x06 \x01(\tH\x02\x42\x06\n\x04typeB\"\n featureset_repository_identifierB#\n!data_source_repository_identifier\"]\n\x0f\x46\x65\x61tureSetBrief\x12\x16\n\x0e\x66\x65\x61ture_set_id\x18\x01 \x01(\t\x12\x18\n\x10\x66\x65\x61ture_set_name\x18\x02 \x01(\t\x12\x18\n\x10\x66\x65\x61ture_set_type\x18\x03 \x01(\x05\x42X\n%com.qwak.ai.feature.store.sources.apiP\x01Z-qwak/featurestore/sources;featurestoresourcesb\x06proto3')
 
-
-
-_DATASOURCE = DESCRIPTOR.message_types_by_name['DataSource']
-_DATASOURCEDEFINITION = DESCRIPTOR.message_types_by_name['DataSourceDefinition']
-_DATASOURCEMETADATA = DESCRIPTOR.message_types_by_name['DataSourceMetadata']
-_DATASOURCESPEC = DESCRIPTOR.message_types_by_name['DataSourceSpec']
-_FEATURESETBRIEF = DESCRIPTOR.message_types_by_name['FeatureSetBrief']
-DataSource = _reflection.GeneratedProtocolMessageType('DataSource', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCE,
-  '__module__' : 'qwak.feature_store.sources.data_source_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DataSource)
-  })
-_sym_db.RegisterMessage(DataSource)
-
-DataSourceDefinition = _reflection.GeneratedProtocolMessageType('DataSourceDefinition', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCEDEFINITION,
-  '__module__' : 'qwak.feature_store.sources.data_source_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DataSourceDefinition)
-  })
-_sym_db.RegisterMessage(DataSourceDefinition)
-
-DataSourceMetadata = _reflection.GeneratedProtocolMessageType('DataSourceMetadata', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCEMETADATA,
-  '__module__' : 'qwak.feature_store.sources.data_source_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DataSourceMetadata)
-  })
-_sym_db.RegisterMessage(DataSourceMetadata)
-
-DataSourceSpec = _reflection.GeneratedProtocolMessageType('DataSourceSpec', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCESPEC,
-  '__module__' : 'qwak.feature_store.sources.data_source_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.DataSourceSpec)
-  })
-_sym_db.RegisterMessage(DataSourceSpec)
-
-FeatureSetBrief = _reflection.GeneratedProtocolMessageType('FeatureSetBrief', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESETBRIEF,
-  '__module__' : 'qwak.feature_store.sources.data_source_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.sources.FeatureSetBrief)
-  })
-_sym_db.RegisterMessage(FeatureSetBrief)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.sources.data_source_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -71,14 +31,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DATASOURCESPEC.fields_by_name['source_code_spec']._serialized_options = b'\030\001'
   _DATASOURCESPEC.fields_by_name['featureset_repository_name']._options = None
   _DATASOURCESPEC.fields_by_name['featureset_repository_name']._serialized_options = b'\030\001'
-  _DATASOURCE._serialized_start=310
-  _DATASOURCE._serialized_end=537
-  _DATASOURCEDEFINITION._serialized_start=539
-  _DATASOURCEDEFINITION._serialized_end=655
-  _DATASOURCEMETADATA._serialized_start=658
-  _DATASOURCEMETADATA._serialized_end=826
-  _DATASOURCESPEC._serialized_start=829
-  _DATASOURCESPEC._serialized_end=1312
-  _FEATURESETBRIEF._serialized_start=1314
-  _FEATURESETBRIEF._serialized_end=1407
+  _globals['_DATASOURCE']._serialized_start=310
+  _globals['_DATASOURCE']._serialized_end=537
+  _globals['_DATASOURCEDEFINITION']._serialized_start=539
+  _globals['_DATASOURCEDEFINITION']._serialized_end=655
+  _globals['_DATASOURCEMETADATA']._serialized_start=658
+  _globals['_DATASOURCEMETADATA']._serialized_end=826
+  _globals['_DATASOURCESPEC']._serialized_start=829
+  _globals['_DATASOURCESPEC']._serialized_end=1312
+  _globals['_FEATURESETBRIEF']._serialized_start=1314
+  _globals['_FEATURESETBRIEF']._serialized_end=1407
 # @@protoc_insertion_point(module_scope)

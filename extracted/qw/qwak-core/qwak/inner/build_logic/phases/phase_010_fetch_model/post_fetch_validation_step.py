@@ -104,7 +104,7 @@ class PostFetchValidationStep(Step):
     def _create_wheel(self, package_dir, target_path):
         dist_dir = package_dir / "dist"
         shutil.rmtree(dist_dir, ignore_errors=True)
-        output = subprocess.check_output(["make", "install"], cwd=package_dir)  # nosec
+        output = subprocess.check_output(["make", "sync"], cwd=package_dir)  # nosec
         for line in output.decode().split("\n"):
             self.build_logger.debug(f">>> {line}")
         output = subprocess.check_output(["poetry", "build"], cwd=package_dir)  # nosec

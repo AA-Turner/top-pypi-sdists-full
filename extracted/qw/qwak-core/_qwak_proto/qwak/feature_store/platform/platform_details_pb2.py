@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,30 +16,15 @@ from _qwak_proto.qwak.feature_store.repository.common import platform_pb2 as qwa
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/feature_store/platform/platform_details.proto\x12\x1bqwak.feature.store.platform\x1a\x33qwak/feature_store/repository/common/platform.proto\"\x9e\x01\n\x0fPlatformDetails\x12Q\n\x11platform_settings\x18\x01 \x01(\x0b\x32\x36.qwak.feature.store.repository.common.PlatformSettings\x12\x38\n\tauth_type\x18\x02 \x01(\x0b\x32%.qwak.feature.store.platform.AuthType\"&\n\x08\x41uthType\x12\x12\n\x08token_id\x18\x01 \x01(\tH\x00\x42\x06\n\x04typeB[\n&com.qwak.ai.feature.store.platform.apiP\x01Z/qwak/featurestore/features;featurestorefeaturesb\x06proto3')
 
-
-
-_PLATFORMDETAILS = DESCRIPTOR.message_types_by_name['PlatformDetails']
-_AUTHTYPE = DESCRIPTOR.message_types_by_name['AuthType']
-PlatformDetails = _reflection.GeneratedProtocolMessageType('PlatformDetails', (_message.Message,), {
-  'DESCRIPTOR' : _PLATFORMDETAILS,
-  '__module__' : 'qwak.feature_store.platform.platform_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.platform.PlatformDetails)
-  })
-_sym_db.RegisterMessage(PlatformDetails)
-
-AuthType = _reflection.GeneratedProtocolMessageType('AuthType', (_message.Message,), {
-  'DESCRIPTOR' : _AUTHTYPE,
-  '__module__' : 'qwak.feature_store.platform.platform_details_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.platform.AuthType)
-  })
-_sym_db.RegisterMessage(AuthType)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.feature_store.platform.platform_details_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.feature.store.platform.apiP\001Z/qwak/featurestore/features;featurestorefeatures'
-  _PLATFORMDETAILS._serialized_start=137
-  _PLATFORMDETAILS._serialized_end=295
-  _AUTHTYPE._serialized_start=297
-  _AUTHTYPE._serialized_end=335
+  _globals['_PLATFORMDETAILS']._serialized_start=137
+  _globals['_PLATFORMDETAILS']._serialized_end=295
+  _globals['_AUTHTYPE']._serialized_start=297
+  _globals['_AUTHTYPE']._serialized_end=335
 # @@protoc_insertion_point(module_scope)

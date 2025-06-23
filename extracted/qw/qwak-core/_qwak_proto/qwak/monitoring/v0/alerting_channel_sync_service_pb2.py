@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,53 +17,21 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n6qwak/monitoring/v0/alerting_channel_sync_service.proto\x12\x12qwak.monitoring.v0\x1a)qwak/monitoring/v0/alerting_channel.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"d\n)ListAlertingChannelsForEdgeClusterRequest\x12\x37\n\x13sync_channels_since\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"e\n*ListAlertingChannelsForEdgeClusterResponse\x12\x37\n\rsync_response\x18\x01 \x01(\x0b\x32 .qwak.monitoring.v0.SyncResponse\"d\n)ListAlertingChannelsForCoreClusterRequest\x12\x37\n\x13sync_channels_since\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"e\n*ListAlertingChannelsForCoreClusterResponse\x12\x37\n\rsync_response\x18\x01 \x01(\x0b\x32 .qwak.monitoring.v0.SyncResponse2\xe8\x02\n\x1a\x41lertingChannelSyncService\x12\xa3\x01\n\"ListAlertingChannelsForEdgeCluster\x12=.qwak.monitoring.v0.ListAlertingChannelsForEdgeClusterRequest\x1a>.qwak.monitoring.v0.ListAlertingChannelsForEdgeClusterResponse\x12\xa3\x01\n\"ListAlertingChannelsForCoreCluster\x12=.qwak.monitoring.v0.ListAlertingChannelsForCoreClusterRequest\x1a>.qwak.monitoring.v0.ListAlertingChannelsForCoreClusterResponseB2\n\x1d\x63om.qwak.ai.monitoring.api.v0P\x01Z\x0f.;monitoring_v0b\x06proto3')
 
-
-
-_LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST = DESCRIPTOR.message_types_by_name['ListAlertingChannelsForEdgeClusterRequest']
-_LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE = DESCRIPTOR.message_types_by_name['ListAlertingChannelsForEdgeClusterResponse']
-_LISTALERTINGCHANNELSFORCORECLUSTERREQUEST = DESCRIPTOR.message_types_by_name['ListAlertingChannelsForCoreClusterRequest']
-_LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE = DESCRIPTOR.message_types_by_name['ListAlertingChannelsForCoreClusterResponse']
-ListAlertingChannelsForEdgeClusterRequest = _reflection.GeneratedProtocolMessageType('ListAlertingChannelsForEdgeClusterRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST,
-  '__module__' : 'qwak.monitoring.v0.alerting_channel_sync_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.monitoring.v0.ListAlertingChannelsForEdgeClusterRequest)
-  })
-_sym_db.RegisterMessage(ListAlertingChannelsForEdgeClusterRequest)
-
-ListAlertingChannelsForEdgeClusterResponse = _reflection.GeneratedProtocolMessageType('ListAlertingChannelsForEdgeClusterResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE,
-  '__module__' : 'qwak.monitoring.v0.alerting_channel_sync_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.monitoring.v0.ListAlertingChannelsForEdgeClusterResponse)
-  })
-_sym_db.RegisterMessage(ListAlertingChannelsForEdgeClusterResponse)
-
-ListAlertingChannelsForCoreClusterRequest = _reflection.GeneratedProtocolMessageType('ListAlertingChannelsForCoreClusterRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTALERTINGCHANNELSFORCORECLUSTERREQUEST,
-  '__module__' : 'qwak.monitoring.v0.alerting_channel_sync_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.monitoring.v0.ListAlertingChannelsForCoreClusterRequest)
-  })
-_sym_db.RegisterMessage(ListAlertingChannelsForCoreClusterRequest)
-
-ListAlertingChannelsForCoreClusterResponse = _reflection.GeneratedProtocolMessageType('ListAlertingChannelsForCoreClusterResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE,
-  '__module__' : 'qwak.monitoring.v0.alerting_channel_sync_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.monitoring.v0.ListAlertingChannelsForCoreClusterResponse)
-  })
-_sym_db.RegisterMessage(ListAlertingChannelsForCoreClusterResponse)
-
-_ALERTINGCHANNELSYNCSERVICE = DESCRIPTOR.services_by_name['AlertingChannelSyncService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.monitoring.v0.alerting_channel_sync_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.qwak.ai.monitoring.api.v0P\001Z\017.;monitoring_v0'
-  _LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST._serialized_start=154
-  _LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST._serialized_end=254
-  _LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE._serialized_start=256
-  _LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE._serialized_end=357
-  _LISTALERTINGCHANNELSFORCORECLUSTERREQUEST._serialized_start=359
-  _LISTALERTINGCHANNELSFORCORECLUSTERREQUEST._serialized_end=459
-  _LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE._serialized_start=461
-  _LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE._serialized_end=562
-  _ALERTINGCHANNELSYNCSERVICE._serialized_start=565
-  _ALERTINGCHANNELSYNCSERVICE._serialized_end=925
+  _globals['_LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST']._serialized_start=154
+  _globals['_LISTALERTINGCHANNELSFOREDGECLUSTERREQUEST']._serialized_end=254
+  _globals['_LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE']._serialized_start=256
+  _globals['_LISTALERTINGCHANNELSFOREDGECLUSTERRESPONSE']._serialized_end=357
+  _globals['_LISTALERTINGCHANNELSFORCORECLUSTERREQUEST']._serialized_start=359
+  _globals['_LISTALERTINGCHANNELSFORCORECLUSTERREQUEST']._serialized_end=459
+  _globals['_LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE']._serialized_start=461
+  _globals['_LISTALERTINGCHANNELSFORCORECLUSTERRESPONSE']._serialized_end=562
+  _globals['_ALERTINGCHANNELSYNCSERVICE']._serialized_start=565
+  _globals['_ALERTINGCHANNELSYNCSERVICE']._serialized_end=925
 # @@protoc_insertion_point(module_scope)

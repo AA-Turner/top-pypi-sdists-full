@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,198 +18,53 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1cqwak/projects/projects.proto\x12\x18qwak.projects.management\x1a\x18qwak/models/models.proto\x1a&qwak/projects/jfrog_project_spec.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x01\n\x14\x43reateProjectRequest\x12\x14\n\x0cproject_name\x18\x01 \x01(\t\x12\x1b\n\x13project_description\x18\x02 \x01(\t\x12\x46\n\njfrog_spec\x18\x03 \x01(\x0b\x32\x32.qwak.projects.management.ModelRepositoryJFrogSpec\"O\n\x15\x43reateProjectResponse\x12\x36\n\x07project\x18\x01 \x01(\x0b\x32%.qwak.projects.management.ProjectSpec\"\x15\n\x13ListProjectsRequest\"O\n\x14ListProjectsResponse\x12\x37\n\x08projects\x18\x01 \x03(\x0b\x32%.qwak.projects.management.ProjectSpec\"=\n\x11GetProjectRequest\x12\x12\n\nproject_id\x18\x01 \x01(\t\x12\x14\n\x0cproject_name\x18\x02 \x01(\t\"H\n\x12GetProjectResponse\x12\x32\n\x07project\x18\x01 \x01(\x0b\x32!.qwak.projects.management.Project\"*\n\x14\x44\x65leteProjectRequest\x12\x12\n\nproject_id\x18\x01 \x01(\t\"%\n\x15\x44\x65leteProjectResponse\x12\x0c\n\x04info\x18\x01 \x01(\t\"{\n\x14UpdateProjectRequest\x12\x12\n\nproject_id\x18\x01 \x01(\t\x12O\n\x13project_spec_config\x18\x02 \x01(\x0b\x32\x32.qwak.projects.management.ProjectSpecConfiguration\"T\n\x15UpdateProjectResponse\x12;\n\x0cproject_spec\x18\x01 \x01(\x0b\x32%.qwak.projects.management.ProjectSpec\"\xac\x01\n\x07Project\x12\x33\n\x04spec\x18\x01 \x01(\x0b\x32%.qwak.projects.management.ProjectSpec\x12\x31\n\x06models\x18\x02 \x03(\x0b\x32\x1d.qwak.models.management.ModelB\x02\x18\x01\x12\x39\n\rmodels_briefs\x18\x03 \x03(\x0b\x32\".qwak.models.management.ModelBrief\"\xeb\x03\n\x0bProjectSpec\x12\x12\n\nproject_id\x18\x01 \x01(\t\x12\x14\n\x0cproject_name\x18\x02 \x01(\t\x12\x1b\n\x13project_description\x18\x03 \x01(\t\x12\x44\n\x0eproject_status\x18\x04 \x01(\x0e\x32,.qwak.projects.management.ProjectSpec.Status\x12.\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\x06 \x01(\t\x12\x34\n\x10last_modified_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x18\n\x10last_modified_by\x18\x08 \x01(\t\x12\x14\n\x0cmodels_count\x18\t \x01(\x05\x12\x15\n\rmodels_active\x18\n \x01(\x05\x12N\n\x0ejfrog_settings\x18\x0b \x01(\x0b\x32\x36.qwak.projects.management.ModelRepositoryJFrogSettings\">\n\x06Status\x12\x0b\n\x07INVALID\x10\x00\x12\x0c\n\x08\x44ISABLED\x10\x01\x12\r\n\tSUSPENDED\x10\x02\x12\n\n\x06\x41\x43TIVE\x10\x03\"M\n\x18ProjectSpecConfiguration\x12\x14\n\x0cproject_name\x18\x01 \x01(\t\x12\x1b\n\x13project_description\x18\x02 \x01(\t\"\xb1\x02\n\x1cModelRepositoryJFrogSettings\x12S\n\x11pull_image_secret\x18\x01 \x01(\x0b\x32\x38.qwak.projects.management.ModelRepositoryPullImageSecret\x12[\n\x15jfrog_project_details\x18\x02 \x01(\x0b\x32<.qwak.projects.management.ModelRepositoryJFrogProjectDetails\x12_\n\x1ajfrog_repositories_details\x18\x03 \x01(\x0b\x32;.qwak.projects.management.ModelRepositoryArtifactoryDetails\"@\n\x1eModelRepositoryPullImageSecret\x12\x1e\n\x16pull_image_secret_name\x18\x01 \x01(\t\"?\n\"ModelRepositoryJFrogProjectDetails\x12\x19\n\x11jfrog_project_key\x18\x01 \x01(\t\"\xb7\x02\n!ModelRepositoryArtifactoryDetails\x12[\n\x1b\x61rtifact_repository_details\x18\x01 \x01(\x0b\x32\x36.qwak.projects.management.ArtifactoryRepositoryDetails\x12Z\n\x1a\x64\x61taset_repository_details\x18\x02 \x01(\x0b\x32\x36.qwak.projects.management.ArtifactoryRepositoryDetails\x12Y\n\x19\x64ocker_repository_details\x18\x03 \x01(\x0b\x32\x36.qwak.projects.management.ArtifactoryRepositoryDetails\"6\n\x1c\x41rtifactoryRepositoryDetails\x12\x16\n\x0erepository_key\x18\x01 \x01(\t2\xc9\x04\n\x19ProjectsManagementService\x12p\n\rCreateProject\x12..qwak.projects.management.CreateProjectRequest\x1a/.qwak.projects.management.CreateProjectResponse\x12m\n\x0cListProjects\x12-.qwak.projects.management.ListProjectsRequest\x1a..qwak.projects.management.ListProjectsResponse\x12g\n\nGetProject\x12+.qwak.projects.management.GetProjectRequest\x1a,.qwak.projects.management.GetProjectResponse\x12p\n\rDeleteProject\x12..qwak.projects.management.DeleteProjectRequest\x1a/.qwak.projects.management.DeleteProjectResponse\x12p\n\rUpdateProject\x12..qwak.projects.management.UpdateProjectRequest\x1a/.qwak.projects.management.UpdateProjectResponseB\'\n#com.qwak.ai.management.projects.apiP\x01\x62\x06proto3')
 
-
-
-_CREATEPROJECTREQUEST = DESCRIPTOR.message_types_by_name['CreateProjectRequest']
-_CREATEPROJECTRESPONSE = DESCRIPTOR.message_types_by_name['CreateProjectResponse']
-_LISTPROJECTSREQUEST = DESCRIPTOR.message_types_by_name['ListProjectsRequest']
-_LISTPROJECTSRESPONSE = DESCRIPTOR.message_types_by_name['ListProjectsResponse']
-_GETPROJECTREQUEST = DESCRIPTOR.message_types_by_name['GetProjectRequest']
-_GETPROJECTRESPONSE = DESCRIPTOR.message_types_by_name['GetProjectResponse']
-_DELETEPROJECTREQUEST = DESCRIPTOR.message_types_by_name['DeleteProjectRequest']
-_DELETEPROJECTRESPONSE = DESCRIPTOR.message_types_by_name['DeleteProjectResponse']
-_UPDATEPROJECTREQUEST = DESCRIPTOR.message_types_by_name['UpdateProjectRequest']
-_UPDATEPROJECTRESPONSE = DESCRIPTOR.message_types_by_name['UpdateProjectResponse']
-_PROJECT = DESCRIPTOR.message_types_by_name['Project']
-_PROJECTSPEC = DESCRIPTOR.message_types_by_name['ProjectSpec']
-_PROJECTSPECCONFIGURATION = DESCRIPTOR.message_types_by_name['ProjectSpecConfiguration']
-_MODELREPOSITORYJFROGSETTINGS = DESCRIPTOR.message_types_by_name['ModelRepositoryJFrogSettings']
-_MODELREPOSITORYPULLIMAGESECRET = DESCRIPTOR.message_types_by_name['ModelRepositoryPullImageSecret']
-_MODELREPOSITORYJFROGPROJECTDETAILS = DESCRIPTOR.message_types_by_name['ModelRepositoryJFrogProjectDetails']
-_MODELREPOSITORYARTIFACTORYDETAILS = DESCRIPTOR.message_types_by_name['ModelRepositoryArtifactoryDetails']
-_ARTIFACTORYREPOSITORYDETAILS = DESCRIPTOR.message_types_by_name['ArtifactoryRepositoryDetails']
-_PROJECTSPEC_STATUS = _PROJECTSPEC.enum_types_by_name['Status']
-CreateProjectRequest = _reflection.GeneratedProtocolMessageType('CreateProjectRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROJECTREQUEST,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.CreateProjectRequest)
-  })
-_sym_db.RegisterMessage(CreateProjectRequest)
-
-CreateProjectResponse = _reflection.GeneratedProtocolMessageType('CreateProjectResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEPROJECTRESPONSE,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.CreateProjectResponse)
-  })
-_sym_db.RegisterMessage(CreateProjectResponse)
-
-ListProjectsRequest = _reflection.GeneratedProtocolMessageType('ListProjectsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROJECTSREQUEST,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ListProjectsRequest)
-  })
-_sym_db.RegisterMessage(ListProjectsRequest)
-
-ListProjectsResponse = _reflection.GeneratedProtocolMessageType('ListProjectsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPROJECTSRESPONSE,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ListProjectsResponse)
-  })
-_sym_db.RegisterMessage(ListProjectsResponse)
-
-GetProjectRequest = _reflection.GeneratedProtocolMessageType('GetProjectRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROJECTREQUEST,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.GetProjectRequest)
-  })
-_sym_db.RegisterMessage(GetProjectRequest)
-
-GetProjectResponse = _reflection.GeneratedProtocolMessageType('GetProjectResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETPROJECTRESPONSE,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.GetProjectResponse)
-  })
-_sym_db.RegisterMessage(GetProjectResponse)
-
-DeleteProjectRequest = _reflection.GeneratedProtocolMessageType('DeleteProjectRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROJECTREQUEST,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.DeleteProjectRequest)
-  })
-_sym_db.RegisterMessage(DeleteProjectRequest)
-
-DeleteProjectResponse = _reflection.GeneratedProtocolMessageType('DeleteProjectResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEPROJECTRESPONSE,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.DeleteProjectResponse)
-  })
-_sym_db.RegisterMessage(DeleteProjectResponse)
-
-UpdateProjectRequest = _reflection.GeneratedProtocolMessageType('UpdateProjectRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEPROJECTREQUEST,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.UpdateProjectRequest)
-  })
-_sym_db.RegisterMessage(UpdateProjectRequest)
-
-UpdateProjectResponse = _reflection.GeneratedProtocolMessageType('UpdateProjectResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEPROJECTRESPONSE,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.UpdateProjectResponse)
-  })
-_sym_db.RegisterMessage(UpdateProjectResponse)
-
-Project = _reflection.GeneratedProtocolMessageType('Project', (_message.Message,), {
-  'DESCRIPTOR' : _PROJECT,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.Project)
-  })
-_sym_db.RegisterMessage(Project)
-
-ProjectSpec = _reflection.GeneratedProtocolMessageType('ProjectSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PROJECTSPEC,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ProjectSpec)
-  })
-_sym_db.RegisterMessage(ProjectSpec)
-
-ProjectSpecConfiguration = _reflection.GeneratedProtocolMessageType('ProjectSpecConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _PROJECTSPECCONFIGURATION,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ProjectSpecConfiguration)
-  })
-_sym_db.RegisterMessage(ProjectSpecConfiguration)
-
-ModelRepositoryJFrogSettings = _reflection.GeneratedProtocolMessageType('ModelRepositoryJFrogSettings', (_message.Message,), {
-  'DESCRIPTOR' : _MODELREPOSITORYJFROGSETTINGS,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ModelRepositoryJFrogSettings)
-  })
-_sym_db.RegisterMessage(ModelRepositoryJFrogSettings)
-
-ModelRepositoryPullImageSecret = _reflection.GeneratedProtocolMessageType('ModelRepositoryPullImageSecret', (_message.Message,), {
-  'DESCRIPTOR' : _MODELREPOSITORYPULLIMAGESECRET,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ModelRepositoryPullImageSecret)
-  })
-_sym_db.RegisterMessage(ModelRepositoryPullImageSecret)
-
-ModelRepositoryJFrogProjectDetails = _reflection.GeneratedProtocolMessageType('ModelRepositoryJFrogProjectDetails', (_message.Message,), {
-  'DESCRIPTOR' : _MODELREPOSITORYJFROGPROJECTDETAILS,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ModelRepositoryJFrogProjectDetails)
-  })
-_sym_db.RegisterMessage(ModelRepositoryJFrogProjectDetails)
-
-ModelRepositoryArtifactoryDetails = _reflection.GeneratedProtocolMessageType('ModelRepositoryArtifactoryDetails', (_message.Message,), {
-  'DESCRIPTOR' : _MODELREPOSITORYARTIFACTORYDETAILS,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ModelRepositoryArtifactoryDetails)
-  })
-_sym_db.RegisterMessage(ModelRepositoryArtifactoryDetails)
-
-ArtifactoryRepositoryDetails = _reflection.GeneratedProtocolMessageType('ArtifactoryRepositoryDetails', (_message.Message,), {
-  'DESCRIPTOR' : _ARTIFACTORYREPOSITORYDETAILS,
-  '__module__' : 'qwak.projects.projects_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.projects.management.ArtifactoryRepositoryDetails)
-  })
-_sym_db.RegisterMessage(ArtifactoryRepositoryDetails)
-
-_PROJECTSMANAGEMENTSERVICE = DESCRIPTOR.services_by_name['ProjectsManagementService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.projects.projects_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.management.projects.apiP\001'
   _PROJECT.fields_by_name['models']._options = None
   _PROJECT.fields_by_name['models']._serialized_options = b'\030\001'
-  _CREATEPROJECTREQUEST._serialized_start=158
-  _CREATEPROJECTREQUEST._serialized_end=303
-  _CREATEPROJECTRESPONSE._serialized_start=305
-  _CREATEPROJECTRESPONSE._serialized_end=384
-  _LISTPROJECTSREQUEST._serialized_start=386
-  _LISTPROJECTSREQUEST._serialized_end=407
-  _LISTPROJECTSRESPONSE._serialized_start=409
-  _LISTPROJECTSRESPONSE._serialized_end=488
-  _GETPROJECTREQUEST._serialized_start=490
-  _GETPROJECTREQUEST._serialized_end=551
-  _GETPROJECTRESPONSE._serialized_start=553
-  _GETPROJECTRESPONSE._serialized_end=625
-  _DELETEPROJECTREQUEST._serialized_start=627
-  _DELETEPROJECTREQUEST._serialized_end=669
-  _DELETEPROJECTRESPONSE._serialized_start=671
-  _DELETEPROJECTRESPONSE._serialized_end=708
-  _UPDATEPROJECTREQUEST._serialized_start=710
-  _UPDATEPROJECTREQUEST._serialized_end=833
-  _UPDATEPROJECTRESPONSE._serialized_start=835
-  _UPDATEPROJECTRESPONSE._serialized_end=919
-  _PROJECT._serialized_start=922
-  _PROJECT._serialized_end=1094
-  _PROJECTSPEC._serialized_start=1097
-  _PROJECTSPEC._serialized_end=1588
-  _PROJECTSPEC_STATUS._serialized_start=1526
-  _PROJECTSPEC_STATUS._serialized_end=1588
-  _PROJECTSPECCONFIGURATION._serialized_start=1590
-  _PROJECTSPECCONFIGURATION._serialized_end=1667
-  _MODELREPOSITORYJFROGSETTINGS._serialized_start=1670
-  _MODELREPOSITORYJFROGSETTINGS._serialized_end=1975
-  _MODELREPOSITORYPULLIMAGESECRET._serialized_start=1977
-  _MODELREPOSITORYPULLIMAGESECRET._serialized_end=2041
-  _MODELREPOSITORYJFROGPROJECTDETAILS._serialized_start=2043
-  _MODELREPOSITORYJFROGPROJECTDETAILS._serialized_end=2106
-  _MODELREPOSITORYARTIFACTORYDETAILS._serialized_start=2109
-  _MODELREPOSITORYARTIFACTORYDETAILS._serialized_end=2420
-  _ARTIFACTORYREPOSITORYDETAILS._serialized_start=2422
-  _ARTIFACTORYREPOSITORYDETAILS._serialized_end=2476
-  _PROJECTSMANAGEMENTSERVICE._serialized_start=2479
-  _PROJECTSMANAGEMENTSERVICE._serialized_end=3064
+  _globals['_CREATEPROJECTREQUEST']._serialized_start=158
+  _globals['_CREATEPROJECTREQUEST']._serialized_end=303
+  _globals['_CREATEPROJECTRESPONSE']._serialized_start=305
+  _globals['_CREATEPROJECTRESPONSE']._serialized_end=384
+  _globals['_LISTPROJECTSREQUEST']._serialized_start=386
+  _globals['_LISTPROJECTSREQUEST']._serialized_end=407
+  _globals['_LISTPROJECTSRESPONSE']._serialized_start=409
+  _globals['_LISTPROJECTSRESPONSE']._serialized_end=488
+  _globals['_GETPROJECTREQUEST']._serialized_start=490
+  _globals['_GETPROJECTREQUEST']._serialized_end=551
+  _globals['_GETPROJECTRESPONSE']._serialized_start=553
+  _globals['_GETPROJECTRESPONSE']._serialized_end=625
+  _globals['_DELETEPROJECTREQUEST']._serialized_start=627
+  _globals['_DELETEPROJECTREQUEST']._serialized_end=669
+  _globals['_DELETEPROJECTRESPONSE']._serialized_start=671
+  _globals['_DELETEPROJECTRESPONSE']._serialized_end=708
+  _globals['_UPDATEPROJECTREQUEST']._serialized_start=710
+  _globals['_UPDATEPROJECTREQUEST']._serialized_end=833
+  _globals['_UPDATEPROJECTRESPONSE']._serialized_start=835
+  _globals['_UPDATEPROJECTRESPONSE']._serialized_end=919
+  _globals['_PROJECT']._serialized_start=922
+  _globals['_PROJECT']._serialized_end=1094
+  _globals['_PROJECTSPEC']._serialized_start=1097
+  _globals['_PROJECTSPEC']._serialized_end=1588
+  _globals['_PROJECTSPEC_STATUS']._serialized_start=1526
+  _globals['_PROJECTSPEC_STATUS']._serialized_end=1588
+  _globals['_PROJECTSPECCONFIGURATION']._serialized_start=1590
+  _globals['_PROJECTSPECCONFIGURATION']._serialized_end=1667
+  _globals['_MODELREPOSITORYJFROGSETTINGS']._serialized_start=1670
+  _globals['_MODELREPOSITORYJFROGSETTINGS']._serialized_end=1975
+  _globals['_MODELREPOSITORYPULLIMAGESECRET']._serialized_start=1977
+  _globals['_MODELREPOSITORYPULLIMAGESECRET']._serialized_end=2041
+  _globals['_MODELREPOSITORYJFROGPROJECTDETAILS']._serialized_start=2043
+  _globals['_MODELREPOSITORYJFROGPROJECTDETAILS']._serialized_end=2106
+  _globals['_MODELREPOSITORYARTIFACTORYDETAILS']._serialized_start=2109
+  _globals['_MODELREPOSITORYARTIFACTORYDETAILS']._serialized_end=2420
+  _globals['_ARTIFACTORYREPOSITORYDETAILS']._serialized_start=2422
+  _globals['_ARTIFACTORYREPOSITORYDETAILS']._serialized_end=2476
+  _globals['_PROJECTSMANAGEMENTSERVICE']._serialized_start=2479
+  _globals['_PROJECTSMANAGEMENTSERVICE']._serialized_end=3064
 # @@protoc_insertion_point(module_scope)

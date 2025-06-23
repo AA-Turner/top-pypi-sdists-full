@@ -1,4 +1,3 @@
-import sys
 from types import TracebackType
 from typing import (
     Any,
@@ -10,19 +9,13 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    Final,
+    Literal,
+    Protocol,
+    TypedDict,
+    final,
+    runtime_checkable,
 )
-
-if sys.version_info < (3, 8):
-    from typing_extensions import (
-        Final,
-        Literal,
-        Protocol,
-        TypedDict,
-        final,
-        runtime_checkable,
-    )
-else:
-    from typing import Final, Literal, Protocol, TypedDict, final, runtime_checkable
 
 __all__ = [
     "Scope",
@@ -52,7 +45,12 @@ Receive = Callable[[], Awaitable[Message]]
 
 Send = Callable[[Message], Awaitable[None]]
 
-ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+
+class ASGIApp(Protocol):
+    def __call__(
+        self, scope: Scope, receive: Receive, send: Send
+    ) -> Awaitable[None]: ...
+
 
 # WSGI: view PEP3333
 Environ = MutableMapping[str, Any]
@@ -66,11 +64,14 @@ class StartResponse(Protocol):
         status: str,
         response_headers: List[Tuple[str, str]],
         exc_info: Optional[ExcInfo] = None,
-    ) -> None:
-        ...
+    ) -> Any: ...
 
 
-WSGIApp = Callable[[Environ, StartResponse], Iterable[bytes]]
+class WSGIApp(Protocol):
+    def __call__(
+        self, environ: Environ, start_response: StartResponse
+    ) -> Iterable[bytes]: ...
+
 
 # Server-sent Event
 # https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events

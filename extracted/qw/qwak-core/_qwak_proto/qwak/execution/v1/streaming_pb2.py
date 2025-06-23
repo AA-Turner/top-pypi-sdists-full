@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,50 +15,19 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!qwak/execution/v1/streaming.proto\x12\x1fqwak.feature.store.execution.v1\"3\n\x18OnlineStreamingIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\xfe\x01\n\x19OfflineStreamingIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12^\n\x11scheduled_trigger\x18\x02 \x01(\x0b\x32\x41.qwak.feature.store.execution.v1.ScheduledOfflineStreamingTriggerH\x00\x12X\n\x0emanual_trigger\x18\x03 \x01(\x0b\x32>.qwak.feature.store.execution.v1.ManualOfflineStreamingTriggerH\x00\x42\x0e\n\x0ctrigger_type\"\"\n ScheduledOfflineStreamingTrigger\"\x1f\n\x1dManualOfflineStreamingTriggerB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
 
-
-
-_ONLINESTREAMINGINGESTION = DESCRIPTOR.message_types_by_name['OnlineStreamingIngestion']
-_OFFLINESTREAMINGINGESTION = DESCRIPTOR.message_types_by_name['OfflineStreamingIngestion']
-_SCHEDULEDOFFLINESTREAMINGTRIGGER = DESCRIPTOR.message_types_by_name['ScheduledOfflineStreamingTrigger']
-_MANUALOFFLINESTREAMINGTRIGGER = DESCRIPTOR.message_types_by_name['ManualOfflineStreamingTrigger']
-OnlineStreamingIngestion = _reflection.GeneratedProtocolMessageType('OnlineStreamingIngestion', (_message.Message,), {
-  'DESCRIPTOR' : _ONLINESTREAMINGINGESTION,
-  '__module__' : 'qwak.execution.v1.streaming_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.OnlineStreamingIngestion)
-  })
-_sym_db.RegisterMessage(OnlineStreamingIngestion)
-
-OfflineStreamingIngestion = _reflection.GeneratedProtocolMessageType('OfflineStreamingIngestion', (_message.Message,), {
-  'DESCRIPTOR' : _OFFLINESTREAMINGINGESTION,
-  '__module__' : 'qwak.execution.v1.streaming_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.OfflineStreamingIngestion)
-  })
-_sym_db.RegisterMessage(OfflineStreamingIngestion)
-
-ScheduledOfflineStreamingTrigger = _reflection.GeneratedProtocolMessageType('ScheduledOfflineStreamingTrigger', (_message.Message,), {
-  'DESCRIPTOR' : _SCHEDULEDOFFLINESTREAMINGTRIGGER,
-  '__module__' : 'qwak.execution.v1.streaming_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ScheduledOfflineStreamingTrigger)
-  })
-_sym_db.RegisterMessage(ScheduledOfflineStreamingTrigger)
-
-ManualOfflineStreamingTrigger = _reflection.GeneratedProtocolMessageType('ManualOfflineStreamingTrigger', (_message.Message,), {
-  'DESCRIPTOR' : _MANUALOFFLINESTREAMINGTRIGGER,
-  '__module__' : 'qwak.execution.v1.streaming_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.ManualOfflineStreamingTrigger)
-  })
-_sym_db.RegisterMessage(ManualOfflineStreamingTrigger)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.streaming_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.features.execution.api.v1P\001'
-  _ONLINESTREAMINGINGESTION._serialized_start=70
-  _ONLINESTREAMINGINGESTION._serialized_end=121
-  _OFFLINESTREAMINGINGESTION._serialized_start=124
-  _OFFLINESTREAMINGINGESTION._serialized_end=378
-  _SCHEDULEDOFFLINESTREAMINGTRIGGER._serialized_start=380
-  _SCHEDULEDOFFLINESTREAMINGTRIGGER._serialized_end=414
-  _MANUALOFFLINESTREAMINGTRIGGER._serialized_start=416
-  _MANUALOFFLINESTREAMINGTRIGGER._serialized_end=447
+  _globals['_ONLINESTREAMINGINGESTION']._serialized_start=70
+  _globals['_ONLINESTREAMINGINGESTION']._serialized_end=121
+  _globals['_OFFLINESTREAMINGINGESTION']._serialized_start=124
+  _globals['_OFFLINESTREAMINGINGESTION']._serialized_end=378
+  _globals['_SCHEDULEDOFFLINESTREAMINGTRIGGER']._serialized_start=380
+  _globals['_SCHEDULEDOFFLINESTREAMINGTRIGGER']._serialized_end=414
+  _globals['_MANUALOFFLINESTREAMINGTRIGGER']._serialized_start=416
+  _globals['_MANUALOFFLINESTREAMINGTRIGGER']._serialized_end=447
 # @@protoc_insertion_point(module_scope)

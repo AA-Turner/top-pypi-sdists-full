@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,20 +15,13 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%qwak/offline/serving/v1/options.proto\x12%qwak.feature.store.offline.serving.v1\"G\n\x1aOfflineServingQueryOptions\x12)\n!include_featureset_version_column\x18\x01 \x01(\x08\x42&\n\"com.qwak.ai.offline.serving.api.v1P\x01\x62\x06proto3')
 
-
-
-_OFFLINESERVINGQUERYOPTIONS = DESCRIPTOR.message_types_by_name['OfflineServingQueryOptions']
-OfflineServingQueryOptions = _reflection.GeneratedProtocolMessageType('OfflineServingQueryOptions', (_message.Message,), {
-  'DESCRIPTOR' : _OFFLINESERVINGQUERYOPTIONS,
-  '__module__' : 'qwak.offline.serving.v1.options_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.offline.serving.v1.OfflineServingQueryOptions)
-  })
-_sym_db.RegisterMessage(OfflineServingQueryOptions)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.offline.serving.v1.options_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\"com.qwak.ai.offline.serving.api.v1P\001'
-  _OFFLINESERVINGQUERYOPTIONS._serialized_start=80
-  _OFFLINESERVINGQUERYOPTIONS._serialized_end=151
+  _globals['_OFFLINESERVINGQUERYOPTIONS']._serialized_start=80
+  _globals['_OFFLINESERVINGQUERYOPTIONS']._serialized_end=151
 # @@protoc_insertion_point(module_scope)

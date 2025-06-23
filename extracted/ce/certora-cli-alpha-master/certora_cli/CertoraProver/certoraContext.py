@@ -616,7 +616,7 @@ def attrs_to_relative(context: CertoraContext) -> None:
     prover_resource_file_to_relative()
     verify_to_relative()
 
-def get_map_attribute_value(context: CertoraContext, path: Path, attr_name: str) -> Optional[str | bool]:
+def get_map_attribute_value(context: CertoraContext, path: Path, attr_name: str) -> Optional[Union[str, bool]]:
 
     value = getattr(context, attr_name, None)
     if value:

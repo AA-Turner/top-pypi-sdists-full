@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,30 +15,15 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n9qwak/administration/v0/environments/personalization.proto\x12\x1fqwak.administration.environment\"S\n\x1a\x45nvironmentPersonalization\x12\x35\n\x05\x62rand\x18\x01 \x01(\x0b\x32&.qwak.administration.environment.Brand\" \n\x05\x42rand\x12\x17\n\x0flogo_image_path\x18\x01 \x01(\tB\xb2\x01\n\x1e\x63om.qwak.ai.administration.apiP\x01Z\x8d\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v0/environments;environment_v0b\x06proto3')
 
-
-
-_ENVIRONMENTPERSONALIZATION = DESCRIPTOR.message_types_by_name['EnvironmentPersonalization']
-_BRAND = DESCRIPTOR.message_types_by_name['Brand']
-EnvironmentPersonalization = _reflection.GeneratedProtocolMessageType('EnvironmentPersonalization', (_message.Message,), {
-  'DESCRIPTOR' : _ENVIRONMENTPERSONALIZATION,
-  '__module__' : 'qwak.administration.v0.environments.personalization_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.environment.EnvironmentPersonalization)
-  })
-_sym_db.RegisterMessage(EnvironmentPersonalization)
-
-Brand = _reflection.GeneratedProtocolMessageType('Brand', (_message.Message,), {
-  'DESCRIPTOR' : _BRAND,
-  '__module__' : 'qwak.administration.v0.environments.personalization_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.environment.Brand)
-  })
-_sym_db.RegisterMessage(Brand)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.v0.environments.personalization_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.administration.apiP\001Z\215\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/v0/environments;environment_v0'
-  _ENVIRONMENTPERSONALIZATION._serialized_start=94
-  _ENVIRONMENTPERSONALIZATION._serialized_end=177
-  _BRAND._serialized_start=179
-  _BRAND._serialized_end=211
+  _globals['_ENVIRONMENTPERSONALIZATION']._serialized_start=94
+  _globals['_ENVIRONMENTPERSONALIZATION']._serialized_end=177
+  _globals['_BRAND']._serialized_start=179
+  _globals['_BRAND']._serialized_end=211
 # @@protoc_insertion_point(module_scope)

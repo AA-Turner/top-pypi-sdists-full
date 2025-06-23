@@ -13,6 +13,7 @@ struct SortedDictKeysIterType : public SortedDictViewIterType
 
 struct SortedDictKeysType : public SortedDictViewType
 {
+    int contains(PyObject*);
 };
 
 #endif

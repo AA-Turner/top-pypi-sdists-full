@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,136 +16,9 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/ecosystem/jfrog/v0/token.proto\x12\x1dqwak.ecosystem.jfrog.token.v0\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x01\n\nJFrogToken\x12G\n\ndefinition\x18\x01 \x01(\x0b\x32\x33.qwak.ecosystem.jfrog.token.v0.JFrogTokenDefinition\x12N\n\x0etenant_details\x18\x02 \x01(\x0b\x32\x36.qwak.ecosystem.jfrog.token.v0.JFrogTokenTenantDetails\"/\n\x17JFrogTokenTenantDetails\x12\x14\n\x0cplatform_url\x18\x01 \x01(\t\"\xe4\x01\n\x14JFrogTokenDefinition\x12\r\n\x05token\x18\x01 \x01(\t\x12\x17\n\rrefresh_token\x18\x02 \x01(\tH\x00\x12\x35\n\x0f\x65xpiration_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01\x12\x0f\n\x07subject\x18\x04 \x01(\t\x12\x14\n\x0csubject_name\x18\x05 \x01(\t\x12\x10\n\x08token_id\x18\x06 \x01(\tB\x18\n\x16optional_refresh_tokenB\x1a\n\x18optional_expiration_time\"\x8c\x02\n\x0eJFrogTokenSpec\x12\x17\n\x0fjfrog_tenant_id\x18\x01 \x01(\t\x12V\n\x18subject_and_scope_source\x18\x02 \x01(\x0b\x32\x34.qwak.ecosystem.jfrog.token.v0.SubjectAndScopeSource\x12\x45\n\taudiences\x18\x03 \x01(\x0b\x32\x32.qwak.ecosystem.jfrog.token.v0.JFrogTokenAudiences\x12\x42\n\x08ttl_spec\x18\x04 \x01(\x0b\x32\x30.qwak.ecosystem.jfrog.token.v0.JFrogTokenTTLSpec\"\x94\x01\n\x1d\x41rtifactoryImagePullTokenSpec\x12\x17\n\x0fjfrog_tenant_id\x18\x01 \x01(\t\x12\x16\n\x0erepository_key\x18\x02 \x01(\t\x12\x42\n\x08ttl_spec\x18\x03 \x01(\x0b\x32\x30.qwak.ecosystem.jfrog.token.v0.JFrogTokenTTLSpec\"\x97\x01\n\x16PersistTokenClaimsSpec\x12\x17\n\x0fjfrog_tenant_id\x18\x01 \x01(\t\x12\x11\n\x05token\x18\x02 \x01(\tB\x02\x18\x01\x12Q\n\x15token_scope_extension\x18\x03 \x01(\x0b\x32\x32.qwak.ecosystem.jfrog.token.v0.TokenScopeExtension\"m\n\x14JFrogTokenRevokeSpec\x12\x17\n\x0fjfrog_tenant_id\x18\x01 \x01(\t\x12\x0f\n\x05token\x18\x02 \x01(\tH\x00\x12\x12\n\x08token_id\x18\x03 \x01(\tH\x00\x42\x17\n\x15token_descriptor_type\"{\n\x11JFrogTokenTTLSpec\x12\x35\n\x0f\x65xpiration_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12\x13\n\x0brefreshable\x18\x02 \x01(\x08\x42\x1a\n\x18optional_expiration_time\"\xf4\x01\n\x15SubjectAndScopeSource\x12\x13\n\x05token\x18\x01 \x01(\tB\x02\x18\x01H\x00\x12\x12\n\x08token_id\x18\x02 \x01(\tH\x00\x12S\n\x11subject_and_scope\x18\x03 \x01(\x0b\x32\x36.qwak.ecosystem.jfrog.token.v0.ExplicitSubjectAndScopeH\x00\x12S\n\x15token_scope_extension\x18\x04 \x01(\x0b\x32\x32.qwak.ecosystem.jfrog.token.v0.TokenScopeExtensionH\x00\x42\x08\n\x06source\"P\n\x17\x45xplicitSubjectAndScope\x12\x11\n\x07subject\x18\x01 \x01(\tH\x00\x12\x0e\n\x06scopes\x18\x02 \x01(\tB\x12\n\x10optional_subject\"[\n\x13JFrogTokenAudiences\x12\x44\n\taudiences\x18\x01 \x03(\x0b\x32\x31.qwak.ecosystem.jfrog.token.v0.JFrogTokenAudience\"\x86\x02\n\x12JFrogTokenAudience\x12L\n\x08jfrog_ml\x18\x01 \x01(\x0b\x32\x38.qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceJFrogMLH\x00\x12S\n\x0b\x61rtifactory\x18\x02 \x01(\x0b\x32<.qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceArtifactoryH\x00\x12\x45\n\x04xray\x18\x03 \x01(\x0b\x32\x35.qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceXRayH\x00\x42\x06\n\x04type\"\x1f\n\x1dJFrogTokenAudienceArtifactory\"\x18\n\x16JFrogTokenAudienceXRay\"\x1b\n\x19JFrogTokenAudienceJFrogML\"?\n\x13TokenScopeExtension\x12\r\n\x05token\x18\x01 \x01(\t\x12\x19\n\x11\x61\x64\x64itional_scopes\x18\x02 \x03(\tB\xb7\x01\n\x1a\x63om.qwak.ai.jfrog.token.v0P\x01Z\x96\x01github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/jfrog/v0;jfrog_v0b\x06proto3')
 
-
-
-_JFROGTOKEN = DESCRIPTOR.message_types_by_name['JFrogToken']
-_JFROGTOKENTENANTDETAILS = DESCRIPTOR.message_types_by_name['JFrogTokenTenantDetails']
-_JFROGTOKENDEFINITION = DESCRIPTOR.message_types_by_name['JFrogTokenDefinition']
-_JFROGTOKENSPEC = DESCRIPTOR.message_types_by_name['JFrogTokenSpec']
-_ARTIFACTORYIMAGEPULLTOKENSPEC = DESCRIPTOR.message_types_by_name['ArtifactoryImagePullTokenSpec']
-_PERSISTTOKENCLAIMSSPEC = DESCRIPTOR.message_types_by_name['PersistTokenClaimsSpec']
-_JFROGTOKENREVOKESPEC = DESCRIPTOR.message_types_by_name['JFrogTokenRevokeSpec']
-_JFROGTOKENTTLSPEC = DESCRIPTOR.message_types_by_name['JFrogTokenTTLSpec']
-_SUBJECTANDSCOPESOURCE = DESCRIPTOR.message_types_by_name['SubjectAndScopeSource']
-_EXPLICITSUBJECTANDSCOPE = DESCRIPTOR.message_types_by_name['ExplicitSubjectAndScope']
-_JFROGTOKENAUDIENCES = DESCRIPTOR.message_types_by_name['JFrogTokenAudiences']
-_JFROGTOKENAUDIENCE = DESCRIPTOR.message_types_by_name['JFrogTokenAudience']
-_JFROGTOKENAUDIENCEARTIFACTORY = DESCRIPTOR.message_types_by_name['JFrogTokenAudienceArtifactory']
-_JFROGTOKENAUDIENCEXRAY = DESCRIPTOR.message_types_by_name['JFrogTokenAudienceXRay']
-_JFROGTOKENAUDIENCEJFROGML = DESCRIPTOR.message_types_by_name['JFrogTokenAudienceJFrogML']
-_TOKENSCOPEEXTENSION = DESCRIPTOR.message_types_by_name['TokenScopeExtension']
-JFrogToken = _reflection.GeneratedProtocolMessageType('JFrogToken', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKEN,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogToken)
-  })
-_sym_db.RegisterMessage(JFrogToken)
-
-JFrogTokenTenantDetails = _reflection.GeneratedProtocolMessageType('JFrogTokenTenantDetails', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENTENANTDETAILS,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenTenantDetails)
-  })
-_sym_db.RegisterMessage(JFrogTokenTenantDetails)
-
-JFrogTokenDefinition = _reflection.GeneratedProtocolMessageType('JFrogTokenDefinition', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENDEFINITION,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenDefinition)
-  })
-_sym_db.RegisterMessage(JFrogTokenDefinition)
-
-JFrogTokenSpec = _reflection.GeneratedProtocolMessageType('JFrogTokenSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENSPEC,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenSpec)
-  })
-_sym_db.RegisterMessage(JFrogTokenSpec)
-
-ArtifactoryImagePullTokenSpec = _reflection.GeneratedProtocolMessageType('ArtifactoryImagePullTokenSpec', (_message.Message,), {
-  'DESCRIPTOR' : _ARTIFACTORYIMAGEPULLTOKENSPEC,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.ArtifactoryImagePullTokenSpec)
-  })
-_sym_db.RegisterMessage(ArtifactoryImagePullTokenSpec)
-
-PersistTokenClaimsSpec = _reflection.GeneratedProtocolMessageType('PersistTokenClaimsSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PERSISTTOKENCLAIMSSPEC,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.PersistTokenClaimsSpec)
-  })
-_sym_db.RegisterMessage(PersistTokenClaimsSpec)
-
-JFrogTokenRevokeSpec = _reflection.GeneratedProtocolMessageType('JFrogTokenRevokeSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENREVOKESPEC,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenRevokeSpec)
-  })
-_sym_db.RegisterMessage(JFrogTokenRevokeSpec)
-
-JFrogTokenTTLSpec = _reflection.GeneratedProtocolMessageType('JFrogTokenTTLSpec', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENTTLSPEC,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenTTLSpec)
-  })
-_sym_db.RegisterMessage(JFrogTokenTTLSpec)
-
-SubjectAndScopeSource = _reflection.GeneratedProtocolMessageType('SubjectAndScopeSource', (_message.Message,), {
-  'DESCRIPTOR' : _SUBJECTANDSCOPESOURCE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.SubjectAndScopeSource)
-  })
-_sym_db.RegisterMessage(SubjectAndScopeSource)
-
-ExplicitSubjectAndScope = _reflection.GeneratedProtocolMessageType('ExplicitSubjectAndScope', (_message.Message,), {
-  'DESCRIPTOR' : _EXPLICITSUBJECTANDSCOPE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.ExplicitSubjectAndScope)
-  })
-_sym_db.RegisterMessage(ExplicitSubjectAndScope)
-
-JFrogTokenAudiences = _reflection.GeneratedProtocolMessageType('JFrogTokenAudiences', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENAUDIENCES,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenAudiences)
-  })
-_sym_db.RegisterMessage(JFrogTokenAudiences)
-
-JFrogTokenAudience = _reflection.GeneratedProtocolMessageType('JFrogTokenAudience', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENAUDIENCE,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenAudience)
-  })
-_sym_db.RegisterMessage(JFrogTokenAudience)
-
-JFrogTokenAudienceArtifactory = _reflection.GeneratedProtocolMessageType('JFrogTokenAudienceArtifactory', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENAUDIENCEARTIFACTORY,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceArtifactory)
-  })
-_sym_db.RegisterMessage(JFrogTokenAudienceArtifactory)
-
-JFrogTokenAudienceXRay = _reflection.GeneratedProtocolMessageType('JFrogTokenAudienceXRay', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENAUDIENCEXRAY,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceXRay)
-  })
-_sym_db.RegisterMessage(JFrogTokenAudienceXRay)
-
-JFrogTokenAudienceJFrogML = _reflection.GeneratedProtocolMessageType('JFrogTokenAudienceJFrogML', (_message.Message,), {
-  'DESCRIPTOR' : _JFROGTOKENAUDIENCEJFROGML,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.JFrogTokenAudienceJFrogML)
-  })
-_sym_db.RegisterMessage(JFrogTokenAudienceJFrogML)
-
-TokenScopeExtension = _reflection.GeneratedProtocolMessageType('TokenScopeExtension', (_message.Message,), {
-  'DESCRIPTOR' : _TOKENSCOPEEXTENSION,
-  '__module__' : 'qwak.ecosystem.jfrog.v0.token_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.jfrog.token.v0.TokenScopeExtension)
-  })
-_sym_db.RegisterMessage(TokenScopeExtension)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.ecosystem.jfrog.v0.token_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -155,36 +27,36 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _PERSISTTOKENCLAIMSSPEC.fields_by_name['token']._serialized_options = b'\030\001'
   _SUBJECTANDSCOPESOURCE.fields_by_name['token']._options = None
   _SUBJECTANDSCOPESOURCE.fields_by_name['token']._serialized_options = b'\030\001'
-  _JFROGTOKEN._serialized_start=104
-  _JFROGTOKEN._serialized_end=269
-  _JFROGTOKENTENANTDETAILS._serialized_start=271
-  _JFROGTOKENTENANTDETAILS._serialized_end=318
-  _JFROGTOKENDEFINITION._serialized_start=321
-  _JFROGTOKENDEFINITION._serialized_end=549
-  _JFROGTOKENSPEC._serialized_start=552
-  _JFROGTOKENSPEC._serialized_end=820
-  _ARTIFACTORYIMAGEPULLTOKENSPEC._serialized_start=823
-  _ARTIFACTORYIMAGEPULLTOKENSPEC._serialized_end=971
-  _PERSISTTOKENCLAIMSSPEC._serialized_start=974
-  _PERSISTTOKENCLAIMSSPEC._serialized_end=1125
-  _JFROGTOKENREVOKESPEC._serialized_start=1127
-  _JFROGTOKENREVOKESPEC._serialized_end=1236
-  _JFROGTOKENTTLSPEC._serialized_start=1238
-  _JFROGTOKENTTLSPEC._serialized_end=1361
-  _SUBJECTANDSCOPESOURCE._serialized_start=1364
-  _SUBJECTANDSCOPESOURCE._serialized_end=1608
-  _EXPLICITSUBJECTANDSCOPE._serialized_start=1610
-  _EXPLICITSUBJECTANDSCOPE._serialized_end=1690
-  _JFROGTOKENAUDIENCES._serialized_start=1692
-  _JFROGTOKENAUDIENCES._serialized_end=1783
-  _JFROGTOKENAUDIENCE._serialized_start=1786
-  _JFROGTOKENAUDIENCE._serialized_end=2048
-  _JFROGTOKENAUDIENCEARTIFACTORY._serialized_start=2050
-  _JFROGTOKENAUDIENCEARTIFACTORY._serialized_end=2081
-  _JFROGTOKENAUDIENCEXRAY._serialized_start=2083
-  _JFROGTOKENAUDIENCEXRAY._serialized_end=2107
-  _JFROGTOKENAUDIENCEJFROGML._serialized_start=2109
-  _JFROGTOKENAUDIENCEJFROGML._serialized_end=2136
-  _TOKENSCOPEEXTENSION._serialized_start=2138
-  _TOKENSCOPEEXTENSION._serialized_end=2201
+  _globals['_JFROGTOKEN']._serialized_start=104
+  _globals['_JFROGTOKEN']._serialized_end=269
+  _globals['_JFROGTOKENTENANTDETAILS']._serialized_start=271
+  _globals['_JFROGTOKENTENANTDETAILS']._serialized_end=318
+  _globals['_JFROGTOKENDEFINITION']._serialized_start=321
+  _globals['_JFROGTOKENDEFINITION']._serialized_end=549
+  _globals['_JFROGTOKENSPEC']._serialized_start=552
+  _globals['_JFROGTOKENSPEC']._serialized_end=820
+  _globals['_ARTIFACTORYIMAGEPULLTOKENSPEC']._serialized_start=823
+  _globals['_ARTIFACTORYIMAGEPULLTOKENSPEC']._serialized_end=971
+  _globals['_PERSISTTOKENCLAIMSSPEC']._serialized_start=974
+  _globals['_PERSISTTOKENCLAIMSSPEC']._serialized_end=1125
+  _globals['_JFROGTOKENREVOKESPEC']._serialized_start=1127
+  _globals['_JFROGTOKENREVOKESPEC']._serialized_end=1236
+  _globals['_JFROGTOKENTTLSPEC']._serialized_start=1238
+  _globals['_JFROGTOKENTTLSPEC']._serialized_end=1361
+  _globals['_SUBJECTANDSCOPESOURCE']._serialized_start=1364
+  _globals['_SUBJECTANDSCOPESOURCE']._serialized_end=1608
+  _globals['_EXPLICITSUBJECTANDSCOPE']._serialized_start=1610
+  _globals['_EXPLICITSUBJECTANDSCOPE']._serialized_end=1690
+  _globals['_JFROGTOKENAUDIENCES']._serialized_start=1692
+  _globals['_JFROGTOKENAUDIENCES']._serialized_end=1783
+  _globals['_JFROGTOKENAUDIENCE']._serialized_start=1786
+  _globals['_JFROGTOKENAUDIENCE']._serialized_end=2048
+  _globals['_JFROGTOKENAUDIENCEARTIFACTORY']._serialized_start=2050
+  _globals['_JFROGTOKENAUDIENCEARTIFACTORY']._serialized_end=2081
+  _globals['_JFROGTOKENAUDIENCEXRAY']._serialized_start=2083
+  _globals['_JFROGTOKENAUDIENCEXRAY']._serialized_end=2107
+  _globals['_JFROGTOKENAUDIENCEJFROGML']._serialized_start=2109
+  _globals['_JFROGTOKENAUDIENCEJFROGML']._serialized_end=2136
+  _globals['_TOKENSCOPEEXTENSION']._serialized_start=2138
+  _globals['_TOKENSCOPEEXTENSION']._serialized_end=2201
 # @@protoc_insertion_point(module_scope)

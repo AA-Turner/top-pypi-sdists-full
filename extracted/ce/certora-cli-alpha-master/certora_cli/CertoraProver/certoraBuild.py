@@ -1439,6 +1439,8 @@ class CertoraBuildGenerator:
                     raise Util.CertoraUserInputError(err_msg)
                 elif minor < 6 or (minor == 6 and patch < 7):
                     raise Util.CertoraUserInputError(err_msg)
+                elif self.context.yul_optimizer_steps:
+                    yul_optimizer_steps = self.context.yul_optimizer_steps
                 elif (minor == 6 and patch >= 7) or (minor == 7 and 0 <= patch <= 1):
                     yul_optimizer_steps = solc0_6_7_to_0_7_1
                 elif minor == 7 and 2 <= patch <= 5:

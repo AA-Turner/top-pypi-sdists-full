@@ -10,14 +10,12 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: WSGI",
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
-dependencies = [
-    "typing-extensions>=4.1.1; python_version < \"3.8\"",
-]
+dependencies = []
 description = "Powerful and exquisite WSGI/ASGI framework/toolkit."
 name = "baize"
 readme = "README.md"
-requires-python = ">=3.7"
-version = "0.22.2"
+requires-python = ">=3.9"
+version = "0.23.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -26,6 +24,25 @@ text = "Apache-2.0"
 Homepage = "https://github.com/abersheeran/baize"
 Repository = "https://github.com/abersheeran/baize"
 Documentation = "https://baize.aber.sh/"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.1",
+    "mypy-extensions>=1.1.0",
+    "ruff>=0.12.0",
+    "pdm-backend>=2.4.4",
+    "setuptools>=80.9.0",
+]
+test = [
+    "httpx>=0.28.1",
+    "pytest>=8.4.1",
+    "starlette>=0.47.1",
+    "setuptools>=80.9.0",
+    "pytest-cov>=6.2.1",
+    "coverage>=7.9.1",
+    "pytest-asyncio>=1.0.0",
+    "coverage-conditional-plugin>=0.9.0",
+]
 
 [tool.coverage.run]
 omit = [
@@ -59,16 +76,13 @@ py-win32 = "sys_platform == 'win32'"
 [tool.mypy]
 ignore_missing_imports = true
 
-[tool.pdm]
-includes = [
-    "baize",
-]
-build = "speedup.py"
+[tool.pdm.build]
+run-setuptools = true
 
 [tool.pdm.scripts]
-lint-ruff = "ruff {args}"
+lint-ruff = "ruff check {args}"
 lint-mypy = "mypy {args}"
-lint-fix = "ruff --fix baize tests"
+lint-fix = "ruff check --fix baize tests"
 format = "ruff format baize tests --target-version py37"
 test = "pytest tests {args}"
 build-docs = "sphinx-build -M html docs/source docs/build"
@@ -76,32 +90,7 @@ build-docs = "sphinx-build -M html docs/source docs/build"
 [tool.pdm.scripts.lint]
 composite = [
     "lint-ruff baize tests",
-    "lint-mypy baize tests",
-]
-
-[tool.pdm.dev-dependencies]
-build = [
-    "mypy<2.0,>=1.0",
-    "mypy-extensions>=1.0",
-]
-dev = [
-    "mypy<2.0,>=1.0",
-    "ruff>=0.1.3",
-]
-doc = [
-    "Sphinx>=4.2.0",
-    "recommonmark>=0.7.1",
-    "sphinx-autodoc-typehints>=1.19.1",
-]
-test = [
-    "httpx<1.0.0,>=0.19.0",
-    "pytest<8.0.0,>=7.2.1",
-    "starlette>=0.14.2",
-    "setuptools>=59.6",
-    "pytest-cov>=4.0.0",
-    "coverage>=6.3",
-    "pytest-asyncio>=0.20.3",
-    "coverage-conditional-plugin>=0.8.0",
+    "lint-mypy baize",
 ]
 
 [tool.ruff.lint]
@@ -110,7 +99,7 @@ ignore = [
 ]
 
 [build-system]
-build-backend = "pdm.pep517.api"
 requires = [
-    "pdm-pep517",
+    "pdm-backend",
 ]
+build-backend = "pdm.backend"

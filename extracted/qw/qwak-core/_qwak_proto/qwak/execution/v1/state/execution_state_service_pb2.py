@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -18,133 +17,37 @@ from _qwak_proto.qwak.execution.v1.state import featureset_state_pb2 as qwak_dot
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5qwak/execution/v1/state/execution_state_service.proto\x12%qwak.feature.store.execution.v1.state\x1a-qwak/execution/v1/state/execution_state.proto\x1a.qwak/execution/v1/state/featureset_state.proto\"6\n\x1dGetFeaturesetStateByIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"r\n\x1eGetFeaturesetStateByIdResponse\x12P\n\x10\x66\x65\x61tureset_state\x18\x01 \x01(\x0b\x32\x36.qwak.feature.store.execution.v1.state.FeaturesetState\":\n\x1fGetFeaturesetStateByNameRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"t\n GetFeaturesetStateByNameResponse\x12P\n\x10\x66\x65\x61tureset_state\x18\x01 \x01(\x0b\x32\x36.qwak.feature.store.execution.v1.state.FeaturesetState\"=\n#GetMultiFeaturesetStateByIdsRequest\x12\x16\n\x0e\x66\x65\x61tureset_ids\x18\x01 \x03(\t\"y\n$GetMultiFeaturesetStateByIdsResponse\x12Q\n\x11\x66\x65\x61tureset_states\x18\x01 \x03(\x0b\x32\x36.qwak.feature.store.execution.v1.state.FeaturesetState\"?\n$GetMultiFeaturesetStateByNameRequest\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x03(\t\"y\n%GetMultiFeaturesetStateByNameResponse\x12P\n\x10\x66\x65\x61tureset_state\x18\x01 \x03(\x0b\x32\x36.qwak.feature.store.execution.v1.state.FeaturesetState\"r\n UpdateMultiExecutionStateRequest\x12N\n\x0f\x65xecution_state\x18\x01 \x03(\x0b\x32\x35.qwak.feature.store.execution.v1.state.ExecutionState\"#\n!UpdateMultiExecutionStateResponse\"9\n DeleteFeaturesetStateByIdRequest\x12\x15\n\rfeatureset_id\x18\x01 \x01(\t\"@\n!DeleteFeaturesetStateByIdResponse\x12\x1b\n\x13num_deleted_records\x18\x01 \x01(\x03\x32\xd2\x08\n!FeatureStoreExecutionStateService\x12\xa5\x01\n\x16GetFeaturesetStateById\x12\x44.qwak.feature.store.execution.v1.state.GetFeaturesetStateByIdRequest\x1a\x45.qwak.feature.store.execution.v1.state.GetFeaturesetStateByIdResponse\x12\xab\x01\n\x18GetFeaturesetStateByName\x12\x46.qwak.feature.store.execution.v1.state.GetFeaturesetStateByNameRequest\x1aG.qwak.feature.store.execution.v1.state.GetFeaturesetStateByNameResponse\x12\xb7\x01\n\x1cGetMultiFeaturesetStateByIds\x12J.qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByIdsRequest\x1aK.qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByIdsResponse\x12\xba\x01\n\x1dGetMultiFeaturesetStateByName\x12K.qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByNameRequest\x1aL.qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByNameResponse\x12\xae\x01\n\x19UpdateMultiExecutionState\x12G.qwak.feature.store.execution.v1.state.UpdateMultiExecutionStateRequest\x1aH.qwak.feature.store.execution.v1.state.UpdateMultiExecutionStateResponse\x12\xae\x01\n\x19\x44\x65leteFeaturesetStateById\x12G.qwak.feature.store.execution.v1.state.DeleteFeaturesetStateByIdRequest\x1aH.qwak.feature.store.execution.v1.state.DeleteFeaturesetStateByIdResponseB`\n+com.qwak.ai.features.execution.api.v1.stateP\x01Z/qwak/execution_management/state;execution_stateb\x06proto3')
 
-
-
-_GETFEATURESETSTATEBYIDREQUEST = DESCRIPTOR.message_types_by_name['GetFeaturesetStateByIdRequest']
-_GETFEATURESETSTATEBYIDRESPONSE = DESCRIPTOR.message_types_by_name['GetFeaturesetStateByIdResponse']
-_GETFEATURESETSTATEBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetFeaturesetStateByNameRequest']
-_GETFEATURESETSTATEBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetFeaturesetStateByNameResponse']
-_GETMULTIFEATURESETSTATEBYIDSREQUEST = DESCRIPTOR.message_types_by_name['GetMultiFeaturesetStateByIdsRequest']
-_GETMULTIFEATURESETSTATEBYIDSRESPONSE = DESCRIPTOR.message_types_by_name['GetMultiFeaturesetStateByIdsResponse']
-_GETMULTIFEATURESETSTATEBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetMultiFeaturesetStateByNameRequest']
-_GETMULTIFEATURESETSTATEBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetMultiFeaturesetStateByNameResponse']
-_UPDATEMULTIEXECUTIONSTATEREQUEST = DESCRIPTOR.message_types_by_name['UpdateMultiExecutionStateRequest']
-_UPDATEMULTIEXECUTIONSTATERESPONSE = DESCRIPTOR.message_types_by_name['UpdateMultiExecutionStateResponse']
-_DELETEFEATURESETSTATEBYIDREQUEST = DESCRIPTOR.message_types_by_name['DeleteFeaturesetStateByIdRequest']
-_DELETEFEATURESETSTATEBYIDRESPONSE = DESCRIPTOR.message_types_by_name['DeleteFeaturesetStateByIdResponse']
-GetFeaturesetStateByIdRequest = _reflection.GeneratedProtocolMessageType('GetFeaturesetStateByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYIDREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetFeaturesetStateByIdRequest)
-  })
-_sym_db.RegisterMessage(GetFeaturesetStateByIdRequest)
-
-GetFeaturesetStateByIdResponse = _reflection.GeneratedProtocolMessageType('GetFeaturesetStateByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetFeaturesetStateByIdResponse)
-  })
-_sym_db.RegisterMessage(GetFeaturesetStateByIdResponse)
-
-GetFeaturesetStateByNameRequest = _reflection.GeneratedProtocolMessageType('GetFeaturesetStateByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYNAMEREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetFeaturesetStateByNameRequest)
-  })
-_sym_db.RegisterMessage(GetFeaturesetStateByNameRequest)
-
-GetFeaturesetStateByNameResponse = _reflection.GeneratedProtocolMessageType('GetFeaturesetStateByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETFEATURESETSTATEBYNAMERESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetFeaturesetStateByNameResponse)
-  })
-_sym_db.RegisterMessage(GetFeaturesetStateByNameResponse)
-
-GetMultiFeaturesetStateByIdsRequest = _reflection.GeneratedProtocolMessageType('GetMultiFeaturesetStateByIdsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETMULTIFEATURESETSTATEBYIDSREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByIdsRequest)
-  })
-_sym_db.RegisterMessage(GetMultiFeaturesetStateByIdsRequest)
-
-GetMultiFeaturesetStateByIdsResponse = _reflection.GeneratedProtocolMessageType('GetMultiFeaturesetStateByIdsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETMULTIFEATURESETSTATEBYIDSRESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByIdsResponse)
-  })
-_sym_db.RegisterMessage(GetMultiFeaturesetStateByIdsResponse)
-
-GetMultiFeaturesetStateByNameRequest = _reflection.GeneratedProtocolMessageType('GetMultiFeaturesetStateByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETMULTIFEATURESETSTATEBYNAMEREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByNameRequest)
-  })
-_sym_db.RegisterMessage(GetMultiFeaturesetStateByNameRequest)
-
-GetMultiFeaturesetStateByNameResponse = _reflection.GeneratedProtocolMessageType('GetMultiFeaturesetStateByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETMULTIFEATURESETSTATEBYNAMERESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.GetMultiFeaturesetStateByNameResponse)
-  })
-_sym_db.RegisterMessage(GetMultiFeaturesetStateByNameResponse)
-
-UpdateMultiExecutionStateRequest = _reflection.GeneratedProtocolMessageType('UpdateMultiExecutionStateRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEMULTIEXECUTIONSTATEREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.UpdateMultiExecutionStateRequest)
-  })
-_sym_db.RegisterMessage(UpdateMultiExecutionStateRequest)
-
-UpdateMultiExecutionStateResponse = _reflection.GeneratedProtocolMessageType('UpdateMultiExecutionStateResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEMULTIEXECUTIONSTATERESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.UpdateMultiExecutionStateResponse)
-  })
-_sym_db.RegisterMessage(UpdateMultiExecutionStateResponse)
-
-DeleteFeaturesetStateByIdRequest = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetStateByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETSTATEBYIDREQUEST,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.DeleteFeaturesetStateByIdRequest)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetStateByIdRequest)
-
-DeleteFeaturesetStateByIdResponse = _reflection.GeneratedProtocolMessageType('DeleteFeaturesetStateByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEFEATURESETSTATEBYIDRESPONSE,
-  '__module__' : 'qwak.execution.v1.state.execution_state_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.feature.store.execution.v1.state.DeleteFeaturesetStateByIdResponse)
-  })
-_sym_db.RegisterMessage(DeleteFeaturesetStateByIdResponse)
-
-_FEATURESTOREEXECUTIONSTATESERVICE = DESCRIPTOR.services_by_name['FeatureStoreExecutionStateService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.execution.v1.state.execution_state_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n+com.qwak.ai.features.execution.api.v1.stateP\001Z/qwak/execution_management/state;execution_state'
-  _GETFEATURESETSTATEBYIDREQUEST._serialized_start=191
-  _GETFEATURESETSTATEBYIDREQUEST._serialized_end=245
-  _GETFEATURESETSTATEBYIDRESPONSE._serialized_start=247
-  _GETFEATURESETSTATEBYIDRESPONSE._serialized_end=361
-  _GETFEATURESETSTATEBYNAMEREQUEST._serialized_start=363
-  _GETFEATURESETSTATEBYNAMEREQUEST._serialized_end=421
-  _GETFEATURESETSTATEBYNAMERESPONSE._serialized_start=423
-  _GETFEATURESETSTATEBYNAMERESPONSE._serialized_end=539
-  _GETMULTIFEATURESETSTATEBYIDSREQUEST._serialized_start=541
-  _GETMULTIFEATURESETSTATEBYIDSREQUEST._serialized_end=602
-  _GETMULTIFEATURESETSTATEBYIDSRESPONSE._serialized_start=604
-  _GETMULTIFEATURESETSTATEBYIDSRESPONSE._serialized_end=725
-  _GETMULTIFEATURESETSTATEBYNAMEREQUEST._serialized_start=727
-  _GETMULTIFEATURESETSTATEBYNAMEREQUEST._serialized_end=790
-  _GETMULTIFEATURESETSTATEBYNAMERESPONSE._serialized_start=792
-  _GETMULTIFEATURESETSTATEBYNAMERESPONSE._serialized_end=913
-  _UPDATEMULTIEXECUTIONSTATEREQUEST._serialized_start=915
-  _UPDATEMULTIEXECUTIONSTATEREQUEST._serialized_end=1029
-  _UPDATEMULTIEXECUTIONSTATERESPONSE._serialized_start=1031
-  _UPDATEMULTIEXECUTIONSTATERESPONSE._serialized_end=1066
-  _DELETEFEATURESETSTATEBYIDREQUEST._serialized_start=1068
-  _DELETEFEATURESETSTATEBYIDREQUEST._serialized_end=1125
-  _DELETEFEATURESETSTATEBYIDRESPONSE._serialized_start=1127
-  _DELETEFEATURESETSTATEBYIDRESPONSE._serialized_end=1191
-  _FEATURESTOREEXECUTIONSTATESERVICE._serialized_start=1194
-  _FEATURESTOREEXECUTIONSTATESERVICE._serialized_end=2300
+  _globals['_GETFEATURESETSTATEBYIDREQUEST']._serialized_start=191
+  _globals['_GETFEATURESETSTATEBYIDREQUEST']._serialized_end=245
+  _globals['_GETFEATURESETSTATEBYIDRESPONSE']._serialized_start=247
+  _globals['_GETFEATURESETSTATEBYIDRESPONSE']._serialized_end=361
+  _globals['_GETFEATURESETSTATEBYNAMEREQUEST']._serialized_start=363
+  _globals['_GETFEATURESETSTATEBYNAMEREQUEST']._serialized_end=421
+  _globals['_GETFEATURESETSTATEBYNAMERESPONSE']._serialized_start=423
+  _globals['_GETFEATURESETSTATEBYNAMERESPONSE']._serialized_end=539
+  _globals['_GETMULTIFEATURESETSTATEBYIDSREQUEST']._serialized_start=541
+  _globals['_GETMULTIFEATURESETSTATEBYIDSREQUEST']._serialized_end=602
+  _globals['_GETMULTIFEATURESETSTATEBYIDSRESPONSE']._serialized_start=604
+  _globals['_GETMULTIFEATURESETSTATEBYIDSRESPONSE']._serialized_end=725
+  _globals['_GETMULTIFEATURESETSTATEBYNAMEREQUEST']._serialized_start=727
+  _globals['_GETMULTIFEATURESETSTATEBYNAMEREQUEST']._serialized_end=790
+  _globals['_GETMULTIFEATURESETSTATEBYNAMERESPONSE']._serialized_start=792
+  _globals['_GETMULTIFEATURESETSTATEBYNAMERESPONSE']._serialized_end=913
+  _globals['_UPDATEMULTIEXECUTIONSTATEREQUEST']._serialized_start=915
+  _globals['_UPDATEMULTIEXECUTIONSTATEREQUEST']._serialized_end=1029
+  _globals['_UPDATEMULTIEXECUTIONSTATERESPONSE']._serialized_start=1031
+  _globals['_UPDATEMULTIEXECUTIONSTATERESPONSE']._serialized_end=1066
+  _globals['_DELETEFEATURESETSTATEBYIDREQUEST']._serialized_start=1068
+  _globals['_DELETEFEATURESETSTATEBYIDREQUEST']._serialized_end=1125
+  _globals['_DELETEFEATURESETSTATEBYIDRESPONSE']._serialized_start=1127
+  _globals['_DELETEFEATURESETSTATEBYIDRESPONSE']._serialized_end=1191
+  _globals['_FEATURESTOREEXECUTIONSTATESERVICE']._serialized_start=1194
+  _globals['_FEATURESTOREEXECUTIONSTATESERVICE']._serialized_end=2300
 # @@protoc_insertion_point(module_scope)

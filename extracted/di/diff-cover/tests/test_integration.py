@@ -145,6 +145,7 @@ class TestDiffCoverIntegration:
 
     @pytest.fixture
     def runbin(self, cwd):
+        del cwd  # fixtures cannot use pytest.mark.usefixtures
         return lambda x: diff_cover_tool.main(["diff-cover", *x])
 
     def test_added_file_html(self, runbin, patch_git_command):
@@ -256,7 +257,7 @@ class TestDiffCoverIntegration:
         assert runbin(["coverage.xml"]) == 0
         compare_console("changed_console_report.txt", capsys.readouterr().out)
 
-    def test_moved_file_html(self, runbin, patch_git_command, capsys):
+    def test_moved_file_html(self, runbin, patch_git_command):
         patch_git_command.set_stdout("git_diff_moved.txt")
         assert (
             runbin(["moved_coverage.xml", "--format", "html:dummy/diff_coverage.html"])
@@ -375,6 +376,13 @@ class TestDiffCoverIntegration:
         assert runbin(["--show-uncovered", "coverage.xml"]) == 0
         compare_console("show_uncovered_lines_console.txt", capsys.readouterr().out)
 
+    def test_multiple_lcov_xml_reports(self, runbin, patch_git_command, capsys):
+        patch_git_command.set_stdout("git_diff_add.txt")
+        with pytest.raises(
+            ValueError, match="Mixing LCov and XML reports is not supported yet"
+        ):
+            runbin(["--show-uncovered", "coverage.xml", "lcov.info"])
+
     def test_expand_coverage_report_complete_report(
         self, runbin, patch_git_command, capsys
     ):
@@ -389,6 +397,69 @@ class TestDiffCoverIntegration:
         assert runbin(["coverage_missing_lines.xml", "--expand-coverage-report"]) == 0
         compare_console("expand_console_report.txt", capsys.readouterr().out)
 
+    def test_real_world_cpp_lcov_coverage(self, runbin, patch_git_command, capsys):
+        """Test with real C++ LCOV coverage data"""
+        # Create git diff for C++ files
+        patch_git_command.set_stdout("git_diff_cpp.txt")
+
+        # Use real C++ LCOV data
+        assert runbin(["real_cpp_coverage.lcov"]) == 0
+
+        # Compare output with expected result
+        compare_console("real_cpp_console_report.txt", capsys.readouterr().out)
+
+    def test_real_world_python_lcov_coverage(self, runbin, patch_git_command, capsys):
+        """Test with real Python LCOV coverage data with checksums"""
+        # Create git diff for Python files
+        patch_git_command.set_stdout("git_diff_python.txt")
+
+        # Use real Python LCOV data
+        assert runbin(["real_python_coverage.lcov"]) == 0
+
+        # Compare output with expected result
+        compare_console("real_python_console_report.txt", capsys.readouterr().out)
+
+    def test_real_world_typescript_lcov_coverage(
+        self, runbin, patch_git_command, capsys
+    ):
+        """Test with real TypeScript LCOV coverage data with branch coverage"""
+        # Create git diff for TypeScript files
+        patch_git_command.set_stdout("git_diff_typescript.txt")
+
+        # Use real TypeScript LCOV data
+        assert runbin(["real_typescript_coverage.lcov"]) == 0
+
+        # Compare output with expected result
+        compare_console("real_typescript_console_report.txt", capsys.readouterr().out)
+
+    def test_real_world_lcov_with_function_coverage(
+        self, runbin, patch_git_command, capsys
+    ):
+        """Test LCOV parsing with function coverage data (C++ format)"""
+        # Create git diff for C++ files with FNL/FNA directives
+        patch_git_command.set_stdout("git_diff_cpp_functions.txt")
+
+        # Use LCOV data with FNL/FNA directives
+        assert runbin(["cpp_functions_coverage.lcov"]) == 0
+
+        # Compare output with expected result
+        compare_console("cpp_functions_console_report.txt", capsys.readouterr().out)
+
+    def test_real_world_lcov_with_branch_coverage(
+        self, runbin, patch_git_command, capsys
+    ):
+        """Test LCOV parsing with branch coverage data (TypeScript format)"""
+        # Create git diff for TypeScript files with branch coverage
+        patch_git_command.set_stdout("git_diff_typescript_branches.txt")
+
+        # Use LCOV data with BRDA directives
+        assert runbin(["typescript_branches_coverage.lcov"]) == 0
+
+        # Compare output with expected result
+        compare_console(
+            "typescript_branches_console_report.txt", capsys.readouterr().out
+        )
+
 
 class TestDiffQualityIntegration:
     """
@@ -397,6 +468,7 @@ class TestDiffQualityIntegration:
 
     @pytest.fixture
     def runbin(self, cwd):
+        del cwd  # fixtures cannot use pytest.mark.usefixtures
         return lambda x: diff_quality_tool.main(["diff-quality", *x])
 
     def test_git_diff_error_diff_quality(self, runbin, patch_git_command):

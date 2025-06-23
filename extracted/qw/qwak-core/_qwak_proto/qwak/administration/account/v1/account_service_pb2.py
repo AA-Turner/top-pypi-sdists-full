@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -20,193 +19,49 @@ from _qwak_proto.qwak.administration.account.v1 import terms_pb2 as qwak_dot_adm
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n4qwak/administration/account/v1/account_service.proto\x12\x1eqwak.administration.account.v1\x1a\x39qwak/administration/account/v1/jfrog_tenant_details.proto\x1a,qwak/administration/account/v1/account.proto\x1a\x30qwak/administration/account/v1/preferences.proto\x1a*qwak/administration/account/v1/terms.proto\"\xb4\x02\n\x14\x43reateAccountRequest\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x01 \x01(\t\x12\x44\n\x0bpreferences\x18\x02 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32+.qwak.administration.account.v1.AccountType\x12\x39\n\x04tier\x18\x04 \x01(\x0e\x32+.qwak.administration.account.v1.AccountTier\x12J\n\x11jfrog_tenant_spec\x18\x05 \x01(\x0b\x32/.qwak.administration.account.v1.JfrogTenantSpec\"Q\n\x15\x43reateAccountResponse\x12\x38\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\'.qwak.administration.account.v1.Account\"\'\n\x11GetAccountRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\"N\n\x12GetAccountResponse\x12\x38\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\'.qwak.administration.account.v1.Account\"X\n\x13ListAccountsRequest\x12\x41\n\x06\x66ilter\x18\x01 \x01(\x0b\x32\x31.qwak.administration.account.v1.ListAccountFilter\"Q\n\x14ListAccountsResponse\x12\x39\n\x08\x61\x63\x63ounts\x18\x01 \x03(\x0b\x32\'.qwak.administration.account.v1.Account\"\xfd\x02\n\x14UpdateAccountRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12\x44\n\x0bpreferences\x18\x02 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32+.qwak.administration.account.v1.AccountType\x12\x39\n\x04tier\x18\x04 \x01(\x0e\x32+.qwak.administration.account.v1.AccountTier\x12I\n\x0e\x61\x63\x63\x65pted_terms\x18\x05 \x01(\x0b\x32\x31.qwak.administration.account.AccountAcceptedTerms\x12J\n\x11jfrog_tenant_spec\x18\x06 \x01(\x0b\x32/.qwak.administration.account.v1.JfrogTenantSpec\"\x17\n\x15UpdateAccountResponse\"{\n\x1fUpdateAccountPreferencesRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12\x44\n\x0bpreferences\x18\x02 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\"\"\n UpdateAccountPreferencesResponse\"\x82\x01\n!UpdateAccountAcceptedTermsRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12I\n\x0e\x61\x63\x63\x65pted_terms\x18\x02 \x01(\x0b\x32\x31.qwak.administration.account.AccountAcceptedTerms\"$\n\"UpdateAccountAcceptedTermsResponse\"z\n\x15\x41\x64\x64\x41utoBindingRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12M\n\x14\x61uto_binding_account\x18\x02 \x03(\x0b\x32/.qwak.administration.account.v1.AutoBindingRule\"j\n\x16\x41\x64\x64\x41utoBindingResponse\x12P\n\x14\x61uto_binding_account\x18\x01 \x03(\x0b\x32\x32.qwak.administration.account.v1.AutoBindingAccount\"Q\n\x18RemoveAutoBindingRequest\x12\x12\n\naccount_id\x18\x01 \x01(\t\x12!\n\x19\x61uto_binding_id_to_remove\x18\x02 \x03(\t\"\x1b\n\x19RemoveAutoBindingResponse\"_\n\x16GetAccountBriefRequest\x12\x14\n\naccount_id\x18\x01 \x01(\tH\x00\x12\x19\n\x0fjfrog_tenant_id\x18\x02 \x01(\tH\x00\x42\x14\n\x12\x61\x63\x63ount_identifier\"^\n\x17GetAccountBriefResponse\x12\x43\n\raccount_brief\x18\x01 \x01(\x0b\x32,.qwak.administration.account.v1.AccountBrief2\xd3\t\n\x0e\x41\x63\x63ountService\x12|\n\rCreateAccount\x12\x34.qwak.administration.account.v1.CreateAccountRequest\x1a\x35.qwak.administration.account.v1.CreateAccountResponse\x12s\n\nGetAccount\x12\x31.qwak.administration.account.v1.GetAccountRequest\x1a\x32.qwak.administration.account.v1.GetAccountResponse\x12y\n\x0cListAccounts\x12\x33.qwak.administration.account.v1.ListAccountsRequest\x1a\x34.qwak.administration.account.v1.ListAccountsResponse\x12|\n\rUpdateAccount\x12\x34.qwak.administration.account.v1.UpdateAccountRequest\x1a\x35.qwak.administration.account.v1.UpdateAccountResponse\x12\x9d\x01\n\x18UpdateAccountPreferences\x12?.qwak.administration.account.v1.UpdateAccountPreferencesRequest\x1a@.qwak.administration.account.v1.UpdateAccountPreferencesResponse\x12\xa3\x01\n\x1aUpdateAccountAcceptedTerms\x12\x41.qwak.administration.account.v1.UpdateAccountAcceptedTermsRequest\x1a\x42.qwak.administration.account.v1.UpdateAccountAcceptedTermsResponse\x12\x7f\n\x0e\x41\x64\x64\x41utoBinding\x12\x35.qwak.administration.account.v1.AddAutoBindingRequest\x1a\x36.qwak.administration.account.v1.AddAutoBindingResponse\x12\x88\x01\n\x11RemoveAutoBinding\x12\x38.qwak.administration.account.v1.RemoveAutoBindingRequest\x1a\x39.qwak.administration.account.v1.RemoveAutoBindingResponse\x12\x82\x01\n\x0fGetAccountBrief\x12\x36.qwak.administration.account.v1.GetAccountBriefRequest\x1a\x37.qwak.administration.account.v1.GetAccountBriefResponseB\xb4\x01\n)com.qwak.ai.administration.api.account.v1P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0b\x06proto3')
 
-
-
-_CREATEACCOUNTREQUEST = DESCRIPTOR.message_types_by_name['CreateAccountRequest']
-_CREATEACCOUNTRESPONSE = DESCRIPTOR.message_types_by_name['CreateAccountResponse']
-_GETACCOUNTREQUEST = DESCRIPTOR.message_types_by_name['GetAccountRequest']
-_GETACCOUNTRESPONSE = DESCRIPTOR.message_types_by_name['GetAccountResponse']
-_LISTACCOUNTSREQUEST = DESCRIPTOR.message_types_by_name['ListAccountsRequest']
-_LISTACCOUNTSRESPONSE = DESCRIPTOR.message_types_by_name['ListAccountsResponse']
-_UPDATEACCOUNTREQUEST = DESCRIPTOR.message_types_by_name['UpdateAccountRequest']
-_UPDATEACCOUNTRESPONSE = DESCRIPTOR.message_types_by_name['UpdateAccountResponse']
-_UPDATEACCOUNTPREFERENCESREQUEST = DESCRIPTOR.message_types_by_name['UpdateAccountPreferencesRequest']
-_UPDATEACCOUNTPREFERENCESRESPONSE = DESCRIPTOR.message_types_by_name['UpdateAccountPreferencesResponse']
-_UPDATEACCOUNTACCEPTEDTERMSREQUEST = DESCRIPTOR.message_types_by_name['UpdateAccountAcceptedTermsRequest']
-_UPDATEACCOUNTACCEPTEDTERMSRESPONSE = DESCRIPTOR.message_types_by_name['UpdateAccountAcceptedTermsResponse']
-_ADDAUTOBINDINGREQUEST = DESCRIPTOR.message_types_by_name['AddAutoBindingRequest']
-_ADDAUTOBINDINGRESPONSE = DESCRIPTOR.message_types_by_name['AddAutoBindingResponse']
-_REMOVEAUTOBINDINGREQUEST = DESCRIPTOR.message_types_by_name['RemoveAutoBindingRequest']
-_REMOVEAUTOBINDINGRESPONSE = DESCRIPTOR.message_types_by_name['RemoveAutoBindingResponse']
-_GETACCOUNTBRIEFREQUEST = DESCRIPTOR.message_types_by_name['GetAccountBriefRequest']
-_GETACCOUNTBRIEFRESPONSE = DESCRIPTOR.message_types_by_name['GetAccountBriefResponse']
-CreateAccountRequest = _reflection.GeneratedProtocolMessageType('CreateAccountRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEACCOUNTREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.CreateAccountRequest)
-  })
-_sym_db.RegisterMessage(CreateAccountRequest)
-
-CreateAccountResponse = _reflection.GeneratedProtocolMessageType('CreateAccountResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATEACCOUNTRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.CreateAccountResponse)
-  })
-_sym_db.RegisterMessage(CreateAccountResponse)
-
-GetAccountRequest = _reflection.GeneratedProtocolMessageType('GetAccountRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.GetAccountRequest)
-  })
-_sym_db.RegisterMessage(GetAccountRequest)
-
-GetAccountResponse = _reflection.GeneratedProtocolMessageType('GetAccountResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.GetAccountResponse)
-  })
-_sym_db.RegisterMessage(GetAccountResponse)
-
-ListAccountsRequest = _reflection.GeneratedProtocolMessageType('ListAccountsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTACCOUNTSREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.ListAccountsRequest)
-  })
-_sym_db.RegisterMessage(ListAccountsRequest)
-
-ListAccountsResponse = _reflection.GeneratedProtocolMessageType('ListAccountsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTACCOUNTSRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.ListAccountsResponse)
-  })
-_sym_db.RegisterMessage(ListAccountsResponse)
-
-UpdateAccountRequest = _reflection.GeneratedProtocolMessageType('UpdateAccountRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountRequest)
-  })
-_sym_db.RegisterMessage(UpdateAccountRequest)
-
-UpdateAccountResponse = _reflection.GeneratedProtocolMessageType('UpdateAccountResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountResponse)
-  })
-_sym_db.RegisterMessage(UpdateAccountResponse)
-
-UpdateAccountPreferencesRequest = _reflection.GeneratedProtocolMessageType('UpdateAccountPreferencesRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTPREFERENCESREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountPreferencesRequest)
-  })
-_sym_db.RegisterMessage(UpdateAccountPreferencesRequest)
-
-UpdateAccountPreferencesResponse = _reflection.GeneratedProtocolMessageType('UpdateAccountPreferencesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTPREFERENCESRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountPreferencesResponse)
-  })
-_sym_db.RegisterMessage(UpdateAccountPreferencesResponse)
-
-UpdateAccountAcceptedTermsRequest = _reflection.GeneratedProtocolMessageType('UpdateAccountAcceptedTermsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTACCEPTEDTERMSREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountAcceptedTermsRequest)
-  })
-_sym_db.RegisterMessage(UpdateAccountAcceptedTermsRequest)
-
-UpdateAccountAcceptedTermsResponse = _reflection.GeneratedProtocolMessageType('UpdateAccountAcceptedTermsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATEACCOUNTACCEPTEDTERMSRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.UpdateAccountAcceptedTermsResponse)
-  })
-_sym_db.RegisterMessage(UpdateAccountAcceptedTermsResponse)
-
-AddAutoBindingRequest = _reflection.GeneratedProtocolMessageType('AddAutoBindingRequest', (_message.Message,), {
-  'DESCRIPTOR' : _ADDAUTOBINDINGREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.AddAutoBindingRequest)
-  })
-_sym_db.RegisterMessage(AddAutoBindingRequest)
-
-AddAutoBindingResponse = _reflection.GeneratedProtocolMessageType('AddAutoBindingResponse', (_message.Message,), {
-  'DESCRIPTOR' : _ADDAUTOBINDINGRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.AddAutoBindingResponse)
-  })
-_sym_db.RegisterMessage(AddAutoBindingResponse)
-
-RemoveAutoBindingRequest = _reflection.GeneratedProtocolMessageType('RemoveAutoBindingRequest', (_message.Message,), {
-  'DESCRIPTOR' : _REMOVEAUTOBINDINGREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.RemoveAutoBindingRequest)
-  })
-_sym_db.RegisterMessage(RemoveAutoBindingRequest)
-
-RemoveAutoBindingResponse = _reflection.GeneratedProtocolMessageType('RemoveAutoBindingResponse', (_message.Message,), {
-  'DESCRIPTOR' : _REMOVEAUTOBINDINGRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.RemoveAutoBindingResponse)
-  })
-_sym_db.RegisterMessage(RemoveAutoBindingResponse)
-
-GetAccountBriefRequest = _reflection.GeneratedProtocolMessageType('GetAccountBriefRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTBRIEFREQUEST,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.GetAccountBriefRequest)
-  })
-_sym_db.RegisterMessage(GetAccountBriefRequest)
-
-GetAccountBriefResponse = _reflection.GeneratedProtocolMessageType('GetAccountBriefResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETACCOUNTBRIEFRESPONSE,
-  '__module__' : 'qwak.administration.account.v1.account_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.account.v1.GetAccountBriefResponse)
-  })
-_sym_db.RegisterMessage(GetAccountBriefResponse)
-
-_ACCOUNTSERVICE = DESCRIPTOR.services_by_name['AccountService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.account.v1.account_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.administration.api.account.v1P\001Z\204\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/account/v1;account_v0'
-  _CREATEACCOUNTREQUEST._serialized_start=288
-  _CREATEACCOUNTREQUEST._serialized_end=596
-  _CREATEACCOUNTRESPONSE._serialized_start=598
-  _CREATEACCOUNTRESPONSE._serialized_end=679
-  _GETACCOUNTREQUEST._serialized_start=681
-  _GETACCOUNTREQUEST._serialized_end=720
-  _GETACCOUNTRESPONSE._serialized_start=722
-  _GETACCOUNTRESPONSE._serialized_end=800
-  _LISTACCOUNTSREQUEST._serialized_start=802
-  _LISTACCOUNTSREQUEST._serialized_end=890
-  _LISTACCOUNTSRESPONSE._serialized_start=892
-  _LISTACCOUNTSRESPONSE._serialized_end=973
-  _UPDATEACCOUNTREQUEST._serialized_start=976
-  _UPDATEACCOUNTREQUEST._serialized_end=1357
-  _UPDATEACCOUNTRESPONSE._serialized_start=1359
-  _UPDATEACCOUNTRESPONSE._serialized_end=1382
-  _UPDATEACCOUNTPREFERENCESREQUEST._serialized_start=1384
-  _UPDATEACCOUNTPREFERENCESREQUEST._serialized_end=1507
-  _UPDATEACCOUNTPREFERENCESRESPONSE._serialized_start=1509
-  _UPDATEACCOUNTPREFERENCESRESPONSE._serialized_end=1543
-  _UPDATEACCOUNTACCEPTEDTERMSREQUEST._serialized_start=1546
-  _UPDATEACCOUNTACCEPTEDTERMSREQUEST._serialized_end=1676
-  _UPDATEACCOUNTACCEPTEDTERMSRESPONSE._serialized_start=1678
-  _UPDATEACCOUNTACCEPTEDTERMSRESPONSE._serialized_end=1714
-  _ADDAUTOBINDINGREQUEST._serialized_start=1716
-  _ADDAUTOBINDINGREQUEST._serialized_end=1838
-  _ADDAUTOBINDINGRESPONSE._serialized_start=1840
-  _ADDAUTOBINDINGRESPONSE._serialized_end=1946
-  _REMOVEAUTOBINDINGREQUEST._serialized_start=1948
-  _REMOVEAUTOBINDINGREQUEST._serialized_end=2029
-  _REMOVEAUTOBINDINGRESPONSE._serialized_start=2031
-  _REMOVEAUTOBINDINGRESPONSE._serialized_end=2058
-  _GETACCOUNTBRIEFREQUEST._serialized_start=2060
-  _GETACCOUNTBRIEFREQUEST._serialized_end=2155
-  _GETACCOUNTBRIEFRESPONSE._serialized_start=2157
-  _GETACCOUNTBRIEFRESPONSE._serialized_end=2251
-  _ACCOUNTSERVICE._serialized_start=2254
-  _ACCOUNTSERVICE._serialized_end=3489
+  _globals['_CREATEACCOUNTREQUEST']._serialized_start=288
+  _globals['_CREATEACCOUNTREQUEST']._serialized_end=596
+  _globals['_CREATEACCOUNTRESPONSE']._serialized_start=598
+  _globals['_CREATEACCOUNTRESPONSE']._serialized_end=679
+  _globals['_GETACCOUNTREQUEST']._serialized_start=681
+  _globals['_GETACCOUNTREQUEST']._serialized_end=720
+  _globals['_GETACCOUNTRESPONSE']._serialized_start=722
+  _globals['_GETACCOUNTRESPONSE']._serialized_end=800
+  _globals['_LISTACCOUNTSREQUEST']._serialized_start=802
+  _globals['_LISTACCOUNTSREQUEST']._serialized_end=890
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_start=892
+  _globals['_LISTACCOUNTSRESPONSE']._serialized_end=973
+  _globals['_UPDATEACCOUNTREQUEST']._serialized_start=976
+  _globals['_UPDATEACCOUNTREQUEST']._serialized_end=1357
+  _globals['_UPDATEACCOUNTRESPONSE']._serialized_start=1359
+  _globals['_UPDATEACCOUNTRESPONSE']._serialized_end=1382
+  _globals['_UPDATEACCOUNTPREFERENCESREQUEST']._serialized_start=1384
+  _globals['_UPDATEACCOUNTPREFERENCESREQUEST']._serialized_end=1507
+  _globals['_UPDATEACCOUNTPREFERENCESRESPONSE']._serialized_start=1509
+  _globals['_UPDATEACCOUNTPREFERENCESRESPONSE']._serialized_end=1543
+  _globals['_UPDATEACCOUNTACCEPTEDTERMSREQUEST']._serialized_start=1546
+  _globals['_UPDATEACCOUNTACCEPTEDTERMSREQUEST']._serialized_end=1676
+  _globals['_UPDATEACCOUNTACCEPTEDTERMSRESPONSE']._serialized_start=1678
+  _globals['_UPDATEACCOUNTACCEPTEDTERMSRESPONSE']._serialized_end=1714
+  _globals['_ADDAUTOBINDINGREQUEST']._serialized_start=1716
+  _globals['_ADDAUTOBINDINGREQUEST']._serialized_end=1838
+  _globals['_ADDAUTOBINDINGRESPONSE']._serialized_start=1840
+  _globals['_ADDAUTOBINDINGRESPONSE']._serialized_end=1946
+  _globals['_REMOVEAUTOBINDINGREQUEST']._serialized_start=1948
+  _globals['_REMOVEAUTOBINDINGREQUEST']._serialized_end=2029
+  _globals['_REMOVEAUTOBINDINGRESPONSE']._serialized_start=2031
+  _globals['_REMOVEAUTOBINDINGRESPONSE']._serialized_end=2058
+  _globals['_GETACCOUNTBRIEFREQUEST']._serialized_start=2060
+  _globals['_GETACCOUNTBRIEFREQUEST']._serialized_end=2155
+  _globals['_GETACCOUNTBRIEFRESPONSE']._serialized_start=2157
+  _globals['_GETACCOUNTBRIEFRESPONSE']._serialized_end=2251
+  _globals['_ACCOUNTSERVICE']._serialized_start=2254
+  _globals['_ACCOUNTSERVICE']._serialized_end=3489
 # @@protoc_insertion_point(module_scope)

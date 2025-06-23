@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -22,116 +21,9 @@ from _qwak_proto.qwak.administration.v0.users import user_pb2 as qwak_dot_admini
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!qwak/ecosystem/v0/ecosystem.proto\x12\x11qwak.ecosystem.v0\x1a\x30qwak/administration/account/v1/preferences.proto\x1a*qwak/administration/account/v1/terms.proto\x1a,qwak/administration/account/v1/account.proto\x1a\x39qwak/administration/account/v1/jfrog_tenant_details.proto\x1a\x37qwak/administration/v0/environments/configuration.proto\x1a\'qwak/administration/v0/users/user.proto\"<\n\x16UsernamePasswordMethod\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"(\n\x10QwakApiKeyMethod\x12\x14\n\x0cqwak_api_key\x18\x01 \x01(\t\"\\\n\x18\x41uthenticatedUserContext\x12@\n\x04user\x18\x01 \x01(\x0b\x32\x32.qwak.ecosystem.v0.AuthenticatedUnifiedUserContext\"\xfe\x01\n\x1f\x41uthenticatedUnifiedUserContext\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x45\n\x0f\x61\x63\x63ount_details\x18\x05 \x01(\x0b\x32,.qwak.ecosystem.v0.UserContextAccountDetails\x12?\n\x0c\x61\x63\x63ount_role\x18\x01 \x01(\x0e\x32).qwak.administration.user.QwakAccountRole\x12\x42\n\x13\x65nvironment_details\x18\x06 \x01(\x0b\x32%.qwak.ecosystem.v0.EnvironmentDetails\"\xd6\x06\n\x19UserContextAccountDetails\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x1e\n\x16\x64\x65\x66\x61ult_environment_id\x18\x03 \x01(\t\x12\x44\n\x0bpreferences\x18\x05 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\x12\\\n\x11\x65nvironment_by_id\x18\x04 \x03(\x0b\x32\x41.qwak.ecosystem.v0.UserContextAccountDetails.EnvironmentByIdEntry\x12t\n\x1euser_context_environment_by_id\x18\x06 \x03(\x0b\x32L.qwak.ecosystem.v0.UserContextAccountDetails.UserContextEnvironmentByIdEntry\x12\x39\n\x04type\x18\x07 \x01(\x0e\x32+.qwak.administration.account.v1.AccountType\x12\x39\n\x04tier\x18\x08 \x01(\x0e\x32+.qwak.administration.account.v1.AccountTier\x12I\n\x0e\x61\x63\x63\x65pted_terms\x18\t \x01(\x0b\x32\x31.qwak.administration.account.AccountAcceptedTerms\x12P\n\x14jfrog_tenant_details\x18\n \x01(\x0b\x32\x32.qwak.administration.account.v1.JfrogTenantDetails\x1a]\n\x14\x45nvironmentByIdEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x34\n\x05value\x18\x02 \x01(\x0b\x32%.qwak.ecosystem.v0.EnvironmentDetails:\x02\x38\x01\x1as\n\x1fUserContextEnvironmentByIdEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12?\n\x05value\x18\x02 \x01(\x0b\x32\x30.qwak.ecosystem.v0.UserContextEnvironmentDetails:\x02\x38\x01\"\x1f\n\x1dUserContextEnvironmentDetails\"\xd8\x04\n\x0e\x41\x63\x63ountDetails\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x44\n\x0bpreferences\x18\x03 \x01(\x0b\x32/.qwak.administration.account.AccountPreferences\x12\x1e\n\x16\x64\x65\x66\x61ult_environment_id\x18\x05 \x01(\t\x12S\n\x12\x65nvironments_by_id\x18\x04 \x03(\x0b\x32\x37.qwak.ecosystem.v0.AccountDetails.EnvironmentsByIdEntry\x12\x39\n\x04type\x18\x06 \x01(\x0e\x32+.qwak.administration.account.v1.AccountType\x12\x39\n\x04tier\x18\x07 \x01(\x0e\x32+.qwak.administration.account.v1.AccountTier\x12I\n\x0e\x61\x63\x63\x65pted_terms\x18\x08 \x01(\x0b\x32\x31.qwak.administration.account.AccountAcceptedTerms\x12P\n\x14jfrog_tenant_details\x18\t \x01(\x0b\x32\x32.qwak.administration.account.v1.JfrogTenantDetails\x1a^\n\x15\x45nvironmentsByIdEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x34\n\x05value\x18\x02 \x01(\x0b\x32%.qwak.ecosystem.v0.EnvironmentDetails:\x02\x38\x01\"\x98\x01\n\x12\x45nvironmentDetails\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12T\n\rconfiguration\x18\x03 \x01(\x0b\x32=.qwak.administration.environment.QwakEnvironmentConfiguration\x12\x12\n\ncluster_id\x18\x04 \x01(\t\"\xde\x01\n\x0fUserAccountList\x12\x1a\n\x12\x64\x65\x66\x61ult_account_id\x18\x01 \x01(\t\x12L\n\x0e\x61\x63\x63ounts_by_id\x18\x02 \x03(\x0b\x32\x34.qwak.ecosystem.v0.UserAccountList.AccountsByIdEntry\x1a\x61\n\x11\x41\x63\x63ountsByIdEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12;\n\x05value\x18\x02 \x01(\x0b\x32,.qwak.ecosystem.v0.UserContextAccountDetails:\x02\x38\x01\x42\xb7\x01\n\x1c\x63om.qwak.ai.common.ecosystemP\x01Z\x94\x01github.com/qwak-ai/qwak-platform/services/shared/java/libs/qwak-common/qwak-common-api/qwak-platform-ecosystem-api/pb/qwak/ecosystem/v0;ecosystem_v0b\x06proto3')
 
-
-
-_USERNAMEPASSWORDMETHOD = DESCRIPTOR.message_types_by_name['UsernamePasswordMethod']
-_QWAKAPIKEYMETHOD = DESCRIPTOR.message_types_by_name['QwakApiKeyMethod']
-_AUTHENTICATEDUSERCONTEXT = DESCRIPTOR.message_types_by_name['AuthenticatedUserContext']
-_AUTHENTICATEDUNIFIEDUSERCONTEXT = DESCRIPTOR.message_types_by_name['AuthenticatedUnifiedUserContext']
-_USERCONTEXTACCOUNTDETAILS = DESCRIPTOR.message_types_by_name['UserContextAccountDetails']
-_USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY = _USERCONTEXTACCOUNTDETAILS.nested_types_by_name['EnvironmentByIdEntry']
-_USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY = _USERCONTEXTACCOUNTDETAILS.nested_types_by_name['UserContextEnvironmentByIdEntry']
-_USERCONTEXTENVIRONMENTDETAILS = DESCRIPTOR.message_types_by_name['UserContextEnvironmentDetails']
-_ACCOUNTDETAILS = DESCRIPTOR.message_types_by_name['AccountDetails']
-_ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY = _ACCOUNTDETAILS.nested_types_by_name['EnvironmentsByIdEntry']
-_ENVIRONMENTDETAILS = DESCRIPTOR.message_types_by_name['EnvironmentDetails']
-_USERACCOUNTLIST = DESCRIPTOR.message_types_by_name['UserAccountList']
-_USERACCOUNTLIST_ACCOUNTSBYIDENTRY = _USERACCOUNTLIST.nested_types_by_name['AccountsByIdEntry']
-UsernamePasswordMethod = _reflection.GeneratedProtocolMessageType('UsernamePasswordMethod', (_message.Message,), {
-  'DESCRIPTOR' : _USERNAMEPASSWORDMETHOD,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UsernamePasswordMethod)
-  })
-_sym_db.RegisterMessage(UsernamePasswordMethod)
-
-QwakApiKeyMethod = _reflection.GeneratedProtocolMessageType('QwakApiKeyMethod', (_message.Message,), {
-  'DESCRIPTOR' : _QWAKAPIKEYMETHOD,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.QwakApiKeyMethod)
-  })
-_sym_db.RegisterMessage(QwakApiKeyMethod)
-
-AuthenticatedUserContext = _reflection.GeneratedProtocolMessageType('AuthenticatedUserContext', (_message.Message,), {
-  'DESCRIPTOR' : _AUTHENTICATEDUSERCONTEXT,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.AuthenticatedUserContext)
-  })
-_sym_db.RegisterMessage(AuthenticatedUserContext)
-
-AuthenticatedUnifiedUserContext = _reflection.GeneratedProtocolMessageType('AuthenticatedUnifiedUserContext', (_message.Message,), {
-  'DESCRIPTOR' : _AUTHENTICATEDUNIFIEDUSERCONTEXT,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.AuthenticatedUnifiedUserContext)
-  })
-_sym_db.RegisterMessage(AuthenticatedUnifiedUserContext)
-
-UserContextAccountDetails = _reflection.GeneratedProtocolMessageType('UserContextAccountDetails', (_message.Message,), {
-
-  'EnvironmentByIdEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentByIdEntry', (_message.Message,), {
-    'DESCRIPTOR' : _USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY,
-    '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserContextAccountDetails.EnvironmentByIdEntry)
-    })
-  ,
-
-  'UserContextEnvironmentByIdEntry' : _reflection.GeneratedProtocolMessageType('UserContextEnvironmentByIdEntry', (_message.Message,), {
-    'DESCRIPTOR' : _USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY,
-    '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserContextAccountDetails.UserContextEnvironmentByIdEntry)
-    })
-  ,
-  'DESCRIPTOR' : _USERCONTEXTACCOUNTDETAILS,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserContextAccountDetails)
-  })
-_sym_db.RegisterMessage(UserContextAccountDetails)
-_sym_db.RegisterMessage(UserContextAccountDetails.EnvironmentByIdEntry)
-_sym_db.RegisterMessage(UserContextAccountDetails.UserContextEnvironmentByIdEntry)
-
-UserContextEnvironmentDetails = _reflection.GeneratedProtocolMessageType('UserContextEnvironmentDetails', (_message.Message,), {
-  'DESCRIPTOR' : _USERCONTEXTENVIRONMENTDETAILS,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserContextEnvironmentDetails)
-  })
-_sym_db.RegisterMessage(UserContextEnvironmentDetails)
-
-AccountDetails = _reflection.GeneratedProtocolMessageType('AccountDetails', (_message.Message,), {
-
-  'EnvironmentsByIdEntry' : _reflection.GeneratedProtocolMessageType('EnvironmentsByIdEntry', (_message.Message,), {
-    'DESCRIPTOR' : _ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY,
-    '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.AccountDetails.EnvironmentsByIdEntry)
-    })
-  ,
-  'DESCRIPTOR' : _ACCOUNTDETAILS,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.AccountDetails)
-  })
-_sym_db.RegisterMessage(AccountDetails)
-_sym_db.RegisterMessage(AccountDetails.EnvironmentsByIdEntry)
-
-EnvironmentDetails = _reflection.GeneratedProtocolMessageType('EnvironmentDetails', (_message.Message,), {
-  'DESCRIPTOR' : _ENVIRONMENTDETAILS,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.EnvironmentDetails)
-  })
-_sym_db.RegisterMessage(EnvironmentDetails)
-
-UserAccountList = _reflection.GeneratedProtocolMessageType('UserAccountList', (_message.Message,), {
-
-  'AccountsByIdEntry' : _reflection.GeneratedProtocolMessageType('AccountsByIdEntry', (_message.Message,), {
-    'DESCRIPTOR' : _USERACCOUNTLIST_ACCOUNTSBYIDENTRY,
-    '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-    # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserAccountList.AccountsByIdEntry)
-    })
-  ,
-  'DESCRIPTOR' : _USERACCOUNTLIST,
-  '__module__' : 'qwak.ecosystem.v0.ecosystem_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.ecosystem.v0.UserAccountList)
-  })
-_sym_db.RegisterMessage(UserAccountList)
-_sym_db.RegisterMessage(UserAccountList.AccountsByIdEntry)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.ecosystem.v0.ecosystem_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
@@ -144,30 +36,30 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY._serialized_options = b'8\001'
   _USERACCOUNTLIST_ACCOUNTSBYIDENTRY._options = None
   _USERACCOUNTLIST_ACCOUNTSBYIDENTRY._serialized_options = b'8\001'
-  _USERNAMEPASSWORDMETHOD._serialized_start=353
-  _USERNAMEPASSWORDMETHOD._serialized_end=413
-  _QWAKAPIKEYMETHOD._serialized_start=415
-  _QWAKAPIKEYMETHOD._serialized_end=455
-  _AUTHENTICATEDUSERCONTEXT._serialized_start=457
-  _AUTHENTICATEDUSERCONTEXT._serialized_end=549
-  _AUTHENTICATEDUNIFIEDUSERCONTEXT._serialized_start=552
-  _AUTHENTICATEDUNIFIEDUSERCONTEXT._serialized_end=806
-  _USERCONTEXTACCOUNTDETAILS._serialized_start=809
-  _USERCONTEXTACCOUNTDETAILS._serialized_end=1663
-  _USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY._serialized_start=1453
-  _USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY._serialized_end=1546
-  _USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY._serialized_start=1548
-  _USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY._serialized_end=1663
-  _USERCONTEXTENVIRONMENTDETAILS._serialized_start=1665
-  _USERCONTEXTENVIRONMENTDETAILS._serialized_end=1696
-  _ACCOUNTDETAILS._serialized_start=1699
-  _ACCOUNTDETAILS._serialized_end=2299
-  _ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY._serialized_start=2205
-  _ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY._serialized_end=2299
-  _ENVIRONMENTDETAILS._serialized_start=2302
-  _ENVIRONMENTDETAILS._serialized_end=2454
-  _USERACCOUNTLIST._serialized_start=2457
-  _USERACCOUNTLIST._serialized_end=2679
-  _USERACCOUNTLIST_ACCOUNTSBYIDENTRY._serialized_start=2582
-  _USERACCOUNTLIST_ACCOUNTSBYIDENTRY._serialized_end=2679
+  _globals['_USERNAMEPASSWORDMETHOD']._serialized_start=353
+  _globals['_USERNAMEPASSWORDMETHOD']._serialized_end=413
+  _globals['_QWAKAPIKEYMETHOD']._serialized_start=415
+  _globals['_QWAKAPIKEYMETHOD']._serialized_end=455
+  _globals['_AUTHENTICATEDUSERCONTEXT']._serialized_start=457
+  _globals['_AUTHENTICATEDUSERCONTEXT']._serialized_end=549
+  _globals['_AUTHENTICATEDUNIFIEDUSERCONTEXT']._serialized_start=552
+  _globals['_AUTHENTICATEDUNIFIEDUSERCONTEXT']._serialized_end=806
+  _globals['_USERCONTEXTACCOUNTDETAILS']._serialized_start=809
+  _globals['_USERCONTEXTACCOUNTDETAILS']._serialized_end=1663
+  _globals['_USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY']._serialized_start=1453
+  _globals['_USERCONTEXTACCOUNTDETAILS_ENVIRONMENTBYIDENTRY']._serialized_end=1546
+  _globals['_USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY']._serialized_start=1548
+  _globals['_USERCONTEXTACCOUNTDETAILS_USERCONTEXTENVIRONMENTBYIDENTRY']._serialized_end=1663
+  _globals['_USERCONTEXTENVIRONMENTDETAILS']._serialized_start=1665
+  _globals['_USERCONTEXTENVIRONMENTDETAILS']._serialized_end=1696
+  _globals['_ACCOUNTDETAILS']._serialized_start=1699
+  _globals['_ACCOUNTDETAILS']._serialized_end=2299
+  _globals['_ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY']._serialized_start=2205
+  _globals['_ACCOUNTDETAILS_ENVIRONMENTSBYIDENTRY']._serialized_end=2299
+  _globals['_ENVIRONMENTDETAILS']._serialized_start=2302
+  _globals['_ENVIRONMENTDETAILS']._serialized_end=2454
+  _globals['_USERACCOUNTLIST']._serialized_start=2457
+  _globals['_USERACCOUNTLIST']._serialized_end=2679
+  _globals['_USERACCOUNTLIST_ACCOUNTSBYIDENTRY']._serialized_start=2582
+  _globals['_USERACCOUNTLIST_ACCOUNTSBYIDENTRY']._serialized_end=2679
 # @@protoc_insertion_point(module_scope)

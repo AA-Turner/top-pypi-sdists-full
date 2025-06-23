@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,112 +15,33 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,qwak/integration/slack_app_integration.proto\x12\x1bqwak.integration.management\"\x9f\x02\n\x13SlackAppIntegration\x12\\\n\x1f\x65ncrypted_slack_app_auth_config\x18\x01 \x01(\x0b\x32/.qwak.integration.management.SlackAppAuthConfigB\x02\x18\x01\x12I\n\x12slack_app_settings\x18\x02 \x01(\x0b\x32-.qwak.integration.management.SlackAppSettings\x12W\n\x13slack_system_secret\x18\x03 \x01(\x0b\x32\x38.qwak.integration.management.SlackSystemSecretDescriptorH\x00\x42\x06\n\x04\x61uth\"\x8e\x01\n\x17SlackAppIntegrationSpec\x12\x64\n\x1fslack_app_temporary_credentials\x18\x01 \x01(\x0b\x32\x39.qwak.integration.management.SlackAppTemporaryCredentialsH\x00\x42\r\n\x0b\x63redentials\"Q\n\x1cSlackAppTemporaryCredentials\x12\r\n\x05state\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x14\n\x0credirect_uri\x18\x03 \x01(\t\"\xa6\x01\n\x10SlackAppSettings\x12:\n\nslack_team\x18\x01 \x01(\x0b\x32&.qwak.integration.management.SlackTeam\x12H\n\x10slack_enterprise\x18\x02 \x01(\x0b\x32,.qwak.integration.management.SlackEnterpriseH\x00\x42\x0c\n\nenterprise\",\n\x12SlackAppAuthConfig\x12\x16\n\x0e\x62ot_user_token\x18\x01 \x01(\t\"V\n\x1bSlackSystemSecretDescriptor\x12\x13\n\x0bsecret_name\x18\x01 \x01(\t\x12\x0f\n\x07url_key\x18\x02 \x01(\t\x12\x11\n\ttoken_key\x18\x03 \x01(\t\"\x18\n\x16SlackAppValidationSpec\"\x1c\n\x1aSlackAppIntegrationOptions\"%\n\tSlackTeam\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"+\n\x0fSlackEnterprise\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\tBH\n&com.qwak.ai.management.integration.apiP\x01Z\x1cqwak/integration;integrationb\x06proto3')
 
-
-
-_SLACKAPPINTEGRATION = DESCRIPTOR.message_types_by_name['SlackAppIntegration']
-_SLACKAPPINTEGRATIONSPEC = DESCRIPTOR.message_types_by_name['SlackAppIntegrationSpec']
-_SLACKAPPTEMPORARYCREDENTIALS = DESCRIPTOR.message_types_by_name['SlackAppTemporaryCredentials']
-_SLACKAPPSETTINGS = DESCRIPTOR.message_types_by_name['SlackAppSettings']
-_SLACKAPPAUTHCONFIG = DESCRIPTOR.message_types_by_name['SlackAppAuthConfig']
-_SLACKSYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['SlackSystemSecretDescriptor']
-_SLACKAPPVALIDATIONSPEC = DESCRIPTOR.message_types_by_name['SlackAppValidationSpec']
-_SLACKAPPINTEGRATIONOPTIONS = DESCRIPTOR.message_types_by_name['SlackAppIntegrationOptions']
-_SLACKTEAM = DESCRIPTOR.message_types_by_name['SlackTeam']
-_SLACKENTERPRISE = DESCRIPTOR.message_types_by_name['SlackEnterprise']
-SlackAppIntegration = _reflection.GeneratedProtocolMessageType('SlackAppIntegration', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPINTEGRATION,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppIntegration)
-  })
-_sym_db.RegisterMessage(SlackAppIntegration)
-
-SlackAppIntegrationSpec = _reflection.GeneratedProtocolMessageType('SlackAppIntegrationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPINTEGRATIONSPEC,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppIntegrationSpec)
-  })
-_sym_db.RegisterMessage(SlackAppIntegrationSpec)
-
-SlackAppTemporaryCredentials = _reflection.GeneratedProtocolMessageType('SlackAppTemporaryCredentials', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPTEMPORARYCREDENTIALS,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppTemporaryCredentials)
-  })
-_sym_db.RegisterMessage(SlackAppTemporaryCredentials)
-
-SlackAppSettings = _reflection.GeneratedProtocolMessageType('SlackAppSettings', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPSETTINGS,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppSettings)
-  })
-_sym_db.RegisterMessage(SlackAppSettings)
-
-SlackAppAuthConfig = _reflection.GeneratedProtocolMessageType('SlackAppAuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPAUTHCONFIG,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppAuthConfig)
-  })
-_sym_db.RegisterMessage(SlackAppAuthConfig)
-
-SlackSystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('SlackSystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKSYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackSystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(SlackSystemSecretDescriptor)
-
-SlackAppValidationSpec = _reflection.GeneratedProtocolMessageType('SlackAppValidationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPVALIDATIONSPEC,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppValidationSpec)
-  })
-_sym_db.RegisterMessage(SlackAppValidationSpec)
-
-SlackAppIntegrationOptions = _reflection.GeneratedProtocolMessageType('SlackAppIntegrationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKAPPINTEGRATIONOPTIONS,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackAppIntegrationOptions)
-  })
-_sym_db.RegisterMessage(SlackAppIntegrationOptions)
-
-SlackTeam = _reflection.GeneratedProtocolMessageType('SlackTeam', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKTEAM,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackTeam)
-  })
-_sym_db.RegisterMessage(SlackTeam)
-
-SlackEnterprise = _reflection.GeneratedProtocolMessageType('SlackEnterprise', (_message.Message,), {
-  'DESCRIPTOR' : _SLACKENTERPRISE,
-  '__module__' : 'qwak.integration.slack_app_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.SlackEnterprise)
-  })
-_sym_db.RegisterMessage(SlackEnterprise)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.integration.slack_app_integration_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.integration.apiP\001Z\034qwak/integration;integration'
   _SLACKAPPINTEGRATION.fields_by_name['encrypted_slack_app_auth_config']._options = None
   _SLACKAPPINTEGRATION.fields_by_name['encrypted_slack_app_auth_config']._serialized_options = b'\030\001'
-  _SLACKAPPINTEGRATION._serialized_start=78
-  _SLACKAPPINTEGRATION._serialized_end=365
-  _SLACKAPPINTEGRATIONSPEC._serialized_start=368
-  _SLACKAPPINTEGRATIONSPEC._serialized_end=510
-  _SLACKAPPTEMPORARYCREDENTIALS._serialized_start=512
-  _SLACKAPPTEMPORARYCREDENTIALS._serialized_end=593
-  _SLACKAPPSETTINGS._serialized_start=596
-  _SLACKAPPSETTINGS._serialized_end=762
-  _SLACKAPPAUTHCONFIG._serialized_start=764
-  _SLACKAPPAUTHCONFIG._serialized_end=808
-  _SLACKSYSTEMSECRETDESCRIPTOR._serialized_start=810
-  _SLACKSYSTEMSECRETDESCRIPTOR._serialized_end=896
-  _SLACKAPPVALIDATIONSPEC._serialized_start=898
-  _SLACKAPPVALIDATIONSPEC._serialized_end=922
-  _SLACKAPPINTEGRATIONOPTIONS._serialized_start=924
-  _SLACKAPPINTEGRATIONOPTIONS._serialized_end=952
-  _SLACKTEAM._serialized_start=954
-  _SLACKTEAM._serialized_end=991
-  _SLACKENTERPRISE._serialized_start=993
-  _SLACKENTERPRISE._serialized_end=1036
+  _globals['_SLACKAPPINTEGRATION']._serialized_start=78
+  _globals['_SLACKAPPINTEGRATION']._serialized_end=365
+  _globals['_SLACKAPPINTEGRATIONSPEC']._serialized_start=368
+  _globals['_SLACKAPPINTEGRATIONSPEC']._serialized_end=510
+  _globals['_SLACKAPPTEMPORARYCREDENTIALS']._serialized_start=512
+  _globals['_SLACKAPPTEMPORARYCREDENTIALS']._serialized_end=593
+  _globals['_SLACKAPPSETTINGS']._serialized_start=596
+  _globals['_SLACKAPPSETTINGS']._serialized_end=762
+  _globals['_SLACKAPPAUTHCONFIG']._serialized_start=764
+  _globals['_SLACKAPPAUTHCONFIG']._serialized_end=808
+  _globals['_SLACKSYSTEMSECRETDESCRIPTOR']._serialized_start=810
+  _globals['_SLACKSYSTEMSECRETDESCRIPTOR']._serialized_end=896
+  _globals['_SLACKAPPVALIDATIONSPEC']._serialized_start=898
+  _globals['_SLACKAPPVALIDATIONSPEC']._serialized_end=922
+  _globals['_SLACKAPPINTEGRATIONOPTIONS']._serialized_start=924
+  _globals['_SLACKAPPINTEGRATIONOPTIONS']._serialized_end=952
+  _globals['_SLACKTEAM']._serialized_start=954
+  _globals['_SLACKTEAM']._serialized_end=991
+  _globals['_SLACKENTERPRISE']._serialized_start=993
+  _globals['_SLACKENTERPRISE']._serialized_end=1036
 # @@protoc_insertion_point(module_scope)

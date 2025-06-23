@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-jsonpath
-Version: 1.3.0
+Version: 1.3.1
 Summary: JSONPath, JSON Pointer and JSON Patch for Python.
 Project-URL: Documentation, https://jg-rp.github.io/python-jsonpath/
 Project-URL: Issues, https://github.com/jg-rp/python-jsonpath/issues
@@ -96,6 +96,8 @@ conda install -c conda-forge python-jsonpath
   jsonpath-rfc9535 matches RFC 9535's JSONPath model internally and is careful to use the spec's terminology. It also includes utilities for verifying and testing the [JSONPath Compliance Test Suite](https://github.com/jsonpath-standard/jsonpath-compliance-test-suite). Most notably the nondeterministic behavior of some JSONPath selectors.
 
 - [JSON P3](https://github.com/jg-rp/json-p3) - RFC 9535 implemented in TypeScript. JSON P3 does not include all the non-standard features of Python JSONPath, but does define some optional [extra syntax](https://jg-rp.github.io/json-p3/guides/jsonpath-extra).
+
+- [Ruby JSON P3](https://github.com/jg-rp/ruby-json-p3) - RFC 9535, RFC 6901 and RFC 6902 implemented in Ruby.
 
 ## Examples
 

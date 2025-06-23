@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -20,113 +19,33 @@ from _qwak_proto.qwak.feature_store.sources import data_source_pb2 as qwak_dot_f
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?qwak/features_operator/v3/features_operator_async_service.proto\x12\x19qwak.features_operator.v3\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x31qwak/features_operator/v3/features_operator.proto\x1a-qwak/feature_store/features/feature_set.proto\x1a,qwak/feature_store/sources/data_source.proto\"\xeb\x01\n\x19ValidateDataSourceRequest\x12\x44\n\x10\x64\x61ta_source_spec\x18\x01 \x01(\x0b\x32*.qwak.feature.store.sources.DataSourceSpec\x12\x13\n\x0bnum_samples\x18\x02 \x01(\x05\x12T\n\x12validation_options\x18\x03 \x01(\x0b\x32\x36.qwak.features_operator.v3.DataSourceValidationOptionsH\x00\x42\x1d\n\x1boptional_validation_options\"\xfe\x01\n\x19ValidateFeatureSetRequest\x12\x45\n\x10\x66\x65\x61ture_set_spec\x18\x01 \x01(\x0b\x32+.qwak.feature.store.features.FeatureSetSpec\x12\x10\n\x08zip_path\x18\x02 \x01(\t\x12\x13\n\x0bnum_samples\x18\x03 \x01(\x05\x12T\n\x12validation_options\x18\x04 \x01(\x0b\x32\x36.qwak.features_operator.v3.FeatureSetValidationOptionsH\x00\x42\x1d\n\x1boptional_validation_options\"(\n\x12ValidationResponse\x12\x12\n\nrequest_id\x18\x01 \x01(\t\"0\n\x1aGetValidationResultRequest\x12\x12\n\nrequest_id\x18\x01 \x01(\t\"\x9e\x02\n\x1bGetValidationResultResponse\x12P\n\x10success_response\x18\x01 \x01(\x0b\x32\x34.qwak.features_operator.v3.ValidationSuccessResponseH\x00\x12P\n\x10\x66\x61ilure_response\x18\x02 \x01(\x0b\x32\x34.qwak.features_operator.v3.ValidationFailureResponseH\x00\x12S\n\x12not_ready_response\x18\x03 \x01(\x0b\x32\x35.qwak.features_operator.v3.ValidationNotReadyResponseH\x00\x42\x06\n\x04type\"-\n\x17\x43\x61ncelValidationRequest\x12\x12\n\nrequest_id\x18\x01 \x01(\t\"\x1a\n\x18\x43\x61ncelValidationResponse\"\xcb\x01\n\x1b\x46\x65\x61tureSetValidationOptions\x12\x1b\n\x11\x64\x61ta_source_limit\x18\x01 \x01(\x05H\x00\x12O\n\x15validation_time_range\x18\x02 \x01(\x0b\x32..qwak.features_operator.v3.ValidationTimeRangeH\x01\x42\x1c\n\x1aoptional_data_source_limitB \n\x1eoptional_validation_time_range\"\x90\x01\n\x1b\x44\x61taSourceValidationOptions\x12O\n\x15validation_time_range\x18\x01 \x01(\x0b\x32..qwak.features_operator.v3.ValidationTimeRangeH\x00\x42 \n\x1eoptional_validation_time_range\"\xbf\x01\n\x13ValidationTimeRange\x12\x36\n\x10lower_time_bound\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12\x36\n\x10upper_time_bound\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01\x42\x1b\n\x19optional_lower_time_boundB\x1b\n\x19optional_upper_time_bound2\x98\x04\n\x1c\x46\x65\x61turesOperatorAsyncService\x12y\n\x12ValidateDataSource\x12\x34.qwak.features_operator.v3.ValidateDataSourceRequest\x1a-.qwak.features_operator.v3.ValidationResponse\x12y\n\x12ValidateFeatureSet\x12\x34.qwak.features_operator.v3.ValidateFeatureSetRequest\x1a-.qwak.features_operator.v3.ValidationResponse\x12\x84\x01\n\x13GetValidationResult\x12\x35.qwak.features_operator.v3.GetValidationResultRequest\x1a\x36.qwak.features_operator.v3.GetValidationResultResponse\x12{\n\x10\x43\x61ncelValidation\x12\x32.qwak.features_operator.v3.CancelValidationRequest\x1a\x33.qwak.features_operator.v3.CancelValidationResponseB(\n$com.qwak.ai.features.operator.api.v3P\x01\x62\x06proto3')
 
-
-
-_VALIDATEDATASOURCEREQUEST = DESCRIPTOR.message_types_by_name['ValidateDataSourceRequest']
-_VALIDATEFEATURESETREQUEST = DESCRIPTOR.message_types_by_name['ValidateFeatureSetRequest']
-_VALIDATIONRESPONSE = DESCRIPTOR.message_types_by_name['ValidationResponse']
-_GETVALIDATIONRESULTREQUEST = DESCRIPTOR.message_types_by_name['GetValidationResultRequest']
-_GETVALIDATIONRESULTRESPONSE = DESCRIPTOR.message_types_by_name['GetValidationResultResponse']
-_CANCELVALIDATIONREQUEST = DESCRIPTOR.message_types_by_name['CancelValidationRequest']
-_CANCELVALIDATIONRESPONSE = DESCRIPTOR.message_types_by_name['CancelValidationResponse']
-_FEATURESETVALIDATIONOPTIONS = DESCRIPTOR.message_types_by_name['FeatureSetValidationOptions']
-_DATASOURCEVALIDATIONOPTIONS = DESCRIPTOR.message_types_by_name['DataSourceValidationOptions']
-_VALIDATIONTIMERANGE = DESCRIPTOR.message_types_by_name['ValidationTimeRange']
-ValidateDataSourceRequest = _reflection.GeneratedProtocolMessageType('ValidateDataSourceRequest', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEDATASOURCEREQUEST,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.ValidateDataSourceRequest)
-  })
-_sym_db.RegisterMessage(ValidateDataSourceRequest)
-
-ValidateFeatureSetRequest = _reflection.GeneratedProtocolMessageType('ValidateFeatureSetRequest', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATEFEATURESETREQUEST,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.ValidateFeatureSetRequest)
-  })
-_sym_db.RegisterMessage(ValidateFeatureSetRequest)
-
-ValidationResponse = _reflection.GeneratedProtocolMessageType('ValidationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATIONRESPONSE,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.ValidationResponse)
-  })
-_sym_db.RegisterMessage(ValidationResponse)
-
-GetValidationResultRequest = _reflection.GeneratedProtocolMessageType('GetValidationResultRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETVALIDATIONRESULTREQUEST,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.GetValidationResultRequest)
-  })
-_sym_db.RegisterMessage(GetValidationResultRequest)
-
-GetValidationResultResponse = _reflection.GeneratedProtocolMessageType('GetValidationResultResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETVALIDATIONRESULTRESPONSE,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.GetValidationResultResponse)
-  })
-_sym_db.RegisterMessage(GetValidationResultResponse)
-
-CancelValidationRequest = _reflection.GeneratedProtocolMessageType('CancelValidationRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CANCELVALIDATIONREQUEST,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.CancelValidationRequest)
-  })
-_sym_db.RegisterMessage(CancelValidationRequest)
-
-CancelValidationResponse = _reflection.GeneratedProtocolMessageType('CancelValidationResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CANCELVALIDATIONRESPONSE,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.CancelValidationResponse)
-  })
-_sym_db.RegisterMessage(CancelValidationResponse)
-
-FeatureSetValidationOptions = _reflection.GeneratedProtocolMessageType('FeatureSetValidationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESETVALIDATIONOPTIONS,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.FeatureSetValidationOptions)
-  })
-_sym_db.RegisterMessage(FeatureSetValidationOptions)
-
-DataSourceValidationOptions = _reflection.GeneratedProtocolMessageType('DataSourceValidationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _DATASOURCEVALIDATIONOPTIONS,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.DataSourceValidationOptions)
-  })
-_sym_db.RegisterMessage(DataSourceValidationOptions)
-
-ValidationTimeRange = _reflection.GeneratedProtocolMessageType('ValidationTimeRange', (_message.Message,), {
-  'DESCRIPTOR' : _VALIDATIONTIMERANGE,
-  '__module__' : 'qwak.features_operator.v3.features_operator_async_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.features_operator.v3.ValidationTimeRange)
-  })
-_sym_db.RegisterMessage(ValidationTimeRange)
-
-_FEATURESOPERATORASYNCSERVICE = DESCRIPTOR.services_by_name['FeaturesOperatorAsyncService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.features_operator.v3.features_operator_async_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n$com.qwak.ai.features.operator.api.v3P\001'
-  _VALIDATEDATASOURCEREQUEST._serialized_start=272
-  _VALIDATEDATASOURCEREQUEST._serialized_end=507
-  _VALIDATEFEATURESETREQUEST._serialized_start=510
-  _VALIDATEFEATURESETREQUEST._serialized_end=764
-  _VALIDATIONRESPONSE._serialized_start=766
-  _VALIDATIONRESPONSE._serialized_end=806
-  _GETVALIDATIONRESULTREQUEST._serialized_start=808
-  _GETVALIDATIONRESULTREQUEST._serialized_end=856
-  _GETVALIDATIONRESULTRESPONSE._serialized_start=859
-  _GETVALIDATIONRESULTRESPONSE._serialized_end=1145
-  _CANCELVALIDATIONREQUEST._serialized_start=1147
-  _CANCELVALIDATIONREQUEST._serialized_end=1192
-  _CANCELVALIDATIONRESPONSE._serialized_start=1194
-  _CANCELVALIDATIONRESPONSE._serialized_end=1220
-  _FEATURESETVALIDATIONOPTIONS._serialized_start=1223
-  _FEATURESETVALIDATIONOPTIONS._serialized_end=1426
-  _DATASOURCEVALIDATIONOPTIONS._serialized_start=1429
-  _DATASOURCEVALIDATIONOPTIONS._serialized_end=1573
-  _VALIDATIONTIMERANGE._serialized_start=1576
-  _VALIDATIONTIMERANGE._serialized_end=1767
-  _FEATURESOPERATORASYNCSERVICE._serialized_start=1770
-  _FEATURESOPERATORASYNCSERVICE._serialized_end=2306
+  _globals['_VALIDATEDATASOURCEREQUEST']._serialized_start=272
+  _globals['_VALIDATEDATASOURCEREQUEST']._serialized_end=507
+  _globals['_VALIDATEFEATURESETREQUEST']._serialized_start=510
+  _globals['_VALIDATEFEATURESETREQUEST']._serialized_end=764
+  _globals['_VALIDATIONRESPONSE']._serialized_start=766
+  _globals['_VALIDATIONRESPONSE']._serialized_end=806
+  _globals['_GETVALIDATIONRESULTREQUEST']._serialized_start=808
+  _globals['_GETVALIDATIONRESULTREQUEST']._serialized_end=856
+  _globals['_GETVALIDATIONRESULTRESPONSE']._serialized_start=859
+  _globals['_GETVALIDATIONRESULTRESPONSE']._serialized_end=1145
+  _globals['_CANCELVALIDATIONREQUEST']._serialized_start=1147
+  _globals['_CANCELVALIDATIONREQUEST']._serialized_end=1192
+  _globals['_CANCELVALIDATIONRESPONSE']._serialized_start=1194
+  _globals['_CANCELVALIDATIONRESPONSE']._serialized_end=1220
+  _globals['_FEATURESETVALIDATIONOPTIONS']._serialized_start=1223
+  _globals['_FEATURESETVALIDATIONOPTIONS']._serialized_end=1426
+  _globals['_DATASOURCEVALIDATIONOPTIONS']._serialized_start=1429
+  _globals['_DATASOURCEVALIDATIONOPTIONS']._serialized_end=1573
+  _globals['_VALIDATIONTIMERANGE']._serialized_start=1576
+  _globals['_VALIDATIONTIMERANGE']._serialized_end=1767
+  _globals['_FEATURESOPERATORASYNCSERVICE']._serialized_start=1770
+  _globals['_FEATURESOPERATORASYNCSERVICE']._serialized_end=2306
 # @@protoc_insertion_point(module_scope)

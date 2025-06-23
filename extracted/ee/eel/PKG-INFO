@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: Eel
-Version: 0.18.1
+Version: 0.18.2
 Summary: For little HTML GUI applications, with easy Python/JS interop
 Home-page: https://github.com/python-eel/Eel
 Author: Python Eel Organisation
@@ -24,8 +24,20 @@ Requires-Dist: bottle-websocket
 Requires-Dist: future
 Requires-Dist: pyparsing
 Requires-Dist: typing_extensions
+Requires-Dist: importlib_resources
 Provides-Extra: jinja2
 Requires-Dist: jinja2>=2.10; extra == "jinja2"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Eel
 

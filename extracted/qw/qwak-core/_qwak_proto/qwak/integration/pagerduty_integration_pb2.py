@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,112 +15,33 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,qwak/integration/pagerduty_integration.proto\x12\x1bqwak.integration.management\"\xf4\x01\n\x14PagerdutyIntegration\x12]\n\x1f\x65ncrypted_pagerduty_auth_config\x18\x01 \x01(\x0b\x32\x30.qwak.integration.management.PagerdutyAuthConfigB\x02\x18\x01\x12\x14\n\x0c\x65ndpoint_url\x18\x02 \x01(\t\x12_\n\x17pagerduty_system_secret\x18\x03 \x01(\x0b\x32<.qwak.integration.management.PagerdutySystemSecretDescriptorH\x00\x42\x06\n\x04\x61uth\"|\n\x18PagerdutyIntegrationSpec\x12X\n\x1cpagerduty_auth_configuration\x18\x01 \x01(\x0b\x32\x30.qwak.integration.management.PagerdutyAuthConfigH\x00\x42\x06\n\x04\x61uth\"\xd3\x01\n\x13PagerdutyAuthConfig\x12Y\n\x15\x65vents_v1_auth_config\x18\x01 \x01(\x0b\x32\x38.qwak.integration.management.PagerdutyEventsV1AuthConfigH\x00\x12Y\n\x15\x65vents_v2_auth_config\x18\x02 \x01(\x0b\x32\x38.qwak.integration.management.PagerdutyEventsV2AuthConfigH\x00\x42\x06\n\x04\x61uth\"2\n\x1bPagerdutyEventsV1AuthConfig\x12\x13\n\x0bservice_key\x18\x01 \x01(\t\"2\n\x1bPagerdutyEventsV2AuthConfig\x12\x13\n\x0brouting_key\x18\x01 \x01(\t\"\xb0\x02\n\x1fPagerdutySystemSecretDescriptor\x12\x13\n\x0bsecret_name\x18\x01 \x01(\t\x12q\n!pagerduty_events_v1_system_secret\x18\x02 \x01(\x0b\x32\x44.qwak.integration.management.PagerdutyEventsV1SystemSecretDescriptorH\x00\x12q\n!pagerduty_events_v2_system_secret\x18\x03 \x01(\x0b\x32\x44.qwak.integration.management.PagerdutyEventsV2SystemSecretDescriptorH\x00\x42\x12\n\x10pagerduty_secret\"I\n\'PagerdutyEventsV1SystemSecretDescriptor\x12\x1e\n\x16service_key_secret_key\x18\x01 \x01(\t\"I\n\'PagerdutyEventsV2SystemSecretDescriptor\x12\x1e\n\x16routing_key_secret_key\x18\x01 \x01(\t\"j\n\x17PagerdutyValidationSpec\x12O\n\x15pagerduty_auth_config\x18\x01 \x01(\x0b\x32\x30.qwak.integration.management.PagerdutyAuthConfig\"\x1d\n\x1bPagerdutyIntegrationOptionsBH\n&com.qwak.ai.management.integration.apiP\x01Z\x1cqwak/integration;integrationb\x06proto3')
 
-
-
-_PAGERDUTYINTEGRATION = DESCRIPTOR.message_types_by_name['PagerdutyIntegration']
-_PAGERDUTYINTEGRATIONSPEC = DESCRIPTOR.message_types_by_name['PagerdutyIntegrationSpec']
-_PAGERDUTYAUTHCONFIG = DESCRIPTOR.message_types_by_name['PagerdutyAuthConfig']
-_PAGERDUTYEVENTSV1AUTHCONFIG = DESCRIPTOR.message_types_by_name['PagerdutyEventsV1AuthConfig']
-_PAGERDUTYEVENTSV2AUTHCONFIG = DESCRIPTOR.message_types_by_name['PagerdutyEventsV2AuthConfig']
-_PAGERDUTYSYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['PagerdutySystemSecretDescriptor']
-_PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['PagerdutyEventsV1SystemSecretDescriptor']
-_PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR = DESCRIPTOR.message_types_by_name['PagerdutyEventsV2SystemSecretDescriptor']
-_PAGERDUTYVALIDATIONSPEC = DESCRIPTOR.message_types_by_name['PagerdutyValidationSpec']
-_PAGERDUTYINTEGRATIONOPTIONS = DESCRIPTOR.message_types_by_name['PagerdutyIntegrationOptions']
-PagerdutyIntegration = _reflection.GeneratedProtocolMessageType('PagerdutyIntegration', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYINTEGRATION,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyIntegration)
-  })
-_sym_db.RegisterMessage(PagerdutyIntegration)
-
-PagerdutyIntegrationSpec = _reflection.GeneratedProtocolMessageType('PagerdutyIntegrationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYINTEGRATIONSPEC,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyIntegrationSpec)
-  })
-_sym_db.RegisterMessage(PagerdutyIntegrationSpec)
-
-PagerdutyAuthConfig = _reflection.GeneratedProtocolMessageType('PagerdutyAuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYAUTHCONFIG,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyAuthConfig)
-  })
-_sym_db.RegisterMessage(PagerdutyAuthConfig)
-
-PagerdutyEventsV1AuthConfig = _reflection.GeneratedProtocolMessageType('PagerdutyEventsV1AuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYEVENTSV1AUTHCONFIG,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyEventsV1AuthConfig)
-  })
-_sym_db.RegisterMessage(PagerdutyEventsV1AuthConfig)
-
-PagerdutyEventsV2AuthConfig = _reflection.GeneratedProtocolMessageType('PagerdutyEventsV2AuthConfig', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYEVENTSV2AUTHCONFIG,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyEventsV2AuthConfig)
-  })
-_sym_db.RegisterMessage(PagerdutyEventsV2AuthConfig)
-
-PagerdutySystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('PagerdutySystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYSYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutySystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(PagerdutySystemSecretDescriptor)
-
-PagerdutyEventsV1SystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('PagerdutyEventsV1SystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyEventsV1SystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(PagerdutyEventsV1SystemSecretDescriptor)
-
-PagerdutyEventsV2SystemSecretDescriptor = _reflection.GeneratedProtocolMessageType('PagerdutyEventsV2SystemSecretDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyEventsV2SystemSecretDescriptor)
-  })
-_sym_db.RegisterMessage(PagerdutyEventsV2SystemSecretDescriptor)
-
-PagerdutyValidationSpec = _reflection.GeneratedProtocolMessageType('PagerdutyValidationSpec', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYVALIDATIONSPEC,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyValidationSpec)
-  })
-_sym_db.RegisterMessage(PagerdutyValidationSpec)
-
-PagerdutyIntegrationOptions = _reflection.GeneratedProtocolMessageType('PagerdutyIntegrationOptions', (_message.Message,), {
-  'DESCRIPTOR' : _PAGERDUTYINTEGRATIONOPTIONS,
-  '__module__' : 'qwak.integration.pagerduty_integration_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.integration.management.PagerdutyIntegrationOptions)
-  })
-_sym_db.RegisterMessage(PagerdutyIntegrationOptions)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.integration.pagerduty_integration_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.integration.apiP\001Z\034qwak/integration;integration'
   _PAGERDUTYINTEGRATION.fields_by_name['encrypted_pagerduty_auth_config']._options = None
   _PAGERDUTYINTEGRATION.fields_by_name['encrypted_pagerduty_auth_config']._serialized_options = b'\030\001'
-  _PAGERDUTYINTEGRATION._serialized_start=78
-  _PAGERDUTYINTEGRATION._serialized_end=322
-  _PAGERDUTYINTEGRATIONSPEC._serialized_start=324
-  _PAGERDUTYINTEGRATIONSPEC._serialized_end=448
-  _PAGERDUTYAUTHCONFIG._serialized_start=451
-  _PAGERDUTYAUTHCONFIG._serialized_end=662
-  _PAGERDUTYEVENTSV1AUTHCONFIG._serialized_start=664
-  _PAGERDUTYEVENTSV1AUTHCONFIG._serialized_end=714
-  _PAGERDUTYEVENTSV2AUTHCONFIG._serialized_start=716
-  _PAGERDUTYEVENTSV2AUTHCONFIG._serialized_end=766
-  _PAGERDUTYSYSTEMSECRETDESCRIPTOR._serialized_start=769
-  _PAGERDUTYSYSTEMSECRETDESCRIPTOR._serialized_end=1073
-  _PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR._serialized_start=1075
-  _PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR._serialized_end=1148
-  _PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR._serialized_start=1150
-  _PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR._serialized_end=1223
-  _PAGERDUTYVALIDATIONSPEC._serialized_start=1225
-  _PAGERDUTYVALIDATIONSPEC._serialized_end=1331
-  _PAGERDUTYINTEGRATIONOPTIONS._serialized_start=1333
-  _PAGERDUTYINTEGRATIONOPTIONS._serialized_end=1362
+  _globals['_PAGERDUTYINTEGRATION']._serialized_start=78
+  _globals['_PAGERDUTYINTEGRATION']._serialized_end=322
+  _globals['_PAGERDUTYINTEGRATIONSPEC']._serialized_start=324
+  _globals['_PAGERDUTYINTEGRATIONSPEC']._serialized_end=448
+  _globals['_PAGERDUTYAUTHCONFIG']._serialized_start=451
+  _globals['_PAGERDUTYAUTHCONFIG']._serialized_end=662
+  _globals['_PAGERDUTYEVENTSV1AUTHCONFIG']._serialized_start=664
+  _globals['_PAGERDUTYEVENTSV1AUTHCONFIG']._serialized_end=714
+  _globals['_PAGERDUTYEVENTSV2AUTHCONFIG']._serialized_start=716
+  _globals['_PAGERDUTYEVENTSV2AUTHCONFIG']._serialized_end=766
+  _globals['_PAGERDUTYSYSTEMSECRETDESCRIPTOR']._serialized_start=769
+  _globals['_PAGERDUTYSYSTEMSECRETDESCRIPTOR']._serialized_end=1073
+  _globals['_PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR']._serialized_start=1075
+  _globals['_PAGERDUTYEVENTSV1SYSTEMSECRETDESCRIPTOR']._serialized_end=1148
+  _globals['_PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR']._serialized_start=1150
+  _globals['_PAGERDUTYEVENTSV2SYSTEMSECRETDESCRIPTOR']._serialized_end=1223
+  _globals['_PAGERDUTYVALIDATIONSPEC']._serialized_start=1225
+  _globals['_PAGERDUTYVALIDATIONSPEC']._serialized_end=1331
+  _globals['_PAGERDUTYINTEGRATIONOPTIONS']._serialized_start=1333
+  _globals['_PAGERDUTYINTEGRATIONOPTIONS']._serialized_end=1362
 # @@protoc_insertion_point(module_scope)

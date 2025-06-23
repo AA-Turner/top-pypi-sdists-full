@@ -1,7 +1,11 @@
-use crate::Lint;
+use crate::{Lint, Rule};
 
 impl Lint for tombi_ast::Root {
     fn lint(&self, l: &mut crate::Linter) {
+        // Apply root-level rules
+        crate::rule::DottedKeysOutOfOrderRule::check(self, l);
+        crate::rule::TablesOutOfOrderRule::check(self, l);
+
         for item in self.items() {
             item.lint(l);
         }

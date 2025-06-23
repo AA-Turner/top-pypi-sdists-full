@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,40 +16,17 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.external import re
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nGqwak/administration/runtime_configuration/v0/feature_store_config.proto\x12\x41qwak.administration.runtime_configuration.v0.feature_store_config\x1aHqwak/administration/runtime_configuration/v0/external/redis_config.proto\"\x9d\x01\n\x19\x46\x65\x61tureStoreConfiguration\x12v\n\x07\x65nabled\x18\x02 \x01(\x0b\x32\x63.qwak.administration.runtime_configuration.v0.feature_store_config.EnabledFeatureStoreConfigurationH\x00\x42\x08\n\x06toggle\"\x97\x01\n EnabledFeatureStoreConfiguration\x12s\n\x14online_feature_store\x18\x01 \x01(\x0b\x32U.qwak.administration.runtime_configuration.v0.feature_store_config.OnlineFeatureStore\"\x93\x01\n\x12OnlineFeatureStore\x12u\n\x13redis_configuration\x18\x01 \x01(\x0b\x32V.qwak.administration.runtime_configuration.v0.external.redis_config.RedisConfigurationH\x00\x42\x06\n\x04typeB\xe1\x01\n:com.jfrog.ml.runtime_configuration.v0.feature_store_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_FEATURESTORECONFIGURATION = DESCRIPTOR.message_types_by_name['FeatureStoreConfiguration']
-_ENABLEDFEATURESTORECONFIGURATION = DESCRIPTOR.message_types_by_name['EnabledFeatureStoreConfiguration']
-_ONLINEFEATURESTORE = DESCRIPTOR.message_types_by_name['OnlineFeatureStore']
-FeatureStoreConfiguration = _reflection.GeneratedProtocolMessageType('FeatureStoreConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _FEATURESTORECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.feature_store_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.feature_store_config.FeatureStoreConfiguration)
-  })
-_sym_db.RegisterMessage(FeatureStoreConfiguration)
-
-EnabledFeatureStoreConfiguration = _reflection.GeneratedProtocolMessageType('EnabledFeatureStoreConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _ENABLEDFEATURESTORECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.feature_store_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.feature_store_config.EnabledFeatureStoreConfiguration)
-  })
-_sym_db.RegisterMessage(EnabledFeatureStoreConfiguration)
-
-OnlineFeatureStore = _reflection.GeneratedProtocolMessageType('OnlineFeatureStore', (_message.Message,), {
-  'DESCRIPTOR' : _ONLINEFEATURESTORE,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.feature_store_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.feature_store_config.OnlineFeatureStore)
-  })
-_sym_db.RegisterMessage(OnlineFeatureStore)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.feature_store_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n:com.jfrog.ml.runtime_configuration.v0.feature_store_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _FEATURESTORECONFIGURATION._serialized_start=217
-  _FEATURESTORECONFIGURATION._serialized_end=374
-  _ENABLEDFEATURESTORECONFIGURATION._serialized_start=377
-  _ENABLEDFEATURESTORECONFIGURATION._serialized_end=528
-  _ONLINEFEATURESTORE._serialized_start=531
-  _ONLINEFEATURESTORE._serialized_end=678
+  _globals['_FEATURESTORECONFIGURATION']._serialized_start=217
+  _globals['_FEATURESTORECONFIGURATION']._serialized_end=374
+  _globals['_ENABLEDFEATURESTORECONFIGURATION']._serialized_start=377
+  _globals['_ENABLEDFEATURESTORECONFIGURATION']._serialized_end=528
+  _globals['_ONLINEFEATURESTORE']._serialized_start=531
+  _globals['_ONLINEFEATURESTORE']._serialized_end=678
 # @@protoc_insertion_point(module_scope)

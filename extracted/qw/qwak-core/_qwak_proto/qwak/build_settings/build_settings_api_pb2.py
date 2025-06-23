@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,73 +16,25 @@ from _qwak_proto.qwak.build_settings import build_settings_pb2 as qwak_dot_build
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n,qwak/build_settings/build_settings_api.proto\x12\x17\x63om.qwak.build_settings\x1a(qwak/build_settings/build_settings.proto\"r\n\x18SaveBuildSettingsRequest\x12>\n\x0e\x62uild_settings\x18\x01 \x01(\x0b\x32&.com.qwak.build_settings.BuildSettings\x12\x16\n\x0e\x65nvironment_id\x18\x02 \x03(\t\"6\n\x19SaveBuildSettingsResponse\x12\x19\n\x11\x62uild_settings_id\x18\x01 \x03(\t\"1\n\x17GetBuildSettingsRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"Z\n\x18GetBuildSettingsResponse\x12>\n\x0e\x62uild_settings\x18\x01 \x01(\x0b\x32&.com.qwak.build_settings.BuildSettings\"4\n\x1a\x44\x65leteBuildSettingsRequest\x12\x16\n\x0e\x65nvironment_id\x18\x01 \x01(\t\"\x1d\n\x1b\x44\x65leteBuildSettingsResponse2\x8a\x03\n\x10\x42uildSettingsApi\x12z\n\x11SaveBuildSettings\x12\x31.com.qwak.build_settings.SaveBuildSettingsRequest\x1a\x32.com.qwak.build_settings.SaveBuildSettingsResponse\x12w\n\x10GetBuildSettings\x12\x30.com.qwak.build_settings.GetBuildSettingsRequest\x1a\x31.com.qwak.build_settings.GetBuildSettingsResponse\x12\x80\x01\n\x13\x44\x65leteBuildSettings\x12\x33.com.qwak.build_settings.DeleteBuildSettingsRequest\x1a\x34.com.qwak.build_settings.DeleteBuildSettingsResponseB2\n\x17\x63om.qwak.build_settingsB\x15\x42uildSettingsApiProtoP\x01\x62\x06proto3')
 
-
-
-_SAVEBUILDSETTINGSREQUEST = DESCRIPTOR.message_types_by_name['SaveBuildSettingsRequest']
-_SAVEBUILDSETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['SaveBuildSettingsResponse']
-_GETBUILDSETTINGSREQUEST = DESCRIPTOR.message_types_by_name['GetBuildSettingsRequest']
-_GETBUILDSETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['GetBuildSettingsResponse']
-_DELETEBUILDSETTINGSREQUEST = DESCRIPTOR.message_types_by_name['DeleteBuildSettingsRequest']
-_DELETEBUILDSETTINGSRESPONSE = DESCRIPTOR.message_types_by_name['DeleteBuildSettingsResponse']
-SaveBuildSettingsRequest = _reflection.GeneratedProtocolMessageType('SaveBuildSettingsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SAVEBUILDSETTINGSREQUEST,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.SaveBuildSettingsRequest)
-  })
-_sym_db.RegisterMessage(SaveBuildSettingsRequest)
-
-SaveBuildSettingsResponse = _reflection.GeneratedProtocolMessageType('SaveBuildSettingsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SAVEBUILDSETTINGSRESPONSE,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.SaveBuildSettingsResponse)
-  })
-_sym_db.RegisterMessage(SaveBuildSettingsResponse)
-
-GetBuildSettingsRequest = _reflection.GeneratedProtocolMessageType('GetBuildSettingsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDSETTINGSREQUEST,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.GetBuildSettingsRequest)
-  })
-_sym_db.RegisterMessage(GetBuildSettingsRequest)
-
-GetBuildSettingsResponse = _reflection.GeneratedProtocolMessageType('GetBuildSettingsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETBUILDSETTINGSRESPONSE,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.GetBuildSettingsResponse)
-  })
-_sym_db.RegisterMessage(GetBuildSettingsResponse)
-
-DeleteBuildSettingsRequest = _reflection.GeneratedProtocolMessageType('DeleteBuildSettingsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEBUILDSETTINGSREQUEST,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.DeleteBuildSettingsRequest)
-  })
-_sym_db.RegisterMessage(DeleteBuildSettingsRequest)
-
-DeleteBuildSettingsResponse = _reflection.GeneratedProtocolMessageType('DeleteBuildSettingsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETEBUILDSETTINGSRESPONSE,
-  '__module__' : 'qwak.build_settings.build_settings_api_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.build_settings.DeleteBuildSettingsResponse)
-  })
-_sym_db.RegisterMessage(DeleteBuildSettingsResponse)
-
-_BUILDSETTINGSAPI = DESCRIPTOR.services_by_name['BuildSettingsApi']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.build_settings.build_settings_api_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\027com.qwak.build_settingsB\025BuildSettingsApiProtoP\001'
-  _SAVEBUILDSETTINGSREQUEST._serialized_start=115
-  _SAVEBUILDSETTINGSREQUEST._serialized_end=229
-  _SAVEBUILDSETTINGSRESPONSE._serialized_start=231
-  _SAVEBUILDSETTINGSRESPONSE._serialized_end=285
-  _GETBUILDSETTINGSREQUEST._serialized_start=287
-  _GETBUILDSETTINGSREQUEST._serialized_end=336
-  _GETBUILDSETTINGSRESPONSE._serialized_start=338
-  _GETBUILDSETTINGSRESPONSE._serialized_end=428
-  _DELETEBUILDSETTINGSREQUEST._serialized_start=430
-  _DELETEBUILDSETTINGSREQUEST._serialized_end=482
-  _DELETEBUILDSETTINGSRESPONSE._serialized_start=484
-  _DELETEBUILDSETTINGSRESPONSE._serialized_end=513
-  _BUILDSETTINGSAPI._serialized_start=516
-  _BUILDSETTINGSAPI._serialized_end=910
+  _globals['_SAVEBUILDSETTINGSREQUEST']._serialized_start=115
+  _globals['_SAVEBUILDSETTINGSREQUEST']._serialized_end=229
+  _globals['_SAVEBUILDSETTINGSRESPONSE']._serialized_start=231
+  _globals['_SAVEBUILDSETTINGSRESPONSE']._serialized_end=285
+  _globals['_GETBUILDSETTINGSREQUEST']._serialized_start=287
+  _globals['_GETBUILDSETTINGSREQUEST']._serialized_end=336
+  _globals['_GETBUILDSETTINGSRESPONSE']._serialized_start=338
+  _globals['_GETBUILDSETTINGSRESPONSE']._serialized_end=428
+  _globals['_DELETEBUILDSETTINGSREQUEST']._serialized_start=430
+  _globals['_DELETEBUILDSETTINGSREQUEST']._serialized_end=482
+  _globals['_DELETEBUILDSETTINGSRESPONSE']._serialized_start=484
+  _globals['_DELETEBUILDSETTINGSRESPONSE']._serialized_end=513
+  _globals['_BUILDSETTINGSAPI']._serialized_start=516
+  _globals['_BUILDSETTINGSAPI']._serialized_end=910
 # @@protoc_insertion_point(module_scope)

@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,30 +15,15 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n4qwak/artifactory_settings/artifactory_settings.proto\x12\x1d\x63om.qwak.artifactory_settings\"\xbb\x01\n\x13\x41rtifactorySettings\x12!\n\x19\x63ontainer_registry_prefix\x18\x01 \x01(\t\x12 \n\x18internal_repository_name\x18\x02 \x01(\t\x12_\n\x16\x61uthentication_details\x18\x03 \x01(\x0b\x32?.com.qwak.artifactory_settings.ArtifactoryAuthenticationDetails\"V\n ArtifactoryAuthenticationDetails\x12\r\n\x05token\x18\x01 \x01(\t\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x11\n\ttenant_id\x18\x03 \x01(\tB;\n\x1d\x63om.qwak.artifactory_settingsB\x18\x41rtifactorySettingsProtoP\x01\x62\x06proto3')
 
-
-
-_ARTIFACTORYSETTINGS = DESCRIPTOR.message_types_by_name['ArtifactorySettings']
-_ARTIFACTORYAUTHENTICATIONDETAILS = DESCRIPTOR.message_types_by_name['ArtifactoryAuthenticationDetails']
-ArtifactorySettings = _reflection.GeneratedProtocolMessageType('ArtifactorySettings', (_message.Message,), {
-  'DESCRIPTOR' : _ARTIFACTORYSETTINGS,
-  '__module__' : 'qwak.artifactory_settings.artifactory_settings_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.artifactory_settings.ArtifactorySettings)
-  })
-_sym_db.RegisterMessage(ArtifactorySettings)
-
-ArtifactoryAuthenticationDetails = _reflection.GeneratedProtocolMessageType('ArtifactoryAuthenticationDetails', (_message.Message,), {
-  'DESCRIPTOR' : _ARTIFACTORYAUTHENTICATIONDETAILS,
-  '__module__' : 'qwak.artifactory_settings.artifactory_settings_pb2'
-  # @@protoc_insertion_point(class_scope:com.qwak.artifactory_settings.ArtifactoryAuthenticationDetails)
-  })
-_sym_db.RegisterMessage(ArtifactoryAuthenticationDetails)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.artifactory_settings.artifactory_settings_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.qwak.artifactory_settingsB\030ArtifactorySettingsProtoP\001'
-  _ARTIFACTORYSETTINGS._serialized_start=88
-  _ARTIFACTORYSETTINGS._serialized_end=275
-  _ARTIFACTORYAUTHENTICATIONDETAILS._serialized_start=277
-  _ARTIFACTORYAUTHENTICATIONDETAILS._serialized_end=363
+  _globals['_ARTIFACTORYSETTINGS']._serialized_start=88
+  _globals['_ARTIFACTORYSETTINGS']._serialized_end=275
+  _globals['_ARTIFACTORYAUTHENTICATIONDETAILS']._serialized_start=277
+  _globals['_ARTIFACTORYAUTHENTICATIONDETAILS']._serialized_end=363
 # @@protoc_insertion_point(module_scope)

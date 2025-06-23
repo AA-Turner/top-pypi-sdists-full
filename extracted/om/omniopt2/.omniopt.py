@@ -44,7 +44,7 @@ joined_valid_occ_types: str = ", ".join(valid_occ_types)
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM", "TPE"]
 joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
-special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs"]
+special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "trial_index", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname"]
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
 
 uncontinuable_models: list = ["RANDOMFOREST", "EXTERNAL_GENERATOR", "TPE", "PSEUDORANDOM", "HUMAN_INTERVENTION_MINIMUM"]
@@ -1848,6 +1848,48 @@ def try_saving_to_db() -> None:
         print_debug(f"Failed trying to save sqlite3-DB: {e}")
 
 @beartype
+@beartype
+def merge_with_job_infos(pd_frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge pd_frame with job_infos.csv on 'trial_index'.
+    Add new columns from job_infos.csv directly after 'trial_index'.
+    """
+    job_infos_path = os.path.join(get_current_run_folder(), "job_infos.csv")
+    if not os.path.exists(job_infos_path):
+        return pd_frame
+
+    job_df = pd.read_csv(job_infos_path)
+
+    if 'trial_index' not in pd_frame.columns or 'trial_index' not in job_df.columns:
+        raise ValueError("Both DataFrames must contain a 'trial_index' column.")
+
+    # Filter job_df nur auf trial_index, die in pd_frame sind
+    job_df_filtered = job_df[job_df['trial_index'].isin(pd_frame['trial_index'])]
+
+    # Neue Spalten (außer trial_index), die noch nicht in pd_frame sind
+    new_cols = [col for col in job_df_filtered.columns if col != 'trial_index' and col not in pd_frame.columns]
+
+    # job_df nur mit trial_index und den neuen Spalten
+    job_df_reduced = job_df_filtered[['trial_index'] + new_cols]
+
+    # Merge (left join) auf trial_index
+    merged = pd.merge(pd_frame, job_df_reduced, on='trial_index', how='left')
+
+    # Spaltenreihenfolge neu anordnen:
+    # 1) trial_index
+    # 2) neue Spalten aus job_infos.csv
+    # 3) alle anderen Spalten aus pd_frame außer trial_index
+
+    # Alle Spalten aus pd_frame außer trial_index
+    old_cols = [col for col in pd_frame.columns if col != 'trial_index']
+
+    new_order = ['trial_index'] + new_cols + old_cols
+
+    merged = merged[new_order]
+
+    return merged
+
+@beartype
 def save_results_csv() -> Optional[str]:
     if args.dryrun:
         return None
@@ -1867,6 +1909,9 @@ def save_results_csv() -> Optional[str]:
         ax_client.experiment.fetch_data()
 
         pd_frame = ax_client.get_trials_data_frame()
+
+        pd_frame = merge_with_job_infos(pd_frame)
+
         pd_frame.to_csv(pd_csv, index=False, float_format="%.30f")
 
         json_snapshot = ax_client.to_json_snapshot()
@@ -8897,7 +8942,7 @@ def _pareto_front_table_get_columns(first_row: Dict[str, str]) -> Tuple[List[str
     all_columns = list(first_row.keys())
     ignored_cols = set(special_col_names) - {"trial_index"}
 
-    param_cols = [col for col in all_columns if col not in ignored_cols and col not in arg_result_names]
+    param_cols = [col for col in all_columns if col not in ignored_cols and col not in arg_result_names and not col.startswith("OO_Info_")]
     result_cols = [col for col in arg_result_names if col in all_columns]
     return param_cols, result_cols
 

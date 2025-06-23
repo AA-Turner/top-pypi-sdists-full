@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,20 +16,13 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.external import ka
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nQqwak/administration/runtime_configuration/v0/model_analytics_storage_config.proto\x12Kqwak.administration.runtime_configuration.v0.model_analytics_storage_config\x1aHqwak/administration/runtime_configuration/v0/external/kafka_config.proto\"\x9d\x01\n\"ModelAnalyticsStorageConfiguration\x12g\n\x05kafka\x18\x01 \x01(\x0b\x32V.qwak.administration.runtime_configuration.v0.external.kafka_config.KafkaConfigurationH\x00\x42\x0e\n\x0cstorage_typeB\xeb\x01\nDcom.jfrog.ml.runtime_configuration.v0.model_analytics_storage_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_MODELANALYTICSSTORAGECONFIGURATION = DESCRIPTOR.message_types_by_name['ModelAnalyticsStorageConfiguration']
-ModelAnalyticsStorageConfiguration = _reflection.GeneratedProtocolMessageType('ModelAnalyticsStorageConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _MODELANALYTICSSTORAGECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.model_analytics_storage_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.model_analytics_storage_config.ModelAnalyticsStorageConfiguration)
-  })
-_sym_db.RegisterMessage(ModelAnalyticsStorageConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.model_analytics_storage_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\nDcom.jfrog.ml.runtime_configuration.v0.model_analytics_storage_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _MODELANALYTICSSTORAGECONFIGURATION._serialized_start=237
-  _MODELANALYTICSSTORAGECONFIGURATION._serialized_end=394
+  _globals['_MODELANALYTICSSTORAGECONFIGURATION']._serialized_start=237
+  _globals['_MODELANALYTICSSTORAGECONFIGURATION']._serialized_end=394
 # @@protoc_insertion_point(module_scope)

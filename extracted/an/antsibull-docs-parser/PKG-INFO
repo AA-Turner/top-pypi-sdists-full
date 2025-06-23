@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antsibull-docs-parser
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python library for processing Ansible documentation markup
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs-parser/
 Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
@@ -32,6 +32,7 @@ Requires-Dist: coverage[toml]; extra == 'coverage'
 Provides-Extra: dev
 Requires-Dist: antsibull-changelog; extra == 'dev'
 Requires-Dist: black; extra == 'dev'
+Requires-Dist: click<8.2.0; extra == 'dev'
 Requires-Dist: coverage[toml]; extra == 'dev'
 Requires-Dist: flake8; extra == 'dev'
 Requires-Dist: isort; extra == 'dev'
@@ -53,6 +54,7 @@ Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-error-for-skips; extra == 'test'
 Requires-Dist: pyyaml; extra == 'test'
 Provides-Extra: typing
+Requires-Dist: click<8.2.0; extra == 'typing'
 Requires-Dist: mypy; extra == 'typing'
 Requires-Dist: pyre-check>=0.9.17; extra == 'typing'
 Description-Content-Type: text/markdown

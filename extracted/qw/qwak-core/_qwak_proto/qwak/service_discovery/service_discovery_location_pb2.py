@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,50 +15,19 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7qwak/service_discovery/service_discovery_location.proto\x12\"qwak.service_discovery.location.v0\"w\n\x19ServiceLocationDescriptor\x12\x13\n\x0bservice_url\x18\x01 \x01(\t\x12\x45\n\x08location\x18\x02 \x01(\x0b\x32\x33.qwak.service_discovery.location.v0.ServiceLocation\"\x99\x01\n\x0fServiceLocation\x12\x38\n\x04\x63ore\x18\x01 \x01(\x0b\x32(.qwak.service_discovery.location.v0.CoreH\x00\x12\x38\n\x04\x65\x64ge\x18\x02 \x01(\x0b\x32(.qwak.service_discovery.location.v0.EdgeH\x00\x42\x12\n\x10service_location\"\x06\n\x04\x43ore\"\x06\n\x04\x45\x64geB-\n)com.qwak.ai.service_discovery.location.v0P\x01\x62\x06proto3')
 
-
-
-_SERVICELOCATIONDESCRIPTOR = DESCRIPTOR.message_types_by_name['ServiceLocationDescriptor']
-_SERVICELOCATION = DESCRIPTOR.message_types_by_name['ServiceLocation']
-_CORE = DESCRIPTOR.message_types_by_name['Core']
-_EDGE = DESCRIPTOR.message_types_by_name['Edge']
-ServiceLocationDescriptor = _reflection.GeneratedProtocolMessageType('ServiceLocationDescriptor', (_message.Message,), {
-  'DESCRIPTOR' : _SERVICELOCATIONDESCRIPTOR,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.ServiceLocationDescriptor)
-  })
-_sym_db.RegisterMessage(ServiceLocationDescriptor)
-
-ServiceLocation = _reflection.GeneratedProtocolMessageType('ServiceLocation', (_message.Message,), {
-  'DESCRIPTOR' : _SERVICELOCATION,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.ServiceLocation)
-  })
-_sym_db.RegisterMessage(ServiceLocation)
-
-Core = _reflection.GeneratedProtocolMessageType('Core', (_message.Message,), {
-  'DESCRIPTOR' : _CORE,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.Core)
-  })
-_sym_db.RegisterMessage(Core)
-
-Edge = _reflection.GeneratedProtocolMessageType('Edge', (_message.Message,), {
-  'DESCRIPTOR' : _EDGE,
-  '__module__' : 'qwak.service_discovery.service_discovery_location_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.service_discovery.location.v0.Edge)
-  })
-_sym_db.RegisterMessage(Edge)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.service_discovery.service_discovery_location_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n)com.qwak.ai.service_discovery.location.v0P\001'
-  _SERVICELOCATIONDESCRIPTOR._serialized_start=95
-  _SERVICELOCATIONDESCRIPTOR._serialized_end=214
-  _SERVICELOCATION._serialized_start=217
-  _SERVICELOCATION._serialized_end=370
-  _CORE._serialized_start=372
-  _CORE._serialized_end=378
-  _EDGE._serialized_start=380
-  _EDGE._serialized_end=386
+  _globals['_SERVICELOCATIONDESCRIPTOR']._serialized_start=95
+  _globals['_SERVICELOCATIONDESCRIPTOR']._serialized_end=214
+  _globals['_SERVICELOCATION']._serialized_start=217
+  _globals['_SERVICELOCATION']._serialized_end=370
+  _globals['_CORE']._serialized_start=372
+  _globals['_CORE']._serialized_end=378
+  _globals['_EDGE']._serialized_start=380
+  _globals['_EDGE']._serialized_end=386
 # @@protoc_insertion_point(module_scope)

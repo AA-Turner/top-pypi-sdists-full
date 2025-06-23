@@ -310,7 +310,7 @@ class Dirs:
             self.installed = self.build.parent / (self.build.stem + "-install")
 
         # relative path for site-package with py version
-        # i.e. 'lib/python3.10/site-packages'
+        # i.e. 'lib/python3.11/site-packages'
         self.site = self.get_site_packages()
 
     def add_sys_path(self):
@@ -710,7 +710,8 @@ class Test(Task):
         multiple=True,
         help=(
             "Array API backend "
-            "('all', 'numpy', 'torch', 'cupy', 'array_api_strict', 'jax.numpy')."
+            "('all', 'numpy', 'torch', 'cupy', 'array_api_strict',"
+            " 'jax.numpy', 'dask.array')."
         )
     )
     # Argument can't have `help=`; used to consume all of `-- arg1 arg2 arg3`
@@ -1129,14 +1130,16 @@ def emit_cmdstr(cmd):
     console.print(f"{EMOJI.cmd} [cmd] {cmd}")
 
 
-@task_params([{"name": "fix", "default": False}])
-def task_lint(fix):
+@task_params([{"name": "fix", "default": False}, {"name": "all", "default": False}])
+def task_lint(fix, all):
     # Lint just the diff since branching off of main using a
     # stricter configuration.
     # emit_cmdstr(os.path.join('tools', 'lint.py') + ' --diff-against main')
     cmd = str(Dirs().root / 'tools' / 'lint.py') + ' --diff-against=main'
     if fix:
         cmd += ' --fix'
+    if all:
+        cmd += ' --all'
     return {
         'basename': 'lint',
         'actions': [cmd],
@@ -1174,7 +1177,7 @@ def task_check_unicode():
 def task_check_test_name():
     # emit_cmdstr(os.path.join('tools', 'check_test_name.py'))
     return {
-        "basename": "check-testname",
+        "basename": "check_testname",
         "actions": [str(Dirs().root / "tools" / "check_test_name.py")],
         "doc": "Check tests are correctly named so that pytest runs them."
     }
@@ -1182,18 +1185,22 @@ def task_check_test_name():
 
 @cli.cls_cmd('lint')
 class Lint:
-    """:dash: Run linter on modified files and check for
+    """:dash: Run linter on modified (or all) files and check for
     disallowed Unicode characters and possibly-invalid test names."""
     fix = Option(
         ['--fix'], default=False, is_flag=True, help='Attempt to auto-fix errors'
     )
+    all = Option(
+        ['--all'], default=False, is_flag=True,
+        help='lint all files instead of just modified files.'
+    )
 
     @classmethod
-    def run(cls, fix):
+    def run(cls, fix, all):
         run_doit_task({
-            'lint': {'fix': fix},
-            'check-unicode': {},
-            'check-testname': {},
+            'lint': {'fix': fix, 'all': all},
+            'check_unicode': {},
+            'check_testname': {},
             'check_python_h_first': {},
         })
 
@@ -1442,7 +1449,7 @@ class ShowDirs(Python):
 
     PYTHONPATH sets the default search path for module files for the
     interpreter. Here, it includes the path to the local SciPy build
-    (typically `.../build-install/lib/python3.10/site-packages`).
+    (typically `.../build-install/lib/python3.11/site-packages`).
 
     Use the global option `-n` to skip the building step, e.g.:
     `python dev.py -n show_PYTHONPATH`
@@ -1537,8 +1544,7 @@ def cpu_count(only_physical_cores=False):
     or the LOKY_MAX_CPU_COUNT environment variable. If the number of physical
     cores is not found, return the number of logical cores.
 
-    Note that on Windows, the returned number of CPUs cannot exceed 61 (or 60 for
-    Python < 3.10), see:
+    Note that on Windows, the returned number of CPUs cannot exceed 61, see:
     https://bugs.python.org/issue26903.
 
     It is also always larger or equal to 1.

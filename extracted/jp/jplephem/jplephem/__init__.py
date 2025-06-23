@@ -67,11 +67,17 @@ the command line to display the data inside of it::
     python -m jplephem comment de421.bsp
     python -m jplephem daf de421.bsp
     python -m jplephem spk de421.bsp
+    python -m jplephem spk -v de421.bsp
 
 You can also take a large ephemeris and produce a smaller excerpt by
 limiting the range of dates that it covers::
 
     python -m jplephem excerpt 2018/1/1 2018/4/1 de421.bsp excerpt421.bsp
+
+The comment text of the output ephemeris is copied verbatim from the
+input ephemeris, with the addition of a few lines of text at the top
+that identify the output file as a mere excerpt, and record the dates
+the user asked for.
 
 You will get an error if your starting year is negative, because Unix
 commands expect a list of options when they see a dash.  The fix is to
@@ -95,7 +101,7 @@ in a nearly a gigabyte.  But if all you need are Jupiter's satellites
 for a few months, you can download considerably less data::
 
     $ python -m jplephem excerpt 2018/1/1 2018/4/1 \\
-        https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup310.bsp \\
+        https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp \\
         excerpt.bsp
     $ ls -lh excerpt.bsp
     -rw-r----- 1 brandon brandon 1.2M Feb 11 13:36 excerpt.bsp
@@ -356,6 +362,21 @@ https://github.com/brandon-rhodes/python-jplephem/
 Changelog
 ---------
 
+**2025 June 22 — Version 2.23**
+
+* An ephemeris created with the ``excerpt`` command, instead of simply
+  copying verbatim the comments area of the original ephemeris, now adds
+  text declaring “This is an ephemeris excerpt created by jplephem” and
+  recording the dates that the user asked for.
+
+* The segments of an excerpt ephemeris now advertise exactly the start
+  date and end date that the user asked for, even if the underlying
+  polynomials cover a wider range of dates.
+
+* A new ``-v`` (“verbose”) command-line option to the ``spk``
+  sub-command prints not only each segment’s descriptor, but the
+  dimensions and date range of its underlying polynomial array.
+
 **2024 April 24 — Version 2.22**
 
 * When printed, segments now print their start and end dates using the
@@ -549,6 +570,6 @@ FTP site: ftp://ssd.jpl.nasa.gov/pub/eph/planets/fortran/
 
 """
 from .ephem import Ephemeris, DateError
-__version__ = '2.22'
+__version__ = '2.23'
 
 __all__ = ['Ephemeris', 'DateError', '__version__']

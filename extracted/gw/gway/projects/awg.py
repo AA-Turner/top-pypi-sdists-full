@@ -35,7 +35,7 @@ def find_cable(
         meters: Cable length (one line) in meters. Required keyword.
         amps: Load in Amperes. Default: 40 A.
         volts: System voltage. Default: 220 V.
-        material: 'cu' (copper), 'al' (aluminum), or '?' (any). Default: cu.
+        material: 'cu' (copper) or 'al' (aluminum). Default: cu.
         max_lines: Maximum number of line conductors allowed. Default: 1
         phases: Number of phases for AC (1, 2 or 3). Default: 2
         conduit: Conduit type or None.
@@ -53,11 +53,12 @@ def find_cable(
     phases = int(phases)
     ground = int(ground)
 
-    assert amps >= 20, "Min. charger load is 20 Amps."
+    assert amps >= 10, f"Minimum load for this calculator is 15 Amps.  Yours: {amps=}."
+    assert (amps <= 546) if material == "cu" else (amps <= 430), f"Max. load allowed is 546 A (cu) or 430 A (al). Yours: {amps=} {material=}"
     assert meters >= 1, "Consider at least 1 meter of cable."
-    assert 110 <= volts <= 460, "Volt range is 110-460."
-    assert material in ("cu", "al", "?"), "Material must be cu, al or ?."
-    assert phases in (1, 2, 3), "Allowed phases 1, 2 or 3."
+    assert 110 <= volts <= 460, f"Volt range supported must be between 110-460. Yours: {volts=}"
+    assert material in ("cu", "al"), "Material must be 'cu' (copper) or 'al' (aluminum)."
+    assert phases in (1, 2, 3), "AC phases 1, 2 or 3 to calculate for. DC not supported."
 
     with gw.sql.open_connection(autoload=True) as cursor:
 
@@ -150,9 +151,6 @@ def view_cable_finder(
     max_lines="3", phases="1", conduit=None, neutral="0", **kwargs
 ):
     """Page builder for AWG cable finder with HTML form and result."""
-
-    # TODO: Complete the interface to also calculate the counduit diameter estimation in one view
-
     if not meters:
         return '''<h1>AWG Cable Finder</h1>
             <form method="post">
@@ -184,6 +182,14 @@ def view_cable_finder(
     except Exception as e:
         return f"<p class='error'>Error: {e}</p><p><a href='/awg/cable-finder'>&#8592; Try again</a></p>"
 
+    if result.get("awg") == "n/a":
+        return """
+            <h1>No Suitable Cable Found</h1>
+            <p>No cable was found that meets the requirements within a 3% voltage drop.<br>
+            Try adjusting the <b>cable size, amps, length, or material</b> and try again.</p>
+            <p><a href="/awg/cable-finder">&#8592; Calculate again</a></p>
+        """
+
     return f"""
         <h1>Recommended Cable</h1>
         <ul>
@@ -196,4 +202,3 @@ def view_cable_finder(
         </ul>
         <p><a href="/awg/cable-finder">&#8592; Calculate again</a></p>
     """
-

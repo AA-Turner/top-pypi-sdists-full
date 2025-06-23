@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,20 +16,13 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.external import el
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFqwak/administration/runtime_configuration/v0/logs_storage_config.proto\x12@qwak.administration.runtime_configuration.v0.logs_storage_config\x1aPqwak/administration/runtime_configuration/v0/external/elasticsearch_config.proto\"\xa3\x01\n\x18LogsStorageConfiguration\x12\x7f\n\relasticsearch\x18\x01 \x01(\x0b\x32\x66.qwak.administration.runtime_configuration.v0.external.elasticsearch_config.ElasticsearchConfigurationH\x00\x42\x06\n\x04typeB\xe0\x01\n9com.jfrog.ml.runtime_configuration.v0.logs_storage_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_LOGSSTORAGECONFIGURATION = DESCRIPTOR.message_types_by_name['LogsStorageConfiguration']
-LogsStorageConfiguration = _reflection.GeneratedProtocolMessageType('LogsStorageConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _LOGSSTORAGECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.logs_storage_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.logs_storage_config.LogsStorageConfiguration)
-  })
-_sym_db.RegisterMessage(LogsStorageConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.logs_storage_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n9com.jfrog.ml.runtime_configuration.v0.logs_storage_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _LOGSSTORAGECONFIGURATION._serialized_start=223
-  _LOGSSTORAGECONFIGURATION._serialized_end=386
+  _globals['_LOGSSTORAGECONFIGURATION']._serialized_start=223
+  _globals['_LOGSSTORAGECONFIGURATION']._serialized_end=386
 # @@protoc_insertion_point(module_scope)

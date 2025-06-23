@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,73 +16,25 @@ from _qwak_proto.qwak.admiral.secret.v0 import secret_pb2 as qwak_dot_admiral_do
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2qwak/admiral/secret/v0/system_secret_service.proto\x12\x16qwak.admiral.secret.v0\x1a#qwak/admiral/secret/v0/secret.proto\"d\n\x16SetSystemSecretRequest\x12J\n\x07options\x18\x01 \x01(\x0b\x32\x39.qwak.admiral.secret.v0.SetSystemEnvironmentSecretOptions\"\x19\n\x17SetSystemSecretResponse\"d\n\x19\x44\x65leteSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"\x1c\n\x1a\x44\x65leteSystemSecretResponse\"a\n\x16GetSystemSecretRequest\x12G\n\nidentifier\x18\x01 \x01(\x0b\x32\x33.qwak.admiral.secret.v0.EnvironmentSecretIdentifier\"d\n\x17GetSystemSecretResponse\x12I\n\x11secret_definition\x18\x01 \x01(\x0b\x32..qwak.admiral.secret.v0.SystemSecretDefinition2\xfa\x02\n\x13SystemSecretService\x12r\n\x0fSetSystemSecret\x12..qwak.admiral.secret.v0.SetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.SetSystemSecretResponse\x12{\n\x12\x44\x65leteSystemSecret\x12\x31.qwak.admiral.secret.v0.DeleteSystemSecretRequest\x1a\x32.qwak.admiral.secret.v0.DeleteSystemSecretResponse\x12r\n\x0fGetSystemSecret\x12..qwak.admiral.secret.v0.GetSystemSecretRequest\x1a/.qwak.admiral.secret.v0.GetSystemSecretResponseB\x8c\x01\n\x1d\x63om.qwak.ai.admiral.secret.v0P\x01Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0b\x06proto3')
 
-
-
-_SETSYSTEMSECRETREQUEST = DESCRIPTOR.message_types_by_name['SetSystemSecretRequest']
-_SETSYSTEMSECRETRESPONSE = DESCRIPTOR.message_types_by_name['SetSystemSecretResponse']
-_DELETESYSTEMSECRETREQUEST = DESCRIPTOR.message_types_by_name['DeleteSystemSecretRequest']
-_DELETESYSTEMSECRETRESPONSE = DESCRIPTOR.message_types_by_name['DeleteSystemSecretResponse']
-_GETSYSTEMSECRETREQUEST = DESCRIPTOR.message_types_by_name['GetSystemSecretRequest']
-_GETSYSTEMSECRETRESPONSE = DESCRIPTOR.message_types_by_name['GetSystemSecretResponse']
-SetSystemSecretRequest = _reflection.GeneratedProtocolMessageType('SetSystemSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SETSYSTEMSECRETREQUEST,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.SetSystemSecretRequest)
-  })
-_sym_db.RegisterMessage(SetSystemSecretRequest)
-
-SetSystemSecretResponse = _reflection.GeneratedProtocolMessageType('SetSystemSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SETSYSTEMSECRETRESPONSE,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.SetSystemSecretResponse)
-  })
-_sym_db.RegisterMessage(SetSystemSecretResponse)
-
-DeleteSystemSecretRequest = _reflection.GeneratedProtocolMessageType('DeleteSystemSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETESYSTEMSECRETREQUEST,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.DeleteSystemSecretRequest)
-  })
-_sym_db.RegisterMessage(DeleteSystemSecretRequest)
-
-DeleteSystemSecretResponse = _reflection.GeneratedProtocolMessageType('DeleteSystemSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETESYSTEMSECRETRESPONSE,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.DeleteSystemSecretResponse)
-  })
-_sym_db.RegisterMessage(DeleteSystemSecretResponse)
-
-GetSystemSecretRequest = _reflection.GeneratedProtocolMessageType('GetSystemSecretRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETSYSTEMSECRETREQUEST,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.GetSystemSecretRequest)
-  })
-_sym_db.RegisterMessage(GetSystemSecretRequest)
-
-GetSystemSecretResponse = _reflection.GeneratedProtocolMessageType('GetSystemSecretResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETSYSTEMSECRETRESPONSE,
-  '__module__' : 'qwak.admiral.secret.v0.system_secret_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.admiral.secret.v0.GetSystemSecretResponse)
-  })
-_sym_db.RegisterMessage(GetSystemSecretResponse)
-
-_SYSTEMSECRETSERVICE = DESCRIPTOR.services_by_name['SystemSecretService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.admiral.secret.v0.system_secret_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.qwak.ai.admiral.secret.v0P\001Zigithub.com/qwak-ai/qwak-platform/services/core/go/admiral/admiral-api/pb/qwak/admiral/secret/v0;secret_v0'
-  _SETSYSTEMSECRETREQUEST._serialized_start=115
-  _SETSYSTEMSECRETREQUEST._serialized_end=215
-  _SETSYSTEMSECRETRESPONSE._serialized_start=217
-  _SETSYSTEMSECRETRESPONSE._serialized_end=242
-  _DELETESYSTEMSECRETREQUEST._serialized_start=244
-  _DELETESYSTEMSECRETREQUEST._serialized_end=344
-  _DELETESYSTEMSECRETRESPONSE._serialized_start=346
-  _DELETESYSTEMSECRETRESPONSE._serialized_end=374
-  _GETSYSTEMSECRETREQUEST._serialized_start=376
-  _GETSYSTEMSECRETREQUEST._serialized_end=473
-  _GETSYSTEMSECRETRESPONSE._serialized_start=475
-  _GETSYSTEMSECRETRESPONSE._serialized_end=575
-  _SYSTEMSECRETSERVICE._serialized_start=578
-  _SYSTEMSECRETSERVICE._serialized_end=956
+  _globals['_SETSYSTEMSECRETREQUEST']._serialized_start=115
+  _globals['_SETSYSTEMSECRETREQUEST']._serialized_end=215
+  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_start=217
+  _globals['_SETSYSTEMSECRETRESPONSE']._serialized_end=242
+  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_start=244
+  _globals['_DELETESYSTEMSECRETREQUEST']._serialized_end=344
+  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_start=346
+  _globals['_DELETESYSTEMSECRETRESPONSE']._serialized_end=374
+  _globals['_GETSYSTEMSECRETREQUEST']._serialized_start=376
+  _globals['_GETSYSTEMSECRETREQUEST']._serialized_end=473
+  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_start=475
+  _globals['_GETSYSTEMSECRETRESPONSE']._serialized_end=575
+  _globals['_SYSTEMSECRETSERVICE']._serialized_start=578
+  _globals['_SYSTEMSECRETSERVICE']._serialized_end=956
 # @@protoc_insertion_point(module_scope)

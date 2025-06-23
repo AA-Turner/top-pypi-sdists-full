@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -17,173 +16,45 @@ from _qwak_proto.qwak.vectors.v1.collection import collection_pb2 as qwak_dot_ve
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3qwak/vectors/v1/collection/collection_service.proto\x12\x1fqwak.vector.store.v1.collection\x1a+qwak/vectors/v1/collection/collection.proto\"i\n\x17\x43reateCollectionRequest\x12N\n\x0f\x63ollection_spec\x18\x01 \x01(\x0b\x32\x35.qwak.vector.store.v1.collection.VectorCollectionSpec\"h\n\x18\x43reateCollectionResponse\x12L\n\x11vector_collection\x18\x01 \x01(\x0b\x32\x31.qwak.vector.store.v1.collection.VectorCollection\"u\n\x17UpdateCollectionRequest\x12Z\n\x15\x63ollection_definition\x18\x01 \x01(\x0b\x32;.qwak.vector.store.v1.collection.VectorCollectionDefinition\"h\n\x18UpdateCollectionResponse\x12L\n\x11vector_collection\x18\x01 \x01(\x0b\x32\x31.qwak.vector.store.v1.collection.VectorCollection\"&\n\x18GetCollectionByIdRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\xbb\x01\n\x19GetCollectionByIdResponse\x12L\n\x11vector_collection\x18\x01 \x01(\x0b\x32\x31.qwak.vector.store.v1.collection.VectorCollection\x12P\n\x13\x63ollection_metadata\x18\x02 \x01(\x0b\x32\x33.qwak.vector.store.v1.collection.CollectionMetadata\"*\n\x1aGetCollectionByNameRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xbd\x01\n\x1bGetCollectionByNameResponse\x12L\n\x11vector_collection\x18\x01 \x01(\x0b\x32\x31.qwak.vector.store.v1.collection.VectorCollection\x12P\n\x13\x63ollection_metadata\x18\x02 \x01(\x0b\x32\x33.qwak.vector.store.v1.collection.CollectionMetadata\")\n\x1b\x44\x65leteCollectionByIdRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\x1e\n\x1c\x44\x65leteCollectionByIdResponse\"-\n\x1d\x44\x65leteCollectionByNameRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\" \n\x1e\x44\x65leteCollectionByNameResponse\"\x18\n\x16ListCollectionsRequest\"h\n\x17ListCollectionsResponse\x12M\n\x12vector_collections\x18\x01 \x03(\x0b\x32\x31.qwak.vector.store.v1.collection.VectorCollection\"\x1b\n\x19GetCollectionCountRequest\"6\n\x1aGetCollectionCountResponse\x12\x18\n\x10\x63ollection_count\x18\x01 \x01(\x05\x32\x96\t\n\x17VectorCollectionService\x12\x87\x01\n\x10\x43reateCollection\x12\x38.qwak.vector.store.v1.collection.CreateCollectionRequest\x1a\x39.qwak.vector.store.v1.collection.CreateCollectionResponse\x12\x87\x01\n\x10UpdateCollection\x12\x38.qwak.vector.store.v1.collection.UpdateCollectionRequest\x1a\x39.qwak.vector.store.v1.collection.UpdateCollectionResponse\x12\x8a\x01\n\x11GetCollectionById\x12\x39.qwak.vector.store.v1.collection.GetCollectionByIdRequest\x1a:.qwak.vector.store.v1.collection.GetCollectionByIdResponse\x12\x90\x01\n\x13GetCollectionByName\x12;.qwak.vector.store.v1.collection.GetCollectionByNameRequest\x1a<.qwak.vector.store.v1.collection.GetCollectionByNameResponse\x12\x93\x01\n\x14\x44\x65leteCollectionById\x12<.qwak.vector.store.v1.collection.DeleteCollectionByIdRequest\x1a=.qwak.vector.store.v1.collection.DeleteCollectionByIdResponse\x12\x99\x01\n\x16\x44\x65leteCollectionByName\x12>.qwak.vector.store.v1.collection.DeleteCollectionByNameRequest\x1a?.qwak.vector.store.v1.collection.DeleteCollectionByNameResponse\x12\x84\x01\n\x0fListCollections\x12\x37.qwak.vector.store.v1.collection.ListCollectionsRequest\x1a\x38.qwak.vector.store.v1.collection.ListCollectionsResponse\x12\x8d\x01\n\x12GetCollectionCount\x12:.qwak.vector.store.v1.collection.GetCollectionCountRequest\x1a;.qwak.vector.store.v1.collection.GetCollectionCountResponseB%\n!com.qwak.ai.vectors.v1.collectionP\x01\x62\x06proto3')
 
-
-
-_CREATECOLLECTIONREQUEST = DESCRIPTOR.message_types_by_name['CreateCollectionRequest']
-_CREATECOLLECTIONRESPONSE = DESCRIPTOR.message_types_by_name['CreateCollectionResponse']
-_UPDATECOLLECTIONREQUEST = DESCRIPTOR.message_types_by_name['UpdateCollectionRequest']
-_UPDATECOLLECTIONRESPONSE = DESCRIPTOR.message_types_by_name['UpdateCollectionResponse']
-_GETCOLLECTIONBYIDREQUEST = DESCRIPTOR.message_types_by_name['GetCollectionByIdRequest']
-_GETCOLLECTIONBYIDRESPONSE = DESCRIPTOR.message_types_by_name['GetCollectionByIdResponse']
-_GETCOLLECTIONBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['GetCollectionByNameRequest']
-_GETCOLLECTIONBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['GetCollectionByNameResponse']
-_DELETECOLLECTIONBYIDREQUEST = DESCRIPTOR.message_types_by_name['DeleteCollectionByIdRequest']
-_DELETECOLLECTIONBYIDRESPONSE = DESCRIPTOR.message_types_by_name['DeleteCollectionByIdResponse']
-_DELETECOLLECTIONBYNAMEREQUEST = DESCRIPTOR.message_types_by_name['DeleteCollectionByNameRequest']
-_DELETECOLLECTIONBYNAMERESPONSE = DESCRIPTOR.message_types_by_name['DeleteCollectionByNameResponse']
-_LISTCOLLECTIONSREQUEST = DESCRIPTOR.message_types_by_name['ListCollectionsRequest']
-_LISTCOLLECTIONSRESPONSE = DESCRIPTOR.message_types_by_name['ListCollectionsResponse']
-_GETCOLLECTIONCOUNTREQUEST = DESCRIPTOR.message_types_by_name['GetCollectionCountRequest']
-_GETCOLLECTIONCOUNTRESPONSE = DESCRIPTOR.message_types_by_name['GetCollectionCountResponse']
-CreateCollectionRequest = _reflection.GeneratedProtocolMessageType('CreateCollectionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _CREATECOLLECTIONREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.CreateCollectionRequest)
-  })
-_sym_db.RegisterMessage(CreateCollectionRequest)
-
-CreateCollectionResponse = _reflection.GeneratedProtocolMessageType('CreateCollectionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _CREATECOLLECTIONRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.CreateCollectionResponse)
-  })
-_sym_db.RegisterMessage(CreateCollectionResponse)
-
-UpdateCollectionRequest = _reflection.GeneratedProtocolMessageType('UpdateCollectionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATECOLLECTIONREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.UpdateCollectionRequest)
-  })
-_sym_db.RegisterMessage(UpdateCollectionRequest)
-
-UpdateCollectionResponse = _reflection.GeneratedProtocolMessageType('UpdateCollectionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UPDATECOLLECTIONRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.UpdateCollectionResponse)
-  })
-_sym_db.RegisterMessage(UpdateCollectionResponse)
-
-GetCollectionByIdRequest = _reflection.GeneratedProtocolMessageType('GetCollectionByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONBYIDREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionByIdRequest)
-  })
-_sym_db.RegisterMessage(GetCollectionByIdRequest)
-
-GetCollectionByIdResponse = _reflection.GeneratedProtocolMessageType('GetCollectionByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONBYIDRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionByIdResponse)
-  })
-_sym_db.RegisterMessage(GetCollectionByIdResponse)
-
-GetCollectionByNameRequest = _reflection.GeneratedProtocolMessageType('GetCollectionByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONBYNAMEREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionByNameRequest)
-  })
-_sym_db.RegisterMessage(GetCollectionByNameRequest)
-
-GetCollectionByNameResponse = _reflection.GeneratedProtocolMessageType('GetCollectionByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONBYNAMERESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionByNameResponse)
-  })
-_sym_db.RegisterMessage(GetCollectionByNameResponse)
-
-DeleteCollectionByIdRequest = _reflection.GeneratedProtocolMessageType('DeleteCollectionByIdRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETECOLLECTIONBYIDREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.DeleteCollectionByIdRequest)
-  })
-_sym_db.RegisterMessage(DeleteCollectionByIdRequest)
-
-DeleteCollectionByIdResponse = _reflection.GeneratedProtocolMessageType('DeleteCollectionByIdResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETECOLLECTIONBYIDRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.DeleteCollectionByIdResponse)
-  })
-_sym_db.RegisterMessage(DeleteCollectionByIdResponse)
-
-DeleteCollectionByNameRequest = _reflection.GeneratedProtocolMessageType('DeleteCollectionByNameRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DELETECOLLECTIONBYNAMEREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.DeleteCollectionByNameRequest)
-  })
-_sym_db.RegisterMessage(DeleteCollectionByNameRequest)
-
-DeleteCollectionByNameResponse = _reflection.GeneratedProtocolMessageType('DeleteCollectionByNameResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DELETECOLLECTIONBYNAMERESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.DeleteCollectionByNameResponse)
-  })
-_sym_db.RegisterMessage(DeleteCollectionByNameResponse)
-
-ListCollectionsRequest = _reflection.GeneratedProtocolMessageType('ListCollectionsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTCOLLECTIONSREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.ListCollectionsRequest)
-  })
-_sym_db.RegisterMessage(ListCollectionsRequest)
-
-ListCollectionsResponse = _reflection.GeneratedProtocolMessageType('ListCollectionsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTCOLLECTIONSRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.ListCollectionsResponse)
-  })
-_sym_db.RegisterMessage(ListCollectionsResponse)
-
-GetCollectionCountRequest = _reflection.GeneratedProtocolMessageType('GetCollectionCountRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONCOUNTREQUEST,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionCountRequest)
-  })
-_sym_db.RegisterMessage(GetCollectionCountRequest)
-
-GetCollectionCountResponse = _reflection.GeneratedProtocolMessageType('GetCollectionCountResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETCOLLECTIONCOUNTRESPONSE,
-  '__module__' : 'qwak.vectors.v1.collection.collection_service_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.vector.store.v1.collection.GetCollectionCountResponse)
-  })
-_sym_db.RegisterMessage(GetCollectionCountResponse)
-
-_VECTORCOLLECTIONSERVICE = DESCRIPTOR.services_by_name['VectorCollectionService']
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.vectors.v1.collection.collection_service_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n!com.qwak.ai.vectors.v1.collectionP\001'
-  _CREATECOLLECTIONREQUEST._serialized_start=133
-  _CREATECOLLECTIONREQUEST._serialized_end=238
-  _CREATECOLLECTIONRESPONSE._serialized_start=240
-  _CREATECOLLECTIONRESPONSE._serialized_end=344
-  _UPDATECOLLECTIONREQUEST._serialized_start=346
-  _UPDATECOLLECTIONREQUEST._serialized_end=463
-  _UPDATECOLLECTIONRESPONSE._serialized_start=465
-  _UPDATECOLLECTIONRESPONSE._serialized_end=569
-  _GETCOLLECTIONBYIDREQUEST._serialized_start=571
-  _GETCOLLECTIONBYIDREQUEST._serialized_end=609
-  _GETCOLLECTIONBYIDRESPONSE._serialized_start=612
-  _GETCOLLECTIONBYIDRESPONSE._serialized_end=799
-  _GETCOLLECTIONBYNAMEREQUEST._serialized_start=801
-  _GETCOLLECTIONBYNAMEREQUEST._serialized_end=843
-  _GETCOLLECTIONBYNAMERESPONSE._serialized_start=846
-  _GETCOLLECTIONBYNAMERESPONSE._serialized_end=1035
-  _DELETECOLLECTIONBYIDREQUEST._serialized_start=1037
-  _DELETECOLLECTIONBYIDREQUEST._serialized_end=1078
-  _DELETECOLLECTIONBYIDRESPONSE._serialized_start=1080
-  _DELETECOLLECTIONBYIDRESPONSE._serialized_end=1110
-  _DELETECOLLECTIONBYNAMEREQUEST._serialized_start=1112
-  _DELETECOLLECTIONBYNAMEREQUEST._serialized_end=1157
-  _DELETECOLLECTIONBYNAMERESPONSE._serialized_start=1159
-  _DELETECOLLECTIONBYNAMERESPONSE._serialized_end=1191
-  _LISTCOLLECTIONSREQUEST._serialized_start=1193
-  _LISTCOLLECTIONSREQUEST._serialized_end=1217
-  _LISTCOLLECTIONSRESPONSE._serialized_start=1219
-  _LISTCOLLECTIONSRESPONSE._serialized_end=1323
-  _GETCOLLECTIONCOUNTREQUEST._serialized_start=1325
-  _GETCOLLECTIONCOUNTREQUEST._serialized_end=1352
-  _GETCOLLECTIONCOUNTRESPONSE._serialized_start=1354
-  _GETCOLLECTIONCOUNTRESPONSE._serialized_end=1408
-  _VECTORCOLLECTIONSERVICE._serialized_start=1411
-  _VECTORCOLLECTIONSERVICE._serialized_end=2585
+  _globals['_CREATECOLLECTIONREQUEST']._serialized_start=133
+  _globals['_CREATECOLLECTIONREQUEST']._serialized_end=238
+  _globals['_CREATECOLLECTIONRESPONSE']._serialized_start=240
+  _globals['_CREATECOLLECTIONRESPONSE']._serialized_end=344
+  _globals['_UPDATECOLLECTIONREQUEST']._serialized_start=346
+  _globals['_UPDATECOLLECTIONREQUEST']._serialized_end=463
+  _globals['_UPDATECOLLECTIONRESPONSE']._serialized_start=465
+  _globals['_UPDATECOLLECTIONRESPONSE']._serialized_end=569
+  _globals['_GETCOLLECTIONBYIDREQUEST']._serialized_start=571
+  _globals['_GETCOLLECTIONBYIDREQUEST']._serialized_end=609
+  _globals['_GETCOLLECTIONBYIDRESPONSE']._serialized_start=612
+  _globals['_GETCOLLECTIONBYIDRESPONSE']._serialized_end=799
+  _globals['_GETCOLLECTIONBYNAMEREQUEST']._serialized_start=801
+  _globals['_GETCOLLECTIONBYNAMEREQUEST']._serialized_end=843
+  _globals['_GETCOLLECTIONBYNAMERESPONSE']._serialized_start=846
+  _globals['_GETCOLLECTIONBYNAMERESPONSE']._serialized_end=1035
+  _globals['_DELETECOLLECTIONBYIDREQUEST']._serialized_start=1037
+  _globals['_DELETECOLLECTIONBYIDREQUEST']._serialized_end=1078
+  _globals['_DELETECOLLECTIONBYIDRESPONSE']._serialized_start=1080
+  _globals['_DELETECOLLECTIONBYIDRESPONSE']._serialized_end=1110
+  _globals['_DELETECOLLECTIONBYNAMEREQUEST']._serialized_start=1112
+  _globals['_DELETECOLLECTIONBYNAMEREQUEST']._serialized_end=1157
+  _globals['_DELETECOLLECTIONBYNAMERESPONSE']._serialized_start=1159
+  _globals['_DELETECOLLECTIONBYNAMERESPONSE']._serialized_end=1191
+  _globals['_LISTCOLLECTIONSREQUEST']._serialized_start=1193
+  _globals['_LISTCOLLECTIONSREQUEST']._serialized_end=1217
+  _globals['_LISTCOLLECTIONSRESPONSE']._serialized_start=1219
+  _globals['_LISTCOLLECTIONSRESPONSE']._serialized_end=1323
+  _globals['_GETCOLLECTIONCOUNTREQUEST']._serialized_start=1325
+  _globals['_GETCOLLECTIONCOUNTREQUEST']._serialized_end=1352
+  _globals['_GETCOLLECTIONCOUNTRESPONSE']._serialized_start=1354
+  _globals['_GETCOLLECTIONCOUNTRESPONSE']._serialized_end=1408
+  _globals['_VECTORCOLLECTIONSERVICE']._serialized_start=1411
+  _globals['_VECTORCOLLECTIONSERVICE']._serialized_end=2585
 # @@protoc_insertion_point(module_scope)

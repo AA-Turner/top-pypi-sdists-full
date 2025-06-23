@@ -4,9 +4,8 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import message as _message
-from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -16,40 +15,17 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHqwak/administration/runtime_configuration/v0/object_storage_config.proto\x12\x42qwak.administration.runtime_configuration.v0.object_storage_config\"\xea\x01\n\x1aObjectStorageConfiguration\x12\x61\n\x02s3\x18\x01 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.S3ConfigurationH\x00\x12\x61\n\x02gs\x18\x02 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.GSConfigurationH\x00\x42\x06\n\x04type\"!\n\x0fS3Configuration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\t\"!\n\x0fGSConfiguration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\tB\xe2\x01\n;com.jfrog.ml.runtime_configuration.v0.object_storage_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
-
-
-_OBJECTSTORAGECONFIGURATION = DESCRIPTOR.message_types_by_name['ObjectStorageConfiguration']
-_S3CONFIGURATION = DESCRIPTOR.message_types_by_name['S3Configuration']
-_GSCONFIGURATION = DESCRIPTOR.message_types_by_name['GSConfiguration']
-ObjectStorageConfiguration = _reflection.GeneratedProtocolMessageType('ObjectStorageConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _OBJECTSTORAGECONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.object_storage_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.object_storage_config.ObjectStorageConfiguration)
-  })
-_sym_db.RegisterMessage(ObjectStorageConfiguration)
-
-S3Configuration = _reflection.GeneratedProtocolMessageType('S3Configuration', (_message.Message,), {
-  'DESCRIPTOR' : _S3CONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.object_storage_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.object_storage_config.S3Configuration)
-  })
-_sym_db.RegisterMessage(S3Configuration)
-
-GSConfiguration = _reflection.GeneratedProtocolMessageType('GSConfiguration', (_message.Message,), {
-  'DESCRIPTOR' : _GSCONFIGURATION,
-  '__module__' : 'qwak.administration.runtime_configuration.v0.object_storage_config_pb2'
-  # @@protoc_insertion_point(class_scope:qwak.administration.runtime_configuration.v0.object_storage_config.GSConfiguration)
-  })
-_sym_db.RegisterMessage(GSConfiguration)
-
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.administration.runtime_configuration.v0.object_storage_config_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n;com.jfrog.ml.runtime_configuration.v0.object_storage_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
-  _OBJECTSTORAGECONFIGURATION._serialized_start=145
-  _OBJECTSTORAGECONFIGURATION._serialized_end=379
-  _S3CONFIGURATION._serialized_start=381
-  _S3CONFIGURATION._serialized_end=414
-  _GSCONFIGURATION._serialized_start=416
-  _GSCONFIGURATION._serialized_end=449
+  _globals['_OBJECTSTORAGECONFIGURATION']._serialized_start=145
+  _globals['_OBJECTSTORAGECONFIGURATION']._serialized_end=379
+  _globals['_S3CONFIGURATION']._serialized_start=381
+  _globals['_S3CONFIGURATION']._serialized_end=414
+  _globals['_GSCONFIGURATION']._serialized_start=416
+  _globals['_GSCONFIGURATION']._serialized_end=449
 # @@protoc_insertion_point(module_scope)

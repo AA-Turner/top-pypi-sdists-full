@@ -1,45 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: codeflash
-Version: 0.14.4
+Version: 0.14.5
 Summary: Client for codeflash.ai - automatic code performance optimization, powered by AI
-Home-page: https://codeflash.ai
+Project-URL: Homepage, https://codeflash.ai
+Author-email: "CodeFlash Inc." <contact@codeflash.ai>
 License: BSL-1.1
-Keywords: codeflash,performance,optimization,ai,code,machine learning,LLM
-Author: CodeFlash Inc.
-Author-email: contact@codeflash.ai
+Keywords: LLM,ai,code,codeflash,machine learning,optimization,performance
 Requires-Python: >=3.9
-Classifier: License :: Other/Proprietary License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: click (>=8.1.0)
-Requires-Dist: coverage (>=7.6.4)
-Requires-Dist: crosshair-tool (>=0.0.78)
-Requires-Dist: dill (>=0.3.8)
-Requires-Dist: gitpython (>=3.1.31)
-Requires-Dist: humanize (>=4.0.0)
-Requires-Dist: inquirer (>=3.0.0)
-Requires-Dist: isort (>=5.11.0)
-Requires-Dist: jedi (>=0.19.1)
-Requires-Dist: junitparser (>=3.1.0)
-Requires-Dist: libcst (>=1.0.1)
-Requires-Dist: line_profiler (>=4.2.0)
-Requires-Dist: lxml (>=5.3.0)
-Requires-Dist: parameterized (>=0.9.0)
-Requires-Dist: platformdirs (>=4.3.7)
-Requires-Dist: posthog (>=3.0.0)
-Requires-Dist: pydantic (>=1.10.1)
-Requires-Dist: pytest (>=7.0.0,!=8.3.4)
-Requires-Dist: pytest-timeout (>=2.1.0)
-Requires-Dist: rich (>=13.8.1)
-Requires-Dist: sentry-sdk (>=1.40.6,<3.0.0)
-Requires-Dist: timeout-decorator (>=0.5.0)
-Requires-Dist: tomlkit (>=0.11.7)
-Requires-Dist: unidiff (>=0.7.4)
-Requires-Dist: unittest-xml-reporting (>=3.2.0)
+Requires-Dist: click>=8.1.0
+Requires-Dist: coverage>=7.6.4
+Requires-Dist: crosshair-tool>=0.0.78
+Requires-Dist: dill>=0.3.8
+Requires-Dist: gitpython>=3.1.31
+Requires-Dist: humanize>=4.0.0
+Requires-Dist: inquirer>=3.0.0
+Requires-Dist: isort>=5.11.0
+Requires-Dist: jedi>=0.19.1
+Requires-Dist: junitparser>=3.1.0
+Requires-Dist: libcst>=1.0.1
+Requires-Dist: line-profiler>=4.2.0
+Requires-Dist: lxml>=5.3.0
+Requires-Dist: parameterized>=0.9.0
+Requires-Dist: platformdirs>=4.3.7
+Requires-Dist: posthog>=3.0.0
+Requires-Dist: pydantic>=1.10.1
+Requires-Dist: pytest!=8.3.4,>=7.0.0
+Requires-Dist: pytest-timeout>=2.1.0
+Requires-Dist: rich>=13.8.1
+Requires-Dist: sentry-sdk<3.0.0,>=1.40.6
+Requires-Dist: timeout-decorator>=0.5.0
+Requires-Dist: tomlkit>=0.11.7
+Requires-Dist: unidiff>=0.7.4
+Requires-Dist: unittest-xml-reporting>=3.2.0
 Description-Content-Type: text/markdown
 
 ![Codeflash-banner](https://i.postimg.cc/GmPRC52t/Codeflash-banner.png)
@@ -117,4 +109,3 @@ Join our community for support and discussions. If you have any questions, feel 
 ## License
 
 Codeflash is licensed under the BSL-1.1 License. See the LICENSE file for details.
-
