@@ -75,7 +75,7 @@ class AdditiveNode:
         ...
 
     @abc.abstractmethod
-    def replace_additive_base(self, BigFrameNode):
+    def replace_additive_base(self, BigFrameNode) -> BigFrameNode:
         ...
 
 
@@ -274,6 +274,10 @@ class InNode(BigFrameNode, AdditiveNode):
         right_nullable = self.right_child.field_by_id[self.right_col.id].nullable
         return left_nullable or right_nullable
 
+    @property
+    def _node_expressions(self):
+        return (self.left_col, self.right_col)
+
     def replace_additive_base(self, node: BigFrameNode):
         return dataclasses.replace(self, left_child=node)
 
@@ -386,6 +390,10 @@ class JoinNode(BigFrameNode):
     @property
     def consumed_ids(self) -> COLUMN_SET:
         return frozenset(*self.ids, *self.referenced_ids)
+
+    @property
+    def _node_expressions(self):
+        return tuple(itertools.chain.from_iterable(self.conditions))
 
     def transform_children(self, t: Callable[[BigFrameNode], BigFrameNode]) -> JoinNode:
         transformed = dataclasses.replace(
@@ -996,6 +1004,10 @@ class FilterNode(UnaryNode):
     def referenced_ids(self) -> COLUMN_SET:
         return frozenset(self.predicate.column_references)
 
+    @property
+    def _node_expressions(self):
+        return (self.predicate,)
+
     def remap_vars(
         self, mappings: Mapping[identifiers.ColumnId, identifiers.ColumnId]
     ) -> FilterNode:
@@ -1049,6 +1061,10 @@ class OrderByNode(UnaryNode):
         return frozenset(
             itertools.chain.from_iterable(map(lambda x: x.referenced_columns, self.by))
         )
+
+    @property
+    def _node_expressions(self):
+        return tuple(map(lambda x: x.scalar_expression, self.by))
 
     def remap_vars(
         self, mappings: Mapping[identifiers.ColumnId, identifiers.ColumnId]
@@ -1178,6 +1194,10 @@ class SelectionNode(UnaryNode):
     def consumed_ids(self) -> COLUMN_SET:
         return frozenset(ref.id for ref, id in self.input_output_pairs)
 
+    @property
+    def _node_expressions(self):
+        return tuple(ref for ref, id in self.input_output_pairs)
+
     def get_id_mapping(self) -> dict[identifiers.ColumnId, identifiers.ColumnId]:
         return {ref.id: id for ref, id in self.input_output_pairs}
 
@@ -1264,6 +1284,10 @@ class ProjectionNode(UnaryNode, AdditiveNode):
                 ex.column_references for ex, id in self.assignments
             )
         )
+
+    @property
+    def _node_expressions(self):
+        return tuple(ex for ex, id in self.assignments)
 
     @property
     def additive_base(self) -> BigFrameNode:
@@ -1360,6 +1384,13 @@ class AggregateNode(UnaryNode):
         return not all(
             aggregate.op.order_independent for aggregate, _ in self.aggregations
         )
+
+    @property
+    def _node_expressions(self):
+        by_ids = (ref for ref in self.by_column_ids)
+        aggs = tuple(agg for agg, _ in self.aggregations)
+        order_ids = tuple(part.scalar_expression for part in self.order_by)
+        return (*by_ids, *aggs, *order_ids)
 
     def remap_vars(
         self, mappings: Mapping[identifiers.ColumnId, identifiers.ColumnId]
@@ -1463,6 +1494,10 @@ class WindowOpNode(UnaryNode, AdditiveNode):
     def additive_base(self) -> BigFrameNode:
         return self.child
 
+    @property
+    def _node_expressions(self):
+        return (self.expression, *self.window_spec.expressions)
+
     def replace_additive_base(self, node: BigFrameNode) -> WindowOpNode:
         return dataclasses.replace(self, child=node)
 
@@ -1533,6 +1568,10 @@ class ExplodeNode(UnaryNode):
     # Offsets are generated only if this is non-null
     offsets_col: Optional[identifiers.ColumnId] = None
 
+    def _validate(self):
+        for col in self.column_ids:
+            assert col.id in self.child.ids
+
     @property
     def row_preserving(self) -> bool:
         return False
@@ -1584,6 +1623,10 @@ class ExplodeNode(UnaryNode):
     def referenced_ids(self) -> COLUMN_SET:
         return frozenset(ref.id for ref in self.column_ids)
 
+    @property
+    def _node_expressions(self):
+        return self.column_ids
+
     def remap_vars(
         self, mappings: Mapping[identifiers.ColumnId, identifiers.ColumnId]
     ) -> ExplodeNode:
@@ -1606,6 +1649,10 @@ class ResultNode(UnaryNode):
     order_by: Optional[RowOrdering] = None
     limit: Optional[int] = None
     # TODO: CTE definitions
+
+    def _validate(self):
+        for ref, name in self.output_cols:
+            assert ref.id in self.child.ids
 
     @property
     def node_defined_ids(self) -> Tuple[identifiers.ColumnId, ...]:
@@ -1656,6 +1703,10 @@ class ResultNode(UnaryNode):
     @property
     def variables_introduced(self) -> int:
         return 0
+
+    @property
+    def _node_expressions(self):
+        return tuple(ref for ref, _ in self.output_cols)
 
 
 # Tree operators

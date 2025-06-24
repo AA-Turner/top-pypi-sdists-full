@@ -486,7 +486,7 @@ async def extracao_fechamento_contabil(
             if sended_to_datalake and sended_to_bof:
                 return RpaRetornoProcessoDTO(
                     sucesso=True,
-                    retorno=dados_json,
+                    retorno=json.dumps(dados_json),
                     status=RpaHistoricoStatusEnum.Sucesso,
                 )
         except Exception as erro:

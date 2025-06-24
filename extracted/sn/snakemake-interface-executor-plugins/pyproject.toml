@@ -1,13 +1,13 @@
 [project]
 name = "snakemake-interface-executor-plugins"
-version = "9.3.6"
+version = "9.3.7"
 description = "This package provides a stable interface for interactions between Snakemake and its executor plugins."
 authors = [{ name = "Johannes Köster", email = "johannes.koester@uni-due.de" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "snakemake-interface-common>=1.17.4",
+  "snakemake-interface-common>=1.19.0",
   "throttler>=1.2.2",
   "argparse-dataclass>=2.0.0",
 ]

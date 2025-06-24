@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: evergreen-py
-Version: 3.11.1
+Version: 3.11.2
 Summary: Python client for the Evergreen API
 Home-page: https://github.com/evergreen-ci/evergreen.py
 License: Apache-2.0

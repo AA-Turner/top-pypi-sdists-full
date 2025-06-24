@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 2.8.1
+Version: 2.9.0
 Summary: The fast, Pythonic way to build MCP servers.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/jlowin/fastmcp
@@ -380,7 +380,7 @@ mcp.run(transport="stdio")  # Default, so transport argument is optional
 **Streamable HTTP**: Recommended for web deployments.
 
 ```python
-mcp.run(transport="streamable-http", host="127.0.0.1", port=8000, path="/mcp")
+mcp.run(transport="http", host="127.0.0.1", port=8000, path="/mcp")
 ```
 
 **SSE**: For compatibility with existing SSE clients.

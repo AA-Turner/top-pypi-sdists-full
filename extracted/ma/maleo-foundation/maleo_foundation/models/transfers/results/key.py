@@ -7,10 +7,10 @@ class MaleoFoundationKeyResultsTransfers:
     class Fail(BaseServiceGeneralResultsTransfers.Fail): pass
 
     class CreatePrivate(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationKeyGeneralTransfers.PrivateKey = Field(..., description="Private key data")
+        data: MaleoFoundationKeyGeneralTransfers.PrivateKey = Field(..., description="Private key data")
 
     class CreatePublic(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationKeyGeneralTransfers.PublicKey = Field(..., description="Private key data")
+        data: MaleoFoundationKeyGeneralTransfers.PublicKey = Field(..., description="Private key data")
 
     class CreatePair(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationKeyGeneralTransfers.KeyPair = Field(..., description="Key pair data")
+        data: MaleoFoundationKeyGeneralTransfers.KeyPair = Field(..., description="Key pair data")

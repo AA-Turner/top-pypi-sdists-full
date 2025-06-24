@@ -112,10 +112,15 @@ class Deployment(object):
         dirty,
         jobs,
         predict_only=False,
+        check_and_predict_local=False,
         provision_rebuild=False,
     ):
         self.environment = Environment(
-            environment, timeout, platform, provision_rebuild=provision_rebuild
+            environment,
+            timeout,
+            platform,
+            provision_rebuild=provision_rebuild,
+            check_and_predict_local=check_and_predict_local,
         )
         self.environment.deployment = self
 
@@ -129,7 +134,9 @@ class Deployment(object):
         output.section("Preparing")
 
         output.step(
-            "main", "Loading environment `{}`...".format(self.environment.name)
+            "main",
+            "Loading environment `{}`...".format(self.environment.name),
+            icon="📦",
         )
         self.environment.load()
 
@@ -139,14 +146,16 @@ class Deployment(object):
             self.jobs = int(self.environment.jobs)
         else:
             self.jobs = 1
-        output.step("main", "Number of jobs: %s" % self.jobs, debug=True)
+        output.step(
+            "main", "Number of jobs: %s" % self.jobs, debug=True, icon="⚙️"
+        )
 
         # This is located here to avoid duplicating the verification check
         # when loading the repository on the remote environment object.
-        output.step("main", "Verifying repository ...")
+        output.step("main", "Verifying repository ...", icon="🔍")
         self.environment.repository.verify()
 
-        output.step("main", "Loading secrets ...")
+        output.step("main", "Loading secrets ...", icon="🔑")
         self.environment.load_secrets()
 
     def provision(self):
@@ -161,6 +170,7 @@ class Deployment(object):
                         host.provisioner.name,
                         "(Rebuild)" if host.provisioner.rebuild else "",
                     ),
+                    icon="🧱",
                 )
                 host.provisioner.provision(host)
 
@@ -178,6 +188,7 @@ class Deployment(object):
                     ),
                     bold=False,
                     red=True,
+                    icon="⏭️",
                 )
                 continue
             output.step(
@@ -187,6 +198,7 @@ class Deployment(object):
                     i,
                     len(self.environment.hosts),
                 ),
+                icon="🌐",
             )
             c = Connector(host, sem)
             c.start()
@@ -262,6 +274,7 @@ class Deployment(object):
             output.step(
                 hostname,
                 "Skipping component {} ... (Host ignored)".format(component),
+                icon="⏭️",
                 red=True,
             )
         elif info["ignore"]:
@@ -270,11 +283,14 @@ class Deployment(object):
                 "Skipping component {} ... (Component ignored)".format(
                     component
                 ),
+                icon="⏭️",
                 red=True,
             )
         else:
             output.step(
-                hostname, "Scheduling component {} ...".format(component)
+                hostname,
+                "Scheduling component {} ...".format(component),
+                icon="⚪",
             )
             await self.loop.run_in_executor(
                 None, host.deploy_component, component, self.predict_only
@@ -345,6 +361,7 @@ def main(
     dirty,
     consistency_only,
     predict_only,
+    check_and_predict_local,
     jobs,
     provision_rebuild,
 ):
@@ -361,6 +378,14 @@ def main(
     else:
         ACTION = "DEPLOYMENT"
         SUCCESS_FORMAT = {"green": True}
+    if check_and_predict_local:
+        if (not consistency_only) and (not predict_only):
+            output.error(
+                "The --local option is only to be used with --consistency-only or --predict-only."
+            )
+            sys.exit(1)
+        ACTION += " (local)"
+
     with locked(".batou-lock", exit_on_failure=True):
         deployment = Deployment(
             environment,
@@ -369,6 +394,7 @@ def main(
             dirty,
             jobs,
             predict_only,
+            check_and_predict_local,
             provision_rebuild,
         )
         environment = deployment.environment

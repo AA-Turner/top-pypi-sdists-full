@@ -2911,86 +2911,302 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
         @staticmethod
         @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__m128d _mm_mask_blendv_pd (__m128d a, __m128d b, __mmask8 mask)  VBLENDMPD xmm1 {k1}, xmm2, xmm3/m128/m64bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_blendv_epi32 (__m128i a, __m128i b, __mmask8 mask)  VPBLENDMD xmm1 {k1}, xmm2, xmm3/m128/m32bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__m256d _mm256_mask_blendv_pd (__m256d a, __m256d b, __mmask8 mask)  VBLENDMPD ymm1 {k1}, ymm2, ymm3/m256/m64bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_blendv_epi32 (__m256i a, __m256i b, __mmask8 mask)  VPBLENDMD ymm1 {k1}, ymm2, ymm3/m256/m32bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], mode: System.Runtime.Intrinsics.X86.FloatComparisonMode) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmp_pd_mask (__m128d a, __m128d b, const int imm8)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatComparisonMode) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmp_pd_mask (__m256d a, __m256d b, const int imm8)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpeq_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpeq_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(0)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__mmask8 _mm_cmpeq_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(0)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_greater_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpgt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_greater_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpgt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
         def compare_greater_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpgt_epu32 (__m128i a, __m128i b)  VPCMPUD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(6)"""
+            """__mmask8 _mm_cmpgt_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(6)"""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpgt_epu32 (__m256i a, __m256i b)  VPCMPUD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(6)"""
+            """__mmask8 _mm_cmpgt_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(6)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpge_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpge_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpge_epi32 (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(5)"""
+            """__mmask8 _mm_cmpge_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(5)"""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpge_epi32 (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(5)"""
+            """__mmask8 _mm256_cmpge_epi32_mask (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(5)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_less_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmplt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_less_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmplt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
             ...
 
         @staticmethod
         @overload
         def compare_less_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmplt_epi32 (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(1)"""
+            """__mmask8 _mm_cmplt_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(1)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmplt_epi32 (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(1)"""
+            """__mmask8 _mm256_cmplt_epi32_mask (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(1)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmple_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmple_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
             ...
 
         @staticmethod
         @overload
         def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmple_epi32 (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(2)"""
+            """__mmask8 _mm_cmple_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(2)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmple_epi32 (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(2)"""
+            """__mmask8 _mm256_cmple_epi32_mask (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(2)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpneq_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpneq_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
             ...
 
         @staticmethod
         @overload
         def compare_not_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpne_epi32 (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(4)"""
+            """__mmask8 _mm_cmpne_epi32_mask (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(4)"""
             ...
 
         @staticmethod
         @overload
         def compare_not_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpne_epi32 (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(4)"""
+            """__mmask8 _mm256_cmpne_epi32_mask (__m256i a, __m256i b)  VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8(4)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_greater_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpngt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_greater_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpngt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpnge_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpnge_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_less_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpnlt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_less_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpnlt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpnle_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_not_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpnle_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_ordered(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpord_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_ordered(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpord_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_unordered(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_cmpunord_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_unordered(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_cmpunord_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
             ...
 
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-            """__m128d _mm_mask_compress_pd (__m128d s, __mmask8 k, __m128d a)  VCOMPRESSPD xmm1/m128 {k1}{z}, xmm2"""
+            """__m128d _mm_mask_compress_pd (__m128d s, __mmask8 k, __m128d a)  VCOMPRESSPD xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_mask_compress_epi32 (__m128i s, __mmask8 k, __m128i a)  VPCOMPRESSD xmm1/m128 {k1}{z}, xmm2"""
+            """__m128i _mm_mask_compress_epi32 (__m128i s, __mask8 k, __m128i a)  VPCOMPRESSD xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float], value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-            """__m256d _mm256_mask_compress_pd (__m256d s, __mmask8 k, __m256d a)  VCOMPRESSPD ymm1/m256 {k1}{z}, ymm2"""
+            """__m256d _mm256_mask_compress_pd (__m256d s, __mmask8 k, __m256d a)  VCOMPRESSPD ymm1 {k1}{z}, ymm2"""
             ...
 
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_mask_compress_epi32 (__m256i s, __mmask8 k, __m256i a)  VPCOMPRESSD ymm1/m256 {k1}{z}, ymm2"""
+            """__m256i _mm256_mask_compress_epi32 (__m256i s, __mmask8 k, __m256i a)  VPCOMPRESSD ymm1 {k1}{z}, ymm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+            """__m128d _mm_mask_compressstoreu_pd (void * a, __mmask8 k, __m128d a)  VCOMPRESSPD m128 {k1}{z}, xmm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            """__m128i _mm_mask_compressstoreu_epi32 (void * a, __mask8 k, __m128i a)  VPCOMPRESSD m128 {k1}{z}, xmm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+            """__m256d _mm256_mask_compressstoreu_pd (void * a, __mmask8 k, __m256d a)  VCOMPRESSPD m256 {k1}{z}, ymm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            """void _mm256_mask_compressstoreu_epi32 (void * a, __mmask8 k, __m256i a)  VPCOMPRESSD m256 {k1}{z}, ymm2"""
             ...
 
         @staticmethod
@@ -3194,25 +3410,49 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-            """__m128d _mm_mask_expand_pd (__m128d s, __mmask8 k, __m128d a)  VEXPANDPD xmm1 {k1}{z}, xmm2/m128"""
+            """__m128d _mm_mask_expand_pd (__m128d s, __mmask8 k, __m128d a)  VEXPANDPD xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_mask_expand_epi32 (__m128i s, __mmask8 k, __m128i a)  VPEXPANDD xmm1 {k1}{z}, xmm2/m128"""
+            """__m128i _mm_mask_expand_epi32 (__m128i s, __mmask8 k, __m128i a)  VPEXPANDD xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float], value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
-            """__m256d _mm256_mask_expand_pd (__m256d s, __mmask8 k, __m256d a)  VEXPANDPD ymm1 {k1}{z}, ymm2/m256"""
+            """__m256d _mm256_value_expand_pd (__m256d s, __mmask8 k, __m256d a)  VEXPANDPD ymm1 {k1}{z}, ymm2"""
             ...
 
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_mask_expand_epi32 (__m256i s, __mmask8 k, __m256i a)  VPEXPANDD ymm1 {k1}{z}, ymm2/m256"""
+            """__m256i _mm256_value_expand_epi32 (__m256i s, __mmask8 k, __m256i a)  VPEXPANDD ymm1 {k1}{z}, ymm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__m128d _mm_mask_expandloadu_pd (__m128d s, __mmask8 k, void const * a)  VEXPANDPD xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_expandloadu_epi32 (__m128i s, __mmask8 k, void const * a)  VPEXPANDD xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__m256d _mm256_address_expandloadu_pd (__m256d s, __mmask8 k, void const * a)  VEXPANDPD ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_address_expandloadu_epi32 (__m256i s, __mmask8 k, void const * a)  VPEXPANDD ymm1 {k1}{z}, m256"""
             ...
 
         @staticmethod
@@ -3249,6 +3489,102 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         @overload
         def get_mantissa(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
             """__m256 _mm256_getmant_ps (__m256 a)  VGETMANTPS ymm1 {k1}{z}, ymm2/m256/m32bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__m128d _mm_mask_loadu_pd (__m128d s, __mmask8 k, void const * mem_addr)  VMOVUPD xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_loadu_epi32 (__m128i s, __mmask8 k, void const * mem_addr)  VMOVDQU32 xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__m256d _mm256_mask_loadu_pd (__m256d s, __mmask8 k, void const * mem_addr)  VMOVUPD ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_loadu_epi32 (__m256i s, __mmask8 k, void const * mem_addr)  VMOVDQU32 ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__m128d _mm_mask_load_pd (__m128d s, __mmask8 k, void const * mem_addr)  VMOVAPD xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_load_epi32 (__m128i s, __mmask8 k, void const * mem_addr)  VMOVDQA32 xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__m256d _mm256_mask_load_pd (__m256d s, __mmask8 k, void const * mem_addr)  VMOVAPD ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_load_epi32 (__m256i s, __mmask8 k, void const * mem_addr)  VMOVDQA32 ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+            """void _mm_mask_storeu_pd (void * mem_addr, __mmask8 k, __m128d a)  VMOVUPD m128 {k1}{z}, xmm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            """void _mm_mask_storeu_epi32 (void * mem_addr, __mmask8 k, __m128i a)  VMOVDQU32 m128 {k1}{z}, xmm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+            """void _mm256_mask_storeu_pd (void * mem_addr, __mmask8 k, __m256d a)  VMOVUPD m256 {k1}{z}, ymm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            """void _mm256_mask_storeu_epi32 (void * mem_addr, __mmask8 k, __m256i a)  VMOVDQU32 m256 {k1}{z}, ymm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+            """void _mm_mask_store_pd (void * mem_addr, __mmask8 k, __m128d a)  VMOVAPD m128 {k1}{z}, xmm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            """void _mm_mask_store_epi32 (void * mem_addr, __mmask8 k, __m128i a)  VMOVDQA32 m128 {k1}{z}, xmm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+            """void _mm256_mask_store_pd (void * mem_addr, __mmask8 k, __m256d a)  VMOVAPD m256 {k1}{z}, ymm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            """void _mm256_mask_store_epi32 (void * mem_addr, __mmask8 k, __m256i a)  VMOVDQA32 m256 {k1}{z}, ymm1"""
             ...
 
         @staticmethod
@@ -3609,13 +3945,13 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def blend_variable(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], mask: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_blendv_pd (__m512d a, __m512d b, __m512d mask)  VBLENDMPD zmm1 {k1}, zmm2, zmm3/m512/m64bcst"""
+        """__m512d _mm512_mask_blendv_pd (__m512d a, __m512d b, __mmask8 mask)  VBLENDMPD zmm1 {k1}, zmm2, zmm3/m512/m64bcst"""
         ...
 
     @staticmethod
     @overload
     def blend_variable(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_blendv_epi32 (__m512i a, __m512i b, __m512i mask)  VPBLENDMD zmm1 {k1}, zmm2, zmm3/m512/m32bcst"""
+        """__m512i _mm512_mask_blendv_epi32 (__m512i a, __m512i b, __mmask16 mask)  VPBLENDMD zmm1 {k1}, zmm2, zmm3/m512/m32bcst"""
         ...
 
     @staticmethod
@@ -3642,13 +3978,13 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     def compare(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], mode: System.Runtime.Intrinsics.X86.FloatComparisonMode) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmp_pd (__m512d a, __m512d b, const int imm8)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8"""
+        """__mmask8 _mm512_cmp_pd_mask (__m512d a, __m512d b, const int imm8)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8"""
         ...
 
     @staticmethod
     @overload
     def compare_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpeq_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpeq_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3660,7 +3996,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def compare_greater_than(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpgt_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpgt_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3672,7 +4008,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpge_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpge_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3684,7 +4020,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def compare_less_than(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmplt_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmplt_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3696,7 +4032,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmple_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmple_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3708,7 +4044,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def compare_not_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpneq_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpneq_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
@@ -3719,44 +4055,56 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     def compare_not_greater_than(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpngt_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpngt_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     def compare_not_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpnge_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpnge_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     def compare_not_less_than(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpnlt_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpnlt_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     def compare_not_less_than_or_equal(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpnle_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpnle_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     def compare_ordered(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpord_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpord_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     def compare_unordered(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_cmpunord_pd (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
+        """__mmask8 _mm512_cmpunord_pd_mask (__m512d a,  __m512d b)  VCMPPD k1 {k2}, zmm2, zmm3/m512/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     @overload
     def compress(merge: System.Runtime.Intrinsics.Vector512[float], mask: System.Runtime.Intrinsics.Vector512[float], value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_mask_compress_pd (__m512d s, __mmask8 k, __m512d a)  VCOMPRESSPD zmm1/m512 {k1}{z}, zmm2"""
+        """__m512d _mm512_mask_compress_pd (__m512d s, __mmask8 k, __m512d a)  VCOMPRESSPD zmm1 {k1}{z}, zmm2"""
         ...
 
     @staticmethod
     @overload
     def compress(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_mask_compress_epi32 (__m512i s, __mmask16 k, __m512i a)  VPCOMPRESSD zmm1/m512 {k1}{z}, zmm2"""
+        """__m512i _mm512_mask_compress_epi32 (__m512i s, __mmask16 k, __m512i a)  VPCOMPRESSD zmm1 {k1}{z}, zmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], source: System.Runtime.Intrinsics.Vector512[float]) -> None:
+        """__m512d _mm512_mask_compressstoreu_pd (void * s, __mmask8 k, __m512d a)  VCOMPRESSPD m512 {k1}{z}, zmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        """void _mm512_mask_compressstoreu_epi32 (void * s, __mmask16 k, __m512i a)  VPCOMPRESSD m512 {k1}{z}, zmm2"""
         ...
 
     @staticmethod
@@ -4071,13 +4419,25 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def expand(merge: System.Runtime.Intrinsics.Vector512[float], mask: System.Runtime.Intrinsics.Vector512[float], value: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        """__m512d _mm512_mask_expand_pd (__m512d s, __mmask8 k, __m512d a)  VEXPANDPD zmm1 {k1}{z}, zmm2/m512"""
+        """__m512d _mm512_mask_expand_pd (__m512d s, __mmask8 k, __m512d a)  VEXPANDPD zmm1 {k1}{z}, zmm2"""
         ...
 
     @staticmethod
     @overload
     def expand(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_mask_expand_epi32 (__m512i s, __mmask16 k, __m512i a)  VPEXPANDD zmm1 {k1}{z}, zmm2/m512"""
+        """__m512i _mm512_mask_expand_epi32 (__m512i s, __mmask16 k, __m512i a)  VPEXPANDD zmm1 {k1}{z}, zmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], merge: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        """__m512d _mm512_mask_expandloadu_pd (__m512d s, __mmask8 k, void * const a)  VEXPANDPD zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        """__m512i _mm512_mask_expandloadu_epi32 (__m512i s, __mmask16 k, void * const a)  VPEXPANDD zmm1 {k1}{z}, m512"""
         ...
 
     @staticmethod
@@ -4266,7 +4626,7 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     def load_aligned_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_load_si512 (__m512i const * mem_addr)  VMOVDQA32 zmm1 {k1}{z}, m512"""
+        """__m512i _mm512_load_si512 (__m512i const * mem_addr)  VMOVDQA32 zmm1, m512"""
         ...
 
     @staticmethod
@@ -4276,7 +4636,55 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     def load_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_loadu_si512 (__m512i const * mem_addr)  VMOVDQU32 zmm1 {k1}{z}, m512"""
+        """__m512i _mm512_loadu_si512 (__m512i const * mem_addr)  VMOVDQU32 zmm1, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], merge: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        """__m512d _mm512_mask_loadu_pd (__m512d s, __mmask8 k, void const * mem_addr)  VMOVUPD zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        """__m512i _mm512_mask_loadu_epi32 (__m512i s, __mmask16 k, void const * mem_addr)  VMOVDQU32 zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], merge: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+        """__m512d _mm512_mask_load_pd (__m512d s, __mmask8 k, void const * mem_addr)  VMOVAPD zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        """__m512i _mm512_mask_load_epi32 (__m512i s, __mmask16 k, void const * mem_addr)  VMOVDQA32 zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], source: System.Runtime.Intrinsics.Vector512[float]) -> None:
+        """void _mm512_mask_storeu_pd (void * mem_addr, __mmask8 k, __m512d a)  VMOVUPD m512 {k1}{z}, zmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        """void _mm512_mask_storeu_epi32 (void * mem_addr, __mmask16 k, __m512i a)  VMOVDQU32 m512 {k1}{z}, zmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[float], source: System.Runtime.Intrinsics.Vector512[float]) -> None:
+        """void _mm512_mask_store_pd (void * mem_addr, __mmask8 k, __m512d a)  VMOVAPD m512 {k1}{z}, zmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        """void _mm512_mask_store_epi32 (void * mem_addr, __mmask16 k, __m512i a)  VMOVDQA32 m512 {k1}{z}, zmm1"""
         ...
 
     @staticmethod
@@ -4301,6 +4709,30 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @overload
     def min(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """__m512 _mm512_min_ps (__m512 a, __m512 b)  VMINPS zmm1 {k1}{z}, zmm2, zmm3/m512/m32bcst{sae}"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[int]) -> int:
+        """unsigned int _cvtmask16_u32 (__mmask16 a)  KMOVW r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
+        """unsigned int _cvtmask16_u32 (__mmask16 a)  KMOVW r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
+        """unsigned int _cvtmask16_u32 (__mmask16 a)  KMOVW r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[float]) -> int:
+        """unsigned int _cvtmask16_u32 (__mmask16 a)  KMOVW r32, k1"""
         ...
 
     @staticmethod
@@ -4606,31 +5038,31 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def store(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[int]) -> None:
-        """void _mm512_storeu_si512 (__m512i * mem_addr, __m512i a)  VMOVDQU32 m512 {k1}{z}, zmm1"""
+        """void _mm512_storeu_si512 (void * mem_addr, __m512i a)  VMOVDQU32 m512, zmm1"""
         ...
 
     @staticmethod
     @overload
     def store(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[float]) -> None:
-        """void _mm512_storeu_ps (float * mem_addr, __m512 a)  VMOVUPS m512 {k1}{z}, zmm1"""
+        """void _mm512_storeu_ps (float * mem_addr, __m512 a)  VMOVUPS m512, zmm1"""
         ...
 
     @staticmethod
     @overload
     def store_aligned(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[int]) -> None:
-        """void _mm512_store_si512 (__m512i * mem_addr, __m512i a)  VMOVDQA32 m512 {k1}{z}, zmm1"""
+        """void _mm512_store_si512 (void * mem_addr, __m512i a)  VMOVDQA32 m512, zmm1"""
         ...
 
     @staticmethod
     @overload
     def store_aligned(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[float]) -> None:
-        """void _mm512_store_ps (float * mem_addr, __m512 a)  VMOVAPS m512 {k1}{z}, zmm1"""
+        """void _mm512_store_ps (float * mem_addr, __m512 a)  VMOVAPS m512, zmm1"""
         ...
 
     @staticmethod
     @overload
     def store_aligned_non_temporal(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[int]) -> None:
-        """void _mm512_stream_si512 (__m512i * mem_addr, __m512i a)  VMOVNTDQ m512, zmm1"""
+        """void _mm512_stream_si512 (void * mem_addr, __m512i a)  VMOVNTDQ m512, zmm1"""
         ...
 
     @staticmethod
@@ -4715,62 +5147,86 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
         @staticmethod
         @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_blendv_epu8 (__m128i a, __m128i b, __mmask16 mask)  VPBLENDMB xmm1 {k1}, xmm2, xmm3/m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def blend_variable(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_blendv_epu8 (__m256i a, __m256i b, __mmask32 mask)  VPBLENDMB ymm1 {k1}, ymm2, ymm3/m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__mmask16 _mm_cmpeq_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(0)"""
+            ...
+
+        @staticmethod
+        @overload
+        def compare_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__mmask32 _mm256_cmpeq_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(0)"""
+            ...
+
+        @staticmethod
+        @overload
         def compare_greater_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpgt_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(6)"""
+            """__mmask16 _mm_cmpgt_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(6)"""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpgt_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(6)"""
+            """__mmask32 _mm256_cmpgt_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(6)"""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpge_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(5)"""
+            """__mmask16 _mm_cmpge_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(5)"""
             ...
 
         @staticmethod
         @overload
         def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpge_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(5)"""
+            """__mmask32 _mm256_cmpge_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(5)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmplt_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(1)"""
+            """__mmask16 _mm_cmplt_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(1)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmplt_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(1)"""
+            """__mmask32 _mm256_cmplt_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(1)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmple_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(2)"""
+            """__mmask16 _mm_cmple_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(2)"""
             ...
 
         @staticmethod
         @overload
         def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmple_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(2)"""
+            """__mmask32 _mm256_cmple_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(2)"""
             ...
 
         @staticmethod
         @overload
         def compare_not_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_cmpne_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(4)"""
+            """__mmask16 _mm_cmpne_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(4)"""
             ...
 
         @staticmethod
         @overload
         def compare_not_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_cmpne_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(4)"""
+            """__mmask32 _mm256_cmpne_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(4)"""
             ...
 
         @staticmethod
@@ -4819,6 +5275,30 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
         @overload
         def convert_to_vector_128_s_byte_with_saturation(value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector128[int]:
             """__m128i _mm256_cvtsepi16_epi8 (__m256i a)  VPMOVSWB xmm1/m128 {k1}{z}, zmm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_loadu_epi8 (__m128i s, __mmask16 k, void const * mem_addr)  VMOVDQU8 xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_loadu_epi8 (__m256i s, __mmask32 k, void const * mem_addr)  VMOVDQU8 ymm1 {k1}{z}, m256"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            """void _mm_mask_storeu_si128 (void * mem_addr, __mmask16 k, __m128i a)  VMOVDQU8 m128 {k1}{z}, xmm1"""
+            ...
+
+        @staticmethod
+        @overload
+        def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            """void _mm256_mask_storeu_si256 (void * mem_addr, __mmask32 k, __m256i a)  VMOVDQU8 m256 {k1}{z}, ymm1"""
             ...
 
         @staticmethod
@@ -4925,7 +5405,7 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
     @staticmethod
     def blend_variable(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_blendv_epu8 (__m512i a, __m512i b, __m512i mask)  VPBLENDMB zmm1 {k1}, zmm2, zmm3/m512"""
+        """__m512i _mm512_mask_blendv_epu8 (__m512i a, __m512i b, __mmask64 mask)  VPBLENDMB zmm1 {k1}, zmm2, zmm3/m512"""
         ...
 
     @staticmethod
@@ -4935,32 +5415,32 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
     @staticmethod
     def compare_equal(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmpeq_epu8 (__m512i a, __m512i b)  VPCMPEQB k1 {k2}, zmm2, zmm3/m512"""
+        """__mmask64 _mm512_cmpeq_epu8 (__m512i a, __m512i b)  VPCMPEQB k1 {k2}, zmm2, zmm3/m512"""
         ...
 
     @staticmethod
     def compare_greater_than(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmpgt_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(6)"""
+        """__mmask64 _mm512_cmpgt_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(6)"""
         ...
 
     @staticmethod
     def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmpge_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(5)"""
+        """__mmask64 _mm512_cmpge_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(5)"""
         ...
 
     @staticmethod
     def compare_less_than(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmplt_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(1)"""
+        """__mmask64 _mm512_cmplt_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(1)"""
         ...
 
     @staticmethod
     def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmple_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(2)"""
+        """__mmask64 _mm512_cmple_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(2)"""
         ...
 
     @staticmethod
     def compare_not_equal(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_cmpne_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(4)"""
+        """__mmask64 _mm512_cmpne_epu8 (__m512i a, __m512i b)  VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8(4)"""
         ...
 
     @staticmethod
@@ -4995,7 +5475,17 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
     @staticmethod
     def load_vector_512(address: typing.Any) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_loadu_epi8 (__m512i const * mem_addr)  VMOVDQU8 zmm1 {k1}{z}, m512"""
+        """__m512i _mm512_loadu_epi8 (void const * mem_addr)  VMOVDQU8 zmm1, m512"""
+        ...
+
+    @staticmethod
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        """__m512i _mm512_mask_loadu_epi8 (__m512i s, __mmask64 k, void const * mem_addr)  VMOVDQU8 zmm1 {k1}{z}, m512"""
+        ...
+
+    @staticmethod
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        """void _mm512_mask_storeu_si512 (void * mem_addr, __mmask64 k, __m512i a)  VMOVDQU8 m512 {k1}{z}, zmm1"""
         ...
 
     @staticmethod
@@ -5006,6 +5496,18 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
     @staticmethod
     def min(left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """__m512i _mm512_min_epi8 (__m512i a, __m512i b)  VPMINSB zmm1 {k1}{z}, zmm2, zmm3/m512"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
+        """unsigned int _cvtmask32_u32 (__mmask32 a)  KMOVD r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
+        """unsigned __int64 _cvtmask64_u64 (__mmask64 a)  KMOVQ r64, k1"""
         ...
 
     @staticmethod
@@ -5126,7 +5628,7 @@ class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
 
     @staticmethod
     def store(address: typing.Any, source: System.Runtime.Intrinsics.Vector512[int]) -> None:
-        """void _mm512_storeu_epi8 (__m512i * mem_addr, __m512i a)  VMOVDQU8 m512 {k1}{z}, zmm1"""
+        """void _mm512_storeu_epi8 (void * mem_addr, __m512i a)  VMOVDQU8 m512, zmm1"""
         ...
 
     @staticmethod
@@ -5502,6 +6004,21 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
             ...
 
         @staticmethod
+        def classify(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
+            """__mmask8 _mm512_fpclass_pd_mask (__m512d a, int c)  VFPCLASSPD k2 {k1}, zmm2/m512/m64bcst, imm8"""
+            ...
+
+        @staticmethod
+        def compress(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            """__m512i _mm512_mask_compress_epi8 (__m512i s, __mmask64 k, __m512i a)  VPCOMPRESSB zmm1 {k1}{z}, zmm2"""
+            ...
+
+        @staticmethod
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+            """__m512i _mm512_mask_compresstoreu_epi8 (void * s, __mmask64 k, __m512i a)  VPCOMPRESSB m512 {k1}{z}, zmm2"""
+            ...
+
+        @staticmethod
         @overload
         def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector256[float]:
             """__m512 _mm512_cvtepi64_ps (__m512i a)  VCVTQQ2PS ymm1 {k1}{z}, zmm2/m512/m64bcst"""
@@ -5603,6 +6120,16 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
             ...
 
         @staticmethod
+        def expand(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            """__m512i _mm512_mask_expand_epi8 (__m512i s, __mmask64 k, __m512i a)  VPEXPANDB zmm1 {k1}{z}, zmm2"""
+            ...
+
+        @staticmethod
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+            """__m512i _mm512_mask_expandloadu_epi8 (__m512i s, __mmask64 k, void * const a)  VPEXPANDB zmm1 {k1}{z}, m512"""
+            ...
+
+        @staticmethod
         @overload
         def extract_vector_128(value: System.Runtime.Intrinsics.Vector512[int], index: int) -> System.Runtime.Intrinsics.Vector128[int]:
             """__m128i _mm512_extracti64x2_epi64 (__m512i a, const int imm8)  VEXTRACTI64x2 xmm1/m128 {k1}{z}, zmm2, imm8"""
@@ -5653,6 +6180,18 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         @staticmethod
         def leading_zero_count(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
             """__m512i _mm512_lzcnt_epi32 (__m512i a)  VPLZCNTD zmm1 {k1}{z}, zmm2/m512/m32bcst"""
+            ...
+
+        @staticmethod
+        @overload
+        def move_mask(value: System.Runtime.Intrinsics.Vector512[float]) -> int:
+            """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+            ...
+
+        @staticmethod
+        @overload
+        def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
+            """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
             ...
 
         @staticmethod
@@ -5740,6 +6279,30 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def blend_variable(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_blendv_epu8 (__m128i a, __m128i b, __mmask16 mask)  VPBLENDMB xmm1 {k1}, xmm2, xmm3/m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def blend_variable(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_blendv_pd (__m128d a, __m128d b, __mmask8 mask)  VBLENDMPD xmm1 {k1}, xmm2, xmm3/m128/m64bcst"""
+        ...
+
+    @staticmethod
+    @overload
+    def blend_variable(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_blendv_epu8 (__m256i a, __m256i b, __mmask32 mask)  VPBLENDMB ymm1 {k1}, ymm2, ymm3/m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def blend_variable(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_mask_blendv_pd (__m256d a, __m256d b, __mmask8 mask)  VBLENDMPD ymm1 {k1}, ymm2, ymm3/m256/m64bcst"""
+        ...
+
+    @staticmethod
     def broadcast_pair_scalar_to_vector_128(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """__m128i _mm_broadcast_i32x2 (__m128i a)  VBROADCASTI32x2 xmm1 {k1}{z}, xmm2/m64"""
         ...
@@ -5758,62 +6321,295 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
+    def classify(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_fpclass_pd_mask (__m128d a, int c)  VFPCLASSPD k2 {k1}, xmm2/m128/m64bcst, imm8"""
+        ...
+
+    @staticmethod
+    @overload
+    def classify(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_fpclass_pd_mask (__m256d a, int c)  VFPCLASSPD k2 {k1}, ymm2/m256/m64bcst, imm8"""
+        ...
+
+    @staticmethod
+    def classify_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_fpclass_sd_mask (__m128d a, int c)  VFPCLASSSS k2 {k1}, xmm2/m32, imm8"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], mode: System.Runtime.Intrinsics.X86.FloatComparisonMode) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmp_pd_mask (__m128d a, __m128d b, const int imm8)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatComparisonMode) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmp_pd_mask (__m256d a, __m256d b, const int imm8)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__mmask16 _mm_cmpeq_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(0)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__mmask32 _mm256_cmpeq_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(0)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpeq_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpeq_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(0)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
     def compare_greater_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """__m128i _mm_cmpgt_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(6)"""
+        """__mmask16 _mm_cmpgt_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(6)"""
         ...
 
     @staticmethod
     @overload
     def compare_greater_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """__m256i _mm256_cmpgt_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(6)"""
+        """__mmask32 _mm256_cmpgt_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(6)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_greater_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpgt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_greater_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpgt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(14)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     @overload
     def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """__m128i _mm_cmpge_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(5)"""
+        """__mmask16 _mm_cmpge_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(5)"""
         ...
 
     @staticmethod
     @overload
     def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """__m256i _mm256_cmpge_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(5)"""
+        """__mmask32 _mm256_cmpge_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(5)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpge_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpge_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(13)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     @overload
     def compare_less_than(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """__m128i _mm_cmplt_epi32 (__m128i a, __m128i b)  VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8(1)"""
+        """__mmask16 _mm_cmplt_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(1)"""
         ...
 
     @staticmethod
     @overload
     def compare_less_than(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """__m256i _mm256_cmplt_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(1)"""
+        """__mmask32 _mm256_cmplt_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(1)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_less_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmplt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_less_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmplt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(1)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     @overload
     def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """__m128i _mm_cmple_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(2)"""
+        """__mmask16 _mm_cmple_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(2)"""
         ...
 
     @staticmethod
     @overload
     def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """__m256i _mm256_cmple_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(2)"""
+        """__mmask32 _mm256_cmple_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(2)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmple_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmple_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(2)The above native signature does not exist. We provide this additional overload for completeness."""
         ...
 
     @staticmethod
     @overload
     def compare_not_equal(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """__m128i _mm_cmpne_epu8 (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(4)"""
+        """__mmask16 _mm_cmpne_epu8_mask (__m128i a, __m128i b)  VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8(4)"""
         ...
 
     @staticmethod
     @overload
     def compare_not_equal(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """__m256i _mm256_cmpne_epu8 (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(4)"""
+        """__mmask32 _mm256_cmpne_epu8_mask (__m256i a, __m256i b)  VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8(4)"""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpneq_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpneq_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(4)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_greater_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpngt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_greater_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpngt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(10)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpnge_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_greater_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpnge_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(9)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_less_than(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpnlt_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_less_than(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpnlt_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(5)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_less_than_or_equal(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpnle_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_not_less_than_or_equal(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpnle_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(6)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_ordered(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpord_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_ordered(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpord_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(7)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_unordered(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_cmpunord_pd_mask (__m128d a,  __m128d b)  VCMPPD k1 {k2}, xmm2, xmm3/m128/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compare_unordered(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__mmask8 _mm256_cmpunord_pd_mask (__m256d a,  __m256d b)  VCMPPD k1 {k2}, ymm2, ymm3/m256/m64bcst{sae}, imm8(3)The above native signature does not exist. We provide this additional overload for completeness."""
+        ...
+
+    @staticmethod
+    @overload
+    def compress(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_compress_epi8 (__m128i s, __mmask16 k, __m128i a)  VPCOMPRESSB xmm1 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress(merge: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_compress_pd (__m128d s, __mmask8 k, __m128d a)  VCOMPRESSPD xmm1 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_compress_epi8 (__m256i s, __mmask32 k, __m256i a)  VPCOMPRESSB ymm1 {k1}{z}, ymm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress(merge: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float], value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_mask_compress_pd (__m256d s, __mmask8 k, __m256d a)  VCOMPRESSPD ymm1 {k1}{z}, ymm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+        """__m128i _mm_mask_compressstoreu_epi8 (void * s, __mmask16 k, __m128i a)  VPCOMPRESSB m128 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+        """__m128d _mm_mask_compressstoreu_pd (void * a, __mmask8 k, __m128d a)  VCOMPRESSPD m128 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+        """void _mm256_mask_compressstoreu_epi8 (void * s, __mmask32 k, __m256i a)  VPCOMPRESSB m256 {k1}{z}, ymm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+        """__m256d _mm256_mask_compressstoreu_pd (void * a, __mmask8 k, __m256d a)  VCOMPRESSPD m256 {k1}{z}, ymm2"""
         ...
 
     @staticmethod
@@ -6160,6 +6956,54 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
+    def expand(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_expand_epi8 (__m128i s, __mmask16 k, __m128i a)  VPEXPANDB xmm1 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand(merge: System.Runtime.Intrinsics.Vector128[float], mask: System.Runtime.Intrinsics.Vector128[float], value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_expand_pd (__m128d s, __mmask8 k, __m128d a)  VEXPANDPD xmm1 {k1}{z}, xmm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_expand_epi8 (__m256i s, __mmask32 k, __m256i a)  VPEXPANDB ymm1 {k1}{z}, ymm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand(merge: System.Runtime.Intrinsics.Vector256[float], mask: System.Runtime.Intrinsics.Vector256[float], value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_value_expand_pd (__m256d s, __mmask8 k, __m256d a)  VEXPANDPD ymm1 {k1}{z}, ymm2"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_expandloadu_epi8 (__m128i s, __mmask16 k, void const * a)  VPEXPANDB xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_expandloadu_pd (__m128d s, __mmask8 k, void const * a)  VEXPANDPD xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_expandloadu_epi8 (__m256i s, __mmask32 k, void const * a)  VPEXPANDB ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_address_expandloadu_pd (__m256d s, __mmask8 k, void const * a)  VEXPANDPD ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
     def fixup(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], table: System.Runtime.Intrinsics.Vector128[int], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
         """__m128d _mm_fixupimm_pd(__m128d a, __m128d b, __m128i tbl, int imm);  VFIXUPIMMPD xmm1 {k1}{z}, xmm2, xmm3/m128/m64bcst, imm8"""
         ...
@@ -6257,6 +7101,102 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_loadu_epi8 (__m128i s, __mmask16 k, void const * mem_addr)  VMOVDQU8 xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_loadu_pd (__m128d s, __mmask8 k, void const * mem_addr)  VMOVUPD xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_loadu_epi8 (__m256i s, __mmask32 k, void const * mem_addr)  VMOVDQU8 ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_mask_loadu_pd (__m256d s, __mmask8 k, void const * mem_addr)  VMOVUPD ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], merge: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__m128d _mm_mask_load_pd (__m128d s, __mmask8 k, void const * mem_addr)  VMOVAPD xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """__m128i _mm_mask_load_epi32 (__m128i s, __mmask8 k, void const * mem_addr)  VMOVDQA32 xmm1 {k1}{z}, m128"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], merge: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        """__m256d _mm256_mask_load_pd (__m256d s, __mmask8 k, void const * mem_addr)  VMOVAPD ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_load_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        """__m256i _mm256_mask_load_epi32 (__m256i s, __mmask8 k, void const * mem_addr)  VMOVDQA32 ymm1 {k1}{z}, m256"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+        """void _mm_mask_storeu_si128 (void * mem_addr, __mmask16 k, __m128i a)  VMOVDQU8 m128 {k1}{z}, xmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+        """void _mm_mask_storeu_pd (void * mem_addr, __mmask8 k, __m128d a)  VMOVUPD m128 {k1}{z}, xmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+        """void _mm256_mask_storeu_si256 (void * mem_addr, __mmask32 k, __m256i a)  VMOVDQU8 m256 {k1}{z}, ymm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+        """void _mm256_mask_storeu_pd (void * mem_addr, __mmask8 k, __m256d a)  VMOVUPD m256 {k1}{z}, ymm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[float], source: System.Runtime.Intrinsics.Vector128[float]) -> None:
+        """void _mm_mask_store_pd (void * mem_addr, __mmask8 k, __m128d a)  VMOVAPD m128 {k1}{z}, xmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+        """void _mm_mask_store_epi32 (void * mem_addr, __mmask8 k, __m128i a)  VMOVDQA32 m128 {k1}{z}, xmm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[float], source: System.Runtime.Intrinsics.Vector256[float]) -> None:
+        """void _mm256_mask_store_pd (void * mem_addr, __mmask8 k, __m256d a)  VMOVAPD m256 {k1}{z}, ymm1"""
+        ...
+
+    @staticmethod
+    @overload
+    def mask_store_aligned(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+        """void _mm256_mask_store_epi32 (void * mem_addr, __mmask8 k, __m256i a)  VMOVDQA32 m256 {k1}{z}, ymm1"""
+        ...
+
+    @staticmethod
+    @overload
     def max(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """__m128i _mm_max_epi64 (__m128i a, __m128i b)  VPMAXSQ xmm1 {k1}{z}, xmm2, xmm3/m128/m64bcst"""
         ...
@@ -6277,6 +7217,30 @@ class Avx10v1(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
     @overload
     def min(left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
         """__m256i _mm256_min_epi64 (__m256i a, __m256i b)  VPMINSQ ymm1 {k1}{z}, ymm2, ymm3/m256/m64bcst"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[int]) -> int:
+        """unsigned int _cvtmask16_u32 (__mmask16 a)  KMOVW r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[float]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
+        """unsigned int _cvtmask32_u32 (__mmask32 a)  KMOVD r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[float]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
         ...
 
     @staticmethod
@@ -6859,6 +7823,18 @@ class Avx512DQ(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
             ...
 
         @staticmethod
+        @overload
+        def classify(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+            """__mmask8 _mm_fpclass_pd_mask (__m128d a, int c)  VFPCLASSPD k2 {k1}, xmm2/m128/m64bcst, imm8"""
+            ...
+
+        @staticmethod
+        @overload
+        def classify(value: System.Runtime.Intrinsics.Vector256[float], control: int) -> System.Runtime.Intrinsics.Vector256[float]:
+            """__mmask8 _mm256_fpclass_pd_mask (__m256d a, int c)  VFPCLASSPD k2 {k1}, ymm2/m256/m64bcst, imm8"""
+            ...
+
+        @staticmethod
         def convert_to_vector_128_double(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
             """__m128d _mm_cvtepi64_pd (__m128i a)  VCVTQQ2PD xmm1 {k1}{z}, xmm2/m128/m64bcst"""
             ...
@@ -7026,6 +8002,16 @@ class Avx512DQ(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def classify(value: System.Runtime.Intrinsics.Vector512[float], control: int) -> System.Runtime.Intrinsics.Vector512[float]:
+        """__mmask8 _mm512_fpclass_pd_mask (__m512d a, int c)  VFPCLASSPD k2 {k1}, zmm2/m512/m64bcst, imm8"""
+        ...
+
+    @staticmethod
+    def classify_scalar(value: System.Runtime.Intrinsics.Vector128[float], control: int) -> System.Runtime.Intrinsics.Vector128[float]:
+        """__mmask8 _mm_fpclass_sd_mask (__m128d a, int c)  VFPCLASSSS k2 {k1}, xmm2/m32, imm8"""
+        ...
+
+    @staticmethod
     @overload
     def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector256[float]:
         """__m512 _mm512_cvtepi64_ps (__m512i a)  VCVTQQ2PS ymm1 {k1}{z}, zmm2/m512/m64bcst"""
@@ -7167,6 +8153,42 @@ class Avx512DQ(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
     @overload
     def insert_vector_256(value: System.Runtime.Intrinsics.Vector512[float], data: System.Runtime.Intrinsics.Vector256[float], index: int) -> System.Runtime.Intrinsics.Vector512[float]:
         """__m512 _mm512_insertf32x8_ps (__m512 a, __m256 b, int imm8)  VINSERTF32x8 zmm1 {k1}{z}, zmm2, xmm3/m256, imm8"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[float]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector128[int]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[float]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector256[int]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[float]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
+        ...
+
+    @staticmethod
+    @overload
+    def move_mask(value: System.Runtime.Intrinsics.Vector512[int]) -> int:
+        """unsigned int _cvtmask8_u32 (__mmask8 a)  KMOVB r32, k1"""
         ...
 
     @staticmethod
@@ -7596,25 +8618,49 @@ class Avx512Vbmi2(System.Runtime.Intrinsics.X86.Avx512Vbmi, metaclass=abc.ABCMet
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_mask_compress_epi8 (__m128i s, __mmask16 k, __m128i a)  VPCOMPRESSB xmm1/m128 {k1}{z}, xmm2"""
+            """__m128i _mm_mask_compress_epi8 (__m128i s, __mmask16 k, __m128i a)  VPCOMPRESSB xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def compress(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_mask_compress_epi8 (__m256i s, __mmask32 k, __m256i a)  VPCOMPRESSB ymm1/m256 {k1}{z}, ymm2"""
+            """__m256i _mm256_mask_compress_epi8 (__m256i s, __mmask32 k, __m256i a)  VPCOMPRESSB ymm1 {k1}{z}, ymm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+            """__m128i _mm_mask_compressstoreu_epi8 (void * s, __mmask16 k, __m128i a)  VPCOMPRESSB m128 {k1}{z}, xmm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], source: System.Runtime.Intrinsics.Vector256[int]) -> None:
+            """void _mm256_mask_compressstoreu_epi8 (void * s, __mmask32 k, __m256i a)  VPCOMPRESSB m256 {k1}{z}, ymm2"""
             ...
 
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector128[int], mask: System.Runtime.Intrinsics.Vector128[int], value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-            """__m128i _mm_mask_expand_epi8 (__m128i s, __mmask16 k, __m128i a)  VPEXPANDB xmm1 {k1}{z}, xmm2/m128"""
+            """__m128i _mm_mask_expand_epi8 (__m128i s, __mmask16 k, __m128i a)  VPEXPANDB xmm1 {k1}{z}, xmm2"""
             ...
 
         @staticmethod
         @overload
         def expand(merge: System.Runtime.Intrinsics.Vector256[int], mask: System.Runtime.Intrinsics.Vector256[int], value: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
-            """__m256i _mm256_mask_expand_epi8 (__m256i s, __mmask32 k, __m256i a)  VPEXPANDB ymm1 {k1}{z}, ymm2/m256"""
+            """__m256i _mm256_mask_expand_epi8 (__m256i s, __mmask32 k, __m256i a)  VPEXPANDB ymm1 {k1}{z}, ymm2"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector128[int], merge: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+            """__m128i _mm_mask_expandloadu_epi8 (__m128i s, __mmask16 k, void const * a)  VPEXPANDB xmm1 {k1}{z}, m128"""
+            ...
+
+        @staticmethod
+        @overload
+        def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector256[int], merge: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+            """__m256i _mm256_mask_expandloadu_epi8 (__m256i s, __mmask32 k, void const * a)  VPEXPANDB ymm1 {k1}{z}, m256"""
             ...
 
     class X64(System.Runtime.Intrinsics.X86.Avx512Vbmi.X64, metaclass=abc.ABCMeta):
@@ -7628,12 +8674,22 @@ class Avx512Vbmi2(System.Runtime.Intrinsics.X86.Avx512Vbmi, metaclass=abc.ABCMet
 
     @staticmethod
     def compress(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_mask_compress_epi8 (__m512i s, __mmask64 k, __m512i a)  VPCOMPRESSB zmm1/m512 {k1}{z}, zmm2"""
+        """__m512i _mm512_mask_compress_epi8 (__m512i s, __mmask64 k, __m512i a)  VPCOMPRESSB zmm1 {k1}{z}, zmm2"""
+        ...
+
+    @staticmethod
+    def compress_store(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], source: System.Runtime.Intrinsics.Vector512[int]) -> None:
+        """__m512i _mm512_mask_compresstoreu_epi8 (void * s, __mmask64 k, __m512i a)  VPCOMPRESSB m512 {k1}{z}, zmm2"""
         ...
 
     @staticmethod
     def expand(merge: System.Runtime.Intrinsics.Vector512[int], mask: System.Runtime.Intrinsics.Vector512[int], value: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        """__m512i _mm512_mask_expand_epi8 (__m512i s, __mmask64 k, __m512i a)  VPEXPANDB zmm1 {k1}{z}, zmm2/m512"""
+        """__m512i _mm512_mask_expand_epi8 (__m512i s, __mmask64 k, __m512i a)  VPEXPANDB zmm1 {k1}{z}, zmm2"""
+        ...
+
+    @staticmethod
+    def expand_load(address: typing.Any, mask: System.Runtime.Intrinsics.Vector512[int], merge: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        """__m512i _mm512_mask_expandloadu_epi8 (__m512i s, __mmask64 k, void * const a)  VPEXPANDB zmm1 {k1}{z}, m512"""
         ...
 
 

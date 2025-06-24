@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: batou
-Version: 2.5.4
+Version: 2.6.0
 Summary: A utility for automating multi-host, multi-environment software builds and deployments.
 Home-page: https://batou.readthedocs.io/en/latest/
 Author: Christian Theune

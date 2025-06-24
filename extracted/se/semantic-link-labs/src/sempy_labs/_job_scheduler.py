@@ -7,6 +7,7 @@ from sempy_labs._helper_functions import (
     _update_dataframe_datatypes,
     _base_api,
     _create_dataframe,
+    resolve_workspace_id,
 )
 from uuid import UUID
 import sempy_labs._icons as icons
@@ -38,9 +39,9 @@ def list_item_job_instances(
         Shows a list of job instances for the specified item.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
     (item_name, item_id) = resolve_item_name_and_id(
-        item=item, type=type, workspace=workspace
+        item=item, type=type, workspace=workspace_id
     )
 
     columns = {
@@ -87,8 +88,48 @@ def list_item_job_instances(
 
     if dfs:
         df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
-    df = _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    return df
+
+
+@log
+def _get_item_job_instance(url: str) -> pd.DataFrame:
+
+    columns = {
+        "Job Instance Id": "string",
+        "Item Id": "string",
+        "Job Type": "string",
+        "Invoke Type": "string",
+        "Status": "string",
+        "Root Activity Id": "string",
+        "Start Time UTC": "datetime",
+        "End Time UTC": "string",
+        "Error Message": "string",
+    }
+    df = _create_dataframe(columns=columns)
+
+    response = _base_api(request=url)
+
+    dfs = []
+    for v in response.json().get("value", []):
+        fail = v.get("failureReason", {})
+        new_data = {
+            "Job Instance Id": v.get("id"),
+            "Item Id": v.get("itemId"),
+            "Job Type": v.get("jobType"),
+            "Invoke Type": v.get("invokeType"),
+            "Status": v.get("status"),
+            "Root Activity Id": v.get("rootActivityId"),
+            "Start Time UTC": v.get("startTimeUtc"),
+            "End Time UTC": v.get("endTimeUtc"),
+            "Error Message": fail.get("message") if fail is not None else "",
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
@@ -124,9 +165,9 @@ def list_item_schedules(
         Shows a list of scheduling settings for one specific item.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
     (item_name, item_id) = resolve_item_name_and_id(
-        item=item, type=type, workspace=workspace
+        item=item, type=type, workspace=workspace_id
     )
 
     columns = {
@@ -149,6 +190,7 @@ def list_item_schedules(
         request=f"v1/workspaces/{workspace_id}/items/{item_id}/jobs/{job_type}/schedules"
     )
 
+    dfs = []
     for v in response.json().get("value", []):
         config = v.get("configuration", {})
         own = v.get("owner", {})
@@ -167,9 +209,11 @@ def list_item_schedules(
             "Owner Type": own.get("type"),
         }
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
@@ -215,6 +259,7 @@ def run_on_demand_item_job(
     print(f"{icons.green_dot} The '{item_name}' {type.lower()} has been executed.")
 
 
+@log
 def create_item_schedule_cron(
     item: str | UUID,
     type: str,
@@ -283,6 +328,7 @@ def create_item_schedule_cron(
     )
 
 
+@log
 def create_item_schedule_daily(
     item: str | UUID,
     type: str,
@@ -351,6 +397,7 @@ def create_item_schedule_daily(
     )
 
 
+@log
 def create_item_schedule_weekly(
     item: str | UUID,
     type: str,

@@ -334,10 +334,10 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         if len(itens_arla) == len(itens):
             for item in itens_to_select:
-                if '1202' in item and (('s/ est' in item.lower() or 's/est' in item.lower())):
+                if ('1202' in item and ('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
                     nop_to_be_select = item
                     break
-                elif '2202' in item and (('s/ est' in item.lower() or 's/est' in item.lower())):
+                elif '2202' in item and (('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
                     nop_to_be_select = item
                     break
         else:        
@@ -832,7 +832,13 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         pesquisar_venda_devolucao = await is_window_open_by_class("TFrmGerenciadorNFe2", "TFrmGerenciadorNFe2")
         if pesquisar_venda_devolucao["IsOpened"] == True:
             console.print(f"\n'Gerenciador de Notas Fiscais'aberta com sucesso",style="bold green")
-            selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_cliente_incorreto)
+
+            if cod_cliente_incorreto != "140552":
+                selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_cliente_incorreto)
+            else:
+                selecionar_itens_gerenciador_nfe = await gerenciador_nf_header(data_hoje, cod_empresa)
+
+            
             if selecionar_itens_gerenciador_nfe.sucesso:
                 console.print("PROCESSO EXECUTADO COM SUCESSO, SEGUINDO COM O PROCESSO PARA TRANSMITIR A NF-E...\n")
                 app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)

@@ -10226,7 +10226,7 @@ class roughness_correlation_fcn(String, AllowedValuesMixin):
     Roughness Correlation Function.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'roughness-correlation-fcn'
     _python_name = 'roughness_correlation_fcn'
 
@@ -14307,7 +14307,7 @@ class pressure_gradient_force(Group):
     Deprecated, only for backward compatibility -- objects have been moved one level up.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'pressure-gradient-force'
     _python_name = 'pressure_gradient_force'
     _child_aliases = dict(
@@ -14497,7 +14497,7 @@ class include_convective_heat_transfer(Boolean):
     Enable/disable convection/conduction in the film-to-wall heat transfer model.
     """
     _version = '252'
-    _deprecated_version = '2023R2'
+    _deprecated_version = '23.2'
     fluent_name = 'include-convective-heat-transfer'
     _python_name = 'include_convective_heat_transfer'
 
@@ -15011,7 +15011,7 @@ class kernel(Group):
     Deprecated, only for backward compatibility -- objects have been moved one level up.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'kernel'
     _python_name = 'kernel'
     _child_aliases = dict(
@@ -32473,7 +32473,7 @@ class volumetric_species(NamedObject[volumetric_species_child], CreatableNamedOb
     'volumetric_species' child.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'volumetric-species'
     _python_name = 'volumetric_species'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -34475,7 +34475,7 @@ class particle_species(NamedObject[particle_species_child], CreatableNamedObject
     'particle_species' child.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'particle-species'
     _python_name = 'particle_species'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -35596,7 +35596,7 @@ class function_of_2(String, AllowedValuesMixin):
     What variable this object is a function of.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'function-of'
     _python_name = 'function_of'
 
@@ -49207,7 +49207,7 @@ class rotating(Boolean):
     Apply a rotational velocity to this wall.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rotating?'
     _python_name = 'rotating'
 
@@ -49216,7 +49216,7 @@ class components_2(Boolean):
     Define wall velocity components.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'components?'
     _python_name = 'components'
 
@@ -49771,7 +49771,7 @@ class rough_nasa(Boolean):
     NASA sand-grain roughness model for icing?.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-nasa?'
     _python_name = 'rough_nasa'
 
@@ -49780,7 +49780,7 @@ class rough_shin_et_al(Boolean):
     Shin-et-al sand-grain roughness model for icing ?.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-shin-et-al?'
     _python_name = 'rough_shin_et_al'
 
@@ -49789,7 +49789,7 @@ class rough_data(Boolean):
     Variable Roughness From ICE3D?.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-data?'
     _python_name = 'rough_data'
 
@@ -53557,7 +53557,7 @@ class boundaries_1(Group):
     'boundaries' child.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'boundaries'
     _python_name = 'boundaries'
     child_names = ['axis', 'degassing', 'exhaust_fan', 'fan', 'geometry', 'inlet_vent', 'intake_fan', 'interface', 'interior', 'mass_flow_inlet', 'mass_flow_outlet', 'network', 'network_end', 'outflow', 'outlet_vent', 'overset', 'periodic', 'porous_jump', 'pressure_far_field', 'pressure_inlet', 'pressure_outlet', 'radiator', 'rans_les_interface', 'recirculation_inlet', 'recirculation_outlet', 'shadow', 'symmetry', 'velocity_inlet', 'wall']
@@ -67489,7 +67489,7 @@ class skewness_correction_itr_count_1(Integer):
     Iterations for skewness correction.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'skewness-correction-itr-count'
     _python_name = 'skewness_correction_itr_count'
 
@@ -67498,7 +67498,7 @@ class neighbor_correction_itr_count_1(Integer):
     Iterations for neighbor correction.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'neighbor-correction-itr-count'
     _python_name = 'neighbor_correction_itr_count'
 
@@ -67507,7 +67507,7 @@ class skewness_neighbor_coupling_2(Boolean):
     Skewness-Neighbor Coupling?.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'skewness-neighbor-coupling'
     _python_name = 'skewness_neighbor_coupling'
 
@@ -70055,7 +70055,7 @@ class create_output_parameter(Command):
     Option to make report definition available as an output parameter.
     """
     _version = '252'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'create-output-parameter'
     _python_name = 'create_output_parameter'
 
@@ -71000,7 +71000,7 @@ class expression_7(NamedObject[expression_7_child], CreatableNamedObjectMixin[ex
     Create a new or edit an existing report definition.
     """
     _version = '252'
-    _deprecated_version = '2021R1'
+    _deprecated_version = '21.1'
     fluent_name = 'expression'
     _python_name = 'expression'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -74974,7 +74974,7 @@ class set_1(Command):
     'set' command.
     """
     _version = '252'
-    _deprecated_version = '2023R2'
+    _deprecated_version = '23.2'
     fluent_name = 'set'
     _python_name = 'set'
 
@@ -78299,7 +78299,7 @@ class create_group_surfaces(Command):
             The name for the group surface.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'create-group-surfaces'
     _python_name = 'create_group_surfaces'
     argument_names = ['surfaces', 'name']
@@ -78318,7 +78318,7 @@ class ungroup_surfaces(Command):
             The surface to ungroup.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'ungroup-surfaces'
     _python_name = 'ungroup_surfaces'
     argument_names = ['surface']
@@ -78632,7 +78632,7 @@ class edge_type(Group):
     Enables the display of the mesh outline.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'edge-type'
     _python_name = 'edge_type'
     child_names = ['option', 'all', 'feature', 'outline']
@@ -78824,7 +78824,7 @@ class coloring(Group):
     The coloring options object.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'coloring'
     _python_name = 'coloring'
     child_names = ['option', 'automatic', 'manual']
@@ -79009,7 +79009,7 @@ class range_option(Group):
     Specifies whether you want the range to be Global, Local to the selected surface(s), or Custom.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'range-option'
     _python_name = 'range_option'
     child_names = ['option', 'auto_range_on', 'auto_range_off']
@@ -79121,7 +79121,7 @@ class filled_1(Boolean):
     Toggles between filled contours and line contours.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'filled?'
     _python_name = 'filled'
 
@@ -79130,7 +79130,7 @@ class node_values(Boolean):
     Toggles between using scalar field values at nodes and at cell centers for computing the contours.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'node-values?'
     _python_name = 'node_values'
 
@@ -79139,7 +79139,7 @@ class boundary_values(Boolean):
     Enabling overwrites the node values (on boundaries) with a simple average of the boundary face values.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'boundary-values?'
     _python_name = 'boundary_values'
 
@@ -79148,7 +79148,7 @@ class contour_lines(Boolean):
     Combines filled contours with line contours.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'contour-lines?'
     _python_name = 'contour_lines'
 
@@ -79181,7 +79181,7 @@ class coloring_1(Group):
     Specifies how the contours appear.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coloring'
     _python_name = 'coloring'
     child_names = ['option', 'smooth', 'banded']
@@ -79535,7 +79535,7 @@ class scale_4(Group):
     A number by which the vector size would be scaled.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'scale'
     _python_name = 'scale'
     child_names = ['auto_scale', 'scale_f']
@@ -79549,7 +79549,7 @@ class style(String, AllowedValuesMixin):
     The shape for the displayed vectors.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style'
     _python_name = 'style'
 
@@ -79558,7 +79558,7 @@ class skip(Integer):
     A multiple by which the no. of vectors drawn would be reduced.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -79790,7 +79790,7 @@ class range_5(Group):
     Range using the min max options.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'range'
     _python_name = 'range'
     child_names = ['option', 'auto_range', 'clip_to_range']
@@ -79906,7 +79906,7 @@ class style_attribute(Group):
     The style attributes.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style-attribute'
     _python_name = 'style_attribute'
     child_names = ['style', 'line_width', 'arrow_space', 'arrow_scale', 'marker_size', 'sphere_size', 'sphere_lod', 'radius', 'ribbon']
@@ -80186,7 +80186,7 @@ class options_16(Group):
     Check the control options.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'options'
     _python_name = 'options'
     child_names = ['oil_flow', 'reverse', 'node_values', 'relative']
@@ -80226,7 +80226,7 @@ class accuracy_control_1(Group):
     Control the accuracy.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'accuracy-control'
     _python_name = 'accuracy_control'
     child_names = ['option', 'step_size', 'tolerance']
@@ -80351,7 +80351,7 @@ class step(Integer):
     Number of steps for pathlines.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'step'
     _python_name = 'step'
 
@@ -80360,7 +80360,7 @@ class skip_2(Integer):
     A number to skip pathline tracks.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -80369,7 +80369,7 @@ class coarsen_2(Integer):
     Coarsen level for pathlines.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
@@ -80378,7 +80378,7 @@ class onzone(StringList, AllowedValuesMixin):
     On zone from the given list.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'onzone'
     _python_name = 'onzone'
 
@@ -81176,7 +81176,7 @@ class style_attribute_1(Group):
     The style attributes.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style-attribute'
     _python_name = 'style_attribute'
     child_names = ['style', 'line_width', 'arrow_space', 'arrow_scale', 'marker_size', 'sphere_size', 'sphere_lod', 'radius', 'ribbon_settings', 'sphere_settings']
@@ -81281,7 +81281,7 @@ class vector_settings(Group):
     Vector style.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'vector-settings'
     _python_name = 'vector_settings'
     child_names = ['style', 'vector_length', 'constant_color', 'vector_of', 'scale', 'length_to_head_ratio']
@@ -81531,7 +81531,7 @@ class filter_settings(Group):
     The filter settings.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'filter-settings'
     _python_name = 'filter_settings'
     child_names = ['field', 'options', 'enabled', 'filter_minimum', 'filter_maximum']
@@ -81654,7 +81654,7 @@ class track_single_particle_stream(Group):
     Enable track single particle stream.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'track-single-particle-stream'
     _python_name = 'track_single_particle_stream'
     child_names = ['enabled', 'stream_id']
@@ -81668,7 +81668,7 @@ class skip_4(Integer):
     A number to skip particle tracks.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -81677,7 +81677,7 @@ class coarsen_4(Integer):
     Coarsen level for particle tracks.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
@@ -81686,7 +81686,7 @@ class free_stream_particles(Boolean):
     Free stream particles.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'free-stream-particles?'
     _python_name = 'free_stream_particles'
 
@@ -81695,7 +81695,7 @@ class wall_film_particles(Boolean):
     Wall film particles.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'wall-film-particles?'
     _python_name = 'wall_film_particles'
 
@@ -81704,7 +81704,7 @@ class track_pdf_particles(Boolean):
     Track pdf particles for tracks.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'track-pdf-particles?'
     _python_name = 'track_pdf_particles'
 
@@ -86451,7 +86451,7 @@ class options_20(Group):
     'options' child.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'options'
     _python_name = 'options'
     child_names = ['node_values', 'position_on_x_axis', 'position_on_y_axis']
@@ -86466,7 +86466,7 @@ class y_axis_function(String, AllowedValuesMixin):
     One of the coloring options.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'y-axis-function'
     _python_name = 'y_axis_function'
 
@@ -86475,7 +86475,7 @@ class x_axis_function_1(String, AllowedValuesMixin):
     One of the coloring options.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'x-axis-function'
     _python_name = 'x_axis_function'
 
@@ -86678,7 +86678,7 @@ class plot_direction_1(Group):
     'plot_direction' child.
     """
     _version = '252'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'plot-direction'
     _python_name = 'plot_direction'
     child_names = ['option', 'direction_vector', 'curve_length']
@@ -90071,7 +90071,7 @@ class op_udf(String):
     The DPM sampling output UDF.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'op-udf'
     _python_name = 'op_udf'
 
@@ -90088,7 +90088,7 @@ class accumulate_rates(Boolean):
     Enable accumulation of erosion and accretion rates over multiple tracking passes.
     """
     _version = '252'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'accumulate-rates?'
     _python_name = 'accumulate_rates'
 

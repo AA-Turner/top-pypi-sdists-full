@@ -7,7 +7,7 @@ from maleo_foundation.authorization import TOKEN_SCHEME, Authorization
 class AuthDependencies:
     @staticmethod
     def authentication(
-        request:Request
+        request: Request
     ) -> Authentication:
         return Authentication(
             credentials=request.auth,
@@ -16,7 +16,7 @@ class AuthDependencies:
 
     @staticmethod
     def authorization(
-        token:HTTPAuthorizationCredentials = Security(TOKEN_SCHEME)
+        token: HTTPAuthorizationCredentials = Security(TOKEN_SCHEME)
     ) -> Authorization:
         return Authorization(
             scheme=token.scheme,

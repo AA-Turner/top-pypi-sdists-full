@@ -29,8 +29,8 @@ use uv_distribution_types::{
     BuiltDist, DependencyMetadata, DirectUrlBuiltDist, DirectUrlSourceDist, DirectorySourceDist,
     Dist, DistributionMetadata, FileLocation, GitSourceDist, IndexLocations, IndexMetadata,
     IndexUrl, Name, PathBuiltDist, PathSourceDist, RegistryBuiltDist, RegistryBuiltWheel,
-    RegistrySourceDist, RemoteSource, Requirement, RequirementSource, ResolvedDist, StaticMetadata,
-    ToUrlError, UrlString,
+    RegistrySourceDist, RemoteSource, Requirement, RequirementSource, RequiresPython, ResolvedDist,
+    SimplifiedMarkerTree, StaticMetadata, ToUrlError, UrlString,
 };
 use uv_fs::{PortablePath, PortablePathBuf, relative_to};
 use uv_git::{RepositoryReference, ResolvedRepositoryReference};
@@ -57,12 +57,10 @@ pub use crate::lock::export::{PylockToml, PylockTomlErrorKind};
 pub use crate::lock::installable::Installable;
 pub use crate::lock::map::PackageMap;
 pub use crate::lock::tree::TreeDisplay;
-use crate::requires_python::SimplifiedMarkerTree;
 use crate::resolution::{AnnotatedDist, ResolutionGraphNode};
 use crate::universal_marker::{ConflictMarker, UniversalMarker};
 use crate::{
-    ExcludeNewer, InMemoryIndex, MetadataResponse, PrereleaseMode, RequiresPython, ResolutionMode,
-    ResolverOutput,
+    ExcludeNewer, InMemoryIndex, MetadataResponse, PrereleaseMode, ResolutionMode, ResolverOutput,
 };
 
 mod export;
@@ -767,6 +765,36 @@ impl Lock {
             Ok(())
         } else {
             Err((fork_markers_union, environments_union))
+        }
+    }
+
+    /// Checks whether the new requires-python specification is disjoint with
+    /// the fork markers in this lock file.
+    ///
+    /// If they are disjoint, then the union of the fork markers along with the
+    /// given requires-python specification (converted to a marker tree) are
+    /// returned.
+    ///
+    /// When disjoint, the fork markers in the lock file should be dropped and
+    /// not used.
+    pub fn requires_python_coverage(
+        &self,
+        new_requires_python: &RequiresPython,
+    ) -> Result<(), (MarkerTree, MarkerTree)> {
+        let fork_markers_union = if self.fork_markers().is_empty() {
+            self.requires_python.to_marker_tree()
+        } else {
+            let mut fork_markers_union = MarkerTree::FALSE;
+            for fork_marker in self.fork_markers() {
+                fork_markers_union.or(fork_marker.pep508());
+            }
+            fork_markers_union
+        };
+        let new_requires_python = new_requires_python.to_marker_tree();
+        if fork_markers_union.is_disjoint(new_requires_python) {
+            Err((fork_markers_union, new_requires_python))
+        } else {
+            Ok(())
         }
     }
 

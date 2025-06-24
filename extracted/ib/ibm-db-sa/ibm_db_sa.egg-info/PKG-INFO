@@ -1,23 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ibm_db_sa
-Version: 0.4.1
+Version: 0.4.2
 Summary: SQLAlchemy support for IBM Data Servers
 Home-page: http://pypi.python.org/pypi/ibm_db_sa/
 Download-URL: https://github.com/ibmdb/python-ibmdbsa
 Author: IBM Application Development Team
 Author-email: balram.choudhary@ibm.com
-License: Apache License 2.0
+License: Apache-2.0
 Keywords: sqlalchemy database interface IBM Data Servers Db2
 Platform: All
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Database :: Front-Ends
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: sqlalchemy>=0.7.3
 Requires-Dist: ibm_db>=2.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
 
 IBM_DB_SA
 =========
@@ -26,7 +38,7 @@ The IBM_DB_SA adapter provides the Python/SQLAlchemy interface to IBM Data Serve
 
 Version
 --------
-0.4.1 (2024/07/30)
+0.4.2 (2025/06/23)
 
 Prerequisites
 --------------

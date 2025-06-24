@@ -23533,6 +23533,50 @@ components:
         rowsUnprocessed:
           type: integer
       type: object
+    AutomationTransformStatusFailedEventV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationFileTransform:
+            $ref: '#/components/schemas/LabAutomationTransform'
+          eventType:
+            enum:
+            - v2.automationFileTransform.updated.status.failed
+            type: string
+        type: object
+    AutomationTransformStatusPendingEventV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationFileTransform:
+            $ref: '#/components/schemas/LabAutomationTransform'
+          eventType:
+            enum:
+            - v2.automationFileTransform.updated.status.pending
+            type: string
+        type: object
+    AutomationTransformStatusRunningEventV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationFileTransform:
+            $ref: '#/components/schemas/LabAutomationTransform'
+          eventType:
+            enum:
+            - v2.automationFileTransform.updated.status.running
+            type: string
+        type: object
+    AutomationTransformStatusSucceededEventV2Event:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - properties:
+          automationFileTransform:
+            $ref: '#/components/schemas/LabAutomationTransform'
+          eventType:
+            enum:
+            - v2.automationFileTransform.updated.status.succeeded
+            type: string
+        type: object
     BackTranslate:
       additionalProperties: false
       properties:
@@ -27840,6 +27884,10 @@ components:
           v2-beta.entry.updated.reviewSnapshot: '#/components/schemas/EntryUpdatedReviewSnapshotBetaEvent'
           v2.assayRun.created: '#/components/schemas/AssayRunCreatedEvent'
           v2.assayRun.updated.fields: '#/components/schemas/AssayRunUpdatedFieldsEvent'
+          v2.automationFileTransform.updated.status.failed: '#/components/schemas/AutomationTransformStatusFailedEventV2Event'
+          v2.automationFileTransform.updated.status.pending: '#/components/schemas/AutomationTransformStatusPendingEventV2Event'
+          v2.automationFileTransform.updated.status.running: '#/components/schemas/AutomationTransformStatusRunningEventV2Event'
+          v2.automationFileTransform.updated.status.succeeded: '#/components/schemas/AutomationTransformStatusSucceededEventV2Event'
           v2.entity.registered: '#/components/schemas/EntityRegisteredEvent'
           v2.entry.created: '#/components/schemas/EntryCreatedEvent'
           v2.entry.updated.fields: '#/components/schemas/EntryUpdatedFieldsEvent'
@@ -27873,6 +27921,10 @@ components:
       - $ref: '#/components/schemas/AutomationInputGeneratorCompletedV2BetaEvent'
       - $ref: '#/components/schemas/AutomationOutputProcessorCompletedV2BetaEvent'
       - $ref: '#/components/schemas/AutomationOutputProcessorUploadedV2BetaEvent'
+      - $ref: '#/components/schemas/AutomationTransformStatusPendingEventV2Event'
+      - $ref: '#/components/schemas/AutomationTransformStatusRunningEventV2Event'
+      - $ref: '#/components/schemas/AutomationTransformStatusSucceededEventV2Event'
+      - $ref: '#/components/schemas/AutomationTransformStatusFailedEventV2Event'
       - $ref: '#/components/schemas/WorkflowTaskGroupCreatedEvent'
       - $ref: '#/components/schemas/WorkflowTaskGroupMappingCompletedEvent'
       - $ref: '#/components/schemas/WorkflowTaskCreatedEvent'

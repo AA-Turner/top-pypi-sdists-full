@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.6.3
+Version: 1.6.4
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -519,6 +519,8 @@ Requires-Dist: mem0ai; extra == "mem0"
 Provides-Extra: newspaper
 Requires-Dist: newspaper4k; extra == "newspaper"
 Requires-Dist: lxml_html_clean; extra == "newspaper"
+Provides-Extra: opencv
+Requires-Dist: opencv-python; extra == "opencv"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: webex
@@ -631,6 +633,7 @@ Requires-Dist: agno[webex]; extra == "tools"
 Requires-Dist: agno[mcp]; extra == "tools"
 Requires-Dist: agno[browserbase]; extra == "tools"
 Requires-Dist: agno[agentql]; extra == "tools"
+Requires-Dist: agno[opencv]; extra == "tools"
 Requires-Dist: agno[confluence]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"

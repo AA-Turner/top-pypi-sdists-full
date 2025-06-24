@@ -289,7 +289,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorKind::InvalidLiteral,
                     None,
                     format!(
-                        "Expected literal True or False, got {}",
+                        "Expected literal `True` or `False`, got `{}`",
                         self.for_display(ty)
                     ),
                 );
@@ -737,7 +737,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::NotIterable,
                         None,
                         format!(
-                            "Expected an iterable, got {}",
+                            "Expected an iterable, got `{}`",
                             self.for_display(unpacked_ty)
                         ),
                     )
@@ -809,7 +809,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let targ = match xs.len() {
                         // This causes us to treat `type[list]` as equivalent to `type[list[Any]]`,
                         // which may or may not be what we want.
-                        1 => self.expr_untype(&xs[0], TypeFormContext::TypeArgument, errors),
+                        1 => self.expr_untype(&xs[0], TypeFormContext::TypeArgumentForType, errors),
                         _ => self.error(
                             errors,
                             range,
@@ -1031,9 +1031,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Tuple(x) => {
                 // These hints could be more precise
                 let hint_ts = match hint {
-                    Some(Type::Tuple(Tuple::Concrete(elts))) => elts,
-                    Some(Type::Tuple(Tuple::Unpacked(box (prefix, _, _)))) => prefix,
-                    _ => &Vec::new(),
+                    Some(Type::Tuple(Tuple::Concrete(elts))) => elts.as_slice(),
+                    Some(Type::Tuple(Tuple::Unpacked(box (prefix, _, _)))) => prefix.as_slice(),
+                    _ => &[],
                 };
                 let default_hint = match hint {
                     Some(Type::Tuple(Tuple::Unbounded(elt))) => Some(&**elt),
@@ -1082,7 +1082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             ErrorKind::NotIterable,
                                             None,
                                             format!(
-                                                "Expected an iterable, got {}",
+                                                "Expected an iterable, got `{}`",
                                                 self.for_display(ty)
                                             ),
                                         );

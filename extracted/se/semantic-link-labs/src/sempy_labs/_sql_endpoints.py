@@ -7,10 +7,13 @@ from sempy_labs._helper_functions import (
     resolve_workspace_name_and_id,
     resolve_item_name_and_id,
     _update_dataframe_datatypes,
+    resolve_workspace_id,
 )
 import sempy_labs._icons as icons
+from sempy._utils._log import log
 
 
+@log
 def list_sql_endpoints(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the SQL endpoints within a workspace.
@@ -35,12 +38,13 @@ def list_sql_endpoints(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/sqlEndpoints", uses_pagination=True
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
 
@@ -49,11 +53,15 @@ def list_sql_endpoints(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 "SQL Endpoint Name": v.get("displayName"),
                 "Description": v.get("description"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def refresh_sql_endpoint_metadata(
     item: str | UUID,
     type: Literal["Lakehouse", "MirroredDatabase"],
@@ -149,37 +157,52 @@ def refresh_sql_endpoint_metadata(
         "Error Message": "string",
     }
 
-    df = pd.json_normalize(result)
+    if result:
+        df = pd.json_normalize(result)
 
-    # Extract error code and message, set to None if no error
-    df['Error Code'] = df.get('error.errorCode', None)
-    df['Error Message'] = df.get('error.message', None)
+        # Extract error code and message, set to None if no error
+        df["Error Code"] = df.get("error.errorCode", None)
+        df["Error Message"] = df.get("error.message", None)
 
-    # Friendly column renaming
-    df.rename(columns={
-        'tableName': 'Table Name',
-        'startDateTime': 'Start Time',
-        'endDateTime': 'End Time',
-        'status': 'Status',
-        'lastSuccessfulSyncDateTime': 'Last Successful Sync Time'
-    }, inplace=True)
+        # Friendly column renaming
+        df.rename(
+            columns={
+                "tableName": "Table Name",
+                "startDateTime": "Start Time",
+                "endDateTime": "End Time",
+                "status": "Status",
+                "lastSuccessfulSyncDateTime": "Last Successful Sync Time",
+            },
+            inplace=True,
+        )
 
-    # Drop the original 'error' column if present
-    df.drop(columns=[col for col in ['error'] if col in df.columns], inplace=True)
+        # Drop the original 'error' column if present
+        df.drop(columns=[col for col in ["error"] if col in df.columns], inplace=True)
 
-    # Optional: Reorder columns
-    column_order = [
-        'Table Name', 'Status', 'Start Time', 'End Time',
-        'Last Successful Sync Time', 'Error Code', 'Error Message'
-    ]
-    df = df[column_order]
+        # Optional: Reorder columns
+        column_order = [
+            "Table Name",
+            "Status",
+            "Start Time",
+            "End Time",
+            "Last Successful Sync Time",
+            "Error Code",
+            "Error Message",
+        ]
+        df = df[column_order]
+
+        printout = f"{icons.green_dot} The metadata of the SQL endpoint for the '{item_name}' {type.lower()} within the '{workspace_name}' workspace has been refreshed"
+        if tables:
+            print(f"{printout} for the following tables: {tables}.")
+        else:
+            print(f"{printout} for all tables.")
+    else:
+        # If the target item has no tables to refresh the metadata for
+        df = pd.DataFrame(columns=columns.keys())
+        print(
+            f"{icons.yellow_dot} The SQL endpoint '{item_name}' {type.lower()} within the '{workspace_name}' workspace has no tables to refresh..."
+        )
 
     _update_dataframe_datatypes(df, columns)
-
-    printout = f"{icons.green_dot} The metadata of the SQL endpoint for the '{item_name}' {type.lower()} within the '{workspace_name}' workspace has been refreshed"
-    if tables:
-        print(f"{printout} for the following tables: {tables}.")
-    else:
-        print(f"{printout} for all tables.")
 
     return df

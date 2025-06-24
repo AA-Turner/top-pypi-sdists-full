@@ -128,6 +128,8 @@ pub enum TypeFormContext {
     ReturnAnnotation,
     /// Type argument for a generic
     TypeArgument,
+    /// Type argument for `bulitins.type`
+    TypeArgumentForType,
     /// Type argument for the return position of a Callable type
     TypeArgumentCallableReturn,
     /// Type argument for the parameters list of a Callable type or a tuple
@@ -236,7 +238,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let class = &*self.get_idx(*class_key);
                     if let Some(cls) = &class.0 {
-                        ty.subst_self_special_form_mut(&Type::SelfType(cls.as_class_type()));
+                        ty.subst_self_special_form_mut(&Type::SelfType(
+                            self.as_class_type_unchecked(cls),
+                        ));
                     }
                 }
                 Arc::new(AnnotationWithTarget {
@@ -279,7 +283,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::InvalidAnnotation,
                         None,
-                        format!("{} is only allowed inside a class body.", special),
+                        format!("`{}` is only allowed inside a class body", special),
                     );
                     None
                 }
@@ -295,7 +299,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::InvalidAnnotation,
                         None,
                         format!(
-                            "{} is only allowed on a class or local variable annotation.",
+                            "`{}` is only allowed on a class or local variable annotation",
                             special
                         ),
                     );
@@ -312,7 +316,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range(),
                         ErrorKind::InvalidAnnotation,
                         None,
-                        "TypeAlias is only allowed on variable annotations.".to_owned(),
+                        "`TypeAlias` is only allowed on variable annotations".to_owned(),
                     );
                     None
                 }
@@ -492,13 +496,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Type::SpecialForm(special_form) = ann_ty
                     && !special_form.is_valid_unparameterized_annotation(type_form_context)
                 {
-                    self.error(
-                        errors,
-                        x.range(),
-                        ErrorKind::InvalidAnnotation,
-                        None,
-                        format!("Expected a type argument for `{}`", special_form),
-                    );
+                    if special_form.can_be_subscripted() {
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorKind::InvalidAnnotation,
+                            None,
+                            format!("Expected a type argument for `{}`", special_form),
+                        );
+                    } else {
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorKind::InvalidAnnotation,
+                            None,
+                            format!("`{}` is not allowed in this context", special_form),
+                        );
+                    }
                 }
                 Annotation::new_type(ann_ty)
             }
@@ -755,6 +769,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 *ty = Type::Quantified(q);
             }
             Type::Unpack(t) => self.tvars_to_tparams_for_type_alias(
+                t,
+                seen_type_vars,
+                seen_type_var_tuples,
+                seen_param_specs,
+                tparams,
+            ),
+            Type::Type(t) => self.tvars_to_tparams_for_type_alias(
                 t,
                 seen_type_vars,
                 seen_type_var_tuples,
@@ -1060,9 +1081,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         tparams: Vec<TParam>,
         errors: &ErrorCollector,
-    ) -> TParams {
+    ) -> Arc<TParams> {
         self.validate_type_params(range, &tparams, errors);
-        TParams::new(tparams)
+        Arc::new(TParams::new(tparams))
     }
 
     pub fn solve_binding(&self, binding: &Binding, errors: &ErrorCollector) -> Arc<TypeInfo> {
@@ -1389,7 +1410,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::ClassType(obj_cls) => make_super_instance(obj_cls, &|| SuperObj::Instance(obj_cls.clone())),
                             Type::Type(box Type::ClassType(obj_cls)) => make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.class_object().dupe())),
                             Type::ClassDef(obj_cls) => {
-                                let obj_type = obj_cls.as_class_type();
+                                let obj_type = self.type_order().as_class_type_unchecked(obj_cls);
                                 make_super_instance(&obj_type, &|| SuperObj::Class(obj_cls.dupe()))
                             }
                             Type::SelfType(obj_cls) => {
@@ -1424,7 +1445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             SuperStyle::ImplicitArgs(self_binding, method) => {
                 match &self.get_idx(*self_binding).0 {
                     Some(obj_cls) => {
-                        let obj_type = obj_cls.as_class_type();
+                        let obj_type = self.as_class_type_unchecked(obj_cls);
                         let lookup_cls = self.get_super_lookup_class(obj_cls, &obj_type).unwrap();
                         let obj = if method.id == dunder::NEW {
                             // __new__ is special: it's the only static method in which the
@@ -1527,7 +1548,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidParamSpec,
                         None,
-                        format!("Default for ParamSpec must be a parameter list, `...`, or another ParamSpec, got `{}`", default),
+                        format!("Default for `ParamSpec` must be a parameter list, `...`, or another `ParamSpec`, got `{}`", default),
                     );
                     Type::any_error()
                 }
@@ -1543,7 +1564,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         range,
                         ErrorKind::InvalidTypeVarTuple,
                         None,
-                        format!("Default for TypeVarTuple must be an unpacked tuple form or another TypeVarTuple, got `{}`", default),
+                        format!("Default for `TypeVarTuple` must be an unpacked tuple form or another `TypeVarTuple`, got `{}`", default),
                     );
                     Type::any_error()
                 }
@@ -1556,7 +1577,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorKind::InvalidTypeVar,
                         None,
                         format!(
-                            "Default for TypeVar may not be a TypeVarTuple or ParamSpec, got `{}`",
+                            "Default for `TypeVar` may not be a `TypeVarTuple` or `ParamSpec`, got `{}`",
                             default
                         ),
                     );
@@ -1611,6 +1632,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some((identifier, chain)) =
                     identifier_and_chain_for_expr(&Expr::Attribute(attr.clone()))
                 {
+                    // Note that the value we are doing `self.get` on is the same one we did in infer_expr, which is a bit sad.
+                    // But avoiding the duplicate get/clone would require us to duplicate some of infer_expr here, which might
+                    // fall out of sync.
                     let mut type_info = self
                         .get(&Key::BoundName(ShortIdentifier::new(&identifier)))
                         .arc_clone();
@@ -2509,8 +2533,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => self.binding_to_type(val, errors),
             },
             Binding::Type(x) => x.clone(),
-            Binding::StrType => self.stdlib.str().clone().to_type(),
-            Binding::BoolType => self.stdlib.bool().clone().to_type(),
+            Binding::Global(global) => global.as_type(self.stdlib),
             Binding::TypeParameter(box TypeParameter {
                 name,
                 unique,
@@ -2787,7 +2810,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.range,
                         ErrorKind::InvalidYield,
                         None,
-                        format!("yield from value must be iterable, got `{ty}`"),
+                        format!(
+                            "yield from value must be iterable, got `{}`",
+                            self.for_display(ty)
+                        ),
                     );
                     YieldFromResult::any_error()
                 };
@@ -2816,10 +2842,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// For example, in `def f(x: int): ...`, we evaluate `int` as a value, getting its type as
     /// `type[int]`, then call `untype(type[int])` to get the `int` annotation.
     fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
-        let mut ty = ty;
-        if let Type::Forall(forall) = ty {
-            ty = self.promote_forall(*forall, range);
-        };
         if let Some(t) = self.untype_opt(ty.clone(), range) {
             t
         } else {
@@ -2837,6 +2859,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn untype_opt(&self, ty: Type, range: TextRange) -> Option<Type> {
+        let mut ty = ty;
+        if let Type::Forall(forall) = ty {
+            ty = self.promote_forall(*forall, range);
+        };
         match self.canonicalize_all_class_types(ty, range) {
             Type::Union(xs) if !xs.is_empty() => {
                 let mut ts = Vec::new();
@@ -2879,7 +2905,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "Unpack with a TypedDict is only allowed in a **kwargs annotation.".to_owned(),
+                "`Unpack` with a `TypedDict` is only allowed in a **kwargs annotation".to_owned(),
             );
         }
         if type_form_context != TypeFormContext::ParameterKwargsAnnotation
@@ -2890,7 +2916,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "ParamSpec **kwargs is only allowed in a **kwargs annotation.".to_owned(),
+                "`ParamSpec` **kwargs is only allowed in a **kwargs annotation".to_owned(),
             );
         }
         if type_form_context != TypeFormContext::ParameterArgsAnnotation
@@ -2901,7 +2927,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "ParamSpec *args is only allowed in an *args annotation.".to_owned(),
+                "`ParamSpec` *args is only allowed in an *args annotation".to_owned(),
             );
         }
         if !matches!(
@@ -2919,7 +2945,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                "Unpack is not allowed in this context.".to_owned(),
+                "`Unpack` is not allowed in this context".to_owned(),
             );
         }
         if !matches!(
@@ -2936,7 +2962,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorKind::InvalidAnnotation,
                 None,
-                format!("{} is not allowed in this context.", ty),
+                format!("`{}` is not allowed in this context", ty),
             );
         }
         if !matches!(
@@ -2944,24 +2970,52 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             TypeFormContext::TupleOrCallableParam | TypeFormContext::TypeArgument
         ) && matches!(ty, Type::TypeVarTuple(_))
         {
-            return self.error(
-                errors,
+            // Determine whether we're simply missing an `Unpack[...]` or the TypeVarTuple isn't allowed at all in this context.
+            let tmp_collector = self.error_collector();
+            self.validate_type_form(
+                Type::Unpack(Box::new(ty)),
                 range,
-                ErrorKind::InvalidAnnotation,
-                None,
-                "TypeVarTuple must be unpacked.".to_owned(),
+                type_form_context,
+                &tmp_collector,
             );
+            if tmp_collector.is_empty() {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "`TypeVarTuple` must be unpacked".to_owned(),
+                );
+            } else {
+                return self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    "`TypeVarTuple` is not allowed in this context".to_owned(),
+                );
+            }
         }
         if let Type::SpecialForm(special_form) = ty
             && !special_form.is_valid_unparameterized_annotation(type_form_context)
         {
-            self.error(
-                errors,
-                range,
-                ErrorKind::InvalidAnnotation,
-                None,
-                format!("Expected a type argument for `{}`", special_form),
-            );
+            if special_form.can_be_subscripted() {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    format!("Expected a type argument for `{}`", special_form),
+                );
+            } else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorKind::InvalidAnnotation,
+                    None,
+                    format!("`{}` is not allowed in this context", special_form),
+                );
+            }
         }
         if let Type::Quantified(quantified) = &ty {
             if quantified.is_param_spec()
@@ -2977,7 +3031,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "ParamSpec is not allowed in this context.".to_owned(),
+                    "`ParamSpec` is not allowed in this context".to_owned(),
                 );
             }
             // We check tuple/callable/generic type arguments separately, so exclude those
@@ -2993,7 +3047,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorKind::InvalidAnnotation,
                     None,
-                    "TypeVarTuple must be unpacked.".to_owned(),
+                    "`TypeVarTuple` must be unpacked".to_owned(),
                 );
             }
         }

@@ -3553,6 +3553,7 @@ class StatusOptions:
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
     },
 )
@@ -3564,6 +3565,7 @@ class StepConfiguration:
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Fields that describe the How, Why, When, and Who of a Step.
@@ -3576,6 +3578,7 @@ class StepConfiguration:
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :stability: experimental
@@ -3586,6 +3589,7 @@ class StepConfiguration:
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if env is not None:
@@ -3596,6 +3600,8 @@ class StepConfiguration:
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
 
@@ -3641,6 +3647,18 @@ class StepConfiguration:
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4683,6 +4701,7 @@ class WorkflowRunOptions:
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "continue_on_error": "continueOnError",
         "timeout_minutes": "timeoutMinutes",
@@ -4696,6 +4715,7 @@ class JobStepConfiguration(StepConfiguration):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -4706,6 +4726,7 @@ class JobStepConfiguration(StepConfiguration):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
@@ -4718,6 +4739,7 @@ class JobStepConfiguration(StepConfiguration):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
@@ -4730,6 +4752,8 @@ class JobStepConfiguration(StepConfiguration):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if continue_on_error is not None:
@@ -4779,6 +4803,18 @@ class JobStepConfiguration(StepConfiguration):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5051,6 +5087,7 @@ class PullRequestTargetOptions(PushOptions):
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "run": "run",
         "uses": "uses",
@@ -5065,6 +5102,7 @@ class Step(StepConfiguration):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         run: typing.Optional[builtins.str] = None,
         uses: typing.Optional[builtins.str] = None,
@@ -5081,6 +5119,7 @@ class Step(StepConfiguration):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
         :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
@@ -5095,6 +5134,7 @@ class Step(StepConfiguration):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument run", value=run, expected_type=type_hints["run"])
             check_type(argname="argument uses", value=uses, expected_type=type_hints["uses"])
@@ -5108,6 +5148,8 @@ class Step(StepConfiguration):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if run is not None:
@@ -5159,6 +5201,18 @@ class Step(StepConfiguration):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5232,6 +5286,7 @@ class Step(StepConfiguration):
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "run": "run",
         "uses": "uses",
@@ -5248,6 +5303,7 @@ class JobStep(Step, JobStepConfiguration):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         run: typing.Optional[builtins.str] = None,
         uses: typing.Optional[builtins.str] = None,
@@ -5261,6 +5317,7 @@ class JobStep(Step, JobStepConfiguration):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
         :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
@@ -5277,6 +5334,7 @@ class JobStep(Step, JobStepConfiguration):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument run", value=run, expected_type=type_hints["run"])
             check_type(argname="argument uses", value=uses, expected_type=type_hints["uses"])
@@ -5292,6 +5350,8 @@ class JobStep(Step, JobStepConfiguration):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if run is not None:
@@ -5347,6 +5407,18 @@ class JobStep(Step, JobStepConfiguration):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5831,6 +5903,7 @@ def _typecheckingstub__044349b8d18055b991a5680dc1d218dc2901bc2369d30fa23e79229d8
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5917,6 +5990,7 @@ def _typecheckingstub__015947eea91a5bd0b89e515aeca63fc47bd80c9c63472b7c37f32a247
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -5950,6 +6024,7 @@ def _typecheckingstub__91711bdec7a542de93f053fdd93de2213c56069702113a10e2c71564c
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     run: typing.Optional[builtins.str] = None,
     uses: typing.Optional[builtins.str] = None,
@@ -5964,6 +6039,7 @@ def _typecheckingstub__0df3f4a2690eb7ddc82908948a9807cfdc9923a4466ac38225eda950e
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     run: typing.Optional[builtins.str] = None,
     uses: typing.Optional[builtins.str] = None,

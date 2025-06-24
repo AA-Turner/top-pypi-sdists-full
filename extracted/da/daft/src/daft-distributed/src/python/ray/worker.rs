@@ -48,7 +48,6 @@ impl RaySwordfishWorker {
     }
 }
 
-#[allow(dead_code)]
 impl RaySwordfishWorker {
     pub fn mark_task_finished(&self, task_id: &TaskID) {
         self.active_task_details
@@ -66,7 +65,7 @@ impl RaySwordfishWorker {
         let mut task_handles = Vec::with_capacity(tasks.len());
         for task in tasks {
             let (task, result_tx, cancel_token) = task.into_inner();
-            let task_id: Arc<str> = Arc::from(task.task_id().to_string());
+            let task_context = task.task_context();
             let task_details = TaskDetails::from(&task);
 
             let ray_swordfish_task = RaySwordfishTask::new(task);
@@ -80,7 +79,7 @@ impl RaySwordfishWorker {
             self.active_task_details
                 .lock()
                 .expect("Active task details should be present")
-                .insert(Arc::from(task_id.to_string()), task_details);
+                .insert(task_context.task_id, task_details);
 
             let task_locals = task_locals.clone_ref(py);
             let ray_task_result_handle = RayTaskResultHandle::new(
@@ -90,7 +89,7 @@ impl RaySwordfishWorker {
                 self.worker_id.clone(),
             );
             let task_result_handle_awaiter = TaskResultHandleAwaiter::new(
-                task_id,
+                task_context,
                 self.worker_id.clone(),
                 ray_task_result_handle,
                 result_tx,

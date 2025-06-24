@@ -26,7 +26,7 @@ FRAMEWORK = server_lib.Framework.DJANGO
 
 def serve(
     client: client_lib.Inngest,
-    functions: list[function.Function],
+    functions: list[function.Function[typing.Any]],
     *,
     serve_origin: typing.Optional[str] = None,
     serve_path: typing.Optional[str] = None,
@@ -48,6 +48,7 @@ def serve(
         client=client,
         framework=FRAMEWORK,
         functions=functions,
+        streaming=const.Streaming.DISABLE,  # Not supported yet.
     )
 
     async_mode = any(

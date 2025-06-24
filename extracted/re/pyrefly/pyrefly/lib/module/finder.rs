@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -85,6 +86,9 @@ impl FindResult {
     }
 }
 
+/// Finds the first package (regular, single file, or namespace) in search roots. Returns None if no module is found.
+/// name: module name
+/// roots: search roots
 fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> Option<FindResult> {
     let mut namespace_roots = Vec::new();
     for root in roots {
@@ -114,6 +118,79 @@ fn find_one_part<'a>(name: &Name, roots: impl Iterator<Item = &'a PathBuf>) -> O
     }
 }
 
+/// Finds all packages (regular, single file, or namespace) in search roots where the name starts with the given prefix.
+/// prefix: module name prefix
+/// roots: search roots
+fn find_one_part_prefix<'a>(
+    prefix: &Name,
+    roots: impl Iterator<Item = &'a PathBuf>,
+) -> Vec<(FindResult, ModuleName)> {
+    let mut results = Vec::new();
+    let mut namespace_roots: SmallMap<ModuleName, Vec<PathBuf>> = SmallMap::new();
+
+    for root in roots {
+        // List all entries in the root directory
+        if let Ok(entries) = std::fs::read_dir(root) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                let file_name = path.file_name().and_then(|n| n.to_str());
+
+                if let Some(name) = file_name {
+                    // Check if the name starts with the prefix
+                    if name.starts_with(prefix.as_str()) {
+                        // Check if it's a regular package
+                        if path.is_dir() {
+                            for candidate_init_suffix in ["__init__.pyi", "__init__.py"] {
+                                let init_path = path.join(candidate_init_suffix);
+                                if init_path.exists() {
+                                    results.push((
+                                        FindResult::RegularPackage(init_path, path.clone()),
+                                        ModuleName::from_str(name),
+                                    ));
+                                    break;
+                                }
+                            }
+
+                            if path.is_dir()
+                                && !results.iter().any(|r| match r {
+                                    (FindResult::RegularPackage(_, p), _) => p == &path,
+                                    _ => false,
+                                })
+                            {
+                                namespace_roots
+                                    .entry(ModuleName::from_str(name))
+                                    .or_default()
+                                    .push(path.clone());
+                            }
+                        } else if let Some((stem, ext)) = name.rsplit_once('.')
+                            && ["pyi", "py"].contains(&ext)
+                            && !["__init__", "__main__"].contains(&stem)
+                            && stem.starts_with(prefix.as_str())
+                            && path.is_file()
+                        {
+                            results.push((
+                                FindResult::SingleFileModule(path.clone()),
+                                ModuleName::from_str(stem),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Add namespace packages to results
+    for (name, roots) in namespace_roots {
+        if let Ok(namespace_roots) = Vec1::try_from_vec(roots) {
+            results.push((FindResult::NamespacePackage(namespace_roots), name));
+        }
+    }
+
+    // todo: also return modulename so we know what to call this
+    results
+}
+
+/// Find a module from a single package. Returns None if no module is found.
 fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> Option<ModulePath> {
     let mut current_result = Some(start_result);
     for part in components_rest.iter() {
@@ -150,24 +227,21 @@ pub fn find_module_in_search_path<'a, I>(module: ModuleName, include: I) -> Opti
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
 {
-    let parts = module.components();
-    if parts.is_empty() {
-        return None;
+    match module.components().as_slice() {
+        [] => None,
+        [first, rest @ ..] => {
+            let start_result = find_one_part(first, include.clone());
+            let result =
+                start_result.and_then(|start_result| continue_find_module(start_result, rest));
+            if result.is_some() {
+                return result;
+            }
+            // If we can't find the module, try to find a stub by adding the -stubs suffix
+            let stub_first = Name::new(format!("{first}-stubs"));
+            let start_stub_result = find_one_part(&stub_first, include)?;
+            continue_find_module(start_stub_result, rest)
+        }
     }
-
-    let start_result = find_one_part(&parts[0], include.clone());
-    let result =
-        start_result.and_then(|start_result| continue_find_module(start_result, &parts[1..]));
-    if result.is_some() {
-        return result;
-    }
-    // If we can't find the module, try to find a stub by adding the -stubs suffix
-    let mut stub_first = parts[0].as_str().to_owned();
-    stub_first.push_str("-stubs");
-    let stub_first = Name::new(stub_first);
-    let start_stub_result = find_one_part(&stub_first, include);
-    start_stub_result
-        .and_then(|start_stub_result| continue_find_module(start_stub_result, &parts[1..]))
 }
 
 pub fn find_module_in_site_package_path(
@@ -176,21 +250,14 @@ pub fn find_module_in_site_package_path(
     use_untyped_imports: bool,
     ignore_missing_source: bool,
 ) -> Result<Option<ModulePath>, FindError> {
-    let first = module.first_component();
-    let mut stub_first = first.as_str().to_owned();
-    stub_first.push_str("-stubs");
-    let stub_first = Name::new(stub_first);
-
-    let stub_module = ModuleName::from_parts(
-        [stub_first.clone()]
-            .iter()
-            .chain(module.components().iter().skip(1)),
-    );
-    let stub_rest = &stub_module.components()[1..];
+    let components = module.components();
+    let first = &components[0];
+    let rest = &components[1..];
+    let stub_first = Name::new(format!("{first}-stubs"));
 
     let stub_module_imports = include
         .iter()
-        .filter_map(|root| find_one_part(&stub_first, [root.to_owned()].iter()));
+        .filter_map(|root| find_one_part(&stub_first, iter::once(root)));
 
     let mut any_has_partial_py_typed = false;
     let mut checked_one_stub = false;
@@ -199,7 +266,7 @@ pub fn find_module_in_site_package_path(
         let stub_module_py_typed = stub_module_import.py_typed();
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
-        if let Some(stub_result) = continue_find_module(stub_module_import, stub_rest) {
+        if let Some(stub_result) = continue_find_module(stub_module_import, rest) {
             found_stubs = Some(stub_result);
             break;
         }
@@ -216,7 +283,7 @@ pub fn find_module_in_site_package_path(
 
     let mut fallback_modules = include
         .iter()
-        .filter_map(|root| find_one_part(&first, [root.to_owned()].iter()))
+        .filter_map(|root| find_one_part(first, iter::once(root)))
         .peekable();
 
     // check if there's an existing library backing the stubs we have
@@ -226,7 +293,6 @@ pub fn find_module_in_site_package_path(
         return Err(FindError::no_source(module));
     }
 
-    let module_rest = &module.components()[1..];
     let mut any_has_none_py_typed = false;
     for module in fallback_modules {
         if !use_untyped_imports
@@ -234,7 +300,7 @@ pub fn find_module_in_site_package_path(
             && module.py_typed() == PyTyped::Missing
         {
             any_has_none_py_typed = true;
-        } else if let Some(module_result) = continue_find_module(module, module_rest) {
+        } else if let Some(module_result) = continue_find_module(module, rest) {
             return Ok(Some(module_result));
         }
     }
@@ -244,6 +310,49 @@ pub fn find_module_in_site_package_path(
     }
 
     Ok(None)
+}
+
+pub fn find_module_prefixes<'a>(
+    prefix: ModuleName,
+    include: impl Iterator<Item = &'a PathBuf>,
+) -> Vec<ModuleName> {
+    let components = prefix.components();
+    let first = &components[0];
+    let rest = &components[1..];
+    let mut results = Vec::new();
+    if rest.is_empty() {
+        results = find_one_part_prefix(first, include)
+    } else {
+        let mut current_result = find_one_part(first, include);
+        for (i, part) in rest.iter().enumerate() {
+            let is_last = i == rest.len() - 1;
+            match current_result {
+                None => {
+                    break;
+                }
+                Some(FindResult::SingleFileModule(_)) => {
+                    break;
+                }
+                Some(FindResult::RegularPackage(_, next_root)) => {
+                    if is_last {
+                        results = find_one_part_prefix(part, iter::once(&next_root));
+                        break;
+                    } else {
+                        current_result = find_one_part(part, iter::once(&next_root));
+                    }
+                }
+                Some(FindResult::NamespacePackage(next_roots)) => {
+                    if is_last {
+                        results = find_one_part_prefix(part, next_roots.iter());
+                        break;
+                    } else {
+                        current_result = find_one_part(part, next_roots.iter());
+                    }
+                }
+            }
+        }
+    }
+    results.iter().map(|(_, name)| *name).collect::<Vec<_>>()
 }
 
 #[cfg(test)]
@@ -756,6 +865,123 @@ mod tests {
             .unwrap()
             .unwrap(),
             ModulePath::filesystem(root.join("baz-stubs/qux/__init__.py")),
+        );
+    }
+
+    #[test]
+    fn test_find_module_prefixes_file() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(root, vec![TestPath::file("foo.py")]);
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_ignores_init() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("foo.py"), TestPath::file("__init__.py")],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str(""), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_nested_file() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir("baz", vec![TestPath::file("foo.py")])],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("baz.fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_nested_regular_package() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "baz",
+                vec![TestPath::dir("foo", vec![TestPath::file("__init__.py")])],
+            )],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("baz.fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_regular_package() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir("foo", vec![TestPath::file("__init__.py")])],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo")]
+        );
+    }
+    #[test]
+    fn test_find_module_prefixes_multiple_search_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let root2 = tempfile::tempdir().unwrap();
+        TestPath::setup_test_directory(
+            root.path(),
+            vec![TestPath::dir("foo", vec![TestPath::file("__init__.py")])],
+        );
+        TestPath::setup_test_directory(root2.path(), vec![TestPath::file("foo2.py")]);
+        assert_eq!(
+            find_module_prefixes(
+                ModuleName::from_str("fo"),
+                [root.path().to_path_buf(), root2.path().to_path_buf()].iter(),
+            ),
+            vec![ModuleName::from_str("foo"), ModuleName::from_str("foo2")]
+        );
+    }
+
+    #[test]
+    fn test_find_module_prefixes_nested_namespaces() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir("foo", Vec::new()),
+                TestPath::dir("foo2", Vec::new()),
+            ],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo"), ModuleName::from_str("foo2")]
+        );
+    }
+
+    #[test]
+    fn test_find_module_prefixes_namespaces() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir("foo", Vec::new()),
+                TestPath::dir("foo2", Vec::new()),
+            ],
+        );
+        assert_eq!(
+            find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter(),),
+            vec![ModuleName::from_str("foo"), ModuleName::from_str("foo2")]
         );
     }
 }

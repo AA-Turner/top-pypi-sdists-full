@@ -13,24 +13,20 @@
 #include "bitarray.h"
 
 /* set during module initialization */
-static PyObject *bitarray_type_obj;
+static PyTypeObject *bitarray_type;
+
+#define bitarray_Check(obj)  PyObject_TypeCheck((obj), bitarray_type)
 
 /* Return 0 if obj is bitarray.  If not, set exception and return -1. */
 static int
 ensure_bitarray(PyObject *obj)
 {
-    int t;
+    if (bitarray_Check(obj))
+        return 0;
 
-    t = PyObject_IsInstance(obj, bitarray_type_obj);
-    if (t < 0)
-        return -1;
-
-    if (t == 0) {
-        PyErr_Format(PyExc_TypeError, "bitarray expected, not '%s'",
-                     Py_TYPE(obj)->tp_name);
-        return -1;
-    }
-    return 0;
+    PyErr_Format(PyExc_TypeError, "bitarray expected, not '%s'",
+                 Py_TYPE(obj)->tp_name);
+    return -1;
 }
 
 /* Return new bitarray of length 'nbits', endianness given by the PyObject
@@ -47,7 +43,8 @@ new_bitarray(Py_ssize_t nbits, PyObject *endian, int c)
         return NULL;
 
     /* equivalent to: res = bitarray(nbits, endian, Ellipsis) */
-    res = (bitarrayobject *) PyObject_CallObject(bitarray_type_obj, args);
+    res = (bitarrayobject *) PyObject_CallObject((PyObject *) bitarray_type,
+                                                 args);
     Py_DECREF(args);
     if (res == NULL)
         return NULL;
@@ -60,8 +57,8 @@ new_bitarray(Py_ssize_t nbits, PyObject *endian, int c)
     return res;
 }
 
-/* Starting from word index 'i', count remaining population in bitarray
-   buffer.  Equivalent to:  a[64 * i:].count()  */
+/* Starting from 64-bit word index i, count remaining population
+   in bitarray a.  Basically equivalent to: a[64 * i:].count() */
 static Py_ssize_t
 count_from_word(bitarrayobject *a, Py_ssize_t i)
 {
@@ -71,32 +68,27 @@ count_from_word(bitarrayobject *a, Py_ssize_t i)
     assert(i >= 0);
     if (64 * i >= nbits)
         return 0;
-
     cnt = popcnt_words(WBUFF(a) + i, nbits / 64 - i);  /* complete words */
     if (nbits % 64)
         cnt += popcnt_64(zlw(a));                      /* remaining bits */
     return cnt;
 }
 
-/* basically resize() but without importing and exporting buffer checks */
+/* like resize() but without over-allocation or buffer import/export checks */
 static int
 resize_lite(bitarrayobject *self, Py_ssize_t nbits)
 {
-    const size_t size = Py_SIZE(self);
-    const size_t allocated = self->allocated;
-    const size_t newsize = BYTES((size_t) nbits);
-    size_t new_allocated;
+    const Py_ssize_t newsize = BYTES(nbits);
 
-    assert(allocated >= size && size == BYTES((size_t) self->nbits));
+    assert(self->allocated >= Py_SIZE(self));
     assert(self->readonly == 0);
     assert(self->ob_exports == 0);
     assert(self->buffer == NULL);
 
-    if (newsize == size) {
+    if (newsize == Py_SIZE(self)) {
         self->nbits = nbits;
         return 0;
     }
-
     if (newsize == 0) {
         PyMem_Free(self->ob_item);
         self->ob_item = NULL;
@@ -105,31 +97,13 @@ resize_lite(bitarrayobject *self, Py_ssize_t nbits)
         self->nbits = 0;
         return 0;
     }
-
-    if (allocated >= newsize) {
-        if (newsize >= allocated / 2) {
-            Py_SET_SIZE(self, newsize);
-            self->nbits = nbits;
-            return 0;
-        }
-        new_allocated = newsize;
-    }
-    else {
-        new_allocated = newsize;
-        if (size != 0 && newsize / 2 <= allocated) {
-            new_allocated += (newsize >> 4) + (newsize < 8 ? 3 : 7);
-            new_allocated &= ~(size_t) 3;
-        }
-    }
-
-    assert(new_allocated >= newsize);
-    self->ob_item = PyMem_Realloc(self->ob_item, new_allocated);
+    self->ob_item = PyMem_Realloc(self->ob_item, newsize);
     if (self->ob_item == NULL) {
         PyErr_NoMemory();
         return -1;
     }
     Py_SET_SIZE(self, newsize);
-    self->allocated = new_allocated;
+    self->allocated = newsize;
     self->nbits = nbits;
     return 0;
 }
@@ -235,7 +209,7 @@ count_n(PyObject *module, PyObject *args)
     Py_ssize_t n, i;
     int vi = 1;
 
-    if (!PyArg_ParseTuple(args, "O!n|O&:count_n", bitarray_type_obj,
+    if (!PyArg_ParseTuple(args, "O!n|O&:count_n", bitarray_type,
                           (PyObject *) &a, &n, conv_pybit, &vi))
         return NULL;
     if (n < 0) {
@@ -244,7 +218,7 @@ count_n(PyObject *module, PyObject *args)
     }
     if (n > a->nbits)
         return PyErr_Format(PyExc_ValueError, "n = %zd larger than bitarray "
-                            "size (len(a) = %zd)", n, a->nbits);
+                            "length %zd", n, a->nbits);
 
     i = count_n_core(a, n, vi);        /* do actual work here */
     if (i < 0)
@@ -324,8 +298,8 @@ binary_function(PyObject *args, const char *format, const char oper)
     int rbits;
 
     if (!PyArg_ParseTuple(args, format,
-                          bitarray_type_obj, (PyObject *) &a,
-                          bitarray_type_obj, (PyObject *) &b))
+                          bitarray_type, (PyObject *) &a,
+                          bitarray_type, (PyObject *) &b))
         return NULL;
     if (ensure_eq_size_endian(a, b) < 0)
         return NULL;
@@ -430,8 +404,8 @@ correspond_all(PyObject *module, PyObject *args)
     int rbits;
 
     if (!PyArg_ParseTuple(args, "O!O!:correspond_all",
-                          bitarray_type_obj, (PyObject *) &a,
-                          bitarray_type_obj, (PyObject *) &b))
+                          bitarray_type, (PyObject *) &a,
+                          bitarray_type, (PyObject *) &b))
         return NULL;
     if (ensure_eq_size_endian(a, b) < 0)
         return NULL;
@@ -511,30 +485,28 @@ byteswap(PyObject *module, PyObject *args)
     if (!PyArg_ParseTuple(args, "O|n:byteswap", &buffer, &n))
         return NULL;
 
+    if (n < 0)
+        return PyErr_Format(PyExc_ValueError,
+                            "positive int expect, got %zd", n);
+
     if (PyObject_GetBuffer(buffer, &view, PyBUF_SIMPLE | PyBUF_WRITABLE) < 0)
         return NULL;
 
     if (n == 0)
-        /* avoid n = 0 as 0 % n fails on some compilers */
+        /* avoid division by zero below when view.len = 0 */
         n = Py_MAX(1, view.len);
 
-    if (n < 1) {
-        PyErr_Format(PyExc_ValueError, "positive int expect, got %zd", n);
-        goto error;
-    }
     if (view.len % n) {
         PyErr_Format(PyExc_ValueError, "buffer size %zd not multiple of %zd",
                      view.len, n);
-        goto error;
+        PyBuffer_Release(&view);
+        return NULL;
     }
 
     byteswap_core(view, n);
 
     PyBuffer_Release(&view);
     Py_RETURN_NONE;
- error:
-    PyBuffer_Release(&view);
-    return NULL;
 }
 
 PyDoc_STRVAR(byteswap_doc,
@@ -543,7 +515,7 @@ PyDoc_STRVAR(byteswap_doc,
 Reverse every `n` consecutive bytes of `a` in-place.\n\
 By default, all bytes are reversed.  Note that `n` is not limited to 2, 4\n\
 or 8, but can be any positive integer.\n\
-Also, `a` may be any object that exposes a writeable buffer.\n\
+Also, `a` may be any object that exposes a writable buffer.\n\
 Nothing about this function is specific to bitarray objects.");
 
 /* ---------------------------- serialization -------------------------- */
@@ -649,16 +621,8 @@ hex_to_int(char c)
     return -1;
 }
 
-static int
-is_whitespace(char c)
-{
-    if (c)
-        return strchr(" \n\r\t\v", c) ? 1 : 0;
-    else  /* NUL character is not whitespace */
-        return 0;
-}
-
-/* create hexadecimal string from bitarray */
+/* return hexadecimal string from bitarray,
+   on failure set exception and return NULL */
 static char *
 ba2hex_core(bitarrayobject *a, Py_ssize_t group, char *sep)
 {
@@ -671,9 +635,11 @@ ba2hex_core(bitarrayobject *a, Py_ssize_t group, char *sep)
     if (nsep)
         strsize += nsep * ((strsize - 1) / group);
 
-    if ((str = (char *) PyMem_Malloc(strsize + 1)) == NULL)
+    str = PyMem_New(char, strsize + 1);
+    if (str == NULL) {
+        PyErr_NoMemory();
         return NULL;
-
+    }
     for (i = j = 0; i < a->nbits / 4; i++) {
         unsigned char c = buff[i / 2];
 
@@ -698,7 +664,7 @@ ba2hex(PyObject *module, PyObject *args, PyObject *kwds)
     char *sep = " ", *str;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|ns:ba2hex", kwlist,
-                                     bitarray_type_obj, (PyObject *) &a,
+                                     bitarray_type, (PyObject *) &a,
                                      &group, &sep))
         return NULL;
 
@@ -713,8 +679,9 @@ ba2hex(PyObject *module, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    if ((str = ba2hex_core(a, group, sep)) == NULL)
-        return PyErr_NoMemory();
+    str = ba2hex_core(a, group, sep);
+    if (str == NULL)
+        return NULL;
 
     result = PyUnicode_FromString(str);
     PyMem_Free((void *) str);
@@ -731,7 +698,7 @@ of `group` characters, default is a space.");
 
 
 /* Translate hexadecimal digits from 'hexstr' into the bitarray 'a' buffer,
-   which must be initalized to zeros.
+   which must be initialized to zeros.
    Each digit corresponds to 4 bits in the bitarray.
    Note that the number of hexadecimal digits may be odd. */
 static int
@@ -748,7 +715,7 @@ hex2ba_core(bitarrayobject *a, Py_buffer hexstr)
         int x = hex_to_int(c);
 
         if (x < 0) {
-            if (is_whitespace(c))
+            if (Py_UNICODE_ISSPACE(c))
                 continue;
             PyErr_Format(PyExc_ValueError, "invalid digit found for "
                          "base16, got '%c' (0x%02x)", c, c);
@@ -850,7 +817,8 @@ base_to_length(int n)
     return -1;
 }
 
-/* create ASCII string from bitarray and base length m */
+/* return ASCII string from bitarray and base length m,
+   on failure set exception and return NULL */
 static char *
 ba2base_core(bitarrayobject *a, int m, Py_ssize_t group, char *sep)
 {
@@ -872,9 +840,11 @@ ba2base_core(bitarrayobject *a, int m, Py_ssize_t group, char *sep)
     if (nsep)
         strsize += nsep * ((strsize - 1) / group);
 
-    if ((str = (char *) PyMem_Malloc(strsize + 1)) == NULL)
+    str = PyMem_New(char, strsize + 1);
+    if (str == NULL) {
+        PyErr_NoMemory();
         return NULL;
-
+    }
     for (i = j = 0; i < a->nbits / m; i++) {
         int k, x = 0;
 
@@ -905,7 +875,7 @@ ba2base(PyObject *module, PyObject *args, PyObject *kwds)
     int n, m;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "iO!|ns:ba2base", kwlist,
-                                     &n, bitarray_type_obj, (PyObject *) &a,
+                                     &n, bitarray_type, (PyObject *) &a,
                                      &group, &sep))
         return NULL;
 
@@ -929,7 +899,7 @@ ba2base(PyObject *module, PyObject *args, PyObject *kwds)
         str = ba2base_core(a, m, group, sep);
 
     if (str == NULL)
-        return PyErr_NoMemory();
+        return NULL;
 
     result = PyUnicode_FromString(str);
     PyMem_Free((void *) str);
@@ -963,7 +933,7 @@ base2ba_core(bitarrayobject *a, Py_buffer asciistr, int m)
         int k, x = digit_to_int(m, c);
 
         if (x < 0) {
-            if (is_whitespace(c))
+            if (Py_UNICODE_ISSPACE(c))
                 continue;
             PyErr_Format(PyExc_ValueError, "invalid digit found for "
                          "base%d, got '%c' (0x%02x)", 1 << m, c, c);
@@ -1022,16 +992,15 @@ standard base 64 alphabet is used.  Whitespace is ignored.");
 
 /* ------------------------ utility C functions ------------------------ */
 
-/* Consume one byte from iteratior and return it's value as an integer
-   in range(256).  On failure, set an exception and return -1.  */
+/* Consume one item from iterator and return its value as an integer
+   in range(256).  On failure, set an exception and return -1. */
 static int
 next_char(PyObject *iter)
 {
     PyObject *item;
     Py_ssize_t v;
 
-    item = PyIter_Next(iter);
-    if (item == NULL) {
+    if ((item = PyIter_Next(iter)) == NULL) {
         if (PyErr_Occurred())   /* from PyIter_Next() */
             return -1;
         PyErr_SetString(PyExc_StopIteration, "unexpected end of stream");
@@ -1103,26 +1072,37 @@ byte_length(Py_ssize_t i)
     return n;
 }
 
-/* ---------------------- sparse compressed bitarray -------------------
+/***********************  sparse bitarray compression  *****************
  *
  * see also: doc/sparse_compression.rst
  */
 
-/* Bitarray buffer size (in bytes) that can be indexed by n bytes.  E.g.:
-   with 1 byte you can index 256 bits which have a buffer size of 32 bytes.
-   BSI(1) = 32, BSI(2) = 8_192, BSI(3) = 2_097_152, BSI(4) = 536_870_912 */
+/* Bitarray buffer size (in bytes) that can be indexed by n bytes.
+
+   A sparse block of type n uses n bytes to index each bit.
+   The decoded block size, that is the bitarray buffer size corresponding
+   to a sparse block of type n, is given by BSI(n).  Using 1 byte we can
+   index 256 bits which have a decoded block size of 32 bytes:
+
+       BSI(1) = 32                         (BSI = Buffer Size Indexable)
+
+   Moving from block type n to n + 1 multiplies the decoded block size
+   by a factor of 256 (as the extra byte can index 256 times as much):
+
+       BSI(n + 1) = 256 * BSI(n)
+*/
 #define BSI(n)  (((Py_ssize_t) 1) << (8 * (n) - 3))
 
-/* segment size in bytes - Although of little practical value, the code
-   below will also work for SEGSIZE values of: 8, 16 and 32
-   BSI(1) = 32 must be divisible by SEGSIZE.
-   SEGSIZE must also be a multiple of the word size (sizeof(uint64_t) = 8).
-   The size 32 is rooted in the fact that a bitarray of 32 bytes (256 bits)
-   can be indexed with one index byte (BSI(1) = 32). */
+/* segment size in bytes (not to be confused with block size, see below)
+
+   Although of little practical value, the code will work for
+   values of SEGSIZE of: 8, 16, 32
+   BSI(n) must be divisible by SEGSIZE.  So, 32 must be divisible by SEGSIZE.
+   SEGSIZE must also be divisible by the word size sizeof(uint64_t) = 8. */
 #define SEGSIZE  32
 
-/* number of segments for given number of bits */
-#define NSEG(nbits)  (((nbits) + 8 * SEGSIZE - 1) / (8 * SEGSIZE))
+/* number of segments for given bitarray */
+#define NSEG(self)  ((Py_SIZE(self) + SEGSIZE - 1) / SEGSIZE)
 
 /* Calculate an array with the running totals (rts) for 256 bit segments.
    Note that we call these "segments", as opposed to "blocks", in order to
@@ -1138,18 +1118,18 @@ byte_length(Py_ssize_t i)
 
    In this example we have a bitarray of length nbits = 987.  Note that:
 
-     * The number of segments is given by NSEG(nbits).
-       Here we have 4 segments: NSEG(nbits) = NSEG(987) = 4
+     * The number of segments is given by NSEG(self).
+       Here we have 4 segments: NSEG(self) = 4
 
-     * The rts array has always NSEG(nbits) + 1 elements, such that
-       last element is always indexed by NSEG(nbits).
+     * The rts array has always NSEG(self) + 1 elements, such that
+       last element is always indexed by NSEG(self).
 
      * The element rts[0] is always zero.
 
-     * The last element rts[NSEG(nbits)] is always the total count.
-       Here: rts[NSEG(nbits)] = rts[NSEG(987)] = rts[4] = 12
+     * The last element rts[NSEG(self)] is always the total count.
+       Here: rts[NSEG(self)] = rts[4] = 12
 
-     * The last segment may be partial.  In that case, it's size it given
+     * The last segment may be partial.  In that case, its size it given
        by nbits % 256.  Here: nbits % 256 = 987 % 256 = 219
 
    As each segment (at large) covers 256 bits (32 bytes), and each element
@@ -1162,29 +1142,27 @@ byte_length(Py_ssize_t i)
 
    The function sc_write_indices() also takes advantage of the running
    totals array.  It loops over segments and skips to the next segment as
-   soon as the count the current segment is reached.
+   soon as the index count (population) of the current segment is reached.
 */
 static Py_ssize_t *
-sc_calc_rts(bitarrayobject *a)
+sc_rts(bitarrayobject *a)
 {
-    const Py_ssize_t n_seg = NSEG(a->nbits);  /* total number of segments */
+    const Py_ssize_t n_seg = NSEG(a);         /* total number of segments */
     const Py_ssize_t c_seg = a->nbits / (8 * SEGSIZE); /* complete segments */
     char zeros[SEGSIZE];                      /* segment with only zeros */
+    char *buff = a->ob_item;                  /* buffer in current segment */
     Py_ssize_t cnt = 0;                       /* current count */
-    char *buff;                               /* buffer in current segment */
     Py_ssize_t *res, m;
 
     memset(zeros, 0x00, SEGSIZE);
-    res = (Py_ssize_t *) PyMem_Malloc((size_t) sizeof(Py_ssize_t) *
-                                      (n_seg + 1));
-    if (res == NULL)
-        return (Py_ssize_t *) PyErr_NoMemory();
-
-    for (m = 0; m < c_seg; m++) {  /* loop all complete segments */
+    res = PyMem_New(Py_ssize_t, n_seg + 1);
+    if (res == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    for (m = 0; m < c_seg; m++, buff += SEGSIZE) {  /* complete segments */
         res[m] = cnt;
-        buff = a->ob_item + m * SEGSIZE;
-        assert((m + 1) * SEGSIZE <= Py_SIZE(a));
-
+        assert(buff + SEGSIZE <= a->ob_item + Py_SIZE(a));
         if (memcmp(buff, zeros, SEGSIZE))  /* segment has not only zeros */
             cnt += popcnt_words((uint64_t *) buff, SEGSIZE / 8);
     }
@@ -1197,26 +1175,24 @@ sc_calc_rts(bitarrayobject *a)
     return res;
 }
 
-/* expose sc_calc_rts() to Python during debug mode for testing */
+/* expose sc_rts() to Python during debug mode for testing */
 #ifndef NDEBUG
 static PyObject *
-sc_rts(PyObject *module, PyObject *obj)
+module_sc_rts(PyObject *module, PyObject *obj)
 {
     PyObject *list;
     bitarrayobject *a;
     Py_ssize_t *rts, i;
 
-    if (ensure_bitarray(obj) < 0)
-        return NULL;
-
+    assert(bitarray_Check(obj));
     a = (bitarrayobject *) obj;
-    if ((rts = sc_calc_rts(a)) == NULL)
+    if ((rts = sc_rts(a)) == NULL)
         return NULL;
 
-    if ((list = PyList_New(NSEG(a->nbits) + 1)) == NULL)
+    if ((list = PyList_New(NSEG(a) + 1)) == NULL)
         goto error;
 
-    for (i = 0; i <= NSEG(a->nbits); i++) {
+    for (i = 0; i <= NSEG(a); i++) {
         PyObject *item = PyLong_FromSsize_t(rts[i]);
         if (item == NULL)
             goto error;
@@ -1224,7 +1200,6 @@ sc_rts(PyObject *module, PyObject *obj)
     }
     PyMem_Free(rts);
     return list;
-
  error:
     Py_XDECREF(list);
     PyMem_Free(rts);
@@ -1233,46 +1208,30 @@ sc_rts(PyObject *module, PyObject *obj)
 #endif  /* NDEBUG */
 
 
-/* Equivalent to the Python expression:
+/* Return population count for the decoded block size of type n.
+   Roughly equivalent to the Python expression:
 
       a.count(1, 8 * offset, 8 * offset + (1 << (8 * n)))
 
-   The offset is required to be multiple of 32 (the segment size), as this
-   functions makes use of running totals (stored in Py_ssize_t array rts). */
+   The offset must be divisible by SEGSIZE, as this functions makes use of
+   running totals, stored in rts[]. */
 static Py_ssize_t
 sc_count(bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset, int n)
 {
-    Py_ssize_t nbits;
+    const Py_ssize_t i = offset / SEGSIZE;     /* indices into rts[] */
+    const Py_ssize_t j = Py_MIN(i + BSI(n) / SEGSIZE, NSEG(a));
 
-    assert(offset % SEGSIZE == 0 && n > 0);
-    if (offset >= Py_SIZE(a))
-        return 0;
-
-    /* The desired number of bits to count up to (limited by remaining
-       bitarray size) is given by:
-
-           nbits = Py_MIN(8 * BSI(n), a->nbits - 8 * offset);
-
-       However, on 32-bit machines this will fail for n=4 because 8 * BSI(4)
-       equals 1 << 32.  This is problematic, as 32-bit machines can address
-       at least partially filled type 4 blocks).  Therefore, we first
-       limit BSI(n) by the buffer size before multiplying 8. */
-    nbits = Py_MIN(8 * Py_MIN(BSI(n), Py_SIZE(a)), a->nbits - 8 * offset);
-    assert(nbits >= 0);
-
-    offset /= SEGSIZE;               /* offset in terms of segments now */
-    assert(NSEG(nbits) + offset <= NSEG(a->nbits));
-
-    return rts[NSEG(nbits) + offset] - rts[offset];
+    assert(offset % SEGSIZE == 0 && 1 <= n && n <= 4);
+    assert(0 <= i && i <= j && j <= NSEG(a));
+    return rts[j] - rts[i];
 }
 
-/* Calculate number of bytes [1..4096] of the raw block starting at offset,
-   encode the block (write the header and copy the bytes into the encode
-   buffer str), and return the number of raw bytes.
+/* Write a raw block, and return number of bytes copied.
+   Note that the encoded block size is the return value + 1 (the head byte).
+
    The header byte is in range(0x01, 0xa0).
-   range(0x01, 0x20) refers to number of raw bytes directly.
-   range(0x20, 0xa0) refers to number of (32 byte) segments.
-   Note that the encoded block size is the return value + 1. */
+     * range(0x01, 0x20) number of raw bytes
+     * range(0x20, 0xa0) number of 32-byte segments */
 static int
 sc_write_raw(char *str, bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset)
 {
@@ -1281,15 +1240,15 @@ sc_write_raw(char *str, bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset)
 
     assert(nbytes > 0);
     if (k == 32) {
-        /* We already know the first 32 bytes are better represented using
-           raw bytes (otherwise this function wouldn't have been called).
-           Now also check the next 127 segments. */
-        while (k < 32 * 128 && k + 32 <= nbytes &&
-               32 <= sc_count(a, rts, offset + k, 1))
+        /* The first 32 bytes are better represented using raw bytes.
+           Now check up to the next 127 (32-byte) segments. */
+        const Py_ssize_t kmax = Py_MIN(32 * 128, nbytes);
+        while (k + 32 <= kmax && sc_count(a, rts, offset + k, 1) >= 32)
             k += 32;
     }
     assert(0 < k && k <= 32 * 128 && k <= nbytes);
-    assert((k >= 32 || k == nbytes) && (k <= 32 || k % 32 == 0));
+    assert(k >= 32 || k == nbytes);
+    assert(k <= 32 || k % 32 == 0);
 
     /* block header */
     *str = (char) (k <= 32 ? k : k / 32 + 31);
@@ -1314,23 +1273,22 @@ sc_write_indices(char *str, bitarrayobject *a, Py_ssize_t *rts,
     const char *buff = a->ob_item + offset;
     Py_ssize_t m;
 
-    assert(1 <= n && n <= 4);
     assert(0 < k && k < 256);  /* note that k cannot be 0 in this function */
     assert(k == sc_count(a, rts, offset, n));   /* see above */
-    assert(offset % SEGSIZE == 0);
 
     rts += offset / SEGSIZE;   /* rts index relative to offset now */
 
     for (m = 0;;) {  /* loop segments */
-        Py_ssize_t i;
-        int j, ni;
+        Py_ssize_t i, ni;
 
-        assert(m + offset / SEGSIZE < NSEG(a->nbits));
-        ni = (int) (rts[m + 1] - rts[m]);  /* indices in this segment */
-        if (ni == 0)
+        assert(m + offset / SEGSIZE < NSEG(a));
+        /* number of indices in this segment, i.e. the segment population */
+        if ((ni = rts[m + 1] - rts[m]) == 0)
             goto next_segment;
 
         for (i = m * SEGSIZE;; i++) {  /* loop bytes in segment */
+            int j;
+
             assert(i < (m + 1) * SEGSIZE && i + offset < Py_SIZE(a));
             if (buff[i] == 0x00)
                 continue;
@@ -1349,14 +1307,16 @@ sc_write_indices(char *str, bitarrayobject *a, Py_ssize_t *rts,
                 }
             }
         }
+        Py_UNREACHABLE();
     next_segment:
         m++;
     }
     Py_UNREACHABLE();
 }
 
-/* Write one sparse block (from 'offset', and up to 'k' one bits) of type 'n'.
-   Return number of bytes written to buffer 'str' (encoded block size). */
+/* Write a sparse block of type 'n' with 'k' indices.
+   Return number of bytes written to buffer 'str' (encoded block size).
+   Note that the decoded block size is always BSI(n). */
 static Py_ssize_t
 sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
                 Py_ssize_t offset, int n, int k)
@@ -1367,15 +1327,15 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
     assert(0 <= k && k < 256);
 
     /* write block header */
-    if (n == 1) {               /* type 1 - single byte for each position */
+    if (n == 1) {                        /* type 1 - one header byte */
         assert(k < 32);
-        str[len++] = (char) (0xa0 + k);
+        str[len++] = (char) (0xa0 + k);  /* index count in 0xa0 .. 0xbf */
     }
-    else {                   /* type 2, 3, 4 - n bytes for each positions */
-        str[len++] = (char) (0xc0 + n);
-        str[len++] = (char) k;
+    else {                               /* type 2, 3, 4 - two header bytes */
+        str[len++] = (char) (0xc0 + n);  /* block type */
+        str[len++] = (char) k;           /* index count */
     }
-    if (k == 0)  /* no index bytes */
+    if (k == 0)  /* no index bytes - sc_write_sparse() does not allow k = 0 */
         return len;
 
     /* write block data - k indices, n bytes per index */
@@ -1383,8 +1343,9 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
     return len + n * k;
 }
 
-/* Encode one block (starting at offset) and return offset increment.
-   The output is written into str buffer and len is increased.
+/* Encode one block (starting at offset) and return offset increment,
+   i.e. the decoded block size.
+   The output is written into buffer 'str' and 'len' is increased.
 
    Notes:
 
@@ -1392,31 +1353,50 @@ sc_write_sparse(char *str, bitarrayobject *a, Py_ssize_t *rts,
      Hence, if the bit count of the first 32 bytes of the bitarray buffer
      is greater or equal to 32, we choose a raw block (type 0).
 
-   - If a raw block is used, we check if the next 127 segments
+   - Arguably, n index bytes always take up as much space as n raw bytes.
+     So what makes 32 special here?  A bitarray with a 32 byte buffer has
+     256 items (bits), and these 256 bits can be addressed using one
+     index byte.  That is, BSI(1) = 32, see above.
+     This is also the reason, why the index count of type 1 blocks is limited
+     to below 32.
+
+   - If a raw block is used, we check if up to the next 127 32-byte segments
      are also suitable for raw encoding, see sc_write_raw().
      Therefore, we have type 0 blocks with up to 128 * 32 = 4096 raw bytes.
 
-   - Now we decide which sparse block type to use.  We do this by
-     first calculating the population count for the bitarray buffer size of
-     the *next* block type.  If the this count is larger than 255 (too large
-     for the count byte) we have to stick with the current type.
-     Otherwise we compare the encoded sizes of (a) sticking with the current
-     type n, and (b) moving to the next type n+1.  These sizes are calculated
-     as follows:
+   - If no raw block was used, we move on to deciding which type of sparse
+     representation to use.  Starting at type n = 1, we do this by first
+     calculating the population count for the decoded block size of
+     the *next* block type n+1.
+     If this population is larger than 255 (too large for the count byte) we
+     have to stick with type n.
+     Otherwise we compare the encoded sizes of (a) sticking with
+     many (up to 256) blocks of type n, and (b) moving to a single block of
+     type n+1.  These sizes are calculated as follows:
 
-     (a) Although we consider sticking with the current type n, we are
-         looking at the population for the next type block size.  We
-         calculate the encoded size of *all* the type n blocks which wold
-         otherwise just be a single type n+1 block:
+     (a) The encoded size of many blocks of type n is given by:
 
-             header size  *  number of blocks   +   n  *  population
+             header_size  *  number_of_blocks   +   n  *  population
+
+         Regardless of the exact index count for each block, the total size
+         of the index bytes is (n * population), as all blocks are of type n.
+         The number_of_blocks is 256 (unless limited by the bitarray size).
+         The header_size is only 1 byte for type 1 and 2 bytes otherwise.
 
      (b) The encoded size of a single block of type n+1 is:
 
-             header size   +   (n + 1)  *  population
+             header_size   +   (n + 1)  *  population
 
-     As we only need to know which of these sizes is bigger, we can
-     substract n * population from both sizes.
+         As n >= 1, the header_size will is always 2 bytes here.
+
+   - As we only need to know which of these sizes is bigger, we can
+     subtract (n * population) from both sizes.  Hence, the costs are:
+       (a)  header_size * number_of_blocks
+       (b)  header_size + population
+
+     The question of whether to choose type n or type n+1 ultimately comes
+     down to whether the additional byte for each index is less expensive than
+     having additional headers.
  */
 static Py_ssize_t
 sc_encode_block(char *str, Py_ssize_t *len,
@@ -1428,8 +1408,8 @@ sc_encode_block(char *str, Py_ssize_t *len,
     assert(nbytes > 0);
 
     count = (int) sc_count(a, rts, offset, 1);
-    /* are there fewer or equal raw bytes than index bytes */
-    if (Py_MIN(32, nbytes) <= count) {           /* type 0 - raw bytes */
+    /* the number of index bytes exceeds the number of raw bytes */
+    if (count >= Py_MIN(32, nbytes)) {           /* type 0 - raw bytes */
         int k = sc_write_raw(str + *len, a, rts, offset);
         *len += 1 + k;
         return k;
@@ -1441,20 +1421,21 @@ sc_encode_block(char *str, Py_ssize_t *len,
         /* population for next block type n+1 */
         next_count = sc_count(a, rts, offset, n + 1);
         if (next_count > 255)
-            /* too many index bytes for next block type n+1 */
+            /* too many index bytes for next block type n+1 - use type n */
             break;
 
-        /* number of blocks of type n (up to 256) */
+        /* number of blocks of type n */
         nblocks = Py_MIN(256, (nbytes - 1) / BSI(n) + 1);
         /* cost of nblocks blocks of type n */
         cost_a = (n == 1 ? 1 : 2) * nblocks;
         /* cost of a single block of type n+1 */
         cost_b = 2 + next_count;
 
-        if (cost_a <= cost_b)
-            /* next block type n+1 is not smaller - use block type n */
+        if (cost_b >= cost_a)
+            /* block type n+1 is equally or more expensive - use type n */
             break;
 
+        /* we proceed with type n+1 - we already calculated its population */
         count = (int) next_count;
     }
 
@@ -1462,6 +1443,7 @@ sc_encode_block(char *str, Py_ssize_t *len,
     return BSI(n);
 }
 
+/* write header and return number or bytes written to buffer 'str' */
 static int
 sc_encode_header(char *str, bitarrayobject *a)
 {
@@ -1482,36 +1464,34 @@ sc_encode(PyObject *module, PyObject *obj)
     Py_ssize_t len = 0;         /* bytes written into output buffer */
     bitarrayobject *a;
     Py_ssize_t offset = 0;      /* block offset into bitarray a in bytes */
-    Py_ssize_t *rts;            /* running totals for 256 bit segments */
-    Py_ssize_t total;           /* total population count of bitarray a */
+    Py_ssize_t *rts;            /* running totals of segments */
+    Py_ssize_t total;           /* total population count of bitarray */
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
     set_padbits(a);
-    if ((rts = sc_calc_rts(a)) == NULL)
+    if ((rts = sc_rts(a)) == NULL)
         return NULL;
 
-    out = PyBytes_FromStringAndSize(NULL, 32768);
-    if (out == NULL)
+    if ((out = PyBytes_FromStringAndSize(NULL, 32768)) == NULL)
         goto error;
 
     str = PyBytes_AS_STRING(out);
     len += sc_encode_header(str, a);
 
-    total = rts[NSEG(a->nbits)];
+    total = rts[NSEG(a)];
     /* encode blocks as long as we haven't reached the end of the bitarray
        and haven't reached the total population count yet */
     while (offset < Py_SIZE(a) && rts[offset / SEGSIZE] != total) {
-        Py_ssize_t allocated;   /* size (in bytes) of output buffer */
+        Py_ssize_t allocated = PyBytes_GET_SIZE(out);
 
-        /* Make sure we have enough space in output buffer for next block.
+        /* Make sure we have enough memory in output buffer for next block.
            The largest block possible is a type 0 block with 128 segments.
-           It's size is: 1 head bytes + 128 * 32 raw bytes.
+           Its size is: 1 head bytes + 128 * 32 raw bytes.
            Plus, we also may have the stop byte. */
-        allocated = PyBytes_GET_SIZE(out);
-        if (allocated < len + 1 + 128 * 32 + 1) {  /* increase allocation */
+        if (allocated < len + 1 + 128 * 32 + 1) {
             if (_PyBytes_Resize(&out, allocated + 32768) < 0)
                 goto error;
             str = PyBytes_AS_STRING(out);
@@ -1539,6 +1519,8 @@ This representation is useful for efficiently storing sparse bitarrays.\n\
 Use `sc_decode()` for decompressing (decoding).");
 
 
+/* read header from 'iter' and set 'endian' and 'nbits', return 0 on success
+   and -1 of failure (after setting exception) */
 static int
 sc_decode_header(PyObject *iter, int *endian, Py_ssize_t *nbits)
 {
@@ -1556,9 +1538,8 @@ sc_decode_header(PyObject *iter, int *endian, Py_ssize_t *nbits)
     len = head & 0x0f;
 
     if (len > (int) sizeof(Py_ssize_t)) {
-        PyErr_Format(PyExc_OverflowError,
-                     "sizeof(Py_ssize_t) = %d: cannot read %d bytes",
-                     (int) sizeof(Py_ssize_t), len);
+        PyErr_Format(PyExc_OverflowError, "sizeof(Py_ssize_t) = %d: cannot "
+                     "read %d bytes", (int) sizeof(Py_ssize_t), len);
         return -1;
     }
     if ((*nbits = read_n(iter, len)) < 0)
@@ -1614,8 +1595,8 @@ sc_read_sparse(bitarrayobject *a, Py_ssize_t offset, PyObject *iter,
     return BSI(n);
 }
 
-/* Decode one block: consume iter and set bitarray buffer at offset.
-   Return size of offset increment in bytes, or -1 on failure. */
+/* Decode one block: consume iter and set bitarray buffer starting at
+   offset.  Return decoded block size, or -1 on failure. */
 static Py_ssize_t
 sc_decode_block(bitarrayobject *a, Py_ssize_t offset, PyObject *iter)
 {
@@ -1654,8 +1635,7 @@ sc_decode(PyObject *module, PyObject *obj)
     Py_ssize_t offset = 0, increase, nbits;
     int endian;
 
-    iter = PyObject_GetIter(obj);
-    if (iter == NULL)
+    if ((iter = PyObject_GetIter(obj)) == NULL)
         return PyErr_Format(PyExc_TypeError, "'%s' object is not iterable",
                             Py_TYPE(obj)->tp_name);
 
@@ -1663,8 +1643,7 @@ sc_decode(PyObject *module, PyObject *obj)
         goto error;
 
     /* create bitarray of length nbits */
-    a = new_bitarray(nbits, Py_None, 0);
-    if (a == NULL)
+    if ((a = new_bitarray(nbits, Py_None, 0)) == NULL)
         goto error;
     a->endian = endian;
 
@@ -1731,7 +1710,7 @@ vl_decode_core(bitarrayobject *a, PyObject *iter)
         if ((c = next_char(iter)) < 0)
             return -1;
 
-        if (resize_lite(a, i + 7) < 0)
+        if (a->nbits < i + 7 && resize_lite(a, a->nbits + 1024) < 0)
             return -1;
         assert(i + 6 < a->nbits);
 
@@ -1758,7 +1737,7 @@ vl_decode(PyObject *module, PyObject *args, PyObject *kwds)
         return PyErr_Format(PyExc_TypeError, "'%s' object is not iterable",
                             Py_TYPE(obj)->tp_name);
 
-    a = new_bitarray(32, endian, -1);
+    a = new_bitarray(1024, endian, -1);
     if (a == NULL)
         goto error;
 
@@ -1902,7 +1881,7 @@ chdi_new(PyObject *module, PyObject *args)
     chdi_obj *it;       /* iterator object to be returned */
 
     if (!PyArg_ParseTuple(args, "O!OO:canonical_decode",
-                          bitarray_type_obj, &a, &count, &symbol))
+                          bitarray_type, &a, &count, &symbol))
         return NULL;
     if (!PySequence_Check(count))
         return PyErr_Format(PyExc_TypeError, "count expected to be sequence, "
@@ -2047,7 +2026,7 @@ module_cfw(PyObject *module, PyObject *args)  /* count_from_word() */
     Py_ssize_t i;
 
     if (!PyArg_ParseTuple(args, "O!n",
-                          bitarray_type_obj, (PyObject *) &a, &i))
+                          bitarray_type, (PyObject *) &a, &i))
         return NULL;
     return PyLong_FromSsize_t(count_from_word(a, i));
 }
@@ -2130,7 +2109,7 @@ static PyMethodDef module_functions[] = {
     {"_count_from_word", (PyCFunction) module_cfw,     METH_VARARGS, 0},
     {"_read_n",          (PyCFunction) module_read_n,  METH_VARARGS, 0},
     {"_write_n",         (PyCFunction) module_write_n, METH_VARARGS, 0},
-    {"_sc_rts",          (PyCFunction) sc_rts,         METH_O,       0},
+    {"_sc_rts",          (PyCFunction) module_sc_rts,  METH_O,       0},
 #endif
 
     {NULL,        NULL}  /* sentinel */
@@ -2149,9 +2128,10 @@ PyInit__util(void)
 
     if ((bitarray_module = PyImport_ImportModule("bitarray")) == NULL)
         return NULL;
-    bitarray_type_obj = PyObject_GetAttrString(bitarray_module, "bitarray");
+    bitarray_type = (PyTypeObject *) PyObject_GetAttrString(bitarray_module,
+                                                            "bitarray");
     Py_DECREF(bitarray_module);
-    if (bitarray_type_obj == NULL)
+    if (bitarray_type == NULL)
         return NULL;
 
     if ((m = PyModule_Create(&moduledef)) == NULL)

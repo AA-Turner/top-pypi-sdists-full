@@ -91,6 +91,7 @@ from datadog_api_client.v2.model.active_billing_dimensions_attributes import Act
 from datadog_api_client.v2.model.active_billing_dimensions_body import ActiveBillingDimensionsBody
 from datadog_api_client.v2.model.active_billing_dimensions_response import ActiveBillingDimensionsResponse
 from datadog_api_client.v2.model.active_billing_dimensions_type import ActiveBillingDimensionsType
+from datadog_api_client.v2.model.add_member_team_request import AddMemberTeamRequest
 from datadog_api_client.v2.model.advisory import Advisory
 from datadog_api_client.v2.model.annotation import Annotation
 from datadog_api_client.v2.model.annotation_display import AnnotationDisplay
@@ -531,6 +532,9 @@ from datadog_api_client.v2.model.cloud_workload_security_agent_policy_updater_at
     CloudWorkloadSecurityAgentPolicyUpdaterAttributes,
 )
 from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action import CloudWorkloadSecurityAgentRuleAction
+from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action_hash import (
+    CloudWorkloadSecurityAgentRuleActionHash,
+)
 from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action_metadata import (
     CloudWorkloadSecurityAgentRuleActionMetadata,
 )
@@ -787,6 +791,12 @@ from datadog_api_client.v2.model.custom_destination_forward_destination_http imp
 from datadog_api_client.v2.model.custom_destination_forward_destination_http_type import (
     CustomDestinationForwardDestinationHttpType,
 )
+from datadog_api_client.v2.model.custom_destination_forward_destination_microsoft_sentinel import (
+    CustomDestinationForwardDestinationMicrosoftSentinel,
+)
+from datadog_api_client.v2.model.custom_destination_forward_destination_microsoft_sentinel_type import (
+    CustomDestinationForwardDestinationMicrosoftSentinelType,
+)
 from datadog_api_client.v2.model.custom_destination_forward_destination_splunk import (
     CustomDestinationForwardDestinationSplunk,
 )
@@ -826,6 +836,12 @@ from datadog_api_client.v2.model.custom_destination_response_forward_destination
 )
 from datadog_api_client.v2.model.custom_destination_response_forward_destination_http_type import (
     CustomDestinationResponseForwardDestinationHttpType,
+)
+from datadog_api_client.v2.model.custom_destination_response_forward_destination_microsoft_sentinel import (
+    CustomDestinationResponseForwardDestinationMicrosoftSentinel,
+)
+from datadog_api_client.v2.model.custom_destination_response_forward_destination_microsoft_sentinel_type import (
+    CustomDestinationResponseForwardDestinationMicrosoftSentinelType,
 )
 from datadog_api_client.v2.model.custom_destination_response_forward_destination_splunk import (
     CustomDestinationResponseForwardDestinationSplunk,
@@ -1620,6 +1636,8 @@ from datadog_api_client.v2.model.logs_storage_tier import LogsStorageTier
 from datadog_api_client.v2.model.logs_warning import LogsWarning
 from datadog_api_client.v2.model.ms_teams_integration_metadata import MSTeamsIntegrationMetadata
 from datadog_api_client.v2.model.ms_teams_integration_metadata_teams_item import MSTeamsIntegrationMetadataTeamsItem
+from datadog_api_client.v2.model.member_team import MemberTeam
+from datadog_api_client.v2.model.member_team_type import MemberTeamType
 from datadog_api_client.v2.model.metadata import Metadata
 from datadog_api_client.v2.model.metric import Metric
 from datadog_api_client.v2.model.metric_active_configuration_type import MetricActiveConfigurationType
@@ -3050,6 +3068,7 @@ from datadog_api_client.v2.model.sensitive_data_scanner_rule_update_request impo
 from datadog_api_client.v2.model.sensitive_data_scanner_rule_update_response import (
     SensitiveDataScannerRuleUpdateResponse,
 )
+from datadog_api_client.v2.model.sensitive_data_scanner_samplings import SensitiveDataScannerSamplings
 from datadog_api_client.v2.model.sensitive_data_scanner_standard_pattern import SensitiveDataScannerStandardPattern
 from datadog_api_client.v2.model.sensitive_data_scanner_standard_pattern_attributes import (
     SensitiveDataScannerStandardPatternAttributes,
@@ -3581,6 +3600,7 @@ __all__ = [
     "ActiveBillingDimensionsBody",
     "ActiveBillingDimensionsResponse",
     "ActiveBillingDimensionsType",
+    "AddMemberTeamRequest",
     "Advisory",
     "Annotation",
     "AnnotationDisplay",
@@ -3897,6 +3917,7 @@ __all__ = [
     "CloudWorkloadSecurityAgentPolicyUpdateRequest",
     "CloudWorkloadSecurityAgentPolicyUpdaterAttributes",
     "CloudWorkloadSecurityAgentRuleAction",
+    "CloudWorkloadSecurityAgentRuleActionHash",
     "CloudWorkloadSecurityAgentRuleActionMetadata",
     "CloudWorkloadSecurityAgentRuleActionSet",
     "CloudWorkloadSecurityAgentRuleAttributes",
@@ -4079,6 +4100,8 @@ __all__ = [
     "CustomDestinationForwardDestinationElasticsearchType",
     "CustomDestinationForwardDestinationHttp",
     "CustomDestinationForwardDestinationHttpType",
+    "CustomDestinationForwardDestinationMicrosoftSentinel",
+    "CustomDestinationForwardDestinationMicrosoftSentinelType",
     "CustomDestinationForwardDestinationSplunk",
     "CustomDestinationForwardDestinationSplunkType",
     "CustomDestinationHttpDestinationAuth",
@@ -4095,6 +4118,8 @@ __all__ = [
     "CustomDestinationResponseForwardDestinationElasticsearchType",
     "CustomDestinationResponseForwardDestinationHttp",
     "CustomDestinationResponseForwardDestinationHttpType",
+    "CustomDestinationResponseForwardDestinationMicrosoftSentinel",
+    "CustomDestinationResponseForwardDestinationMicrosoftSentinelType",
     "CustomDestinationResponseForwardDestinationSplunk",
     "CustomDestinationResponseForwardDestinationSplunkType",
     "CustomDestinationResponseHttpDestinationAuth",
@@ -4774,6 +4799,8 @@ __all__ = [
     "LogsWarning",
     "MSTeamsIntegrationMetadata",
     "MSTeamsIntegrationMetadataTeamsItem",
+    "MemberTeam",
+    "MemberTeamType",
     "Metadata",
     "Metric",
     "MetricActiveConfigurationType",
@@ -5686,6 +5713,7 @@ __all__ = [
     "SensitiveDataScannerRuleUpdate",
     "SensitiveDataScannerRuleUpdateRequest",
     "SensitiveDataScannerRuleUpdateResponse",
+    "SensitiveDataScannerSamplings",
     "SensitiveDataScannerStandardPattern",
     "SensitiveDataScannerStandardPatternAttributes",
     "SensitiveDataScannerStandardPatternData",

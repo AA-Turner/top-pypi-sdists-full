@@ -945,7 +945,9 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
         mut idx: Idx<Key>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
-        loop {
+        // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
+        // Therefore we arbitrarily cut off at 100 forward hops.
+        for _ in 1..100 {
             if let Some(b) = self.table.types.1.get(idx) {
                 match b {
                     Binding::Forward(fwd_idx) => {
@@ -983,6 +985,7 @@ impl<'a> BindingsBuilder<'a> {
                 return None;
             }
         }
+        None
     }
 
     pub fn bind_definition(
@@ -1219,10 +1222,10 @@ impl<'a> BindingsBuilder<'a> {
             self.stmts(orelse);
         } else {
             // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
-            self.merge_loop_into_current(other_exits, other_range);
+            self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range);
             self.stmts(orelse);
-            self.merge_loop_into_current(breaks, range);
+            self.merge_loop_into_current(breaks, other_range);
         }
     }
 

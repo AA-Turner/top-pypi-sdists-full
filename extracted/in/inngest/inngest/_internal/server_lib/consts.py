@@ -32,9 +32,10 @@ class ErrorCode(enum.Enum):
 class ExecutionVersion(enum.Enum):
     V0 = "0"
     V1 = "1"
+    V2 = "2"
 
 
-PREFERRED_EXECUTION_VERSION: typing.Final = ExecutionVersion.V1.value
+PREFERRED_EXECUTION_VERSION: typing.Final = ExecutionVersion.V2.value
 
 
 class Framework(enum.Enum):
@@ -50,6 +51,7 @@ class HeaderKey(enum.Enum):
     AUTHORIZATION = "authorization"
     CONTENT_TYPE = "content-type"
     ENV = "x-inngest-env"
+    EVENT_ID_SEED = "x-inngest-event-id-seed"
     EXPECTED_SERVER_KIND = "x-inngest-expected-server-kind"
     FRAMEWORK = "x-inngest-framework"
     NO_RETRY = "x-inngest-no-retry"
@@ -68,6 +70,7 @@ class InternalEvents(enum.Enum):
 
 
 class Opcode(enum.Enum):
+    AI_GATEWAY = "AIGateway"
     INVOKE = "InvokeFunction"
     PLANNED = "StepPlanned"
     SLEEP = "Sleep"

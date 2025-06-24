@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 LOG = getLogger(__name__)
 
 __author__ = "Tyson Smith"
-__all__ = ("Bootstrapper",)
 
 
 class Bootstrapper:  # pylint: disable=missing-docstring
@@ -248,7 +247,7 @@ class Bootstrapper:  # pylint: disable=missing-docstring
                 )
             # set timeout to match remaining time
             conn.settimeout(max(time_limit - perf_counter(), 1))
-            LOG.debug("sending response (redirect %r)", url)
+            LOG.debug("sending response (redirect: %s)", url)
             try:
                 conn.sendall(resp.encode("ascii"))
             except socket_timeout:

@@ -32,6 +32,13 @@ from ansys.fluent.core.logger import set_console_logging_level  # noqa: F401
 
 # isort: on
 
+from ansys.fluent.core.field_data_interfaces import (  # noqa: F401
+    PathlinesFieldDataRequest,
+    ScalarFieldDataRequest,
+    SurfaceDataType,
+    SurfaceFieldDataRequest,
+    VectorFieldDataRequest,
+)
 from ansys.fluent.core.get_build_details import (  # noqa: F401
     get_build_version,
     get_build_version_string,
@@ -70,9 +77,9 @@ from ansys.fluent.core.utils import fldoc, get_examples_download_dir
 from ansys.fluent.core.utils.fluent_version import FluentVersion  # noqa: F401
 from ansys.fluent.core.utils.setup_for_fluent import setup_for_fluent  # noqa: F401
 
-__version__ = "0.32.2"
+__version__ = "0.33.0"
 
-_VERSION_INFO = "Build date: June 17, 2025 01:32 UTC ShaID: 7c53443"
+_VERSION_INFO = "Build date: June 24, 2025 03:08 UTC ShaID: 9d27ec6"
 """
 Global variable indicating the version info of the PyFluent package.
 Build timestamp and commit hash are added to this variable during packaging.
@@ -102,10 +109,10 @@ def version_info() -> str:
 
 
 # Latest released Fluent version
-FLUENT_RELEASE_VERSION = "25.1.0"
+FLUENT_RELEASE_VERSION = "25.2.0"
 
 # Current dev Fluent version
-FLUENT_DEV_VERSION = "25.2.0"
+FLUENT_DEV_VERSION = "26.1.0"
 
 # Path to the example input/data files are downloaded
 EXAMPLES_PATH = str(get_examples_download_dir())

@@ -51,6 +51,17 @@ _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
 
 
+"""
+This file contains one class, the DAVObject which is the base
+class for Calendar, Principal, CalendarObjectResource (Event) and many
+others.  There is some code here for handling some of the DAV-related
+communication, and the class lists some common methods that are shared
+on all kind of objects.  Library users should not need to know a lot
+about the DAVObject class, should never need to initialize one, but
+may encounter inheritated methods coming from this class.
+"""
+
+
 class DAVObject:
     """
     Base class for all DAV objects.  Can be instantiated by a client
@@ -76,13 +87,13 @@ class DAVObject:
         """
         Default constructor.
 
-        Parameters:
-         * client: A DAVClient instance
-         * url: The url for this object.  May be a full URL or a relative URL.
-         * parent: The parent object - used when creating objects
-         * name: A displayname - to be removed in 1.0, see https://github.com/python-caldav/caldav/issues/128 for details
-         * props: a dict with known properties for this object (as of 2020-12, only used for etags, and only when fetching CalendarObjectResource using the .objects or .objects_by_sync_token methods).
-         * id: The resource id (UID for an Event)
+        Args:
+          client: A DAVClient instance
+          url: The url for this object.  May be a full URL or a relative URL.
+          parent: The parent object - used when creating objects
+          name: A displayname - to be removed at some point, see https://github.com/python-caldav/caldav/issues/128 for details
+          props: a dict with known properties for this object
+          id: The resource id (UID for an Event)
         """
 
         if client is None and parent is not None:
@@ -231,6 +242,16 @@ class DAVObject:
     def get_property(
         self, prop: BaseElement, use_cached: bool = False, **passthrough
     ) -> Optional[str]:
+        """
+        Wrapper for the :class:`get_properties`, when only one property is wanted
+
+        Args:
+
+         prop: the property to search for
+         use_cached: don't send anything to the server if we've asked before
+
+        Other parameters are sent directly to the :class:`get_properties` method
+        """
         ## TODO: use_cached should probably be true
         if use_cached:
             if prop.tag in self.props:
@@ -256,11 +277,11 @@ class DAVObject:
         parse_response_xml set to true, xml elements will be returned
         rather than values.
 
-        Parameters:
-         * props = [dav.ResourceType(), dav.DisplayName(), ...]
+        Args:
+         props: ``[dav.ResourceType(), dav.DisplayName(), ...]``
 
         Returns:
-         * {proptag: value, ...}
+          ``{proptag: value, ...}``
 
         """
         from .collection import Principal  ## late import to avoid cyclic dependencies
@@ -393,9 +414,9 @@ class DAVObject:
 
     def get_display_name(self):
         """
-        Get calendar display name
+        Get display name (calendar, principal, ...more?)
         """
-        return self.get_property(dav.DisplayName())
+        return self.get_property(dav.DisplayName(), use_cached=True)
 
     def __str__(self) -> str:
         try:

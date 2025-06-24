@@ -12,7 +12,7 @@ class MaleoFoundationAESEncryptionResultsTransfers:
     class Fail(BaseServiceGeneralResultsTransfers.Fail): pass
 
     class Encrypt(BaseServiceGeneralResultsTransfers.SingleData):
-        data:EncryptData = Field(..., description="Single encryption data")
+        data: EncryptData = Field(..., description="Single encryption data")
 
     class Decrypt(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationEncryptionSchemas.Plaintext = Field(..., description="Single decryption data")
+        data: MaleoFoundationEncryptionSchemas.Plaintext = Field(..., description="Single decryption data")

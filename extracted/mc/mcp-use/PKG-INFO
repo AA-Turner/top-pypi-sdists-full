@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-use
-Version: 1.3.1
+Version: 1.3.3
 Summary: MCP Library for LLMs
 Author-email: Pietro Zullo <pietro.zullo@gmail.com>
 License: MIT
@@ -15,6 +15,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: anyio>=4.0.0
+Requires-Dist: authlib>=1.5.2
+Requires-Dist: httpx>=0.28.1
 Requires-Dist: jsonschema-pydantic>=0.1.0
 Requires-Dist: langchain-community>=0.0.10
 Requires-Dist: langchain>=0.1.0
@@ -22,13 +25,17 @@ Requires-Dist: mcp>=1.9.3
 Requires-Dist: posthog>=4.8.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: scarf-sdk>=0.1.0
+Requires-Dist: starlette>=0.41.0
 Requires-Dist: typing-extensions>=4.8.0
+Requires-Dist: uvicorn>=0.32.0
 Requires-Dist: websockets>=12.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.15.0; extra == 'anthropic'
+Requires-Dist: langchain-anthropic; extra == 'anthropic'
 Provides-Extra: dev
 Requires-Dist: black>=23.9.0; extra == 'dev'
-Requires-Dist: fastmcp; extra == 'dev'
+Requires-Dist: fastapi; extra == 'dev'
+Requires-Dist: fastmcp==2.8.0; extra == 'dev'
 Requires-Dist: isort>=5.12.0; extra == 'dev'
 Requires-Dist: mypy>=1.5.0; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0; extra == 'dev'
@@ -38,7 +45,7 @@ Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Provides-Extra: e2b
 Requires-Dist: e2b-code-interpreter>=1.5.0; extra == 'e2b'
 Provides-Extra: openai
-Requires-Dist: openai>=1.10.0; extra == 'openai'
+Requires-Dist: langchain-openai; extra == 'openai'
 Provides-Extra: search
 Requires-Dist: fastembed>=0.0.1; extra == 'search'
 Description-Content-Type: text/markdown
@@ -76,7 +83,7 @@ Description-Content-Type: text/markdown
     <a href="https://x.com/pederzh" alt="Twitter Follow - Luigi">
         <img src="https://img.shields.io/twitter/follow/Luigi?style=social" /></a>
     <a href="https://discord.gg/XkNkSkMz3V" alt="Discord">
-        <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/XkNkSkMz3V?style=flat" /></a>
+        <img src="https://dcbadge.limes.pink/api/server/XkNkSkMz3V?style=flat" /></a>
 </p>
 🌐 MCP-Use is the open source way to connect **any LLM to any MCP server** and build custom agents that have tool access, without using closed source or application clients.
 

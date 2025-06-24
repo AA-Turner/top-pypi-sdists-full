@@ -116,7 +116,7 @@ def django_every_request(sender, **kwargs):
         logger.debug("did not find django view function for route observation")
         return
 
-    context.signature = build_django_signature(resolved.func)
+    context.signature = build_django_signature(resolved)
     if resolved.route is not None:
         context.path_template = resolved.route
     logger.debug(

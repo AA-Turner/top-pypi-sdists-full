@@ -22,9 +22,9 @@ class ConcreteAgent(Agent[Any, dict[str, Any]]):
     async def fetch_response(self, observation: Observation) -> tuple[list[dict[str, Any]], bool]:
         """Mock implementation that returns predefined responses."""
         if self.call_count < len(self.mock_responses):
-            response = self.mock_responses[self.call_count]
+            actions, done = self.mock_responses[self.call_count]
             self.call_count += 1
-            return response
+            return actions, done
         return [], True
 
 

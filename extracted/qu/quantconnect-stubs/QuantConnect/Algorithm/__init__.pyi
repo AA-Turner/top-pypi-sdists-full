@@ -5623,6 +5623,25 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
+    def sarext(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sar_start: float = 0.0, offset_on_reverse: float = 0.0, af_start_short: float = 0.02, af_increment_short: float = 0.02, af_max_short: float = 0.2, af_start_long: float = 0.02, af_increment_long: float = 0.02, af_max_long: float = 0.2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ParabolicStopAndReverseExtended:
+        """
+        Creates a new Parabolic SAR Extended indicator
+        
+        :param symbol: The symbol whose SAREXT we seek
+        :param sar_start: The starting value for the Stop and Reverse indicator
+        :param offset_on_reverse: The offset value to be applied on reverse
+        :param af_start_short: The starting acceleration factor for short positions
+        :param af_increment_short: The increment value for the acceleration factor for short positions
+        :param af_max_short: The maximum value for the acceleration factor for short positions
+        :param af_start_long: The starting acceleration factor for long positions
+        :param af_increment_long: The increment value for the acceleration factor for long positions
+        :param af_max_long: The maximum value for the acceleration factor for long positions
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: A ParabolicStopAndReverseExtended configured with the specified periods.
+        """
+        ...
+
     @overload
     def sedol(self, sedol: str, trading_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.Symbol:
         """

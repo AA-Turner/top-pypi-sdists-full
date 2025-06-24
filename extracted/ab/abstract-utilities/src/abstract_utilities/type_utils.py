@@ -210,7 +210,7 @@ def get_type(obj:any) -> any:
         obj = str(obj)
     return obj
 
-def is_number(obj:any) -> bool:
+def is_instance(obj:any,typ:any) -> bool:
     """
     Checks whether the input object can be represented as a number.
 
@@ -220,11 +220,20 @@ def is_number(obj:any) -> bool:
     Returns:
         bool: True if the object can be represented as a number, False otherwise.
     """
+    boolIt = False
     try:
-        float(obj)
+        boolIt = isinstance(obj, typ)
+        return boolIt
+    except:
+        return boolIt
+
+def is_number(s):
+    try:
+        float(s)
         return True
-    except (TypeError, ValueError):
+    except:
         return False
+
 def is_object(obj:any) -> bool:
     """
     Checks whether the input object is of type 'object'.
@@ -235,7 +244,7 @@ def is_object(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'object', False otherwise.
     """
-    return isinstance(obj, object)
+    return is_instance(obj, object)
 def is_str(obj:any) -> bool:
     """
     Checks whether the input object is of type 'str'.
@@ -246,7 +255,7 @@ def is_str(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'str', False otherwise.
     """
-    return isinstance(obj, str)
+    return is_instance(obj, str)
 def is_int(obj:any) -> bool:
     """
     Checks whether the input object is of type 'int'.
@@ -257,7 +266,7 @@ def is_int(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'int', False otherwise.
     """
-    return isinstance(obj, int)
+    return is_instance(obj, int)
 def is_float(obj:any) -> bool:
     """
     Checks whether the input object is of type 'float'.
@@ -268,7 +277,7 @@ def is_float(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'float', False otherwise.
     """
-    return isinstance(obj, float)
+    return is_instance(obj, float)
 def is_bool(obj:any) -> bool:
     """
     Checks whether the input object is of type 'bool'.
@@ -279,7 +288,7 @@ def is_bool(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'bool', False otherwise.
     """
-    return isinstance(obj, bool)
+    return is_instance(obj, bool)
 
 
 def is_list(obj:any) -> bool:
@@ -292,7 +301,7 @@ def is_list(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'list', False otherwise.
     """
-    return isinstance(obj, list)
+    return is_instance(obj, list)
 def is_tuple(obj:any) -> bool:
     """
     Checks whether the input object is of type 'tuple'.
@@ -303,7 +312,7 @@ def is_tuple(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'tuple', False otherwise.
     """
-    return isinstance(obj, tuple)
+    return is_instance(obj, tuple)
 def is_set(obj:any) -> bool:
     """
     Checks whether the input object is of type 'set'.
@@ -314,7 +323,7 @@ def is_set(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'set', False otherwise.
     """
-    return isinstance(obj, set)
+    return is_instance(obj, set)
 def is_dict(obj:any) -> bool:
     """
     Checks whether the input object is of type 'dict'.
@@ -325,7 +334,7 @@ def is_dict(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'dict', False otherwise.
     """
-    return isinstance(obj, dict)
+    return is_instance(obj, dict)
 def is_frozenset(obj:any) -> bool:
     """
     Checks whether the input object is of type 'frozenset'.
@@ -336,7 +345,7 @@ def is_frozenset(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'frozenset', False otherwise.
     """
-    return isinstance(obj, frozenset)
+    return is_instance(obj, frozenset)
 def is_bytearray(obj:any) -> bool:
     """
     Checks whether the input object is of type 'bytearray'.
@@ -347,7 +356,7 @@ def is_bytearray(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'bytearray', False otherwise.
     """
-    return isinstance(obj, bytearray)
+    return is_instance(obj, bytearray)
 def is_bytes(obj:any) -> bool:
     """
     Checks whether the input object is of type 'bytes'.
@@ -358,7 +367,7 @@ def is_bytes(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'bytes', False otherwise.
     """
-    return isinstance(obj, bytes)
+    return is_instance(obj, bytes)
 def is_memoryview(obj:any) -> bool:
     """
     Checks whether the input object is of type 'memoryview'.
@@ -369,7 +378,7 @@ def is_memoryview(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'memoryview', False otherwise.
     """
-    return isinstance(obj, memoryview)
+    return is_instance(obj, memoryview)
 def is_range(obj:any) -> bool:
     """
     Checks whether the input object is
@@ -382,7 +391,7 @@ def is_range(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'range', False otherwise.
     """
-    return isinstance(obj, range)
+    return is_instance(obj, range)
 def is_enumerate(obj:any) -> bool:
     """
     Checks whether the input object is of type 'enumerate'.
@@ -393,7 +402,7 @@ def is_enumerate(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'enumerate', False otherwise.
     """
-    return isinstance(obj, enumerate)
+    return is_instance(obj, enumerate)
 def is_zip(obj:any) -> bool:
     """
     Checks whether the input object is of type 'zip'.
@@ -404,7 +413,7 @@ def is_zip(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'zip', False otherwise.
     """
-    return isinstance(obj, zip)
+    return is_instance(obj, zip)
 def is_filter(obj:any) -> bool:
     """
     Checks whether the input object is of type 'filter'.
@@ -415,7 +424,7 @@ def is_filter(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'filter', False otherwise.
     """
-    return isinstance(obj, filter)
+    return is_instance(obj, filter)
 def is_map(obj:any) -> bool:
     """
     Checks whether the input object is of type 'map'.
@@ -426,7 +435,7 @@ def is_map(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'map', False otherwise.
     """
-    return isinstance(obj, map)
+    return is_instance(obj, map)
 def is_property(obj:any) -> bool:
     """
     Checks whether the input object is of type 'property'.
@@ -437,7 +446,7 @@ def is_property(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'property', False otherwise.
     """
-    return isinstance(obj, property)
+    return is_instance(obj, property)
 
 
 def is_slice(obj:any) -> bool:
@@ -450,7 +459,7 @@ def is_slice(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'slice', False otherwise.
     """
-    return isinstance(obj, slice)
+    return is_instance(obj, slice)
 
 
 def is_super(obj:any) -> bool:
@@ -463,7 +472,7 @@ def is_super(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'super', False otherwise.
     """
-    return isinstance(obj, super)
+    return is_instance(obj, super)
 
 
 def is_type(obj:any) -> bool:
@@ -476,7 +485,7 @@ def is_type(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'type', False otherwise.
     """
-    return isinstance(obj, type)
+    return is_instance(obj, type)
 
 
 def is_Exception(obj:any) -> bool:
@@ -489,7 +498,7 @@ def is_Exception(obj:any) -> bool:
     Returns:
         bool: True if the object is of type 'Exception', False otherwise.
     """
-    return isinstance(obj, Exception)
+    return is_instance(obj, Exception)
 
 
 def is_none(obj:any) -> bool:
@@ -536,7 +545,7 @@ def is_str_convertible_dict(obj:any) -> bool:
     """
     import json
 
-    if isinstance(obj, str):
+    if is_instance(obj, str):
         try:
             json.loads(obj)
             return True
@@ -575,7 +584,7 @@ def make_list_lower(ls: list) -> list:
     Returns:
         list: The list with all strings converted to lowercase.
     """
-    return [item.lower() if isinstance(item, str) else item for item in ls]
+    return [item.lower() if is_instance(item, str) else item for item in ls]
 
 
 def make_float(obj:Union[str,float,int]) -> float:
@@ -612,14 +621,14 @@ def make_bool(obj: Union[bool, int, str]) -> Union[bool, str]:
         make_bool("0")    -> False
         make_bool(2)      -> 2
     """
-    if isinstance(obj, bool):
+    if is_instance(obj, bool):
         return obj
-    if isinstance(obj, int):
+    if is_instance(obj, int):
         if obj == 0:
             return False
         if obj == 1:
             return True
-    if isinstance(obj, str):
+    if is_instance(obj, str):
         if obj.lower() in ['0', "false"]:
             return False
         if obj.lower() in ['1', "true"]:
@@ -692,7 +701,7 @@ def det_bool_F(obj: (tuple or list or bool) = False):
     Returns:
         bool: True if the object is a boolean False value, False otherwise.
     """
-    if isinstance(obj, bool):
+    if is_instance(obj, bool):
         return obj
     return all(obj)
 def det_bool_T(obj: (tuple or list or bool) = False):
@@ -705,7 +714,7 @@ def det_bool_T(obj: (tuple or list or bool) = False):
     Returns:
         bool: True if the object is a boolean True value, False otherwise.
     """
-    if isinstance(obj, bool):
+    if is_instance(obj, bool):
         return obj 
     return any(obj)
 def T_or_F_obj_eq(event: any = '', obj: any = ''):
@@ -766,14 +775,6 @@ def convert_to_number(value):
     if is_number(value_str):
         return float(value_str) if '.' in value_str else int(value_str)
     return value_str
-def is_number(s):
-    if s:
-        try:
-            float(s)
-            return True
-        except:
-            return False
-    return False
 
 def makeInt(obj):
     if is_number(obj):
@@ -788,7 +789,7 @@ def str_lower(obj):
     return obj
 
 def get_bool_response(bool_response,json_data):
-    if not isinstance(bool_response,bool):
+    if not is_instance(bool_response,bool):
         try:
             bool_response = json_data.get(bool_response) in [None,'',[],"",{}]
         except:
@@ -807,6 +808,51 @@ def is_strings_in_string(strings, parts):
         if not parts:
             return []
     return parts
+
+
+
+
+
+def get_alphabet_str():
+  return 'abcdefghijklmnopqrstuvwxyz'
+def get_alphabet_upper_str():
+  alphabet_str = get_alphabet_str()
+  return alphabet_str.upper()
+def get_alphabet_comp_str():
+  return get_alphabet_str() + get_alphabet_upper_str()
+
+def get_alphabet():
+  alphabet_str = get_alphabet_str()
+  return break_string(alphabet_str)
+def get_alphabet_upper():
+  alphabet_upper_str = get_alphabet_upper_str()
+  return break_string(alphabet_upper_str)
+def get_alphabet_comp():
+  alphabet_comp_str = get_alphabet_comp_str()
+  return break_string(alphabet_comp_str)
+
+def get_numbers_str():
+  return '0123457890'
+def get_numbers_int():
+  numbers_str = get_numbers_str()
+  return [int(number) for number in numbers_str]
+
+
+def get_numbers():
+  numbers_str = get_numbers_str()
+  return break_string(numbers_str)
+def get_numbers_comp():
+  numbers_str = get_numbers()
+  numbers_int = get_numbers_int()
+  return numbers_str + numbers_int
+def break_string(string):
+  string_str = str(string)
+  return list(string_str)
+def is_any_instance(value):
+    for each in [dict, list, int, float]:
+        if is_instance(value, each):
+            return True
+
 # Function: is_number
 # Function: is_str
 # Function: is_int

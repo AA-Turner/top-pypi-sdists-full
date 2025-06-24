@@ -11,14 +11,21 @@ from .base import GoogleClientManager
 class GoogleSecretManager(GoogleClientManager):
     def __init__(
         self,
-        log_config:SimpleConfig,
-        service_key:BaseTypes.OptionalString=None,
-        credentials:Optional[Credentials]=None,
-        credentials_path:Optional[Union[Path, str]]=None
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None,
+        credentials: Optional[Credentials] = None,
+        credentials_path: Optional[Union[Path, str]] = None
     ) -> None:
         key = "google-secret-manager"
         name = "GoogleSecretManager"
-        super().__init__(key, name, log_config, service_key, credentials, credentials_path)
+        super().__init__(
+            key,
+            name,
+            log_config,
+            service_key,
+            credentials,
+            credentials_path
+        )
         self._client = secretmanager.SecretManagerServiceClient(credentials=self._credentials)
         self._logger.info("Client manager initialized successfully")
 
@@ -33,7 +40,11 @@ class GoogleSecretManager(GoogleClientManager):
             self._logger.info("Client manager disposed successfully")
 
     @retry.Retry(predicate=retry.if_exception_type(Exception), timeout=5)
-    def get(self, name:str, version:str = "latest") -> str:
+    def get(
+        self,
+        name: str,
+        version: str = "latest"
+    ) -> str:
         #* Check if secret exists
         secret_name = f"projects/{self._project_id}/secrets/{name}"
         try:
@@ -69,7 +80,11 @@ class GoogleSecretManager(GoogleClientManager):
             raise
 
     @retry.Retry(predicate=retry.if_exception_type(Exception), timeout=5)
-    def create(self, name:str, data:str) -> str:
+    def create(
+        self,
+        name: str,
+        data: str
+    ) -> str:
         parent = f"projects/{self._project_id}"
         secret_path = f"{parent}/secrets/{name}"
         try:

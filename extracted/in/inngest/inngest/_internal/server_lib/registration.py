@@ -96,6 +96,8 @@ class FunctionConfig(_BaseConfig):
     )
     steps: dict[str, Step]
     throttle: typing.Optional[Throttle]
+    timeouts: typing.Optional[Timeouts]
+    singleton: typing.Optional[Singleton]
     triggers: list[typing.Union[TriggerCron, TriggerEvent]]
 
 
@@ -154,6 +156,40 @@ class Throttle(_BaseConfig):
         if isinstance(out, Exception):
             raise out
         return out
+
+
+class Timeouts(_BaseConfig):
+    start: typing.Union[int, datetime.timedelta, None] = None
+    finish: typing.Union[int, datetime.timedelta, None] = None
+
+    @pydantic.field_serializer("start")
+    def serialize_start(
+        self,
+        value: typing.Union[int, datetime.timedelta, None],
+    ) -> typing.Optional[str]:
+        if value is None:
+            return None
+        out = transforms.to_duration_str(value)
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+    @pydantic.field_serializer("finish")
+    def serialize_finish(
+        self,
+        value: typing.Union[int, datetime.timedelta, None],
+    ) -> typing.Optional[str]:
+        if value is None:
+            return None
+        out = transforms.to_duration_str(value)
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+
+class Singleton(_BaseConfig):
+    key: typing.Optional[str] = None
+    mode: typing.Literal["skip", "cancel"]
 
 
 class TriggerCron(_BaseConfig):

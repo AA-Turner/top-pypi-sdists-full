@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioregistry
-Version: 0.12.18
+Version: 0.12.19
 Summary: Integrated registry of biological databases and nomenclatures
 Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
@@ -61,7 +61,6 @@ Requires-Dist: pytest; extra == "tests"
 Requires-Dist: coverage; extra == "tests"
 Requires-Dist: more_itertools; extra == "tests"
 Requires-Dist: httpx; extra == "tests"
-Requires-Dist: indra; extra == "tests"
 Requires-Dist: scikit-learn; extra == "tests"
 Provides-Extra: docs
 Requires-Dist: sphinx>=8; extra == "docs"

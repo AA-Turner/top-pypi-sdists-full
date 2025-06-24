@@ -14,6 +14,18 @@ from ..models.automation_output_processor_completed_v2_beta_event import (
 from ..models.automation_output_processor_uploaded_v2_beta_event import (
     AutomationOutputProcessorUploadedV2BetaEvent,
 )
+from ..models.automation_transform_status_failed_event_v2_event import (
+    AutomationTransformStatusFailedEventV2Event,
+)
+from ..models.automation_transform_status_pending_event_v2_event import (
+    AutomationTransformStatusPendingEventV2Event,
+)
+from ..models.automation_transform_status_running_event_v2_event import (
+    AutomationTransformStatusRunningEventV2Event,
+)
+from ..models.automation_transform_status_succeeded_event_v2_event import (
+    AutomationTransformStatusSucceededEventV2Event,
+)
 from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
@@ -62,6 +74,10 @@ class EventsPaginatedList:
                 AutomationInputGeneratorCompletedV2BetaEvent,
                 AutomationOutputProcessorCompletedV2BetaEvent,
                 AutomationOutputProcessorUploadedV2BetaEvent,
+                AutomationTransformStatusPendingEventV2Event,
+                AutomationTransformStatusRunningEventV2Event,
+                AutomationTransformStatusSucceededEventV2Event,
+                AutomationTransformStatusFailedEventV2Event,
                 WorkflowTaskGroupCreatedEvent,
                 WorkflowTaskGroupMappingCompletedEvent,
                 WorkflowTaskCreatedEvent,
@@ -138,6 +154,18 @@ class EventsPaginatedList:
                 elif isinstance(events_item_data, AutomationOutputProcessorUploadedV2BetaEvent):
                     events_item = events_item_data.to_dict()
 
+                elif isinstance(events_item_data, AutomationTransformStatusPendingEventV2Event):
+                    events_item = events_item_data.to_dict()
+
+                elif isinstance(events_item_data, AutomationTransformStatusRunningEventV2Event):
+                    events_item = events_item_data.to_dict()
+
+                elif isinstance(events_item_data, AutomationTransformStatusSucceededEventV2Event):
+                    events_item = events_item_data.to_dict()
+
+                elif isinstance(events_item_data, AutomationTransformStatusFailedEventV2Event):
+                    events_item = events_item_data.to_dict()
+
                 elif isinstance(events_item_data, WorkflowTaskGroupCreatedEvent):
                     events_item = events_item_data.to_dict()
 
@@ -205,6 +233,10 @@ class EventsPaginatedList:
                     AutomationInputGeneratorCompletedV2BetaEvent,
                     AutomationOutputProcessorCompletedV2BetaEvent,
                     AutomationOutputProcessorUploadedV2BetaEvent,
+                    AutomationTransformStatusPendingEventV2Event,
+                    AutomationTransformStatusRunningEventV2Event,
+                    AutomationTransformStatusSucceededEventV2Event,
+                    AutomationTransformStatusFailedEventV2Event,
                     WorkflowTaskGroupCreatedEvent,
                     WorkflowTaskGroupMappingCompletedEvent,
                     WorkflowTaskCreatedEvent,
@@ -241,6 +273,10 @@ class EventsPaginatedList:
                     AutomationInputGeneratorCompletedV2BetaEvent,
                     AutomationOutputProcessorCompletedV2BetaEvent,
                     AutomationOutputProcessorUploadedV2BetaEvent,
+                    AutomationTransformStatusPendingEventV2Event,
+                    AutomationTransformStatusRunningEventV2Event,
+                    AutomationTransformStatusSucceededEventV2Event,
+                    AutomationTransformStatusFailedEventV2Event,
                     WorkflowTaskGroupCreatedEvent,
                     WorkflowTaskGroupMappingCompletedEvent,
                     WorkflowTaskCreatedEvent,
@@ -269,6 +305,10 @@ class EventsPaginatedList:
                         AutomationInputGeneratorCompletedV2BetaEvent,
                         AutomationOutputProcessorCompletedV2BetaEvent,
                         AutomationOutputProcessorUploadedV2BetaEvent,
+                        AutomationTransformStatusPendingEventV2Event,
+                        AutomationTransformStatusRunningEventV2Event,
+                        AutomationTransformStatusSucceededEventV2Event,
+                        AutomationTransformStatusFailedEventV2Event,
                         WorkflowTaskGroupCreatedEvent,
                         WorkflowTaskGroupMappingCompletedEvent,
                         WorkflowTaskCreatedEvent,
@@ -299,6 +339,10 @@ class EventsPaginatedList:
                             AutomationInputGeneratorCompletedV2BetaEvent,
                             AutomationOutputProcessorCompletedV2BetaEvent,
                             AutomationOutputProcessorUploadedV2BetaEvent,
+                            AutomationTransformStatusPendingEventV2Event,
+                            AutomationTransformStatusRunningEventV2Event,
+                            AutomationTransformStatusSucceededEventV2Event,
+                            AutomationTransformStatusFailedEventV2Event,
                             WorkflowTaskGroupCreatedEvent,
                             WorkflowTaskGroupMappingCompletedEvent,
                             WorkflowTaskCreatedEvent,
@@ -339,6 +383,24 @@ class EventsPaginatedList:
                             return event
                         if discriminator_value == "v2.assayRun.updated.fields":
                             event = AssayRunUpdatedFieldsEvent.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2.automationFileTransform.updated.status.failed":
+                            event = AutomationTransformStatusFailedEventV2Event.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2.automationFileTransform.updated.status.pending":
+                            event = AutomationTransformStatusPendingEventV2Event.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2.automationFileTransform.updated.status.running":
+                            event = AutomationTransformStatusRunningEventV2Event.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2.automationFileTransform.updated.status.succeeded":
+                            event = AutomationTransformStatusSucceededEventV2Event.from_dict(
+                                data, strict=False
+                            )
 
                             return event
                         if discriminator_value == "v2.entity.registered":
@@ -530,6 +592,38 @@ class EventsPaginatedList:
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
+                        event = AutomationTransformStatusPendingEventV2Event.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = AutomationTransformStatusRunningEventV2Event.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = AutomationTransformStatusSucceededEventV2Event.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = AutomationTransformStatusFailedEventV2Event.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
                         event = WorkflowTaskGroupCreatedEvent.from_dict(data, strict=True)
 
                         return event
@@ -640,6 +734,10 @@ class EventsPaginatedList:
                             AutomationInputGeneratorCompletedV2BetaEvent,
                             AutomationOutputProcessorCompletedV2BetaEvent,
                             AutomationOutputProcessorUploadedV2BetaEvent,
+                            AutomationTransformStatusPendingEventV2Event,
+                            AutomationTransformStatusRunningEventV2Event,
+                            AutomationTransformStatusSucceededEventV2Event,
+                            AutomationTransformStatusFailedEventV2Event,
                             WorkflowTaskGroupCreatedEvent,
                             WorkflowTaskGroupMappingCompletedEvent,
                             WorkflowTaskCreatedEvent,
@@ -715,6 +813,10 @@ class EventsPaginatedList:
             AutomationInputGeneratorCompletedV2BetaEvent,
             AutomationOutputProcessorCompletedV2BetaEvent,
             AutomationOutputProcessorUploadedV2BetaEvent,
+            AutomationTransformStatusPendingEventV2Event,
+            AutomationTransformStatusRunningEventV2Event,
+            AutomationTransformStatusSucceededEventV2Event,
+            AutomationTransformStatusFailedEventV2Event,
             WorkflowTaskGroupCreatedEvent,
             WorkflowTaskGroupMappingCompletedEvent,
             WorkflowTaskCreatedEvent,
@@ -752,6 +854,10 @@ class EventsPaginatedList:
                 AutomationInputGeneratorCompletedV2BetaEvent,
                 AutomationOutputProcessorCompletedV2BetaEvent,
                 AutomationOutputProcessorUploadedV2BetaEvent,
+                AutomationTransformStatusPendingEventV2Event,
+                AutomationTransformStatusRunningEventV2Event,
+                AutomationTransformStatusSucceededEventV2Event,
+                AutomationTransformStatusFailedEventV2Event,
                 WorkflowTaskGroupCreatedEvent,
                 WorkflowTaskGroupMappingCompletedEvent,
                 WorkflowTaskCreatedEvent,

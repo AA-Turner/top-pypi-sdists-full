@@ -1,7 +1,10 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from dataclasses import dataclass
 import sys
 import os
+import resource
+import subprocess
 
 from threading import Thread
 from typing import Optional
@@ -44,23 +47,19 @@ def _report_runtime_environment(
     if discover_cloud_resource_enabled:
         provider, resource_id = _detect_cloud_resource_id()
 
-    os_info = get_platform()
-    runtime_path = sys.executable
-    runtime_version = sys.version.split(" ")[0]
-    hostname = get_hostname()
-    is_kubernetes = _is_kubernetes()
-    is_docker = _is_docker()
+    memory_metrics = get_memory_metrics()
 
     reporting_client.add_message(
         ServerInventory(
-            os_info,
-            runtime_path,
-            runtime_version,
-            hostname,
-            is_kubernetes=is_kubernetes,
-            is_docker=is_docker,
+            operating_system=get_platform(),
+            runtime_path=sys.executable,
+            runtime_version=sys.version.split(" ")[0],
+            hostname=get_hostname(),
+            is_kubernetes=_is_kubernetes(),
+            is_docker=_is_docker(),
             cloud_provider=provider,
             cloud_resource_id=resource_id,
+            process_memory_limit_bytes=memory_metrics.process_memory_limit_bytes,
         )
     )
 
@@ -255,3 +254,115 @@ def _get_aws_token(session) -> Optional[str]:
             error=str(e),
         )
     return None
+
+
+CGROUP_V1_PATH = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+CGROUP_V2_PATH = "/sys/fs/cgroup/memory.max"
+
+
+@dataclass
+class MemoryMetrics:
+    total_memory_limit_bytes: Optional[int]
+    """
+    The effective total memory of the current machine, excluding swap memory. On bare
+    metal, this is usually the amount of physical memory connected to the device (and
+    visible to the OS). This can be further limited by cgroups (often in containers).
+    """
+    process_memory_limit_bytes: Optional[int]
+    """
+    The maximum amount of memory useable by the current process. Must not exceed the
+    total memory limit.
+    """
+
+
+def get_memory_metrics() -> MemoryMetrics:
+    """
+    Retrieve memory information for the current machine / process.
+    """
+    virtual_mem = _total_virtual_memory_bytes()
+    cgroup_mem = _cgroup_memory_limit_bytes()
+    _, process_hard_limit_mem = _process_rlimits_bytes()
+
+    total_mem = virtual_mem
+    if virtual_mem is not None and cgroup_mem is not None:
+        total_mem = min(virtual_mem, cgroup_mem)
+
+    process_mem = total_mem
+    if total_mem is not None and process_hard_limit_mem is not None:
+        process_mem = min(total_mem, process_hard_limit_mem)
+
+    return MemoryMetrics(
+        total_memory_limit_bytes=total_mem,
+        process_memory_limit_bytes=process_mem,
+    )
+
+
+LINUX = sys.platform.startswith("linux")
+MACOS = sys.platform.startswith("darwin")
+
+
+@fail_quietly(return_value=None)
+def _total_virtual_memory_bytes() -> Optional[int]:
+    """
+    Get the total memory available on the machine in bytes. Based on the implementation
+    of `virtual_memory` from https://github.com/giampaolo/psutil.
+    """
+    if LINUX:
+        return _linux_virtual_memory()
+    if MACOS:
+        return _macos_virtual_memory()
+    return None
+
+
+def _linux_virtual_memory() -> int:
+    """
+    See https://github.com/giampaolo/psutil/blob/e7754af7400c0836a721befaba0f54c402c4ecb4/psutil/_pslinux.py#L351-L369
+    """
+    mems = {}
+    # Buffering prevents several issues. See the larger comment in psutil.
+    with open("/proc/meminfo", "rb", buffering=32 * 1024) as f:
+        for line in f:
+            fields = line.split()
+            mems[fields[0]] = int(fields[1]) * 1024
+
+    return mems[b"MemTotal:"]
+
+
+def _macos_virtual_memory() -> int:
+    """
+    Get the total memory available on macOS in bytes.
+    """
+    output = subprocess.check_output(["sysctl", "-n", "hw.memsize"])
+    return int(output.strip())
+
+
+@fail_quietly(return_value=None)
+def _cgroup_memory_limit_bytes() -> Optional[int]:
+    """
+    Get the memory limit in bytes imposed by cgroups (used by Docker), or None if not
+    found or unlimited.
+    """
+    for path in (CGROUP_V2_PATH, CGROUP_V1_PATH):
+        if os.path.exists(path):
+            with open(path) as f:
+                val = f.read().strip()
+            if not val.isdigit():
+                return None
+            limit = int(val)
+            if limit < 0:
+                return None
+            return limit
+    return None
+
+
+@fail_quietly(return_value=(None, None))
+def _process_rlimits_bytes() -> tuple[Optional[int], Optional[int]]:
+    """
+    Get the current memory limits for this process in bytes, according to getrlimit.
+    Values that cannot be found or are unlimited are reported as None.
+    """
+    soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_AS)
+    return (
+        soft_limit if soft_limit != resource.RLIM_INFINITY else None,
+        hard_limit if hard_limit != resource.RLIM_INFINITY else None,
+    )

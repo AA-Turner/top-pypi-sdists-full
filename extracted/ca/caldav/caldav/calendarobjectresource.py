@@ -1,15 +1,18 @@
 """
 Calendar Objects Resources, as defined in the RFC 4791.
 
-There are three subclasses Todo, Journal and Event.  Those mirrors objects stored on the server.
+There are three subclasses Todo, Journal and Event.  Those mirrors objects stored on the server.  The word ``CalendarObjectResource`` is long, complicated and may be hard to understand.  When you read the word "event" in any documentation, issue discussions, etc, then most likely it should be read as "a CalendarObjectResource, like an event, a task or a journal".  Do not make the mistake of going directly to the Event-class if you want to contribute code for handling "events" - consider that the same code probably will be appicable to Joural and Todo events, if so, CalendarObjectResource is the right class!  Clear as mud?
 
-FreeBusy is also defined as a Calendar Object Resource in the RFC, and it is a bit different - I'm considering to create another class between the CalendarObjectResource class and Todo/Event/Journal.
+FreeBusy is also defined as a Calendar Object Resource in the RFC, and it is a bit different .  Perhaps there should be another class layer between CalendarObjectResource and Todo/Event/Journal to indicate that the three latter are closely related, while FreeBusy is something different.
 
 Alarms and Time zone objects does not have any class as for now.  Those are typically subcomponents of an event/task/journal component.
+
+Users of the library should not need to construct any of those objects.  To add new content to the calendar, use ``calendar.save_event``, ``calendar.save_todo`` or ``calendar.save_journal``.  Those methods will return a CalendarObjectResource.
 """
 import logging
 import sys
 import uuid
+import warnings
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
@@ -28,11 +31,9 @@ from urllib.parse import SplitResult
 from urllib.parse import unquote
 
 import icalendar
-import vobject
 from dateutil.rrule import rrulestr
 from icalendar import vCalAddress
 from icalendar import vText
-from vobject.base import VBase
 
 try:
     from typing import ClassVar, Optional, Union, Type
@@ -76,9 +77,17 @@ log = logging.getLogger("caldav")
 
 
 class CalendarObjectResource(DAVObject):
-    """
-    Ref RFC 4791, section 4.1, a "Calendar Object Resource" can be an
+    """Ref RFC 4791, section 4.1, a "Calendar Object Resource" can be an
     event, a todo-item, a journal entry, or a free/busy entry
+
+    As per the RFC, a CalendarObjectResource can at most contain one
+    calendar component, with the exception of recurrence components.
+    Meaning that event.data typically contains one VCALENDAR with one
+    VEVENT and possibly one VTIMEZONE.
+
+    In the case of expanded calendar date searches, each recurrence
+    will (by default) wrapped in a distinct CalendarObjectResource
+    object.  This is a deviation from the definition given in the RFC.
     """
 
     ## There is also STARTTOFINISH, STARTTOSTART and FINISHTOFINISH in RFC9253,
@@ -139,6 +148,7 @@ class CalendarObjectResource(DAVObject):
         please put caldav<3.0 in the requirements.
         """
         i = self.icalendar_component
+        ## TODO: are those lines useful for anything?
         if hasattr(end, "tzinfo") and not end.tzinfo:
             end = end.astimezone(timezone.utc)
         duration = self.get_duration()
@@ -165,6 +175,20 @@ class CalendarObjectResource(DAVObject):
         self.icalendar_component.add("organizer", principal.get_vcal_address())
 
     def split_expanded(self) -> List[Self]:
+        """This is used internally for processing search results.
+        Library users probably don't need to care about this one.
+
+        In the CalDAV protocol, a VCALENDAR object returned from the
+        server may contain only one event/task/journal - but if the object is
+        recurrent, it may contain several recurrences.  This method
+        will split the recurrences into several objects.
+
+        It's meant to be used for expanded data, where each component
+        is a recurrence, and where the recurrence set is complete for
+        some given time range.  However, it will also work on a
+        non-expanded object, containing the "master" component first
+        followed by "special" recurrences.
+        """
         i = self.icalendar_instance.subcomponents
         tz_ = [x for x in i if isinstance(x, icalendar.Timezone)]
         ntz = [x for x in i if not isinstance(x, icalendar.Timezone)]
@@ -206,13 +230,13 @@ class CalendarObjectResource(DAVObject):
 
         recurrence_properties = {"exdate", "exrule", "rdate", "rrule"}
 
-        if any(
-            x for x in recurrings if not recurrence_properties.isdisjoint(set(x.keys()))
-        ):
-            ## I think we should not end up here.  And if we do, then it's needed to reinsert the code section I just removed ...
-            import pdb
-
-            pdb.set_trace()
+        error.assert_(
+            not any(
+                x
+                for x in recurrings
+                if not recurrence_properties.isdisjoint(set(x.keys()))
+            )
+        )
 
         calendar = self.icalendar_instance
         calendar.subcomponents = []
@@ -224,6 +248,9 @@ class CalendarObjectResource(DAVObject):
                 and occurrence.get("STATUS") in ("COMPLETED", "CANCELLED")
             ):
                 continue
+            ## TODO: If there are no reports of missing RECURRENCE-ID until 2027,
+            ## the if-statement below may be deleted
+            error.assert_("RECURRENCE-ID" in occurrence)
             if "RECURRENCE-ID" not in occurrence:
                 occurrence.add("RECURRENCE-ID", occurrence.get("DTSTART").dt)
             calendar.add_component(occurrence)
@@ -456,8 +483,10 @@ class CalendarObjectResource(DAVObject):
     icalendar_component = property(
         _get_icalendar_component,
         _set_icalendar_component,
-        doc="icalendar component - should not be used with recurrence sets",
+        doc="icalendar component - this is the simplest way to access the event/task - it will give you the first component that isn't a timezone component.  For recurrence sets, the master component will be returned.  For any non-recurring event/task/journal, there should be only one calendar component in the object.  For results from an expanded search, there should be only one calendar component in the object",
     )
+
+    component = icalendar_component
 
     def get_due(self):
         """
@@ -465,7 +494,7 @@ class CalendarObjectResource(DAVObject):
 
         WARNING: this method is likely to be deprecated and moved to
         the icalendar library.  If you decide to use it, please put
-        caldav<2.0 in the requirements.
+        caldav<3.0 in the requirements.
         """
         i = self.icalendar_component
         if "DUE" in i:
@@ -547,20 +576,37 @@ class CalendarObjectResource(DAVObject):
         ievent.add("attendee", attendee_obj)
 
     def is_invite_request(self) -> bool:
+        """
+        Returns True if this object is a request, see
+        https://www.rfc-editor.org/rfc/rfc2446.html#section-3.2.2
+        """
         self.load(only_if_unloaded=True)
         return self.icalendar_instance.get("method", None) == "REQUEST"
 
     def is_invite_reply(self) -> bool:
+        """
+        Returns True if the object is a reply, see
+        https://www.rfc-editor.org/rfc/rfc2446.html#section-3.2.3
+        """
         self.load(only_if_unloaded=True)
         return self.icalendar_instance.get("method", None) == "REPLY"
 
     def accept_invite(self, calendar: Optional["Calendar"] = None) -> None:
+        """
+        Accepts an invite - to be used on an invite object.
+        """
         self._reply_to_invite_request("ACCEPTED", calendar)
 
     def decline_invite(self, calendar: Optional["Calendar"] = None) -> None:
+        """
+        Declines an invite - to be used on an invite object.
+        """
         self._reply_to_invite_request("DECLINED", calendar)
 
     def tentatively_accept_invite(self, calendar: Optional[Any] = None) -> None:
+        """
+        Tentatively accept an invite - to be used on an invite object.
+        """
         self._reply_to_invite_request("TENTATIVE", calendar)
 
     ## TODO: DELEGATED is also a valid option, and for vtodos the
@@ -626,11 +672,11 @@ class CalendarObjectResource(DAVObject):
             r = self.client.request(str(self.url))
             if r.status and r.status == 404:
                 raise error.NotFoundError(errmsg(r))
+            self.data = r.raw
         except error.NotFoundError:
             raise
         except:
-            self.load_by_multiget()
-        self.data = vcal.fix(r.raw)
+            return self.load_by_multiget()
         if "Etag" in r.headers:
             self.props[dav.GetEtag.tag] = r.headers["Etag"]
         if "Schedule-Tag" in r.headers:
@@ -657,6 +703,7 @@ class CalendarObjectResource(DAVObject):
         return self
 
     ## TODO: self.id should either always be available or never
+    ## TODO: run this logic on load, to ensure `self.id` is set after loading
     def _find_id_path(self, id=None, path=None) -> None:
         """
         With CalDAV, every object has a URL.  With icalendar, every object
@@ -669,7 +716,7 @@ class CalendarObjectResource(DAVObject):
         2) if ID is not given, but the path is given, generate the ID from the
            path
         3) If neither ID nor path is given, use the uuid method to generate an
-           ID (TODO: recommendation is to concat some timestamp, serial or
+           ID (TODO: recommendation in the RFC is to concat some timestamp, serial or
            random number and a domain)
         4) if no path is given, generate the URL from the ID
         """
@@ -686,6 +733,7 @@ class CalendarObjectResource(DAVObject):
             id = re.search("(/|^)([^/]*).ics", str(path)).group(2)
         if id is None:
             id = str(uuid.uuid1())
+
         i.pop("UID", None)
         i.add("UID", id)
 
@@ -711,6 +759,11 @@ class CalendarObjectResource(DAVObject):
             path = [x[1] for x in r.headers if x[0] == "location"][0]
         elif r.status not in (204, 201):
             if retry_on_failure:
+                try:
+                    import vobject
+                except ImportError:
+                    retry_on_failure = False
+            if retry_on_failure:
                 ## This looks like a noop, but the object may be "cleaned".
                 ## See https://github.com/python-caldav/caldav/issues/43
                 self.vobject_instance
@@ -732,6 +785,9 @@ class CalendarObjectResource(DAVObject):
         return self.parent.url.join(quote(self.id.replace("/", "%2F")) + ".ics")
 
     def change_attendee_status(self, attendee: Optional[Any] = None, **kwargs) -> None:
+        """
+        Updates the attendee-line according to the arguments received
+        """
         from .collection import Principal  ## late import to avoid cycling imports
 
         if not attendee:
@@ -945,11 +1001,27 @@ class CalendarObjectResource(DAVObject):
         return self
 
     def is_loaded(self):
+        """Returns True if there exists data in the object.  An
+        object is considered not to be loaded if it contains no data
+        but just the URL.
+
+        TOOD: bad side effect, converts the data to a string,
+        potentially breaking couplings
+        """
         return (
             self._data or self._vobject_instance or self._icalendar_instance
         ) and self.data.count("BEGIN:") > 1
 
     def has_component(self):
+        """
+        Returns True if there exists a VEVENT, VTODO or VJOURNAL in the data.
+        Returns False if it's only a VFREEBUSY, VTIMEZONE or unknown components.
+
+        TODO: Bad side-effect: converts to data - any icalendar instances coupled to the object
+        will be decoupled.
+
+        Used internally after search to remove empty search results (sometimes Google return such)
+        """
         return (
             self._data
             or self._vobject_instance
@@ -1013,13 +1085,20 @@ class CalendarObjectResource(DAVObject):
         doc="vCal representation of the object in wire format (UTF-8, CRLN)",
     )
 
-    def _set_vobject_instance(self, inst: vobject.base.Component):
+    def _set_vobject_instance(self, inst: "vobject.base.Component"):
         self._vobject_instance = inst
         self._data = None
         self._icalendar_instance = None
         return self
 
-    def _get_vobject_instance(self) -> Optional[vobject.base.Component]:
+    def _get_vobject_instance(self) -> Optional["vobject.base.Component"]:
+        try:
+            import vobject
+        except ImportError:
+            logging.critical(
+                "A vobject instance has been requested, but the vobject library is not installed (vobject is no longer an official dependency in 2.0)"
+            )
+            return None
         if not self._vobject_instance:
             if self._get_data() is None:
                 return None
@@ -1035,10 +1114,34 @@ class CalendarObjectResource(DAVObject):
                 raise
         return self._vobject_instance
 
-    vobject_instance: VBase = property(
+    ## event.instance has always yielded a vobject, but will probably yield an icalendar_instance
+    ## in version 3.0!
+    def _get_deprecated_vobject_instance(self) -> Optional["vobject.base.Component"]:
+        warnings.warn(
+            "use event.vobject_instance or event.icalendar_instance",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._get_vobject_instance()
+
+    def _set_deprecated_vobject_instance(self, inst: "vobject.base.Component"):
+        warnings.warn(
+            "use event.vobject_instance or event.icalendar_instance",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._get_vobject_instance(inst)
+
+    vobject_instance: "vobject.base.VBase" = property(
         _get_vobject_instance,
         _set_vobject_instance,
         doc="vobject instance of the object",
+    )
+
+    instance: "vobject.base.VBase" = property(
+        _get_deprecated_vobject_instance,
+        _set_deprecated_vobject_instance,
+        doc="vobject instance of the object (DEPRECATED!  This will yield an icalendar instance in caldav 3.0)",
     )
 
     def _set_icalendar_instance(self, inst):
@@ -1104,10 +1207,6 @@ class CalendarObjectResource(DAVObject):
             return timedelta(days=1)
         else:
             return timedelta(0)
-
-    ## for backward-compatibility - may be changed to
-    ## icalendar_instance in version 1.0
-    instance: VBase = vobject_instance
 
 
 class Event(CalendarObjectResource):
@@ -1384,7 +1483,7 @@ class Todo(CalendarObjectResource):
         else:
             count = rrule.get("COUNT", None)
             if count is not None and count[0] <= len(
-                [x for x in recurrences if not self._is_pending(x)]
+                [x for x in recurrences if not self.is_pending(x)]
             ):
                 self._complete_ical(
                     recurrences[0], completion_timestamp=completion_timestamp
@@ -1411,17 +1510,20 @@ class Todo(CalendarObjectResource):
     ) -> None:
         """Marks the task as completed.
 
-        Parameters:
-         * completion_timestamp - datetime object.  Defaults to
-           datetime.now().
-         * handle_rrule - if set to True, the library will try to be smart if
-           the task is recurring.  The default is False, for backward
-           compatibility.  I may consider making this one mandatory.
-         * rrule_mode -   The RFC leaves a lot of room for interpretation on how
-           to handle recurring tasks, and what works on one server may break at
-           another.  The following modes are accepted:
-           * this_and_future - see doc for _complete_recurring_thisandfuture for details
-           * safe - see doc for _complete_recurring_safe for details
+        Parameters
+        ----------
+        completion_timestamp : datetime
+            Defaults to ``datetime.now()``.
+        handle_rrule : Bool
+            If set to True, the library will try to be smart if
+            the task is recurring.  The default is False, for backward
+            compatibility.  I may consider making this one mandatory.
+        rrule_mode : str
+            The RFC leaves a lot of room for interpretation on how
+            to handle recurring tasks, and what works on one server may break at
+            another.  The following modes are accepted:
+            * this_and_future - see doc for _complete_recurring_thisandfuture for details
+            * safe - see doc for _complete_recurring_safe for details
         """
         if not completion_timestamp:
             completion_timestamp = datetime.now(timezone.utc)
@@ -1436,22 +1538,20 @@ class Todo(CalendarObjectResource):
     def _complete_ical(self, i=None, completion_timestamp=None) -> None:
         if i is None:
             i = self.icalendar_component
-        assert self._is_pending(i)
+        assert self.is_pending(i)
         status = i.pop("STATUS", None)
         i.add("STATUS", "COMPLETED")
         i.add("COMPLETED", completion_timestamp)
 
-    def _is_pending(self, i=None) -> Optional[bool]:
+    def is_pending(self, i=None) -> Optional[bool]:
         if i is None:
             i = self.icalendar_component
         if i.get("COMPLETED", None) is not None:
             return False
-        if i.get("STATUS", None) in ("NEEDS-ACTION", "IN-PROCESS"):
+        if i.get("STATUS", "NEEDS-ACTION") in ("NEEDS-ACTION", "IN-PROCESS"):
             return True
-        if i.get("STATUS", None) in ("CANCELLED", "COMPLETED"):
+        if i.get("STATUS", "NEEDS-ACTION") in ("CANCELLED", "COMPLETED"):
             return False
-        if "STATUS" not in i:
-            return True
         ## input data does not conform to the RFC
         assert False
 
@@ -1473,9 +1573,8 @@ class Todo(CalendarObjectResource):
 
         TODO: can this be written in a better/shorter way?
 
-        WARNING: this method is likely to be deprecated and moved to
-        the icalendar library.  If you decide to use it, please put
-        caldav<2.0 in the requirements.
+        WARNING: this method may be deprecated and moved to
+        the icalendar library at some point in the future.
         """
         i = self.icalendar_component
         return self._set_duration(i, duration, movable_attr)
@@ -1507,9 +1606,8 @@ class Todo(CalendarObjectResource):
         parent calendar component (through RELATED-TO), and the parents
         due or dtend is before the new dtend).
 
-        WARNING: this method is likely to be deprecated and parts of
-        it moved to the icalendar library.  If you decide to use it,
-        please put caldav<2.0 in the requirements.
+        WARNING: this method may become deprecated and parts of
+        it moved to the icalendar library at some point in the future.
 
         WARNING: the check_dependent-logic may be rewritten to support
         RFC9253 in 3.x

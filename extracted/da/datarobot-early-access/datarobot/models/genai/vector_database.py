@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Union
 import trafaret as t
 
 from datarobot.models.api_object import APIObject
+from datarobot.models.custom_model_version import CustomModelVersion
+from datarobot.models.deployment import Deployment
 from datarobot.models.genai.custom_model_embedding_validation import CustomModelEmbeddingValidation
 from datarobot.models.genai.custom_model_validation import (
     get_entity_id,
@@ -25,6 +27,7 @@ from datarobot.models.genai.playground import Playground
 from datarobot.models.use_cases.use_case import UseCase
 from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
 from datarobot.utils.pagination import unpaginate
+from datarobot.utils.waiters import wait_for_async_resolution
 
 chunking_parameters_trafaret = t.Dict(
     {
@@ -1018,6 +1021,114 @@ class VectorDatabase(APIObject):
         with open(str(file_path), mode="wb") as f:
             for chunk in response.iter_content(chunk_size=65536):
                 f.write(chunk)
+
+    def send_to_custom_model_workshop(
+        self,
+        maximum_memory: Optional[int] = None,
+        resource_bundle_id: Optional[str] = None,
+        replicas: Optional[int] = None,
+        network_egress_policy: Optional[str] = None,
+    ) -> CustomModelVersion:
+        """
+        Create a new CustomModelVersion for this vector database.
+
+        Parameters
+        ----------
+        maximum_memory: Optional[int]
+            The maximum memory that will be allocated to this custom model.
+        resource_bundle_id: Optional[str]
+            The ID of a datarobot.models.resource_bundle.ResourceBundle that will be used by this
+            custom model.
+        replicas: Optional[int]
+            A fixed number of replicas that will be deployed for this custom model.
+        network_egress_policy: Optional[str]
+            Determines whether the given custom model is isolated, or can access the public network.
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`,
+            `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
+        """
+
+        requested_resources: dict[str, Any] = {}
+        if maximum_memory is not None:
+            requested_resources["maximum_memory"] = maximum_memory
+        if resource_bundle_id is not None:
+            requested_resources["resource_bundle_id"] = resource_bundle_id
+        if replicas is not None:
+            requested_resources["replicas"] = replicas
+        if network_egress_policy is not None:
+            requested_resources["network_egress_policy"] = network_egress_policy
+
+        payload_data: dict[str, Any] = (
+            {"resources": requested_resources} if requested_resources else {}
+        )
+
+        url = f"{self._client.domain}/{self._path}/{self.id}/customModelVersions/"
+
+        response_data = self._client.post(url, data=payload_data)
+        location = wait_for_async_resolution(self._client, response_data.headers["Location"])
+        return CustomModelVersion.from_location(location)
+
+    def deploy(
+        self,
+        default_prediction_server_id: Optional[str] = None,
+        prediction_environment_id: Optional[str] = None,
+        credential_id: Optional[str] = None,
+        maximum_memory: Optional[int] = None,
+        resource_bundle_id: Optional[str] = None,
+        replicas: Optional[int] = None,
+        network_egress_policy: Optional[str] = None,
+    ) -> Deployment:
+        """
+        Create a new Custom Model for this vector database and deploy it on a new Deployment.
+
+        Parameters
+        ----------
+        default_prediction_server_id: Optional[str]
+            An identifier of a prediction server to be used as the default prediction server.
+            When working with prediction environments, the default prediction server ID should not
+            be provided.
+        prediction_environment_id: Optional[str]
+            An identifier of a prediction environment to be used for model deployment.
+        credential_id: Optional[str]:
+            The ID of credentials to access an external vector database. Only needed for vector
+            databases with an external source.
+        maximum_memory: Optional[int]
+            The maximum memory that will be allocated to the new custom model.
+        resource_bundle_id: Optional[str]
+            The ID of a datarobot.models.resource_bundle.ResourceBundle that will be used by the new
+            custom model.
+        replicas: Optional[int]
+            A fixed number of replicas that will be deployed for this custom model.
+        network_egress_policy: Optional[str]
+            Determines whether the given custom model is isolated, or can access the public network.
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`,
+            `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
+        """
+        url = f"{self._client.domain}/{self._path}/{self.id}/deployments/"
+
+        requested_resources: dict[str, Any] = {}
+        if maximum_memory is not None:
+            requested_resources["maximum_memory"] = maximum_memory
+        if resource_bundle_id is not None:
+            requested_resources["resource_bundle_id"] = resource_bundle_id
+        if replicas is not None:
+            requested_resources["replicas"] = replicas
+        if network_egress_policy is not None:
+            requested_resources["network_egress_policy"] = network_egress_policy
+
+        payload_data: dict[str, Any] = (
+            {"resources": requested_resources} if requested_resources else {}
+        )
+
+        if default_prediction_server_id:
+            payload_data["default_prediction_server_id"] = default_prediction_server_id
+        if prediction_environment_id:
+            payload_data["prediction_environment_id"] = prediction_environment_id
+        if credential_id:
+            payload_data["credential_id"] = credential_id
+
+        response_data = self._client.post(url, data={})
+        location = wait_for_async_resolution(self._client, response_data.headers["Location"])
+        return Deployment.from_location(location)
 
 
 class CustomModelVectorDatabaseValidation(NonChatAwareCustomModelValidation):

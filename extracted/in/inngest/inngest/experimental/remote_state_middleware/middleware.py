@@ -94,8 +94,8 @@ class RemoteStateMiddleware(inngest.MiddlewareSync):
 
     def transform_input(
         self,
-        ctx: inngest.Context,
-        function: inngest.Function,
+        ctx: inngest.Context | inngest.ContextSync,
+        function: inngest.Function[typing.Any],
         steps: inngest.StepMemos,
     ) -> None:
         """

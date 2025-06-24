@@ -1,5 +1,8 @@
 # file: projects/web/app.py
 
+# TODO: It was reported that /favicon.ico is missing or returning an error. 
+#       Screenshot attached.
+
 import os
 from urllib.parse import urlencode
 import bottle
@@ -10,8 +13,6 @@ _ver = None
 _homes = []  # (title, route)
 _enabled = set()
 UPLOAD_MB = 100
-STATIC_ROOT = gw.resource("data", "web", "static")  # <--- fix
-STYLES_ROOT = os.path.join(STATIC_ROOT, "styles")   # <--- fix
 
 def setup(*,
     app=None,
@@ -66,39 +67,40 @@ def setup(*,
             filename = filename.replace('-', '_')
             return static_file(filename, root=gw.resource("work", "shared"))
 
-    # --- Global static (styles and scripts) ---
-    @app.route(f"/{static}/styles/<filename:path>")
-    def send_global_style(filename):
-        return static_file(filename, root=gw.resource("data", "web", "static", "styles"))
+    if static:
+        # --- Global static (styles and scripts) ---
+        @app.route(f"/{static}/styles/<filename:path>")
+        def send_global_style(filename):
+            return static_file(filename, root=gw.resource("data", "web", "static", "styles"))
 
-    @app.route(f"/{static}/scripts/<filename:path>")
-    def send_global_script(filename):
-        return static_file(filename, root=gw.resource("data", "web", "static", "scripts"))
+        @app.route(f"/{static}/scripts/<filename:path>")
+        def send_global_script(filename):
+            return static_file(filename, root=gw.resource("data", "web", "static", "scripts"))
 
-    # --- Project static (styles and scripts) ---
-    @app.route(f"/{static}/<project>/styles/<filename:path>")
-    def send_project_style(project, filename):
-        # Security check
-        if ".." in project or "/" in project or "\\" in project:
-            return HTTPResponse(status=400, body="Bad project name.")
-        static_root = gw.resource("data", project, "static", "styles")
-        return static_file(filename, root=static_root)
+        # --- Project static (styles and scripts) ---
+        @app.route(f"/{static}/<project>/styles/<filename:path>")
+        def send_project_style(project, filename):
+            # Security check
+            if ".." in project or "/" in project or "\\" in project:
+                return HTTPResponse(status=400, body="Bad project name.")
+            static_root = gw.resource("data", project, "static", "styles")
+            return static_file(filename, root=static_root)
 
-    @app.route(f"/{static}/<project>/scripts/<filename:path>")
-    def send_project_script(project, filename):
-        if ".." in project or "/" in project or "\\" in project:
-            return HTTPResponse(status=400, body="Bad project name.")
-        static_root = gw.resource("data", project, "static", "scripts")
-        return static_file(filename, root=static_root)
+        @app.route(f"/{static}/<project>/scripts/<filename:path>")
+        def send_project_script(project, filename):
+            if ".." in project or "/" in project or "\\" in project:
+                return HTTPResponse(status=400, body="Bad project name.")
+            static_root = gw.resource("data", project, "static", "scripts")
+            return static_file(filename, root=static_root)
 
-    # --- Project generic static ---
-    @app.route(f"/{static}/<project>/<filename:path>")
-    def send_project_static(project, filename):
-        if ".." in project or "/" in project or "\\" in project:
-            return HTTPResponse(status=400, body="Bad project name.")
-        static_root = gw.resource("data", project, "static")
-        return static_file(filename, root=static_root)
-    
+        # --- Project generic static ---
+        @app.route(f"/{static}/<project>/<filename:path>")
+        def send_project_static(project, filename):
+            if ".." in project or "/" in project or "\\" in project:
+                return HTTPResponse(status=400, body="Bad project name.")
+            static_root = gw.resource("data", project, "static")
+            return static_file(filename, root=static_root)
+        
     @app.route(f"/{path}/<view:path>", method=["GET", "POST"])
     def view_dispatch(view):
         nonlocal home, views, apis
@@ -110,7 +112,7 @@ def setup(*,
             try:
                 kwargs.update(request.json or dict(request.forms))
             except Exception as e:
-                return redirect_error(e, note="Error loading JSON payload", view_name=view_name)
+                return gw.web.error.redirect(e, note="Error loading JSON payload", view_name=view_name)
 
         method = request.method.upper()
 
@@ -152,7 +154,7 @@ def setup(*,
                 found_mode = "api"
 
         if not callable(view_func):
-            return redirect_error(
+            return gw.web.error.redirect(
                 note=f"View/API not found: {target_func_name} or {apis}_*_{view_name} in {projects}",
                 view_name=view_name,
                 default=default_home()
@@ -181,7 +183,7 @@ def setup(*,
         except HTTPResponse as res:
             return res
         except Exception as e:
-            return redirect_error(e, note="Broken view", view_name=view_func.__name__, default=default_home())
+            return gw.web.error.redirect(e, note="Broken view", view_name=view_func.__name__, default=default_home())
 
         # --- CSS selection ---
         css_query = request.query.get('css')
@@ -216,11 +218,26 @@ def setup(*,
 
     @app.error(404)
     def handle_404(error):
-        return redirect_error(
+        return gw.web.error.redirect(
             error,
             note=f"404 Not Found: {request.url}",
             default=default_home()
         )
+    
+    @app.route("/favicon.ico")
+    def favicon():
+        # Extract project from route or default to first project
+        project_name = projects[0].split('.')[-1]  # e.g., 'site'
+        # Try project-specific favicon first
+        project_favicon = gw.resource("data", project_name, "static", "favicon.ico")
+        if os.path.isfile(project_favicon):
+            return static_file("favicon.ico", root=os.path.dirname(project_favicon))
+        # Fallback: serve global favicon
+        global_favicon = gw.resource("data", "web", "static", "favicon.ico")
+        if os.path.isfile(global_favicon):
+            return static_file("favicon.ico", root=os.path.dirname(global_favicon))
+        # Not found: 404
+        return HTTPResponse(status=404, body="favicon.ico not found")
 
     if gw.verbose:
         gw.debug(f"Registered homes: {_homes}")
@@ -262,18 +279,21 @@ def render_template(*, title="GWAY", content="", static="static", css_files=None
             else:
                 src_path = f"/{static}/{src}/scripts/{fname}"
             js_links += f'<script src="{src_path}"></script>\n'
-    favicon = f'<link rel="icon" href="/{static}/favicon.ico" type="image/x-icon" />'
+
+    favicon = f'<link rel="icon" href="/favicon.ico" type="image/x-icon" />'
     credits = f'''
         <p>GWAY is written in <a href="https://www.python.org/">Python 3.13</a>.
         Hosting by <a href="https://www.gelectriic.com/">Gelectriic Solutions</a>, 
         <a href="https://pypi.org">PyPI</a> and <a href="https://github.com/arthexis/gway">Github</a>.</p>
     '''
+
     nav = ""
     if 'gw' in globals() and hasattr(gw, 'web') and hasattr(gw.web, 'nav') and is_enabled('nav'):
         nav = gw.web.nav.render(
             current_url=gw.web.nav.get_current_url(),
             homes=_homes
         )
+
     html = template("""<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -294,7 +314,6 @@ def render_template(*, title="GWAY", content="", static="static", css_files=None
                     {{!credits}}
                 </footer>
             </div>
-            <!-- htmx is auto-injected if needed! -->
             {{!js_links}}
         </body>
         </html>
@@ -326,77 +345,10 @@ def add_home(home, path):
         _homes.append((title, route))
         gw.debug(f"Added home: ({title}, {route})")
 
-...
 
-def redirect_error(error=None, note="", default=None, view_name=None):
-    from bottle import request, response
-    import traceback
-    import html
-
-    debug_enabled = bool(getattr(gw, "debug", False))
-    visited = gw.web.cookies.get("visited", "")
-    visited_items = visited.split("|") if visited else []
-
-    pruned = False
-    if view_name and gw.web.cookies.check_consent():
-        norm_broken = (view_name or "").replace("-", " ").replace("_", " ").title().lower()
-        new_items = []
-        for v in visited_items:
-            title = v.split("=", 1)[0].strip().lower()
-            if title == norm_broken:
-                pruned = True
-                continue
-            new_items.append(v)
-        if pruned:
-            gw.web.cookies.set("visited", "|".join(new_items))
-            visited_items = new_items
-
-    if debug_enabled:
-        tb_str = ""
-        if error:
-            tb_str = "".join(traceback.format_exception(type(error), error, getattr(error, "__traceback__", None)))
-        debug_content = f"""
-        <html>
-        <head>
-            <title>GWAY Debug: Error</title>
-            <style>
-                body {{ font-family: monospace, sans-serif; background: #23272e; color: #e6e6e6; }}
-                .traceback {{ background: #16181c; color: #ff8888; padding: 1em; border-radius: 5px; margin: 1em 0; white-space: pre; }}
-                .kv {{ color: #6ee7b7; }}
-                .section {{ margin-bottom: 2em; }}
-                h1 {{ color: #ffa14a; }}
-                a {{ color: #69f; }}
-                .copy-btn {{ margin: 1em 0; background:#333;color:#fff;padding:0.4em 0.8em;border-radius:4px;cursor:pointer;border:1px solid #aaa; }}
-            </style>
-        </head>
-        <body>
-            <h1>GWAY Debug Error</h1>
-            <div id="debug-content">
-                <div class="section"><b>Note:</b> {html.escape(str(note) or "")}</div>
-                <div class="section"><b>Error:</b> {html.escape(str(error) or "")}</div>
-                <div class="section"><b>Path:</b> {html.escape(request.path or "")}<br>
-                                     <b>Method:</b> {html.escape(request.method or "")}<br>
-                                     <b>Full URL:</b> {html.escape(request.url or "")}</div>
-                <div class="section"><b>Query:</b> {html.escape(str(dict(request.query)) or "")}</div>
-                <div class="section"><b>Form:</b> {html.escape(str(getattr(request, "forms", "")) or "")}</div>
-                <div class="section"><b>Headers:</b> {html.escape(str(dict(request.headers)) or "")}</div>
-                <div class="section"><b>Cookies:</b> {html.escape(str(dict(request.cookies)) or "")}</div>
-                <div class="section"><b>Traceback:</b>
-                    <div class="traceback">{html.escape(tb_str or '(no traceback)')}</div>
-                </div>
-            </div>
-            <div><a href="{html.escape(default or default_home())}">&#8592; Back to home</a></div>
-        </body>
-        </html>
-        """
-        response.status = 500
-        response.content_type = "text/html"
-        return debug_content
-
-    response.status = 302
-    response.set_header("Location", default or default_home())
-    return ""
-
+# Note that the logic for collecting JS and CSS is not the same, for example:
+# All web/static/scripts/*.js files found are installed by default in all site pages.
+# However only web/static/styles/base.css is fixed, and other *.css files are user options.
 
 def collect_js_files(*, static, project, view_name):
     """

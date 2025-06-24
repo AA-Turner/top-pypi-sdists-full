@@ -433,6 +433,7 @@ from types_boto3_workdocs.client import WorkDocsClient
 from types_boto3_workmail.client import WorkMailClient
 from types_boto3_workmailmessageflow.client import WorkMailMessageFlowClient
 from types_boto3_workspaces.client import WorkSpacesClient
+from types_boto3_workspaces_instances.client import WorkspacesInstancesClient
 from types_boto3_workspaces_thin_client.client import WorkSpacesThinClientClient
 from types_boto3_workspaces_web.client import WorkSpacesWebClient
 from types_boto3_xray.client import XRayClient
@@ -7716,6 +7717,24 @@ def client(
 ) -> WorkSpacesClient:
     """
     Create client for WorkSpaces service.
+    """
+
+@overload
+def client(
+    service_name: Literal["workspaces-instances"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> WorkspacesInstancesClient:
+    """
+    Create client for WorkspacesInstances service.
     """
 
 @overload

@@ -3278,8 +3278,8 @@ class Root(PyMenu):
                     super().__init__(parent, attr, service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
 
                 class _MaxSize(PyNumericalCommandArgumentsSubItem):
                     """
@@ -3291,12 +3291,12 @@ class Root(PyMenu):
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _Deviation(PyNumericalCommandArgumentsSubItem):
+                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
+                class _Deviation(PyNumericalCommandArgumentsSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3604,8 +3604,8 @@ class Root(PyMenu):
                     super().__init__(parent, attr, service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
 
                 class _MaxSize(PyNumericalCommandArgumentsSubItem):
                     """
@@ -3617,12 +3617,12 @@ class Root(PyMenu):
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _Deviation(PyNumericalCommandArgumentsSubItem):
+                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
+                class _Deviation(PyNumericalCommandArgumentsSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """

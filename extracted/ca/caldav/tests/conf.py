@@ -8,7 +8,7 @@ import tempfile
 import threading
 import time
 
-import requests
+import niquests
 
 from caldav import compatibility_hints
 from caldav.davclient import CONNKEYS
@@ -84,9 +84,6 @@ try:
 except ImportError:
     rfc6638_users = []
 
-proxy = "127.0.0.1:8080"
-proxy_noport = "127.0.0.1"
-
 #####################
 # Public test servers
 #####################
@@ -127,7 +124,7 @@ if test_radicale:
         i = 0
         while True:
             try:
-                requests.get(str(self.url))
+                niquests.get(str(self.url))
                 break
             except:
                 time.sleep(0.05)
@@ -207,7 +204,7 @@ if test_xandikos:
         ## ... but the thread may be stuck waiting for a request ...
         def silly_request():
             try:
-                requests.get(str(self.url))
+                niquests.get(str(self.url))
             except:
                 pass
 
@@ -275,7 +272,7 @@ def client(
             )
             kwargs_.pop(kw)
     conn = DAVClient(**kwargs_)
-    setup(conn)
+    conn.setup = setup
     conn.teardown = teardown
     conn.incompatibilities = kwargs.get("incompatibilities")
     conn.server_name = name

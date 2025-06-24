@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk_databrew_cicd",
-    "version": "2.0.628",
+    "version": "2.0.629",
     "description": "A construct for AWS Glue DataBrew wtih CICD",
     "license": "Apache-2.0",
     "url": "https://github.com/HsiehShuJeng/cdk-databrew-cicd.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_databrew_cicd._jsii": [
-            "cdk-databrew-cicd@2.0.628.jsii.tgz"
+            "cdk-databrew-cicd@2.0.629.jsii.tgz"
         ],
         "cdk_databrew_cicd": [
             "py.typed"

@@ -683,6 +683,7 @@ class AutoQueueOptions:
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "continue_on_error": "continueOnError",
         "timeout_minutes": "timeoutMinutes",
@@ -697,6 +698,7 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -707,6 +709,7 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
@@ -722,6 +725,7 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
@@ -735,6 +739,8 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if continue_on_error is not None:
@@ -786,6 +792,18 @@ class CheckoutOptions(_JobStepConfiguration_9caff420):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -2327,6 +2345,7 @@ class DependabotScheduleInterval(enum.Enum):
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "continue_on_error": "continueOnError",
         "timeout_minutes": "timeoutMinutes",
@@ -2341,6 +2360,7 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -2351,6 +2371,7 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
@@ -2366,6 +2387,7 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
@@ -2381,6 +2403,8 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if continue_on_error is not None:
@@ -2430,6 +2454,18 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6460,6 +6496,7 @@ class SemanticTitleOptions:
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "continue_on_error": "continueOnError",
         "timeout_minutes": "timeoutMinutes",
@@ -6474,6 +6511,7 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -6484,6 +6522,7 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
@@ -6499,6 +6538,7 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
@@ -6514,6 +6554,8 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if continue_on_error is not None:
@@ -6563,6 +6605,18 @@ class SetupGitIdentityOptions(_JobStepConfiguration_9caff420):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -7933,6 +7987,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         "id": "id",
         "if_": "if",
         "name": "name",
+        "shell": "shell",
         "working_directory": "workingDirectory",
         "continue_on_error": "continueOnError",
         "timeout_minutes": "timeoutMinutes",
@@ -7947,6 +8002,7 @@ class UploadArtifactOptions(_JobStepConfiguration_9caff420):
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -7957,6 +8013,7 @@ class UploadArtifactOptions(_JobStepConfiguration_9caff420):
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
@@ -7972,6 +8029,7 @@ class UploadArtifactOptions(_JobStepConfiguration_9caff420):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
@@ -7987,6 +8045,8 @@ class UploadArtifactOptions(_JobStepConfiguration_9caff420):
             self._values["if_"] = if_
         if name is not None:
             self._values["name"] = name
+        if shell is not None:
+            self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
         if continue_on_error is not None:
@@ -8036,6 +8096,18 @@ class UploadArtifactOptions(_JobStepConfiguration_9caff420):
         :stability: experimental
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shell(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Overrides the default shell settings in the runner's operating system and the job's default.
+
+        Refer to GitHub documentation for allowed values.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+        :stability: experimental
+        '''
+        result = self._values.get("shell")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8682,6 +8754,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _JobStep_c3287c05:
         '''(experimental) Checks out a repository.
@@ -8693,6 +8766,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :return: A JobStep that checks out a repository
@@ -8707,6 +8781,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             id=id,
             if_=if_,
             name=name,
+            shell=shell,
             working_directory=working_directory,
         )
 
@@ -8724,6 +8799,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _JobStep_c3287c05:
         '''(experimental) Downloads an artifact.
@@ -8735,6 +8811,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :return: A JobStep that downloads an artifact
@@ -8749,6 +8826,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             id=id,
             if_=if_,
             name=name,
+            shell=shell,
             working_directory=working_directory,
         )
 
@@ -8766,6 +8844,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _JobStep_c3287c05:
         '''(experimental) Configures the git identity (user name and email).
@@ -8777,6 +8856,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :return: Job step that configures the provided git identity
@@ -8791,6 +8871,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             id=id,
             if_=if_,
             name=name,
+            shell=shell,
             working_directory=working_directory,
         )
 
@@ -8808,6 +8889,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _JobStep_c3287c05:
         '''(experimental) Checks if a tag exists.
@@ -8825,6 +8907,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :return: Job step that checks if the provided tag exists
@@ -8841,6 +8924,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             id=id,
             if_=if_,
             name=name,
+            shell=shell,
             working_directory=working_directory,
         )
 
@@ -8858,6 +8942,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         id: typing.Optional[builtins.str] = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _JobStep_c3287c05:
         '''(experimental) Uploads an artifact.
@@ -8869,6 +8954,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
         :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
         :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
         :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
 
         :return: A JobStep that uploads an artifact
@@ -8883,6 +8969,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
             id=id,
             if_=if_,
             name=name,
+            shell=shell,
             working_directory=working_directory,
         )
 
@@ -9051,6 +9138,7 @@ def _typecheckingstub__a17b4445d77135e079ad1d957d41f1a5ade398e6b6ba84b471b26b6ad
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -9211,6 +9299,7 @@ def _typecheckingstub__c7f153d5c1001fcb119385a05448ea85e212f46cc420d578734261b83
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -9630,6 +9719,7 @@ def _typecheckingstub__b9e40915fe7c519c231c73e9a63dfa1b1dee67586ebf4629165f8556f
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -9773,6 +9863,7 @@ def _typecheckingstub__76a6b70b748b84dc156557f2c93bcd7ad0f6ba6fe077270e3f296f69c
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
@@ -9814,6 +9905,7 @@ def _typecheckingstub__696566a4c593a7173649d5eeaadb52edb8460487e95d469374dc3c01f
     id: typing.Optional[builtins.str] = None,
     if_: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

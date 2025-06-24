@@ -9,17 +9,17 @@ from maleo_foundation.models.transfers.results.client.service import \
 class BaseClientUtils:
     @staticmethod
     def result_processor(
-        fail_class:Type[BaseClientServiceResultsTransfers.Fail],
-        data_found_class:Union[
+        fail_class: Type[BaseClientServiceResultsTransfers.Fail],
+        data_found_class: Union[
             Type[BaseClientServiceResultsTransfers.SingleData],
             Type[BaseClientServiceResultsTransfers.UnpaginatedMultipleData],
             Type[BaseClientServiceResultsTransfers.PaginatedMultipleData]
         ],
-        no_data_class:Optional[Type[BaseClientServiceResultsTransfers.NoData]] = None,
+        no_data_class: Optional[Type[BaseClientServiceResultsTransfers.NoData]] = None,
     ):
         """Decorator to handle repository-related exceptions consistently."""
         def decorator(func):
-            def _processor(result:BaseTypes.StringToAnyDict):
+            def _processor(result: BaseTypes.StringToAnyDict):
                 if "success" not in result and "data" not in result:
                     raise ValueError("Result did not have both 'success' and 'data' field")
                 success:bool = result.get("success")
@@ -40,7 +40,7 @@ class BaseClientUtils:
                 @wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     try:
-                        result:BaseTypes.StringToAnyDict = await func(*args, **kwargs)
+                        result: BaseTypes.StringToAnyDict = await func(*args, **kwargs)
                         return _processor(result=result)
                     except ValidationError as e:
                         raise
@@ -51,7 +51,7 @@ class BaseClientUtils:
                 @wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     try:
-                        result:BaseTypes.StringToAnyDict = func(*args, **kwargs)
+                        result: BaseTypes.StringToAnyDict = func(*args, **kwargs)
                         return _processor(result=result)
                     except ValidationError as e:
                         raise

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.7.0
+Version: 2.8.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://github.com/googleapis/python-bigquery-dataframes
 Author: Google LLC
@@ -67,7 +67,10 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: nox; extra == "dev"
 Requires-Dist: google-cloud-testutils; extra == "dev"
+Provides-Extra: anywidget
+Requires-Dist: anywidget>=0.9.18; extra == "anywidget"
 Provides-Extra: all
+Requires-Dist: anywidget>=0.9.18; extra == "all"
 Requires-Dist: freezegun; extra == "all"
 Requires-Dist: google-cloud-bigtable>=2.24.0; extra == "all"
 Requires-Dist: google-cloud-pubsub>=2.21.4; extra == "all"

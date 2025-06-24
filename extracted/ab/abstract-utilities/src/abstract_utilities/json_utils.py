@@ -684,3 +684,34 @@ def get_only_kwargs(varList,*args,**kwargs):
         if key in varList:
             new_kwargs[key] = value
     return new_kwargs
+
+def flatten_json(data, parent_key='', sep='_'):
+    """
+    Flatten a JSON object into a single dictionary with keys indicating the nested structure.
+
+    Args:
+        data (dict): The JSON object to flatten.
+        parent_key (str): The base key to use for nested keys (used in recursive calls).
+        sep (str): The separator to use between keys.
+
+    Returns:
+        dict: The flattened JSON object.
+    """
+    items = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            new_key = f"{parent_key}{sep}{key}" if parent_key else key
+            if isinstance(value, dict):
+                items.extend(flatten_json(value, new_key, sep=sep).items())
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    items.extend(flatten_json(item, f"{new_key}{sep}{i}", sep=sep).items())
+            else:
+                items.append((new_key, value))
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            items.extend(flatten_json(item, f"{parent_key}{sep}{i}", sep=sep).items())
+    else:
+        items.append((parent_key, data))
+
+    return dict(items)

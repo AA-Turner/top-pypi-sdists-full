@@ -11,7 +11,7 @@ from anthropic.types.beta import (
     BetaImageBlockParam,
 )
 
-from hud.adapters.common.types import CLA
+from hud.adapters.common.types import CLA, LogType
 from hud.agent import Agent
 from hud.adapters import Adapter
 from hud.settings import settings
@@ -192,7 +192,7 @@ class ClaudePlaysPokemon(Agent[AsyncAnthropic, CLA]):
             observation: The current game observation
 
         Returns:
-            tuple[list[dict[str, Any]], bool]: List of actions and whether the game is done
+            tuple[list[dict[str, Any]], bool, list[LogType] | None]: List of actions, whether the game is done, and a list of strings or dictionaries of logs.
 
         Raises:
             ValueError: If client is not initialized

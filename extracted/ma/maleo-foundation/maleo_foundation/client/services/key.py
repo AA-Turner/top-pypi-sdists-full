@@ -15,7 +15,7 @@ from maleo_foundation.utils.exceptions import BaseExceptions
 class MaleoFoundationKeyClientService(ClientService):
     def create_private(
         self,
-        parameters:MaleoFoundationKeyParametersTransfers.CreatePrivateOrPair
+        parameters: MaleoFoundationKeyParametersTransfers.CreatePrivateOrPair
     ) -> MaleoFoundationKeyResultsTypes.CreatePrivate:
         """Create an RSA private key with X.509 encoding in .pem format."""
         @BaseExceptions.service_exception_handler(
@@ -54,7 +54,7 @@ class MaleoFoundationKeyClientService(ClientService):
 
     def create_public(
         self,
-        parameters:MaleoFoundationKeyParametersTransfers.CreatePublic
+        parameters: MaleoFoundationKeyParametersTransfers.CreatePublic
     ) -> MaleoFoundationKeyResultsTypes.CreatePublic:
         """Create an RSA public key with X.509 encoding in .pem format."""
         @BaseExceptions.service_exception_handler(
@@ -86,7 +86,10 @@ class MaleoFoundationKeyClientService(ClientService):
             return MaleoFoundationKeyResultsTransfers.CreatePublic(data=data)
         return _impl()
 
-    def create_pair(self, parameters:MaleoFoundationKeyParametersTransfers.CreatePrivateOrPair) -> MaleoFoundationKeyResultsTypes.CreatePair:
+    def create_pair(
+        self,
+        parameters: MaleoFoundationKeyParametersTransfers.CreatePrivateOrPair
+    ) -> MaleoFoundationKeyResultsTypes.CreatePair:
         """Create an RSA key pair with X.509 encoding in .pem format."""
         @BaseExceptions.service_exception_handler(
             operation="creating key pair",

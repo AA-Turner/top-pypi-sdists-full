@@ -6,13 +6,16 @@ from typing import Optional
 
 import functools
 
-from collections import deque
 from copy import copy
 from importlib import import_module
 from types import FunctionType, MethodType
 from contrast_fireball import DiscoveredRoute
 from django.urls import ResolverMatch, get_resolver
 from django.urls.exceptions import Resolver404
+from django.urls.resolvers import (
+    URLPattern as RegexURLPattern,
+    URLResolver as RegexURLResolver,
+)
 
 from contrast.agent.middlewares.route_coverage.common import (
     DEFAULT_ROUTE_METHODS,
@@ -64,6 +67,13 @@ DJANGO_HTTP_DECORATOR_PATH_SUFFIX = str(
 
 
 def _get_required_http_methods(viewfunc: FunctionType):
+    if class_view := getattr(viewfunc, "view_class", None):
+        # This is a class-based view,
+        return {
+            method.upper()
+            for method in class_view.http_method_names
+            if hasattr(class_view, method)
+        }
     if not viewfunc.__code__.co_filename.endswith(DJANGO_HTTP_DECORATOR_PATH_SUFFIX):
         return None
     restricted_methods = get_closure_variable(viewfunc, "request_method_list")
@@ -92,35 +102,32 @@ def get_method_info(pattern_or_resolver):
     return method_types, method_arg_names
 
 
-def create_routes(urlpatterns) -> set[DiscoveredRoute]:
-    from django.urls.resolvers import (
-        URLPattern as RegexURLPattern,
-        URLResolver as RegexURLResolver,
-    )
-
+def create_routes(urlpatterns, url_prefix="/") -> set[DiscoveredRoute]:
     routes = set()
 
-    urlpatterns_deque = deque(urlpatterns)
+    def url_str(pattern: str):
+        return f"{url_prefix.removesuffix('/')}/{pattern}"
 
-    while urlpatterns_deque:
-        url_pattern = urlpatterns_deque.popleft()
+    for urlpattern in reversed(urlpatterns):
+        if isinstance(urlpattern, RegexURLResolver):
+            routes.update(
+                create_routes(urlpattern.url_patterns, url_str(str(urlpattern.pattern)))
+            )
 
-        if isinstance(url_pattern, RegexURLResolver):
-            urlpatterns_deque.extend(url_pattern.url_patterns)
-
-        elif isinstance(url_pattern, RegexURLPattern):
-            method_types, method_arg_names = get_method_info(url_pattern)
-            path_template = url_pattern.pattern.regex.pattern
-            signature = build_django_signature(url_pattern, method_arg_names)
+        elif isinstance(urlpattern, RegexURLPattern):
+            method_types, method_arg_names = get_method_info(urlpattern)
+            url = url_str(str(urlpattern.pattern))
+            signature = build_django_signature(urlpattern, method_arg_names)
             for method_type in method_types:
                 routes.add(
                     DiscoveredRoute(
                         verb=method_type,
-                        url=path_template,
+                        url=url,
                         signature=signature,
                         framework="Django",
                     )
                 )
+
     return routes
 
 
@@ -164,6 +171,9 @@ def _function_loc(func):
 def build_django_signature(obj, method_arg_names=None):
     if hasattr(obj, "lookup_str"):
         signature = obj.lookup_str
+    elif hasattr(obj, "_func_path"):
+        signature = obj._func_path
+        obj = obj.func
     elif hasattr(obj, "callback"):
         cb = obj.callback
         signature = _function_loc(cb)

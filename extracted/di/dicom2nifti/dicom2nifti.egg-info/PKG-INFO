@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dicom2nifti
-Version: 2.6.1
+Version: 2.6.2
 Summary: package for converting dicom files to nifti
 Home-page: https://github.com/icometrix/dicom2nifti
-Download-URL: https://github.com/icometrix/dicom2nifti/tarball/2.6.1
+Download-URL: https://github.com/icometrix/dicom2nifti/tarball/2.6.2
 Author: icometrix NV
 Author-email: dicom2nifti@icometrix.com
 Maintainer: icometrix NV

@@ -13,8 +13,8 @@ from maleo_foundation.expanded_types.general import BaseGeneralExpandedTypes
 class BaseControllerUtils:
     @staticmethod
     def field_expansion_handler(
-        expandable_fields_dependencies_map:BaseTypes.OptionalStringToListOfStringDict = None,
-        field_expansion_processors:BaseGeneralExpandedTypes.OptionalListOfFieldExpansionProcessor = None
+        expandable_fields_dependencies_map: BaseTypes.OptionalStringToListOfStringDict = None,
+        field_expansion_processors: BaseGeneralExpandedTypes.OptionalListOfFieldExpansionProcessor = None
     ):
         """
         Decorator to handle expandable fields validation and processing.
@@ -23,7 +23,7 @@ class BaseControllerUtils:
             expandable_fields_dependencies_map: Dictionary where keys are dependency fields and values are lists of dependent fields
             field_expansion_processors: List of processor functions that handle that field's data
         """
-        def decorator(func:Callable[..., Awaitable[BaseServiceRESTControllerResults]]):
+        def decorator(func: Callable[..., Awaitable[BaseServiceRESTControllerResults]]):
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 sig = inspect.signature(func)
@@ -31,7 +31,7 @@ class BaseControllerUtils:
                 bound.apply_defaults()
 
                 parameters = bound.arguments.get("parameters")
-                expand:BaseTypes.OptionalListOfStrings = getattr(parameters, 'expand', None)
+                expand: BaseTypes.OptionalListOfStrings = getattr(parameters, 'expand', None)
 
                 #* Validate expandable fields dependencies
                 if expand is not None and expandable_fields_dependencies_map is not None:
@@ -54,7 +54,7 @@ class BaseControllerUtils:
                     return result
 
                 #* Recursive function to apply expansion processors
-                def recursive_expand(data:Union[Dict, List], expand:BaseTypes.OptionalListOfStrings):
+                def recursive_expand(data: Union[Dict, List], expand: BaseTypes.OptionalListOfStrings):
                     if isinstance(data, list):
                         for idx, item in enumerate(data):
                             data[idx] = recursive_expand(item, expand)
@@ -93,7 +93,7 @@ class BaseControllerUtils:
 
     @staticmethod
     def field_modification_handler(
-        field_modification_processors:BaseGeneralExpandedTypes.OptionalListOfFieldModificationProcessor = None
+        field_modification_processors: BaseGeneralExpandedTypes.OptionalListOfFieldModificationProcessor = None
     ):
         """
         Decorator to handle expandable fields validation and processing.
@@ -102,7 +102,7 @@ class BaseControllerUtils:
             expandable_fields_dependencies_map: Dictionary where keys are dependency fields and values are lists of dependent fields
             field_modification_processors: List of processor functions that handle that field's data
         """
-        def decorator(func:Callable[..., Awaitable[BaseServiceRESTControllerResults]]):
+        def decorator(func: Callable[..., Awaitable[BaseServiceRESTControllerResults]]):
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 #* Call the original function
@@ -112,7 +112,7 @@ class BaseControllerUtils:
                     return result
 
                 #* Recursive function to apply modification processors
-                def recursive_modify(data:Union[Dict, List]):
+                def recursive_modify(data: Union[Dict, List]):
                     if isinstance(data, list):
                         for idx, item in enumerate(data):
                             data[idx] = recursive_modify(item)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elephas
-Version: 7.0.0
+Version: 7.1.0
 Summary: Distributed deep learning on Spark with Keras
 Project-URL: Homepage, https://danielenricocahall.github.io/elephas/
 Author-email: Daniel Cahall <danielenricocahall@gmail.com>

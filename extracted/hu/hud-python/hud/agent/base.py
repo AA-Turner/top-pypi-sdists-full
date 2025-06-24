@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, TypeVar, Generic
+from typing import Any, Sequence, TypeVar, Generic
 
 from hud.adapters import Adapter, CLA
 from hud.types import Gym
@@ -31,6 +31,7 @@ class Agent(Generic[ClientT, ActionT], ABC):
         self,
         client: ClientT | None = None,
         adapter: Adapter | None = None,
+        name: str | None = None,
     ):
         """
         Initialize the agent.
@@ -41,6 +42,7 @@ class Agent(Generic[ClientT, ActionT], ABC):
         """
         self.client = client
         self.adapter = adapter
+        self.name = name
 
     def preprocess(self, observation: Observation) -> Observation:
         """
@@ -70,9 +72,9 @@ class Agent(Generic[ClientT, ActionT], ABC):
             observation: The preprocessed observation
 
         Returns:
-            tuple[list[ActionT], bool]: A tuple containing the list of raw actions and a
+            tuple[list[ActionT], bool]: A tuple containing the list of raw actions,
                                        boolean indicating if the agent believes it has
-                                       completed the task
+                                       completed the task.
         """
         pass
 
@@ -82,7 +84,6 @@ class Agent(Generic[ClientT, ActionT], ABC):
 
         Args:
             actions: The raw actions from the model
-
         Returns:
             Sequence[CLA]: The actions converted to HUD format
         """

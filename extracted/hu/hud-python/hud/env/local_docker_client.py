@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import logging
 import textwrap
@@ -34,6 +35,7 @@ class LocalDockerClient(DockerClient):
         """
         Build an image from a build context.
         """
+        logger.info("Building image from %s", build_context)
         # Create a unique image tag
         image_tag = f"hud-env-{uuid.uuid4().hex[:8]}"
 
@@ -67,6 +69,7 @@ class LocalDockerClient(DockerClient):
     async def create(
         cls,
         image: str,
+        host_config: dict[str, Any] | None = None,
     ) -> LocalDockerClient:
         """
         Creates a Docker environment client from a image.
@@ -81,19 +84,41 @@ class LocalDockerClient(DockerClient):
         # Initialize Docker client
         docker_client = aiodocker.Docker()
 
+        # Default host config
+        if host_config is None:
+            host_config = {
+                "PublishAllPorts": True,
+            }
+
         # Create and start the container
         container_config = {
             "Image": image,
             "Tty": True,
             "OpenStdin": True,
             "Cmd": None,
-            "HostConfig": {
-                "PublishAllPorts": True,
-            },
+            "HostConfig": host_config,
         }
 
         container = await docker_client.containers.create(config=container_config)
         await container.start()
+
+        # --------------------------------------------------
+        # Stream container logs while we wait for readiness
+        # --------------------------------------------------
+        async def _stream_logs() -> None:
+            try:
+                # .log() with follow=True -> async iterator of bytes/str
+                async for raw in container.log(stdout=True, stderr=True, follow=True):
+                    if isinstance(raw, bytes):
+                        raw = raw.decode(errors="replace")
+                    logger.info("container %s | %s", container.id[:12], raw.rstrip())
+            except asyncio.CancelledError:
+                # task cancelled during cleanup - silently exit
+                return
+            except Exception:
+                logger.exception("error while streaming logs from %s", container.id[:12])
+
+        log_task: asyncio.Task | None = asyncio.create_task(_stream_logs())
 
         inspection = await container.show()
         if health_check_config := inspection["Config"].get("Healthcheck"):
@@ -115,9 +140,21 @@ class LocalDockerClient(DockerClient):
                     raise TimeoutError(f"{container.id} not healthy after {window_secs}s")
                 await asyncio.sleep(1)
             logger.debug("Container %s is healthy", container.id)
+        else:
+            logger.debug("Container %s has no healthcheck, assuming ready", container.id)
+
+        # Stop the log stream now that the container is ready
+        if log_task is not None:
+            log_task.cancel()
+            with contextlib.suppress(Exception):
+                await log_task
+            log_task = None
 
         # Return the controller instance
-        return cls(docker_client, container.id)
+        client = cls(docker_client, container.id)
+        # store the task so close() can cancel if it is still running
+        client._log_task = log_task  # type: ignore[attr-defined]
+        return client
 
     def __init__(self, docker_conn: aiodocker.Docker, container_id: str) -> None:
         """
@@ -134,6 +171,9 @@ class LocalDockerClient(DockerClient):
 
         # Docker client will be initialized when needed
         self._docker = docker_conn
+
+        # Background task for streaming logs (may be None)
+        self._log_task: asyncio.Task | None = None
 
     @property
     def container_id(self) -> str:
@@ -288,3 +328,9 @@ class LocalDockerClient(DockerClient):
             logger.warning("Error during Docker container cleanup: %s", e)
         finally:
             await self._docker.close()
+
+        # Cancel background log forwarding first (if still active)
+        if self._log_task is not None:
+            self._log_task.cancel()
+            with contextlib.suppress(Exception):
+                await self._log_task

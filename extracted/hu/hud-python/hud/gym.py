@@ -9,13 +9,13 @@ from hud.env.local_docker_client import LocalDockerClient
 from hud.env.remote_client import RemoteClient
 from hud.env.remote_docker_client import RemoteDockerClient
 from hud.exceptions import GymMakeException
+from hud.task import Task
 from hud.telemetry.context import get_current_task_run_id
 from hud.types import CustomGym, Gym
 from hud.utils.common import get_gym_id
 
 if TYPE_CHECKING:
     from hud.job import Job
-    from hud.task import Task
 
 logger = logging.getLogger("hud.gym")
 
@@ -39,9 +39,11 @@ async def make(
     task = None
     if isinstance(env_src, str | CustomGym):
         gym = env_src
-    else:
+    elif isinstance(env_src, Task):
         gym = env_src.gym
         task = env_src
+    else:
+        raise GymMakeException(f"Invalid gym source: {env_src}", {})
 
     effective_job_id = None
     if job is not None:
@@ -89,9 +91,18 @@ async def make(
 
             if gym.location == "local":
                 logger.info("Creating local environment")
-                client = await LocalDockerClient.create(uri)
+                if gym.host_config:
+                    logger.info("Using host config: %s", gym.host_config)
+                    client = await LocalDockerClient.create(uri, gym.host_config)
+                else:
+                    client = await LocalDockerClient.create(uri)
+
             elif gym.location == "remote":
                 logger.info("Creating remote environment")
+
+                if gym.host_config:
+                    raise ValueError("host_config is not supported for remote environments")
+
                 client = await RemoteDockerClient.create(
                     image_uri=uri,
                     job_id=effective_job_id,
@@ -105,7 +116,7 @@ async def make(
                 logger.info("Setting source path %s", gym.image_or_build_context)
                 client.set_source_path(gym.image_or_build_context)
         elif isinstance(gym, str):
-            logger.info("Creating private environment")
+            logger.debug("Creating private environment")
             true_gym_id = await get_gym_id(gym)
             client, build_data = await RemoteClient.create(
                 gym_id=true_gym_id,

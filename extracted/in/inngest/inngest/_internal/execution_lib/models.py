@@ -65,24 +65,25 @@ class Context:
     group: step_lib.Group
     logger: types.Logger
     run_id: str
+    step: step_lib.Step
 
 
-@typing.runtime_checkable
-class FunctionHandlerAsync(typing.Protocol):
-    def __call__(
-        self,
-        ctx: Context,
-        step: step_lib.Step,
-    ) -> typing.Awaitable[types.JSON]: ...
+@dataclasses.dataclass
+class ContextSync:
+    attempt: int
+    event: server_lib.Event
+    events: list[server_lib.Event]
+    group: step_lib.GroupSync
+    logger: types.Logger
+    run_id: str
+    step: step_lib.StepSync
 
 
-@typing.runtime_checkable
-class FunctionHandlerSync(typing.Protocol):
-    def __call__(
-        self,
-        ctx: Context,
-        step: step_lib.StepSync,
-    ) -> types.JSON: ...
+FunctionHandlerAsync: typing.TypeAlias = typing.Callable[
+    [Context], typing.Awaitable[types.T]
+]
+
+FunctionHandlerSync: typing.TypeAlias = typing.Callable[[ContextSync], types.T]
 
 
 # Context variable to detect nested steps.

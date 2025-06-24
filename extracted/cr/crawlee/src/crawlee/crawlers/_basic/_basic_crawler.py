@@ -23,12 +23,13 @@ from tldextract import TLDExtract
 from typing_extensions import NotRequired, TypedDict, TypeVar, Unpack, assert_never
 from yarl import URL
 
-from crawlee import EnqueueStrategy, Glob, service_locator
+from crawlee import EnqueueStrategy, Glob, RequestTransformAction, service_locator
 from crawlee._autoscaling import AutoscaledPool, Snapshotter, SystemStatus
 from crawlee._log_config import configure_logger, get_configured_log_level
-from crawlee._request import Request, RequestState
+from crawlee._request import Request, RequestOptions, RequestState
 from crawlee._types import (
     BasicCrawlingContext,
+    EnqueueLinksKwargs,
     GetKeyValueStoreFromRequestHandlerFunction,
     HttpHeaders,
     HttpPayload,
@@ -65,9 +66,16 @@ from ._logging_utils import (
 
 if TYPE_CHECKING:
     import re
+    from collections.abc import Iterator
     from contextlib import AbstractAsyncContextManager
 
-    from crawlee._types import ConcurrencySettings, HttpMethod, JsonSerializable
+    from crawlee._types import (
+        ConcurrencySettings,
+        EnqueueLinksFunction,
+        ExtractLinksFunction,
+        HttpMethod,
+        JsonSerializable,
+    )
     from crawlee.configuration import Configuration
     from crawlee.events import EventManager
     from crawlee.http_clients import HttpClient, HttpResponse
@@ -81,6 +89,7 @@ if TYPE_CHECKING:
 
 TCrawlingContext = TypeVar('TCrawlingContext', bound=BasicCrawlingContext, default=BasicCrawlingContext)
 TStatisticsState = TypeVar('TStatisticsState', bound=StatisticsState, default=StatisticsState)
+TRequestIterator = TypeVar('TRequestIterator', str, Request)
 ErrorHandler = Callable[[TCrawlingContext, Exception], Awaitable[Union[Request, None]]]
 FailedRequestHandler = Callable[[TCrawlingContext, Exception], Awaitable[None]]
 SkippedRequestCallback = Callable[[str, SkippedReason], Awaitable[None]]
@@ -661,6 +670,7 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
                 self._snapshotter,
                 self._statistics,
                 self._session_pool if self._use_session_pool else None,
+                self._http_client,
                 *self._additional_context_managers,
             )
             if cm and getattr(cm, 'active', False) is False
@@ -879,6 +889,85 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
 
         yield context
 
+    def _create_enqueue_links_function(
+        self, context: BasicCrawlingContext, extract_links: ExtractLinksFunction
+    ) -> EnqueueLinksFunction:
+        """Create a callback function for extracting links from parsed content and enqueuing them to the crawl.
+
+        Args:
+            context: The current crawling context.
+            extract_links: Function used to extract links from the page.
+
+        Returns:
+            Awaitable that is used for extracting links from parsed content and enqueuing them to the crawl.
+        """
+
+        async def enqueue_links(
+            *,
+            selector: str | None = None,
+            label: str | None = None,
+            user_data: dict[str, Any] | None = None,
+            transform_request_function: Callable[[RequestOptions], RequestOptions | RequestTransformAction]
+            | None = None,
+            requests: Sequence[str | Request] | None = None,
+            **kwargs: Unpack[EnqueueLinksKwargs],
+        ) -> None:
+            kwargs.setdefault('strategy', 'same-hostname')
+
+            if requests:
+                if any((selector, label, user_data, transform_request_function)):
+                    raise ValueError(
+                        'You cannot provide `selector`, `label`, `user_data` or '
+                        '`transform_request_function` arguments when `requests` is provided.'
+                    )
+                # Add directly passed requests.
+                await context.add_requests(requests or list[Union[str, Request]](), **kwargs)
+            else:
+                # Add requests from extracted links.
+                await context.add_requests(
+                    await extract_links(
+                        selector=selector or 'a',
+                        label=label,
+                        user_data=user_data,
+                        transform_request_function=transform_request_function,
+                    ),
+                    **kwargs,
+                )
+
+        return enqueue_links
+
+    def _enqueue_links_filter_iterator(
+        self, request_iterator: Iterator[TRequestIterator], origin_url: str, **kwargs: Unpack[EnqueueLinksKwargs]
+    ) -> Iterator[TRequestIterator]:
+        """Filter requests based on the enqueue strategy and URL patterns."""
+        limit = kwargs.get('limit')
+        parsed_origin_url = urlparse(origin_url)
+        strategy = kwargs.get('strategy', 'all')
+
+        if strategy == 'all' and not parsed_origin_url.hostname:
+            self.log.warning(f'Skipping enqueue: Missing hostname in origin_url = {origin_url}.')
+            return
+
+        # Emit a `warning` message to the log, only once per call
+        warning_flag = True
+
+        for request in request_iterator:
+            target_url = request.url if isinstance(request, Request) else request
+            parsed_target_url = urlparse(target_url)
+
+            if warning_flag and strategy != 'all' and not parsed_target_url.hostname:
+                self.log.warning(f'Skipping enqueue url: Missing hostname in target_url = {target_url}.')
+                warning_flag = False
+
+            if self._check_enqueue_strategy(
+                strategy, target_url=parsed_target_url, origin_url=parsed_origin_url
+            ) and self._check_url_patterns(target_url, kwargs.get('include'), kwargs.get('exclude')):
+                yield request
+
+                limit = limit - 1 if limit is not None else None
+                if limit and limit <= 0:
+                    break
+
     def _check_enqueue_strategy(
         self,
         strategy: EnqueueStrategy,
@@ -887,13 +976,20 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         origin_url: ParseResult,
     ) -> bool:
         """Check if a URL matches the enqueue_strategy."""
+        if strategy == 'all':
+            return True
+
+        if origin_url.hostname is None or target_url.hostname is None:
+            self.log.debug(
+                f'Skipping enqueue: Missing hostname in origin_url = {origin_url.geturl()} or '
+                f'target_url = {target_url.geturl()}'
+            )
+            return False
+
         if strategy == 'same-hostname':
             return target_url.hostname == origin_url.hostname
 
         if strategy == 'same-domain':
-            if origin_url.hostname is None or target_url.hostname is None:
-                raise ValueError('Both origin and target URLs must have a hostname')
-
             origin_domain = self._tld_extractor.extract_str(origin_url.hostname).domain
             target_domain = self._tld_extractor.extract_str(target_url.hostname).domain
             return origin_domain == target_domain
@@ -904,9 +1000,6 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
                 and target_url.scheme == origin_url.scheme
                 and target_url.port == origin_url.port
             )
-
-        if strategy == 'all':
-            return True
 
         assert_never(strategy)
 
@@ -1096,6 +1189,19 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
 
         return send_request
 
+    def _convert_url_to_request_iterator(self, urls: Sequence[str | Request], base_url: str) -> Iterator[Request]:
+        """Convert a sequence of URLs or Request objects to an iterator of Request objects."""
+        for url in urls:
+            # If the request is a Request object, keep it as it is
+            if isinstance(url, Request):
+                yield url
+            # If the request is a string, convert it to Request object with absolute_url.
+            elif isinstance(url, str) and not is_url_absolute(url):
+                absolute_url = convert_to_absolute_url(base_url, url)
+                yield Request.from_url(absolute_url)
+            else:
+                yield Request.from_url(url)
+
     async def _commit_request_handler_result(self, context: BasicCrawlingContext) -> None:
         """Commit request handler result for the input `context`. Result is taken from `_context_result_map`."""
         result = self._context_result_map[context]
@@ -1106,40 +1212,21 @@ class BasicCrawler(Generic[TCrawlingContext, TStatisticsState]):
         for add_requests_call in result.add_requests_calls:
             requests = list[Request]()
 
-            for request in add_requests_call['requests']:
-                if (limit := add_requests_call.get('limit')) is not None and len(requests) >= limit:
-                    break
+            base_url = url if (url := add_requests_call.get('base_url')) else origin
 
-                # If the request is a Request object, keep it as it is
-                if isinstance(request, Request):
-                    dst_request = request
-                # If the request is a string, convert it to Request object.
-                if isinstance(request, str):
-                    if is_url_absolute(request):
-                        dst_request = Request.from_url(request)
+            requests_iterator = self._convert_url_to_request_iterator(add_requests_call['requests'], base_url)
 
-                    # If the request URL is relative, make it absolute using the origin URL.
-                    else:
-                        base_url = url if (url := add_requests_call.get('base_url')) else origin
-                        absolute_url = convert_to_absolute_url(base_url, request)
-                        dst_request = Request.from_url(absolute_url)
+            enqueue_links_kwargs: EnqueueLinksKwargs = {k: v for k, v in add_requests_call.items() if k != 'requests'}  # type: ignore[assignment]
 
+            filter_requests_iterator = self._enqueue_links_filter_iterator(
+                requests_iterator, context.request.url, **enqueue_links_kwargs
+            )
+
+            for dst_request in filter_requests_iterator:
                 # Update the crawl depth of the request.
                 dst_request.crawl_depth = context.request.crawl_depth + 1
 
-                if (
-                    (self._max_crawl_depth is None or dst_request.crawl_depth <= self._max_crawl_depth)
-                    and self._check_enqueue_strategy(
-                        add_requests_call.get('strategy', 'all'),
-                        target_url=urlparse(dst_request.url),
-                        origin_url=urlparse(context.request.url),
-                    )
-                    and self._check_url_patterns(
-                        dst_request.url,
-                        add_requests_call.get('include', None),
-                        add_requests_call.get('exclude', None),
-                    )
-                ):
+                if self._max_crawl_depth is None or dst_request.crawl_depth <= self._max_crawl_depth:
                     requests.append(dst_request)
 
             await request_manager.add_requests_batched(requests)

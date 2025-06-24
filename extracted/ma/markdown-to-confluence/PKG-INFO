@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.3.5
+Version: 0.4.0
 Summary: Publish Markdown files to Confluence wiki
 Home-page: https://github.com/hunyadi/md2conf
 Author: Levente Hunyadi
@@ -21,15 +21,17 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: json_strong_typing>=0.3.9
 Requires-Dist: lxml>=5.4
 Requires-Dist: types-lxml>=2025.3.30
 Requires-Dist: markdown>=3.8
 Requires-Dist: types-markdown>=3.8
-Requires-Dist: pymdown-extensions>=10.15
+Requires-Dist: pymdown-extensions>=10.16
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: types-PyYAML>=6.0
 Requires-Dist: requests>=2.32
 Requires-Dist: types-requests>=2.32
+Requires-Dist: typing_extensions>=4.14; python_version < "3.12"
 Dynamic: license-file
 
 # Publish Markdown files to Confluence wiki
@@ -49,7 +51,10 @@ This Python package
 * Sections and subsections
 * Text with **bold**, *italic*, `monospace`, <ins>underline</ins> and ~~strikethrough~~
 * Link to [sections on the same page](#getting-started) or [external locations](http://example.com/)
+* Subscript and superscript (with HTML tags `<sub>` and `<sup>`)
+* Emoji
 * Ordered and unordered lists
+* Block quotes
 * Code blocks (e.g. Python, JSON, XML)
 * Images (uploaded as Confluence page attachments or hosted externally)
 * Tables
@@ -95,7 +100,7 @@ In order to get started, you will need
 
 Confluence organization domain, base path, username, API token and space key can be specified at runtime or set as Confluence environment variables (e.g. add to your `~/.profile` on Linux, or `~/.bash_profile` or `~/.zshenv` on MacOS):
 
-```bash
+```sh
 export CONFLUENCE_DOMAIN='example.atlassian.net'
 export CONFLUENCE_PATH='/wiki/'
 export CONFLUENCE_USER_NAME='levente.hunyadi@instructure.com'
@@ -105,9 +110,28 @@ export CONFLUENCE_SPACE_KEY='SPACE'
 
 On Windows, these can be set via system properties.
 
+If you use Atlassian scoped API tokens, you should set API URL, substituting `CLOUD_ID` with your own Cloud ID:
+
+```sh
+export CONFLUENCE_API_URL='https://api.atlassian.com/ex/confluence/CLOUD_ID/'
+```
+
+In this case, *md2conf* can automatically determine `CONFLUENCE_DOMAIN` and `CONFLUENCE_PATH`.
+
 ### Permissions
 
 The tool requires appropriate permissions in Confluence in order to invoke endpoints.
+
+Required scopes for scoped API tokens are as follows:
+
+* `read:page:confluence`
+* `write:page:confluence`
+* `read:space:confluence`
+* `write:space:confluence`
+* `read:attachment:confluence`
+* `write:attachment:confluence`
+* `read:label:confluence`
+* `write:label:confluence`
 
 If a Confluence username is set, the tool uses HTTP *Basic* authentication to pass the username and the API key to Confluence REST API endpoints. If no username is provided, the tool authenticates with HTTP *Bearer*, and passes the API key as the bearer token.
 
@@ -198,6 +222,65 @@ root
         └── Mean vs. median
 ```
 
+### Emoji
+
+The short name notation `:smile:` in a Markdown document is converted into the corresponding emoji 😄 when publishing to Confluence.
+
+*md2conf* relies on the [Emoji extension](https://facelessuser.github.io/pymdown-extensions/extensions/emoji/) of [PyMdown Extensions](https://facelessuser.github.io/pymdown-extensions/) to parse the short name notation with colons, and generate Confluence Storage Format output such as
+
+```xml
+<ac:emoticon ac:name="smile" ac:emoji-shortname=":smile:" ac:emoji-id="1f604" ac:emoji-fallback="&#128516;"/>
+```
+
+### Colors
+
+Confluence allows setting text color and highlight color. Even though Markdown doesn't directly support colors, it is possible to set text and highlight color via the HTML element `<span>` and the CSS attributes `color` and `background-color`, respectively:
+
+Text in <span style="color: rgb(255,86,48);">red</span>, <span style="color: rgb(54,179,126);">green</span> and <span style="color: rgb(76,154,255);">blue</span>:
+
+```markdown
+Text in <span style="color: rgb(255,86,48);">red</span>, <span style="color: rgb(54,179,126);">green</span> and <span style="color: rgb(76,154,255);">blue</span>.
+```
+
+Highlight in <span style="background-color: rgb(198,237,251);">teal</span>, <span style="background-color: rgb(211,241,167);">lime</span> and <span style="background-color: rgb(254,222,200);">yellow</span>:
+
+```markdown
+Highlight in <span style="background-color: rgb(198,237,251);">teal</span>, <span style="background-color: rgb(211,241,167);">lime</span> and <span style="background-color: rgb(254,222,200);">yellow</span>.
+```
+
+The following table shows standard text colors (CSS `color`) that are available via Confluence UI:
+
+| Color name    | CSS attribute value |
+| ------------- | ------------------- |
+| bold blue     | rgb(7,71,166)       |
+| blue          | rgb(76,154,255)     |
+| subtle blue   | rgb(179,212,255)    |
+| bold teal     | rgb(0,141,166)      |
+| teal          | rgb(0,184,217)      |
+| subtle teal   | rgb(179,245,255)    |
+| bold green    | rgb(0,102,68)       |
+| green         | rgb(54,179,126)     |
+| subtle green  | rgb(171,245,209)    |
+| bold orange   | rgb(255,153,31)     |
+| yellow        | rgb(255,196,0)      |
+| subtle yellow | rgb(255,240,179)    |
+| bold red      | rgb(191,38,0)       |
+| red           | rgb(255,86,48)      |
+| subtle red    | rgb(255,189,173)    |
+| bold purple   | rgb(64,50,148)      |
+| purple        | rgb(101,84,192)     |
+| subtle purple | rgb(234,230,255)    |
+
+The following table shows standard highlight colors (CSS `background-color`) that are available via Confluence UI:
+
+| Color name    | CSS attribute value |
+| ------------- | ------------------- |
+| teal          | rgb(198,237,251)    |
+| lime          | rgb(211,241,167)    |
+| yellow        | rgb(254,222,200)    |
+| magenta       | rgb(253,208,236)    |
+| purple        | rgb(223,216,253)    |
+
 ### Lists and tables
 
 If your Markdown lists or tables don't appear in Confluence as expected, verify that the list or table is delimited by a blank line both before and after, as per strict Markdown syntax. While some previewers accept a more lenient syntax (e.g. an itemized list immediately following a paragraph), *md2conf* uses [Python-Markdown](https://python-markdown.github.io/) internally to convert Markdown into XHTML, which expects the Markdown document to adhere to the stricter syntax.
@@ -222,11 +305,26 @@ Relative paths to items in a nested directory are not supported. You must put `.
 
 *md2conf* makes a best-effort attempt at setting the Confluence wiki page title when it publishes a Markdown document the first time. The following are probed in this order:
 
-1. The `title` attribute set in the [front-matter](https://daily-dev-tips.com/posts/what-exactly-is-frontmatter/). Front-matter is a block delimited by `---` at the beginning of a Markdown document. Currently, only YAML syntax is supported.
+1. The `title` attribute set in the [front-matter](https://daily-dev-tips.com/posts/what-exactly-is-frontmatter/). Front-matter is a block delimited by `---` at the beginning of a Markdown document. Both JSON and YAML syntax are supported.
 2. The text of the topmost unique Markdown heading (`#`). For example, if a document has a single first-level heading (e.g. `# My document`), its text is used. However, if there are multiple first-level headings, this step is skipped.
 3. The file name (without the extension `.md`).
 
 If a matching Confluence page already exists for a Markdown file, the page title in Confluence is left unchanged.
+
+### Labels
+
+If a Markdown document has the front-matter attribute `tags`, *md2conf* assigns the specified tags to the Confluence page as labels.
+
+```yaml
+---
+title: "Example document"
+tags: ["markdown", "md", "wiki"]
+---
+```
+
+Any previously assigned labels are discarded. As per Confluence terminology, new labels have the `prefix` of `global`.
+
+If a document has no `tags` attribute, existing Confluence labels are left intact.
 
 ### Converting diagrams
 
@@ -234,6 +332,18 @@ You can include [Mermaid diagrams](https://mermaid.js.org/) in your Markdown doc
 
 1. Pre-render into an image. The code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
 2. Render on demand. The code block is transformed into a [diagram macro](https://atlasauthority.atlassian.net/wiki/spaces/MARKDOWNCLOUD/pages/2946826241/Diagram+Macro), which is processed by Confluence. You need a [Confluence plugin](https://marketplace.atlassian.com/apps/1211438/markdown-html-plantuml-latex-diagrams-open-api-mermaid) to turn macro definitions into images when a Confluence page is visited. This is a contributed feature. As authors of *md2conf*, we don't endorse or support any particular Confluence plugin.
+
+If you are running into issues with the pre-rendering approach (e.g. misaligned labels in the generated image), verify if `mermaid-cli` can process the Mermaid source:
+
+```sh
+mmdc -i sample.mmd -o sample.png -b transparent --scale 2
+```
+
+Ensure that `mermaid-cli` is set up, refer to *Installation* for instructions.
+
+### Local output
+
+*md2conf* supports local output, in which the tool doesn't communicate with the Confluence REST API. Instead, it reads a single Markdown file or a directory of Markdown files, and writes Confluence Storage Format (`*.csf`) output for each document. (Confluence Storage Format is a derivative of XHTML with Confluence-specific tags for complex elements such as images with captions, code blocks, info panels, collapsed sections, etc.) You can push the generated output to Confluence by invoking the API (e.g. with `curl`).
 
 ### Running the tool
 
@@ -247,8 +357,8 @@ Use the `--help` switch to get a full list of supported command-line options:
 
 ```console
 $ python3 -m md2conf --help
-usage: md2conf [-h] [--version] [-d DOMAIN] [-p PATH] [-u USERNAME] [-a APIKEY] [-s SPACE] [-l {debug,info,warning,error,critical}] [-r ROOT_PAGE] [--keep-hierarchy] [--generated-by GENERATED_BY] [--no-generated-by]
-               [--render-mermaid] [--no-render-mermaid] [--render-mermaid-format {png,svg}] [--heading-anchors] [--ignore-invalid-url] [--local] [--headers [KEY=VALUE ...]] [--webui-links]
+usage: md2conf [-h] [--version] [-d DOMAIN] [-p PATH] [--api-url API_URL] [-u USERNAME] [-a API_KEY] [-s SPACE] [-l {debug,info,warning,error,critical}] [-r ROOT_PAGE] [--keep-hierarchy] [--generated-by GENERATED_BY]
+               [--no-generated-by] [--render-mermaid] [--no-render-mermaid] [--render-mermaid-format {png,svg}] [--heading-anchors] [--ignore-invalid-url] [--local] [--headers [KEY=VALUE ...]] [--webui-links]
                mdpath
 
 positional arguments:
@@ -260,9 +370,10 @@ options:
   -d DOMAIN, --domain DOMAIN
                         Confluence organization domain.
   -p PATH, --path PATH  Base path for Confluence (default: '/wiki/').
+  --api-url API_URL     Confluence API URL. Required for scoped tokens. Refer to documentation how to obtain one.
   -u USERNAME, --username USERNAME
                         Confluence user name.
-  -a APIKEY, --apikey APIKEY
+  -a API_KEY, --apikey API_KEY, --api-key API_KEY
                         Confluence API key. Refer to documentation how to obtain one.
   -s SPACE, --space SPACE
                         Confluence space key for pages to be published. If omitted, will default to user space.

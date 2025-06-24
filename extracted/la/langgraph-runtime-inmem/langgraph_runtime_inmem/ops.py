@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
+import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.pregel.debug import CheckpointPayload
@@ -853,6 +854,8 @@ class Threads(Authenticated):
         # This does not accept the auth context since it's only used internally
     ) -> None:
         """Set the status of a thread."""
+        from langgraph_api.serde import json_dumpb
+
         thread_id = _ensure_uuid(thread_id)
 
         async def has_pending_runs(conn_: InMemConnectionProto, tid: UUID) -> bool:
@@ -907,6 +910,7 @@ class Threads(Authenticated):
                     if checkpoint
                     else {}
                 ),
+                "error": json_dumpb(exception) if exception else None,
             }
         )
 
@@ -934,6 +938,7 @@ class Threads(Authenticated):
         """
         # No auth since it's internal
         from langgraph_api.errors import UserInterrupt, UserRollback
+        from langgraph_api.serde import json_dumpb
 
         thread_id = _ensure_uuid(thread_id)
         run_id = _ensure_uuid(run_id)
@@ -982,24 +987,7 @@ class Threads(Authenticated):
         now = datetime.now(UTC)
 
         if run_status == "rollback":
-            if "checkpoints" in conn.store:
-                cpts_to_del = [
-                    c for c in conn.store["checkpoints"] if c["run_id"] == run_id
-                ]
-                conn.store["checkpoints"] = [
-                    c for c in conn.store["checkpoints"] if c["run_id"] != run_id
-                ]
-
-                if "checkpoint_writes" in conn.store and cpts_to_del:
-                    cpt_ids = {c["checkpoint_id"] for c in cpts_to_del}
-                    conn.store["checkpoint_writes"] = [
-                        cw
-                        for cw in conn.store["checkpoint_writes"]
-                        if cw["checkpoint_id"] not in cpt_ids
-                    ]
-
-            conn.store["runs"].remove(run)
-
+            await Runs.delete(conn, run_id, thread_id=run["thread_id"])
             final_thread_status: ThreadStatus = (
                 "busy" if _thread_has_active_runs() else base_thread_status
             )
@@ -1011,13 +999,13 @@ class Threads(Authenticated):
                 final_thread_status = "busy"
             else:
                 final_thread_status = base_thread_status
-
         thread.update(
             {
                 "updated_at": now,
                 "values": checkpoint["values"] if checkpoint else None,
                 "interrupts": interrupts,
                 "status": final_thread_status,
+                "error": json_dumpb(exception) if exception else None,
             }
         )
 
@@ -1899,10 +1887,12 @@ class Runs(Authenticated):
         # wait for the run to complete
         # Rely on this join's auth
         async for mode, chunk, _ in Runs.Stream.join(
-            run_id, thread_id=thread_id, stream_mode="values", ctx=ctx, ignore_404=True
+            run_id, thread_id=thread_id, ctx=ctx, ignore_404=True
         ):
             if mode == b"values":
                 last_chunk = chunk
+            elif mode == b"error":
+                last_chunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
         # if we received a final chunk, return it
         if last_chunk is not None:
             # ie. if the run completed while we were waiting for it
@@ -1912,6 +1902,10 @@ class Runs(Authenticated):
             async with connect() as conn:
                 thread_iter = await Threads.get(conn, thread_id, ctx=ctx)
                 thread = await fetchone(thread_iter)
+                if thread["status"] == "error":
+                    return Fragment(
+                        orjson.dumps({"__error__": orjson.Fragment(thread["error"])})
+                    )
                 return thread["values"]
 
     @staticmethod

@@ -36,11 +36,11 @@ use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
-use crate::types::class::TArgs;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::param_spec::ParamSpec;
 use crate::types::quantified::Quantified;
+use crate::types::quantified::QuantifiedKind;
 use crate::types::simplify::unions;
 use crate::types::special_form::SpecialForm;
 use crate::types::stdlib::Stdlib;
@@ -108,6 +108,24 @@ impl TParam {
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParams(Vec<TParam>);
 
+/// Implement `VisitMut` for `Arc<TParams>` as a no-op.
+///
+/// This is not technically correct, because TParams can contain types inside
+/// the bounds on `Quantified`, but we only use `VisitMut` to eliminate `Var`s,
+/// and we do not need to eliminate vars on tparams.
+///
+/// Without making this simplifying assumption we would not be able to use `Arc`
+/// to share the `TParams`.
+impl VisitMut<Type> for Arc<TParams> {
+    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut Type)) {}
+}
+
+impl Visit<Type> for Arc<TParams> {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        self.as_ref().recurse(f);
+    }
+}
+
 impl Display for TParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", commas_iter(|| self.0.iter()))
@@ -131,8 +149,14 @@ impl TParams {
         self.0.iter()
     }
 
-    pub fn quantified(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
+    pub fn quantifieds(&self) -> impl ExactSizeIterator<Item = &Quantified> + '_ {
         self.0.iter().map(|x| &x.quantified)
+    }
+
+    pub fn contain_type_var_tuple(&self) -> bool {
+        self.0
+            .iter()
+            .any(|tparam| tparam.quantified.kind() == QuantifiedKind::TypeVarTuple)
     }
 
     pub fn as_vec(&self) -> &[TParam] {
@@ -141,6 +165,73 @@ impl TParams {
 
     pub fn extend(&mut self, other: &TParams) {
         self.0.extend(other.iter().cloned());
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Visit, VisitMut, TypeEq)]
+pub struct TArgs(Box<(Arc<TParams>, Box<[Type]>)>);
+
+impl TArgs {
+    pub fn new(tparams: Arc<TParams>, targs: Vec<Type>) -> Self {
+        if tparams.len() != targs.len() {
+            panic!("TParams and TArgs must have the same length");
+        }
+        Self(Box::new((tparams, targs.into_boxed_slice())))
+    }
+
+    pub fn iter_paired(&self) -> impl ExactSizeIterator<Item = (&TParam, &Type)> {
+        self.0.0.iter().zip(self.0.1.iter())
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.1.len()
+    }
+
+    pub fn as_slice(&self) -> &[Type] {
+        &self.0.1
+    }
+
+    pub fn as_mut(&mut self) -> &mut [Type] {
+        &mut self.0.1
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.1.is_empty()
+    }
+
+    /// Apply a substitution to type arguments.
+    ///
+    /// This is useful mainly to re-express ancestors (which, in the MRO, are in terms of class
+    /// type parameters)
+    ///
+    /// This is mainly useful to take ancestors coming from the MRO (which are always in terms
+    /// of the current class's type parameters) and re-express them in terms of the current
+    /// class specialized with type arguments.
+    pub fn substitute(&self, substitution: &Substitution) -> Self {
+        let tys = self
+            .0
+            .1
+            .iter()
+            .map(|ty| substitution.substitute(ty.clone()))
+            .collect();
+        Self::new(self.0.0.dupe(), tys)
+    }
+}
+
+pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
+
+impl<'a> Substitution<'a> {
+    pub fn substitute(&self, ty: Type) -> Type {
+        ty.subst(&self.0)
+    }
+
+    /// Creates a Substitution from a class specialized with type arguments.
+    /// Assumes that the number of args equals the number of type parameters on the class.
+    pub fn new(cls: &'a Class, args: &'a TArgs) -> Self {
+        let tparams = cls.tparams();
+        let targs = args.as_slice();
+        Substitution(tparams.quantifieds().zip(targs.iter()).collect())
     }
 }
 
@@ -400,7 +491,7 @@ impl OverloadType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct Forall<T> {
-    pub tparams: TParams,
+    pub tparams: Arc<TParams>,
     pub body: T,
 }
 
@@ -408,7 +499,7 @@ impl Forall<Forallable> {
     pub fn subst(self, targs: TArgs) -> Type {
         let param_map = self
             .tparams
-            .quantified()
+            .quantifieds()
             .zip(targs.as_slice())
             .collect::<SmallMap<_, _>>();
         self.body.as_type().subst(&param_map)
@@ -424,7 +515,7 @@ pub enum Forallable {
 }
 
 impl Forallable {
-    pub fn forall(self, tparams: TParams) -> Type {
+    pub fn forall(self, tparams: Arc<TParams>) -> Type {
         if tparams.is_empty() {
             self.as_type()
         } else {
@@ -1008,6 +1099,14 @@ impl Type {
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
+            _ => {}
+        })
+    }
+
+    // Attempt at a function that will convert @ to Any for now.
+    pub fn clean_var(self) -> Type {
+        self.transform(&mut |ty| match &ty {
+            Type::Var(_) => *ty = Type::Any(AnyStyle::Implicit),
             _ => {}
         })
     }

@@ -942,3 +942,18 @@ class C:
         self.x += 5  # E: Object of class `C` has no attribute `x`
     "#,
 );
+
+testcase!(
+    test_attributes_when_raw_class_field_type_contains_var,
+    r#"
+from typing import assert_type, Any
+# This test is making sure we don't leak a `Var` into a ClassField, which can lead to nondeterminism.
+class A:
+    x = []
+    y = []
+assert_type(A().x, list[Any])
+A().x = [42]
+A().y = [42]
+assert_type(A().y, list[Any])
+    "#,
+);

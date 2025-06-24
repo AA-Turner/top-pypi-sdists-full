@@ -266,7 +266,7 @@ testcase!(
 from typing import TypeVar
 T1 = TypeVar('T1', covariant=True, contravariant=True)  # E: Contradictory variance specifications
 T2 = TypeVar('T2', covariant=True, contravariant=False)
-T3 = TypeVar('T3', covariant="lunch")  # E: Expected literal True or False
+T3 = TypeVar('T3', covariant="lunch")  # E: Expected literal `True` or `False`
     "#,
 );
 
@@ -844,5 +844,28 @@ class C3(Generic[T]):
 
 class C4(Generic[int]):  # E: Expected a type variable, got `int`
     pass
+    "#,
+);
+
+// Test various things that we should allow `type` to be specialized with
+testcase!(
+    test_type_argument_for_type,
+    r#"
+from typing import Any, TypeVar
+
+class A: ...
+class B: ...
+
+a: type[A]
+b: type[B]
+c: type[A | B]
+d: type[Any]
+
+T1 = TypeVar('T1')
+def f(x: type[T1]) -> T1:
+    return x()
+
+def g[T2](x: type[T2]) -> T2:
+    return x()
     "#,
 );

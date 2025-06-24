@@ -1,10 +1,16 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-scm[toml]>=7.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "caldav/_version.py"
 
 [project]
 name = "caldav"
-authors = [{ name = "Cyril Robert", email = "cyril@hippie.io" }]
+authors = [{ name = "Cyril Robert", email = "cyril@hippie.io" }, { name = "Tobias Brox", email = "caldav@plann.no" }]
 license = { text = "GPL" }
 description = "CalDAV (RFC4791) client library"
 keywords = []
@@ -16,8 +22,6 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.7",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -28,14 +32,11 @@ classifiers = [
 ]
 
 dependencies = [
-  "vobject",
   "lxml",
-  "requests",
+  "niquests",
   "recurring-ical-events>=2.0.0",
   "typing_extensions;python_version<'3.11'",
-  ## It's a mess - newer versions of xandikos, used for testing, does not support python 3.8 anymore.  icalendar 6.0.0 is not compatible with elder versions of xandikos.  It's no problem with python 3.7, as icalender 6.0.0 does not support python 3.7.
-  "icalendar<6.0.0;python_version=='3.8'",
-  "icalendar;python_version!='3.8'",
+  "icalendar>6.0.0"
 ]
 dynamic = ["version"]
 
@@ -47,17 +48,16 @@ Changelog = "https://github.com/python-caldav/caldav/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = [
+  "vobject",
   "pytest",
   "coverage",
-  "sphinx",
-  "backports.zoneinfo;python_version<'3.9'",
+  "manuel",
+  "proxy.py",
   "tzlocal",
-  "xandikos==0.2.7;python_version<'3.9'",
-  "dulwich==0.20.50;python_version<'3.9'",
-  "xandikos;python_version>='3.9'",
+  "xandikos",
   "radicale",
+  "pyfakefs"
 ]
-
 [tool.setuptools_scm]
 write_to = "caldav/_version.py"
 

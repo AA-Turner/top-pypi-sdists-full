@@ -1,3 +1,4 @@
+from .agent import KnowledgeScope, ProResearchRequest
 from .api_key import APIKey
 from .chunk import Chunk
 from .converter import GenericConverter
@@ -118,4 +119,6 @@ __all__ = [
     "GithubRepoParseConfig",
     "Wiki",
     "KNOWLEDGE_CREATE_2_KNOWLEDGE_STRATEGY_MAP",
+    "KnowledgeScope",
+    "ProResearchRequest",
 ]

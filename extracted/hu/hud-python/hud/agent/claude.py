@@ -1,13 +1,15 @@
+import copy
 import logging
 from typing import Any, cast
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, BadRequestError
 from anthropic.types.beta import (
     BetaMessageParam,
     BetaToolResultBlockParam,
     BetaToolComputerUse20250124Param,
     BetaTextBlockParam,
     BetaImageBlockParam,
+    BetaCacheControlEphemeralParam,
 )
 
 from hud.adapters import Adapter
@@ -16,6 +18,7 @@ from hud.adapters.claude import ClaudeAdapter
 from hud.types import Gym
 from hud.utils.common import Observation
 from hud.settings import settings
+from hud.adapters.common.types import LogType
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,7 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
         model: str = "claude-3-7-sonnet-20250219",
         max_tokens: int = 4096,
         max_iterations: int = 10,
+        name: str | None = None,
     ):
         """
         Initialize the ClaudeAgent.
@@ -73,6 +77,7 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
             model: The Claude model to use
             max_tokens: Maximum tokens for Claude's response
             max_iterations: Maximum number of iterations for the agent
+            name: The name of the agent
         """
         # Initialize client if not provided
         if client is None:
@@ -88,7 +93,10 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
 
         adapter = adapter or ClaudeAdapter()
 
-        super().__init__(client=client, adapter=adapter)
+        if name is None:
+            name = model
+
+        super().__init__(client=client, adapter=adapter, name=name)
 
         self.model = model
         self.max_tokens = max_tokens
@@ -115,11 +123,14 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
             observation: The preprocessed observation
 
         Returns:
-            tuple[list[Any], bool]: A tuple containing the list of raw actions and a
-                                   boolean indicating if the agent believes the task is complete
+            tuple[list[Any], bool, list[str | dict[str, Any]] | None]: A tuple containing the list of raw actions,
+                                   boolean indicating if the agent believes the task is complete, and a list of strings or dictionaries of logs.
         """
         if not self.client:
             raise ValueError("Client is required")
+
+        if not observation.text and not observation.screenshot:
+            raise ValueError("Observation must contain either text or screenshot")
 
         # Prepare the user content for Claude
         user_content: list[BetaImageBlockParam | BetaTextBlockParam | BetaToolResultBlockParam] = []
@@ -159,15 +170,44 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
             )
         )
 
-        # Call Claude API using async client
-        response = await self.client.beta.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            messages=self.messages,
-            tools=[COMPUTER_TOOL],
-            betas=["computer-use-2025-01-24"],
-            tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-        )
+        # Call Claude API using async client, truncating 50 messages at a time if needed
+        while True:
+            # first, make a copy and add prompt caching to the last message
+            messages_cached = copy.deepcopy(self.messages)
+            # Mark last user message with cache control for prompt caching
+            last_msg = messages_cached[-1]
+            if last_msg.get("role") == "user":
+                last_content = last_msg["content"]
+                if isinstance(last_content, list):
+                    for block in last_content:
+                        if (
+                            not block["type"] == "thinking"
+                            and not block["type"] == "redacted_thinking"
+                        ):
+                            cache_control: BetaCacheControlEphemeralParam = {"type": "ephemeral"}
+                            block["cache_control"] = cache_control
+
+            try:
+                response = await self.client.beta.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    messages=messages_cached,
+                    tools=[COMPUTER_TOOL],
+                    betas=["computer-use-2025-01-24"],
+                    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+                )
+            except BadRequestError as e:
+                if e.message.startswith("prompt is too long"):
+                    logger.warning(
+                        f"Prompt is too long, removing the first 50 messages except for the first user message: {e.message}"
+                    )
+                    self.messages = [self.messages[0]] + self.messages[50:]
+                    continue
+                else:
+                    raise e
+
+            # break out of the while loop if we get a response
+            break
 
         # Add Claude's response to the conversation history
         response_content = response.content
@@ -215,5 +255,17 @@ class ClaudeAgent(Agent[AsyncAnthropic, Any]):
             # else:
             # logger.info("No tool use and no final text block found.")
             # Keep done = True, actions remains empty
+
+        reasoning = ""
+        for block in response_content:
+            if block.type == "thinking":
+                reasoning += f"Thinking: {block.thinking}\n"
+            elif block.type == "text":
+                reasoning += block.text
+
+        # add reasoning to the actions
+        for action in actions:
+            action["reasoning"] = reasoning
+            action["logs"] = response.model_dump()
 
         return actions, done

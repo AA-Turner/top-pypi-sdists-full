@@ -34,6 +34,7 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
 use crate::graph::index::Idx;
+use crate::module::module_name::ModuleName;
 use crate::ruff::ast::Ast;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
@@ -44,6 +45,7 @@ use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::CalleeKind;
 use crate::types::types::TParam;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Private helper type used to share part of the logic needed for the
@@ -55,7 +57,7 @@ pub enum BaseClass {
     Generic(Vec<Type>),
     Protocol(Vec<Type>),
     Expr(Expr),
-    CollectionsNamedTuple(TextRange),
+    NamedTuple(TextRange),
 }
 
 impl BaseClass {
@@ -74,6 +76,120 @@ impl BaseClass {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    pub fn compute_tparams(
+        &self,
+        name: &Identifier,
+        scoped_tparams: Vec<TParam>,
+        bases: Vec<BaseClass>,
+        legacy: &[Idx<KeyLegacyTypeParam>],
+        errors: &ErrorCollector,
+    ) -> Vec<TParam> {
+        let legacy_tparams = legacy
+            .iter()
+            .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())
+            .collect::<SmallSet<_>>();
+        let legacy_map = legacy_tparams
+            .iter()
+            .map(|p| (p.quantified.clone(), p))
+            .collect::<SmallMap<_, _>>();
+
+        let lookup_tparam = |t: &Type| {
+            let (q, kind) = match t {
+                Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
+                _ => (t.as_quantified(), "type variable"),
+            };
+            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error)) {
+                self.error(
+                    errors,
+                    name.range,
+                    ErrorKind::InvalidTypeVar,
+                    None,
+                    format!("Expected a {kind}, got `{}`", self.for_display(t.clone())),
+                );
+            }
+            q.and_then(|q| {
+                let p = legacy_map.get(&q);
+                if p.is_none() {
+                    self.error(
+                        errors,
+                        name.range,
+                        ErrorKind::InvalidTypeVar,
+                        None,
+                        "Redundant type parameter declaration".to_owned(),
+                    );
+                }
+                p.map(|x| (*x).clone())
+            })
+        };
+
+        // TODO(stroxler): There are a lot of checks, such as that `Generic` only appears once
+        // and no non-type-vars are used, that we can more easily detect in a dedictated class
+        // validation step that validates all the bases. We are deferring these for now.
+        let mut generic_tparams = SmallSet::new();
+        let mut protocol_tparams = SmallSet::new();
+        for base in bases.iter() {
+            match base {
+                BaseClass::Generic(ts) => {
+                    for t in ts {
+                        if let Some(p) = lookup_tparam(t) {
+                            generic_tparams.insert(p);
+                        }
+                    }
+                }
+                BaseClass::Protocol(ts) if !ts.is_empty() => {
+                    for t in ts {
+                        if let Some(p) = lookup_tparam(t) {
+                            protocol_tparams.insert(p);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !generic_tparams.is_empty() && !protocol_tparams.is_empty() {
+            self.error(
+                errors,
+                name.range,
+                ErrorKind::InvalidInheritance,
+                None,
+                format!(
+                    "Class `{}` specifies type parameters in both `Generic` and `Protocol` bases",
+                    name.id,
+                ),
+            );
+        }
+        // Initialized the tparams: combine scoped and explicit type parameters
+        let mut tparams = SmallSet::new();
+        tparams.extend(scoped_tparams);
+        tparams.extend(generic_tparams);
+        tparams.extend(protocol_tparams);
+        // Handle implicit tparams: if a Quantified was bound at this scope and is not yet
+        // in tparams, we add it. These will be added in left-to-right order.
+        let implicit_tparams_okay = tparams.is_empty();
+        for p in legacy_tparams.iter() {
+            if !tparams.contains(p) {
+                if !implicit_tparams_okay {
+                    self.error(errors,
+                        name.range,
+                        ErrorKind::InvalidTypeVar,
+                        None,
+                        format!(
+                            "Class `{}` uses type variables not specified in `Generic` or `Protocol` base",
+                            name.id,
+                        ),
+                    );
+                }
+                tparams.insert(p.clone());
+            }
+        }
+
+        tparams.into_iter().collect()
+    }
+
+    pub fn class_tparams(&self, class: &Class) -> Arc<TParams> {
+        class.arc_tparams().dupe()
+    }
+
     fn new_type_base(
         &self,
         base_type_and_range: Option<(Type, TextRange)>,
@@ -184,7 +300,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_typed_dict = true;
                         None
                     }
-                    BaseClass::CollectionsNamedTuple(range) => {
+                    BaseClass::NamedTuple(range) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), *range))
                     }
                     BaseClass::Generic(ts) | BaseClass::Protocol(ts) if !ts.is_empty() => {
@@ -223,7 +339,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     "Subclassing a NewType not allowed".to_owned(),
                                 );
                             }
-                            if base_cls.has_qname("typing", "NamedTuple")
+                            if base_cls.has_qname(ModuleName::type_checker_internals().as_str(), "NamedTupleFallback")
                             {
                                 if named_tuple_metadata.is_none() {
                                     named_tuple_metadata = Some(NamedTupleMetadata {
@@ -314,9 +430,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
         let typed_dict_metadata = if is_typed_dict {
-            let is_total = !keywords.iter().any(|(n, t)| {
-                n.as_str() == "total" && matches!(t, Type::Literal(Lit::Bool(false)))
-            });
+            // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
+            let mut is_total = true;
+            for (name, value) in &keywords {
+                if name.as_str() != "total" {
+                    self.error(
+                        errors,
+                        cls.range(),
+                        ErrorKind::BadTypedDict,
+                        None,
+                        format!(
+                            "TypedDict does not support keyword argument `{}`",
+                            name.as_str()
+                        ),
+                    );
+                } else if matches!(value, Type::Literal(Lit::Bool(false))) {
+                    is_total = false;
+                }
+            }
             let fields =
                 self.calculate_typed_dict_metadata_fields(cls, &bases_with_metadata, is_total);
             Some(TypedDictMetadata { fields })
@@ -491,18 +622,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// TODO(stroxler): See if there's a way to express this more clearly in the types.
     fn special_base_class(&self, base_expr: &Expr, errors: &ErrorCollector) -> Option<BaseClass> {
-        if matches!(base_expr, Expr::Name(_) | Expr::Attribute(_)) {
-            match self.expr_infer(base_expr, errors) {
-                Type::Type(box Type::SpecialForm(special)) => match special {
-                    SpecialForm::Protocol => Some(BaseClass::Protocol(Vec::new())),
-                    SpecialForm::Generic => Some(BaseClass::Generic(Vec::new())),
-                    SpecialForm::TypedDict => Some(BaseClass::TypedDict),
-                    _ => None,
-                },
+        let name = match base_expr {
+            Expr::Name(x) => &x.id,
+            Expr::Attribute(x) => &x.attr.id,
+            _ => return None,
+        };
+        if !["Protocol", "Generic", "TypedDict", "NamedTuple"].contains(&name.as_str()) {
+            // Calling expr_infer when figuring out the base class leads to cycles, so we really want to try
+            // and avoid doing it unless there is a high likelihood of a special form.
+            // Downside is that you can't alias `Generic` etc, but I'm not sure you should want to.
+            return None;
+        }
+
+        match self.expr_infer(base_expr, errors) {
+            Type::Type(box Type::SpecialForm(special)) => match special {
+                SpecialForm::Protocol => Some(BaseClass::Protocol(Vec::new())),
+                SpecialForm::Generic => Some(BaseClass::Generic(Vec::new())),
+                SpecialForm::TypedDict => Some(BaseClass::TypedDict),
                 _ => None,
+            },
+            Type::ClassDef(cls) if cls.has_qname("typing", "NamedTuple") => {
+                Some(BaseClass::NamedTuple(base_expr.range()))
             }
-        } else {
-            None
+            _ => None,
         }
     }
 
@@ -540,116 +682,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // This branch handles all other base classes.
             BaseClass::Expr(base_expr.clone())
         }
-    }
-
-    pub fn class_tparams(
-        &self,
-        name: &Identifier,
-        scoped_tparams: Vec<TParam>,
-        bases: Vec<BaseClass>,
-        legacy: &[Idx<KeyLegacyTypeParam>],
-        errors: &ErrorCollector,
-    ) -> Vec<TParam> {
-        let legacy_tparams = legacy
-            .iter()
-            .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())
-            .collect::<SmallSet<_>>();
-        let legacy_map = legacy_tparams
-            .iter()
-            .map(|p| (p.quantified.clone(), p))
-            .collect::<SmallMap<_, _>>();
-
-        let lookup_tparam = |t: &Type| {
-            let (q, kind) = match t {
-                Type::Unpack(t) => (t.as_quantified(), "TypeVarTuple"),
-                _ => (t.as_quantified(), "type variable"),
-            };
-            if q.is_none() && !matches!(t, Type::Any(AnyStyle::Error)) {
-                self.error(
-                    errors,
-                    name.range,
-                    ErrorKind::InvalidTypeVar,
-                    None,
-                    format!("Expected a {kind}, got `{}`", self.for_display(t.clone())),
-                );
-            }
-            q.and_then(|q| {
-                let p = legacy_map.get(&q);
-                if p.is_none() {
-                    self.error(
-                        errors,
-                        name.range,
-                        ErrorKind::InvalidTypeVar,
-                        None,
-                        "Redundant type parameter declaration".to_owned(),
-                    );
-                }
-                p.map(|x| (*x).clone())
-            })
-        };
-
-        // TODO(stroxler): There are a lot of checks, such as that `Generic` only appears once
-        // and no non-type-vars are used, that we can more easily detect in a dedictated class
-        // validation step that validates all the bases. We are deferring these for now.
-        let mut generic_tparams = SmallSet::new();
-        let mut protocol_tparams = SmallSet::new();
-        for base in bases.iter() {
-            match base {
-                BaseClass::Generic(ts) => {
-                    for t in ts {
-                        if let Some(p) = lookup_tparam(t) {
-                            generic_tparams.insert(p);
-                        }
-                    }
-                }
-                BaseClass::Protocol(ts) if !ts.is_empty() => {
-                    for t in ts {
-                        if let Some(p) = lookup_tparam(t) {
-                            protocol_tparams.insert(p);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        if !generic_tparams.is_empty() && !protocol_tparams.is_empty() {
-            self.error(
-                errors,
-                name.range,
-                ErrorKind::InvalidInheritance,
-                None,
-                format!(
-                    "Class `{}` specifies type parameters in both `Generic` and `Protocol` bases",
-                    name.id,
-                ),
-            );
-        }
-        // Initialized the tparams: combine scoped and explicit type parameters
-        let mut tparams = SmallSet::new();
-        tparams.extend(scoped_tparams);
-        tparams.extend(generic_tparams);
-        tparams.extend(protocol_tparams);
-        // Handle implicit tparams: if a Quantified was bound at this scope and is not yet
-        // in tparams, we add it. These will be added in left-to-right order.
-        let implicit_tparams_okay = tparams.is_empty();
-        for p in legacy_tparams.iter() {
-            if !tparams.contains(p) {
-                if !implicit_tparams_okay {
-                    self.error(errors,
-                        name.range,
-                        ErrorKind::InvalidTypeVar,
-                        None,
-                        format!(
-                            "Class `{}` uses type variables not specified in `Generic` or `Protocol` base",
-                            name.id,
-                        ),
-                    );
-                }
-                tparams.insert(p.clone());
-            }
-        }
-
-        tparams.into_iter().collect()
     }
 
     fn calculate_metaclass(

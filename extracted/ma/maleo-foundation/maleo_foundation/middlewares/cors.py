@@ -3,12 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Sequence
 
 def add_cors_middleware(
-    app:FastAPI,
-    allow_origins:Sequence[str] = (),
-    allow_methods:Sequence[str] = ("GET",),
-    allow_headers:Sequence[str] = (),
-    allow_credentials:bool = False,
-    expose_headers:Sequence[str] = ()
+    app: FastAPI,
+    allow_origins: Sequence[str] = (),
+    allow_methods: Sequence[str] = ("GET",),
+    allow_headers: Sequence[str] = (),
+    allow_credentials: bool = False,
+    expose_headers: Sequence[str] = ()
 ) -> None:
     """
     Adds CORS (Cross-Origin Resource Sharing) middleware to the FastAPI application.

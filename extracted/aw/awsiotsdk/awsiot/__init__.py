@@ -16,7 +16,7 @@ from concurrent.futures import Future
 import json
 from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 
-__version__ = '1.22.2'
+__version__ = '1.23.0'
 
 T = TypeVar('T')
 

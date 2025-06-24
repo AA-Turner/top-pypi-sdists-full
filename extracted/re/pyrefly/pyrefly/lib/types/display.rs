@@ -21,7 +21,6 @@ use starlark_map::smallmap;
 
 use crate::module::module_name::ModuleName;
 use crate::types::callable::Function;
-use crate::types::class::TArgs;
 use crate::types::qname::QName;
 use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
@@ -30,8 +29,8 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::NeverStyle;
 use crate::types::types::SuperObj;
+use crate::types::types::TArgs;
 use crate::types::types::TParam;
-use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Information about the classes we have seen.
@@ -161,19 +160,13 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
-    fn fmt_targs(
-        &self,
-        tparams: &TParams,
-        targs: &TArgs,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt_targs(&self, targs: &TArgs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !targs.is_empty() {
             write!(
                 f,
                 "[{}]",
-                commas_iter(|| tparams
-                    .iter()
-                    .zip(targs.as_slice().iter())
+                commas_iter(|| targs
+                    .iter_paired()
                     .map(|(param, arg)| Fmt(|f| self.fmt_targ(param, arg, f))))
             )
         } else {
@@ -210,12 +203,12 @@ impl<'a> TypeDisplayContext<'a> {
             }
             Type::ClassType(class_type) => {
                 self.fmt_qname(class_type.qname(), f)?;
-                self.fmt_targs(class_type.tparams(), class_type.targs(), f)
+                self.fmt_targs(class_type.targs(), f)
             }
             Type::TypedDict(typed_dict) => {
                 write!(f, "TypedDict[")?;
                 self.fmt_qname(typed_dict.qname(), f)?;
-                self.fmt_targs(typed_dict.class_object().tparams(), typed_dict.targs(), f)?;
+                self.fmt_targs(typed_dict.targs(), f)?;
                 write!(f, "]")
             }
             Type::TypeVar(t) => {
@@ -353,7 +346,7 @@ impl<'a> TypeDisplayContext<'a> {
                 match obj {
                     SuperObj::Instance(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
-                        self.fmt_targs(obj.tparams(), obj.targs(), f)?;
+                        self.fmt_targs(obj.targs(), f)?;
                     }
                     SuperObj::Class(obj) => {
                         self.fmt_qname(obj.qname(), f)?;
@@ -415,7 +408,7 @@ pub mod tests {
             ClassDefIndex(0),
             Identifier::new(Name::new(name), TextRange::empty(TextSize::new(range))),
             mi,
-            TParams::new(tparams),
+            Arc::new(TParams::new(tparams)),
             SmallMap::new(),
         )
     }
@@ -476,25 +469,38 @@ pub mod tests {
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::tuple(vec![
-                    class_type(&foo1, TArgs::default()),
-                    class_type(&foo1, TArgs::default())
-                ])])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::tuple(vec![
+                        class_type(&foo1, TArgs::default()),
+                        class_type(&foo1, TArgs::default())
+                    ])]
+                )
             )
             .to_string(),
             "TupleParam[foo, foo]"
         );
         assert_eq!(
-            class_type(&tuple_param, TArgs::new(vec![Type::tuple(Vec::new())])).to_string(),
+            class_type(
+                &tuple_param,
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::tuple(Vec::new())]
+                )
+            )
+            .to_string(),
             "TupleParam[*tuple[()]]"
         );
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
-                    &foo1,
-                    TArgs::default()
-                ))))])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                        &foo1,
+                        TArgs::default()
+                    ))))]
+                )
             )
             .to_string(),
             "TupleParam[*tuple[foo, ...]]"
@@ -502,14 +508,17 @@ pub mod tests {
         assert_eq!(
             class_type(
                 &tuple_param,
-                TArgs::new(vec![Type::Tuple(Tuple::Unpacked(Box::new((
-                    vec![class_type(&foo1, TArgs::default())],
-                    Type::Tuple(Tuple::Unbounded(Box::new(class_type(
-                        &foo1,
-                        TArgs::default(),
-                    )))),
-                    vec![class_type(&foo1, TArgs::default())],
-                ))))])
+                TArgs::new(
+                    tuple_param.arc_tparams().dupe(),
+                    vec![Type::Tuple(Tuple::Unpacked(Box::new((
+                        vec![class_type(&foo1, TArgs::default())],
+                        Type::Tuple(Tuple::Unbounded(Box::new(class_type(
+                            &foo1,
+                            TArgs::default(),
+                        )))),
+                        vec![class_type(&foo1, TArgs::default())],
+                    ))))]
+                )
             )
             .to_string(),
             "TupleParam[foo, *tuple[foo, ...], foo]"
@@ -522,7 +531,13 @@ pub mod tests {
         assert_eq!(
             Type::Tuple(Tuple::concrete(vec![
                 class_type(&foo1, TArgs::default()),
-                class_type(&bar, TArgs::new(vec![class_type(&foo1, TArgs::default())]))
+                class_type(
+                    &bar,
+                    TArgs::new(
+                        bar.arc_tparams().dupe(),
+                        vec![class_type(&foo1, TArgs::default())]
+                    )
+                )
             ]))
             .to_string(),
             "tuple[foo, bar[foo]]"
@@ -530,7 +545,13 @@ pub mod tests {
         assert_eq!(
             Type::Tuple(Tuple::concrete(vec![
                 class_type(&foo1, TArgs::default()),
-                class_type(&bar, TArgs::new(vec![class_type(&foo2, TArgs::default())]))
+                class_type(
+                    &bar,
+                    TArgs::new(
+                        bar.arc_tparams().dupe(),
+                        vec![class_type(&foo2, TArgs::default())]
+                    )
+                )
             ]))
             .to_string(),
             "tuple[mod.ule.foo@1:6, bar[mod.ule.foo@1:9]]"
@@ -686,7 +707,7 @@ pub mod tests {
             vec![fake_tparam(&uniques, "T", QuantifiedKind::TypeVar)],
         );
         let t = Type::None;
-        let targs = TArgs::new(vec![t]);
+        let targs = TArgs::new(cls.arc_tparams().dupe(), vec![t]);
         let td = TypedDict::new(cls, targs);
         assert_eq!(Type::TypedDict(td).to_string(), "TypedDict[C[None]]");
     }

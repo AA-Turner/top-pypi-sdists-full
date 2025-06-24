@@ -191,11 +191,22 @@ def f(y: "None") -> list["Foo"]:
 );
 
 testcase!(
-    test_line_file,
+    test_type_as_concat_string,
     r#"
-from typing import assert_type
+x: "list" "[int]" = [] # E: Expected a type form
+"#,
+);
+
+testcase!(
+    test_globals,
+    r#"
+from typing import assert_type, Any
 assert_type(__file__, str)
 assert_type(__name__, str)
+assert_type(__debug__, bool)
+assert_type(__package__, str | None)
+assert_type(__annotations__, dict[str, Any])
+assert_type(__spec__, Any)
 "#,
 );
 
@@ -1280,14 +1291,6 @@ assert_type(round(0.123456789), int)
 );
 
 testcase!(
-    test_debug,
-    r#"
-from typing import assert_type
-assert_type(__debug__, bool)
-    "#,
-);
-
-testcase!(
     test_invalid_assignment_no_panic,
     r#"
 -a=a=  # E: Parse error: Invalid assignment target  # E: Parse error: Expected an expression
@@ -1407,7 +1410,7 @@ T = TypeVar("T")
 TypeForm = type[T]
 
 reveal_type(T)  # E: type[TypeVar[T]]
-reveal_type(TypeForm)  # E: revealed type: type[type[TypeVar[T]]]
+reveal_type(TypeForm)  # E: revealed type: type[type[T]]
     "#,
 );
 
@@ -1428,3 +1431,62 @@ fn test_panic_on_unicode() {
     let _ = testcase_for_macro(TestEnv::new(), "e\u{81}\n", file!(), line!());
     // We manually ignore the missing expectations, because adding `# E:` would change the test.
 }
+
+testcase!(
+    test_crash_on_invalid_walrus,
+    r#"
+# Used to crash, https://github.com/facebook/pyrefly/issues/518
+if"":=  # E: Assignment expression target must be an identifier # E: Expected an expression
+"#,
+);
+
+testcase!(
+    test_check_invalid_rhs,
+    r#"
+def f(x): pass
+
+1 := f() # E: Expected a statement # E: Missing argument `x`
+1 = f() # E: Invalid assignment target # E: Missing argument `x`
+"#,
+);
+
+testcase!(
+    test_invalid_type_as_string,
+    r#"
+# Used to crash https://github.com/facebook/pyrefly/issues/517
+t: "õ" # E: Could not find name `õ`
+"#,
+);
+
+testcase!(
+    test_loop_forever,
+    r#"
+# Used to loop forever, https://github.com/facebook/pyrefly/issues/519
+
+# Note: Removing any element makes this test pass.
+while 3:
+    z = "" if 3 else ""
+    break
+else:
+    exit(1)
+
+
+def func() -> int:
+    return 1
+"#,
+);
+
+testcase!(
+    test_nested_self_init,
+    r#"
+# From https://github.com/facebook/pyrefly/issues/444, this used to error
+class MyException:
+    def __init__(self) -> None:
+        self.x = ""
+        self
+
+
+def f(x: MyException):
+    x.__init__()
+"#,
+);

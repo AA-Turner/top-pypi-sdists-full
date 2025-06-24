@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 LOG = getLogger(__name__)
 
 __author__ = "Tyson Smith"
-__all__ = ("Profile",)
 
 
 class Profile:
@@ -171,7 +170,7 @@ class Profile:
             i_prefs = {p.split(",")[0] for p in i_fp if p.startswith("user_pref(")}
         missing_prefs = i_prefs - p_prefs
         for missing in missing_prefs:
-            LOG.debug("pref not set %r", missing)
+            LOG.debug("pref not set '%s'", missing)
         return not missing_prefs
 
     @staticmethod
@@ -213,7 +212,7 @@ class Profile:
         Returns:
             None
         """
-        LOG.debug("installing certificate '%s' with %r", cert_file, certutil)
+        LOG.debug("installing certificate '%s' with '%s'", cert_file, certutil)
         try:
             check_output(
                 (

@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.38.41",
+    version="1.38.42",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.38.41 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.38.42 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.38.0, <1.39.0"],
-        "boto3": ["boto3==1.38.41"],
+        "boto3": ["boto3==1.38.42"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.38.0, <1.39.0",
             "mypy-boto3-account>=1.38.0, <1.39.0",
@@ -460,6 +460,7 @@ setup(
             "mypy-boto3-workmail>=1.38.0, <1.39.0",
             "mypy-boto3-workmailmessageflow>=1.38.0, <1.39.0",
             "mypy-boto3-workspaces>=1.38.0, <1.39.0",
+            "mypy-boto3-workspaces-instances>=1.38.0, <1.39.0",
             "mypy-boto3-workspaces-thin-client>=1.38.0, <1.39.0",
             "mypy-boto3-workspaces-web>=1.38.0, <1.39.0",
             "mypy-boto3-xray>=1.38.0, <1.39.0",
@@ -894,6 +895,7 @@ setup(
         "workmail": ["mypy-boto3-workmail>=1.38.0, <1.39.0"],
         "workmailmessageflow": ["mypy-boto3-workmailmessageflow>=1.38.0, <1.39.0"],
         "workspaces": ["mypy-boto3-workspaces>=1.38.0, <1.39.0"],
+        "workspaces-instances": ["mypy-boto3-workspaces-instances>=1.38.0, <1.39.0"],
         "workspaces-thin-client": ["mypy-boto3-workspaces-thin-client>=1.38.0, <1.39.0"],
         "workspaces-web": ["mypy-boto3-workspaces-web>=1.38.0, <1.39.0"],
         "xray": ["mypy-boto3-xray>=1.38.0, <1.39.0"],

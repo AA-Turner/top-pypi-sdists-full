@@ -7,10 +7,13 @@ from sempy_labs._helper_functions import (
     _base_api,
     _print_success,
     _create_dataframe,
+    resolve_workspace_id,
 )
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def create_managed_private_endpoint(
     name: str,
     target_private_link_resource_id: UUID,
@@ -72,6 +75,7 @@ def create_managed_private_endpoint(
     )
 
 
+@log
 def list_managed_private_endpoints(
     workspace: Optional[str | UUID] = None,
 ) -> pd.DataFrame:
@@ -106,7 +110,7 @@ def list_managed_private_endpoints(
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/managedPrivateEndpoints",
@@ -114,6 +118,7 @@ def list_managed_private_endpoints(
         client="fabric_sp",
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             conn = v.get("connectionState", {})
@@ -126,11 +131,15 @@ def list_managed_private_endpoints(
                 "Connection Description": conn.get("description"),
                 "Target Subresource Type": v.get("targetSubresourceType"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def delete_managed_private_endpoint(
     managed_private_endpoint: str | UUID, workspace: Optional[str | UUID] = None
 ):

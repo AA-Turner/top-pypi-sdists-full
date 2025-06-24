@@ -156,7 +156,9 @@ class CommonAttributes(AttrUtil.Attributes):
             'action': AttrUtil.NotAllowed
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        # Avoiding presentation of this attribute in Config Tab
+        config_data=None
     )
 
     RUN_SOURCE = AttrUtil.AttributeDefinition(

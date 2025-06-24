@@ -9,21 +9,21 @@ from maleo_foundation.models.transfers.results.service.repository import \
 class BaseRepositoryUtils:
     @staticmethod
     def result_processor(
-        fail_class:Type[BaseServiceRepositoryResultsTransfers.Fail],
-        data_found_class:Union[
+        fail_class: Type[BaseServiceRepositoryResultsTransfers.Fail],
+        data_found_class: Union[
             Type[BaseServiceRepositoryResultsTransfers.SingleData],
             Type[BaseServiceRepositoryResultsTransfers.UnpaginatedMultipleData],
             Type[BaseServiceRepositoryResultsTransfers.PaginatedMultipleData]
         ],
-        no_data_class:Optional[Type[BaseServiceRepositoryResultsTransfers.NoData]] = None,
+        no_data_class: Optional[Type[BaseServiceRepositoryResultsTransfers.NoData]] = None,
     ):
         """Decorator to handle repository-related exceptions consistently."""
         def decorator(func):
-            def _processor(result:BaseTypes.StringToAnyDict):
+            def _processor(result: BaseTypes.StringToAnyDict):
                 if "success" not in result and "data" not in result:
                     raise ValueError("Result did not have both 'success' and 'data' field")
-                success:bool = result.get("success")
-                data:BaseTypes.StringToAnyDict = result.get("data")
+                success: bool = result.get("success")
+                data: BaseTypes.StringToAnyDict = result.get("data")
                 if not success:
                     validated_result = fail_class.model_validate(result)
                     return validated_result
@@ -40,7 +40,7 @@ class BaseRepositoryUtils:
                 @wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     try:
-                        result:BaseTypes.StringToAnyDict = await func(*args, **kwargs)
+                        result: BaseTypes.StringToAnyDict = await func(*args, **kwargs)
                         return _processor(result=result)
                     except ValidationError as e:
                         raise
@@ -51,7 +51,7 @@ class BaseRepositoryUtils:
                 @wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     try:
-                        result:BaseTypes.StringToAnyDict = func(*args, **kwargs)
+                        result: BaseTypes.StringToAnyDict = func(*args, **kwargs)
                         return _processor(result=result)
                     except ValidationError as e:
                         raise

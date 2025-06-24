@@ -72,10 +72,10 @@ class CertoraContextValidator:
 
         else:
             if self.context.range:
-                # self.context.range = None
+                self.context.range = None
                 validation_logger.info("the 'range' attribute is ignored when not running from the Ranger App")
             if self.context.ranger_failure_limit:
-                # self.context.ranger_failure_limit = None
+                self.context.ranger_failure_limit = None
                 validation_logger.info("the 'ranger_failure_limit' is ignored when not running from the Ranger App")
 
     def validate(self) -> None:

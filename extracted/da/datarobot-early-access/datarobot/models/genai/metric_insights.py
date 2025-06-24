@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Union
+from typing import Sequence, Union
 
 from datarobot.models.genai.comparison_chat import get_entity_id
 from datarobot.models.genai.insights_configuration import InsightsConfiguration
@@ -24,13 +24,17 @@ class MetricInsights(InsightsConfiguration):
     _path = "api/v2/genai/playgrounds/{}/supportedInsights/"
 
     @classmethod
-    def list(cls, playground: Union[str, Playground]) -> list[InsightsConfiguration]:
+    def list(
+        cls, playground: Union[str, Playground], llm_blueprint_ids: Sequence[str] | None = None
+    ) -> list[InsightsConfiguration]:
         """Get metric insights for playground.
 
         Parameters
         ----------
         playground : str or Playground
             Playground to get the supported metrics from.
+        llm_blueprint_ids : Optional[Sequence[str]]
+            LLM Blueprint IDs to check for additional metrics support for.
 
         Returns
         -------
@@ -40,7 +44,10 @@ class MetricInsights(InsightsConfiguration):
         """
         path = cls._path.format(get_entity_id(playground))
 
-        response_data = cls._client.get(url=f"{cls._client.domain}/{path}")
+        params = {}
+        if llm_blueprint_ids:
+            params["llmBlueprintIds"] = llm_blueprint_ids
+        response_data = cls._client.get(url=f"{cls._client.domain}/{path}", params=params)
         return [
             cls.from_server_data(insight)
             for insight in response_data.json()["insightsConfiguration"]

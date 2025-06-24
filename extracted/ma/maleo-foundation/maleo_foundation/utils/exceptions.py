@@ -17,14 +17,14 @@ from maleo_foundation.utils.logging import BaseLogger
 
 class BaseExceptions:
     @staticmethod
-    def authentication_error_handler(request:Request, exc:Exception):
+    def authentication_error_handler(request: Request, exc: Exception):
         return JSONResponse(
             content=BaseResponses.Unauthorized(other=str(exc)).model_dump(mode="json"),
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
     @staticmethod
-    async def validation_exception_handler(request:Request, exc:RequestValidationError):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         serialized_error = jsonable_encoder(exc.errors())
         return JSONResponse(
             content=BaseResponses.ValidationError(other=serialized_error).model_dump(mode="json"),
@@ -32,7 +32,7 @@ class BaseExceptions:
         )
 
     @staticmethod
-    async def http_exception_handler(request:Request, exc:StarletteHTTPException):
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         if exc.status_code in BaseResponses.other_responses:
             return JSONResponse(
                 content=BaseResponses.other_responses[exc.status_code]["model"]().model_dump(mode="json"),
@@ -46,13 +46,13 @@ class BaseExceptions:
 
     @staticmethod
     def repository_exception_handler(
-        operation:str,
-        logger:Optional[BaseLogger] = None,
-        fail_result_class:type[BaseServiceRepositoryResultsTransfers.Fail] = BaseServiceRepositoryResultsTransfers.Fail
+        operation: str,
+        logger: Optional[BaseLogger] = None,
+        fail_result_class: type[BaseServiceRepositoryResultsTransfers.Fail] = BaseServiceRepositoryResultsTransfers.Fail
     ):
         """Decorator to handle repository-related exceptions consistently for sync and async functions."""
         def decorator(func):
-            def _handler(e:Exception, category:str, description:str):
+            def _handler(e: Exception, category: str, description: str):
                 if logger:
                     logger.error(
                         f"{category} occurred while {operation}: '{str(e)}'",
@@ -115,9 +115,9 @@ class BaseExceptions:
 
     @staticmethod
     def service_exception_handler(
-        operation:str,
-        logger:Optional[BaseLogger] = None,
-        fail_result_class:type[BaseServiceGeneralResultsTransfers.Fail] = BaseServiceGeneralResultsTransfers.Fail
+        operation: str,
+        logger: Optional[BaseLogger] = None,
+        fail_result_class: type[BaseServiceGeneralResultsTransfers.Fail] = BaseServiceGeneralResultsTransfers.Fail
     ):
         """Decorator to handle service-related exceptions consistently."""
         def decorator(func):

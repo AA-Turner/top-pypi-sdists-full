@@ -34,6 +34,7 @@ from .literals import (
     CloudWatchEncryptionModeType,
     ColumnStatisticsStateType,
     ColumnStatisticsTypeType,
+    CompactionStrategyType,
     ComparatorType,
     CompatibilityType,
     CompressionTypeType,
@@ -294,6 +295,7 @@ __all__ = (
     "ColumnStatisticsUnionTypeDef",
     "ColumnTypeDef",
     "ColumnUnionTypeDef",
+    "CompactionConfigurationTypeDef",
     "CompactionMetricsTypeDef",
     "ComputeEnvironmentConfigurationTypeDef",
     "ConditionExpressionTypeDef",
@@ -724,6 +726,7 @@ __all__ = (
     "GrokClassifierTypeDef",
     "HudiTargetOutputTypeDef",
     "HudiTargetTypeDef",
+    "IcebergCompactionConfigurationTypeDef",
     "IcebergCompactionMetricsTypeDef",
     "IcebergInputTypeDef",
     "IcebergOrphanFileDeletionConfigurationTypeDef",
@@ -1956,6 +1959,10 @@ ColumnTypeDef = TypedDict(
         "Parameters": NotRequired[Mapping[str, str]],
     },
 )
+
+
+class IcebergCompactionConfigurationTypeDef(TypedDict):
+    strategy: NotRequired[CompactionStrategyType]
 
 
 class IcebergCompactionMetricsTypeDef(TypedDict):
@@ -5039,6 +5046,10 @@ class TimestampFilterTypeDef(TypedDict):
 ColumnUnionTypeDef = Union[ColumnTypeDef, ColumnOutputTypeDef]
 
 
+class CompactionConfigurationTypeDef(TypedDict):
+    icebergConfiguration: NotRequired[IcebergCompactionConfigurationTypeDef]
+
+
 class CompactionMetricsTypeDef(TypedDict):
     IcebergMetrics: NotRequired[IcebergCompactionMetricsTypeDef]
 
@@ -7274,6 +7285,7 @@ class TableOptimizerConfigurationTypeDef(TypedDict):
     roleArn: NotRequired[str]
     enabled: NotRequired[bool]
     vpcConfiguration: NotRequired[TableOptimizerVpcConfigurationTypeDef]
+    compactionConfiguration: NotRequired[CompactionConfigurationTypeDef]
     retentionConfiguration: NotRequired[RetentionConfigurationTypeDef]
     orphanFileDeletionConfiguration: NotRequired[OrphanFileDeletionConfigurationTypeDef]
 
@@ -7285,6 +7297,7 @@ class TableOptimizerRunTypeDef(TypedDict):
     metrics: NotRequired[RunMetricsTypeDef]
     error: NotRequired[str]
     compactionMetrics: NotRequired[CompactionMetricsTypeDef]
+    compactionStrategy: NotRequired[CompactionStrategyType]
     retentionMetrics: NotRequired[RetentionMetricsTypeDef]
     orphanFileDeletionMetrics: NotRequired[OrphanFileDeletionMetricsTypeDef]
 

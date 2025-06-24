@@ -326,6 +326,17 @@ impl Solutions {
     }
 }
 
+/// Compactly represents the identity of a binding, for the purposes of
+/// understanding the calculation stack.
+#[derive(Debug, Clone, Dupe)]
+pub struct CalcId(pub Bindings, pub AnyIdx);
+
+impl PartialEq for CalcId {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0.module_info(), &self.1) == (other.0.module_info(), &other.1)
+    }
+}
+
 /// Represent a stack of in-progress calculations in an `AnswersSolver`.
 ///
 /// This is useful for debugging, particularly for debugging cycle handling.
@@ -333,26 +344,26 @@ impl Solutions {
 /// The stack is per-thread; we create a new `AnswersSolver` every time
 /// we change modules when resolving exports, but the stack is passed
 /// down because cycles can cross module boundaries.
-pub struct CalculationStack(RefCell<Vec<(ModuleInfo, AnyIdx)>>);
+pub struct CalcStack(RefCell<Vec<CalcId>>);
 
-impl CalculationStack {
+impl CalcStack {
     pub fn new() -> Self {
         Self(RefCell::new(Vec::new()))
     }
 
-    fn push(&self, module_info: ModuleInfo, idx: AnyIdx) {
-        self.0.borrow_mut().push((module_info, idx));
+    fn push(&self, bindings: Bindings, idx: AnyIdx) {
+        self.0.borrow_mut().push(CalcId(bindings, idx));
     }
 
-    fn pop(&self) -> Option<(ModuleInfo, AnyIdx)> {
+    fn pop(&self) -> Option<CalcId> {
         self.0.borrow_mut().pop()
     }
 
-    pub fn peek(&self) -> Option<(ModuleInfo, AnyIdx)> {
+    pub fn peek(&self) -> Option<CalcId> {
         self.0.borrow().last().cloned()
     }
 
-    pub fn into_vec(&self) -> Vec<(ModuleInfo, AnyIdx)> {
+    pub fn into_vec(&self) -> Vec<CalcId> {
         self.0.borrow().clone()
     }
 }
@@ -360,7 +371,7 @@ impl CalculationStack {
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
-    stack: &'a CalculationStack,
+    stack: &'a CalcStack,
     // The base solver is only used to reset the error collector at binding
     // boundaries. Answers code should generally use the error collector passed
     // along the call stack instead.
@@ -378,7 +389,7 @@ pub trait LookupAnswer: Sized {
         module: ModuleName,
         path: Option<&ModulePath>,
         k: &K,
-        stack: &CalculationStack,
+        stack: &CalcStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -476,7 +487,7 @@ impl Answers {
         let answers_solver = AnswersSolver {
             stdlib,
             answers,
-            stack: &CalculationStack::new(),
+            stack: &CalcStack::new(),
             bindings,
             base_errors: errors,
             exports,
@@ -544,7 +555,7 @@ impl Answers {
         stdlib: &Stdlib,
         uniques: &UniqueFactory,
         key: Hashed<&K>,
-        stack: &CalculationStack,
+        stack: &CalcStack,
     ) -> Arc<K::Answer>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -576,6 +587,10 @@ impl Answers {
 
     pub fn for_display(&self, t: Type) -> Type {
         self.solver.for_display(t)
+    }
+
+    pub fn solver(&self) -> &Solver {
+        &self.solver
     }
 
     pub fn get_type_trace(&self, range: TextRange) -> Option<Arc<Type>> {
@@ -629,7 +644,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         uniques: &'a UniqueFactory,
         recurser: &'a Recurser<Var>,
         stdlib: &'a Stdlib,
-        stack: &'a CalculationStack,
+        stack: &'a CalcStack,
     ) -> AnswersSolver<'a, Ans> {
         AnswersSolver {
             stdlib,
@@ -656,7 +671,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self.current.solver
     }
 
-    pub fn stack(&self) -> &CalculationStack {
+    pub fn stack(&self) -> &CalcStack {
         self.stack
     }
 
@@ -723,8 +738,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         let calculation = self.get_calculation(idx);
-        self.stack
-            .push(self.module_info().dupe(), K::to_anyidx(idx));
+        self.stack.push(self.bindings().dupe(), K::to_anyidx(idx));
         let result = calculation.calculate_with_recursive(
             || {
                 let binding = self.bindings().get(idx);
@@ -948,9 +962,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn error_swallower(&self) -> ErrorCollector {
         ErrorCollector::new(self.module_info().dupe(), ErrorStyle::Never)
     }
-}
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_external_attribute_definition_index(
         &self,
         base: &Type,

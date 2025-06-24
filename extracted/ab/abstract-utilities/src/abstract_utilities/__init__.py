@@ -2,6 +2,7 @@ import re,threading,os,shutil,requests,asyncio,time,subprocess,json,glob,sys,log
 from datetime import timedelta
 from datetime import datetime
 from typing import *
+from .hash_utils import *
 from .json_utils import (unified_json_loader,
                          find_keys,
                          get_key_values_from_path,
@@ -32,7 +33,8 @@ from .json_utils import (unified_json_loader,
                          safe_write_to_json,
                          safe_write_to_file,
                          safe_save_updated_json_data,
-                         get_result_from_data
+                         get_result_from_data,
+                         flatten_json
                          )
 from .read_write_utils import (read_from_file,
                                write_to_file)
@@ -69,7 +71,8 @@ from .path_utils import (get_file_create_time,
                          is_directory_in_paths,
                          make_dirs,
                          remove_directory,
-                         remove_path
+                         remove_path,
+                         get_file_parts
                          )
 from .list_utils import (get_highest_value_obj,
                          make_list,
@@ -110,7 +113,15 @@ from .type_utils import (make_bool,
                          get_media_exts,
                          if_true_get_string,
                          find_for_string,
-                         is_strings_in_string)
+                         is_strings_in_string,
+                         get_alphabet_str,
+                         get_alphabet_upper_str,
+                         get_alphabet_comp_str,
+                         get_numbers,
+                         get_numbers_comp,
+                         is_any_instance,
+                         break_string
+                         )
 from .math_utils import (convert_to_percentage,
                          exponential,
                          get_percentage,

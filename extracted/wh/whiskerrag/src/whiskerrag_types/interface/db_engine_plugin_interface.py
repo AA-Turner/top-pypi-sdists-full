@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, TypeVar, Union
+from typing import Any, AsyncIterator, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -319,4 +319,9 @@ class DBPluginInterface(ABC):
     # =================== wiki ===================
     @abstractmethod
     async def create_wiki(self, wiki: Wiki) -> None:
+        pass
+
+    # =================== agent ===================
+    @abstractmethod
+    async def agent_invoke(self, params: Any) -> AsyncIterator[Any]:
         pass

@@ -24,8 +24,9 @@ import lxml.etree as ET
 import markdown
 from lxml.builder import ElementMaker
 
+from .collection import ConfluencePageCollection
 from .mermaid import render_diagram
-from .metadata import ConfluencePageMetadata, ConfluenceSiteMetadata
+from .metadata import ConfluenceSiteMetadata
 from .properties import PageError
 from .scanner import ScannedDocument, Scanner
 
@@ -91,8 +92,10 @@ def emoji_generator(
     md: markdown.Markdown,
 ) -> xml.etree.ElementTree.Element:
     name = (alias or shortname).strip(":")
-    span = xml.etree.ElementTree.Element("span", {"data-emoji": name})
+    span = xml.etree.ElementTree.Element("span", {"data-emoji-shortname": name})
     if uc is not None:
+        span.attrib["data-emoji-unicode"] = uc
+
         # convert series of Unicode code point hexadecimal values into characters
         span.text = "".join(chr(int(item, base=16)) for item in uc.split("-"))
     else:
@@ -362,7 +365,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
     images: list[Path]
     embedded_images: dict[str, bytes]
     site_metadata: ConfluenceSiteMetadata
-    page_metadata: dict[Path, ConfluencePageMetadata]
+    page_metadata: ConfluencePageCollection
 
     def __init__(
         self,
@@ -370,7 +373,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         path: Path,
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
-        page_metadata: dict[Path, ConfluencePageMetadata],
+        page_metadata: ConfluencePageCollection,
     ) -> None:
         super().__init__()
         self.options = options
@@ -834,7 +837,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         )
 
     def _transform_emoji(self, elem: ET._Element) -> ET._Element:
-        shortname = elem.attrib.get("data-emoji", "")
+        shortname = elem.attrib.get("data-emoji-shortname", "")
+        unicode = elem.attrib.get("data-emoji-unicode", None)
         alt = elem.text or ""
 
         # <ac:emoticon ac:name="wink" ac:emoji-shortname=":wink:" ac:emoji-id="1f609" ac:emoji-fallback="&#128521;"/>
@@ -844,8 +848,9 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             "emoticon",
             {
                 # use "blue-star" as a placeholder name to ensure wiki page loads in timely manner
-                ET.QName(namespaces["ac"], "name"): "blue-star",
+                ET.QName(namespaces["ac"], "name"): shortname,
                 ET.QName(namespaces["ac"], "emoji-shortname"): f":{shortname}:",
+                ET.QName(namespaces["ac"], "emoji-id"): unicode,
                 ET.QName(namespaces["ac"], "emoji-fallback"): alt,
             },
         )
@@ -943,7 +948,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         elif child.tag == "pre" and len(child) == 1 and child[0].tag == "code":
             return self._transform_block(child[0])
 
-        elif child.tag == "span" and child.attrib.has_key("data-emoji"):
+        elif child.tag == "span" and child.attrib.has_key("data-emoji-shortname"):
             return self._transform_emoji(child)
 
         return None
@@ -1006,6 +1011,7 @@ class ConversionError(RuntimeError):
 
 class ConfluenceDocument:
     title: Optional[str]
+    labels: Optional[list[str]]
     links: list[str]
     images: list[Path]
 
@@ -1019,7 +1025,7 @@ class ConfluenceDocument:
         options: ConfluenceDocumentOptions,
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
-        page_metadata: dict[Path, ConfluencePageMetadata],
+        page_metadata: ConfluencePageCollection,
     ) -> tuple[ConfluencePageID, "ConfluenceDocument"]:
         path = path.resolve(True)
 
@@ -1046,7 +1052,7 @@ class ConfluenceDocument:
         options: ConfluenceDocumentOptions,
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
-        page_metadata: dict[Path, ConfluencePageMetadata],
+        page_metadata: ConfluencePageCollection,
     ) -> None:
         self.options = options
 
@@ -1095,6 +1101,7 @@ class ConfluenceDocument:
         self.embedded_images = converter.embedded_images
 
         self.title = document.title or converter.toc.get_title()
+        self.labels = document.tags
 
     def xhtml(self) -> str:
         return elements_to_string(self.root)
@@ -1146,7 +1153,7 @@ def _content_to_string(dtd_path: Path, content: str) -> str:
 
     data = [
         '<?xml version="1.0"?>',
-        f'<!DOCTYPE ac:confluence PUBLIC "-//Atlassian//Confluence 4 Page//EN" "{dtd_path}">'
+        f'<!DOCTYPE ac:confluence PUBLIC "-//Atlassian//Confluence 4 Page//EN" "{dtd_path.as_posix()}">'
         f"<root{ns_attr_list}>",
     ]
     data.append(content)

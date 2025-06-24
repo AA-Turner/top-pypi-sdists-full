@@ -255,10 +255,13 @@ impl CompressionOptions {
         let mut options =
             zip::write::SimpleFileOptions::default().compression_method(method.into());
         // `zip` also has default compression levels, which should match our own, but we pass them
-        // explicitly to ensure consistency.
-        options = options.compression_level(Some(
-            self.compression_level.unwrap_or(method.default_level()),
-        ));
+        // explicitly to ensure consistency. The exception is the `Stored` method, which must have
+        // a `compression_level` of `None`.
+        options = options.compression_level(if method == CompressionMethod::Stored {
+            None
+        } else {
+            Some(self.compression_level.unwrap_or(method.default_level()))
+        });
         options
     }
 }
@@ -315,6 +318,7 @@ impl WheelWriter {
     pub fn new(
         tag: &str,
         wheel_dir: &Path,
+        pyproject_dir: &Path,
         metadata24: &Metadata24,
         tags: &[String],
         excludes: Override,
@@ -339,7 +343,7 @@ impl WheelWriter {
             compression,
         };
 
-        write_dist_info(&mut builder, metadata24, tags)?;
+        write_dist_info(&mut builder, pyproject_dir, metadata24, tags)?;
 
         Ok(builder)
     }
@@ -1378,7 +1382,7 @@ pub fn write_python_part(
     }
     for package in &project_layout.python_packages {
         let package_path = python_dir.join(package);
-        if python_packages.iter().any(|p| *p == package_path) {
+        if python_packages.contains(&package_path) {
             continue;
         }
         python_packages.push(package_path);
@@ -1453,6 +1457,7 @@ pub fn write_python_part(
 /// Creates the .dist-info directory and fills it with all metadata files except RECORD
 pub fn write_dist_info(
     writer: &mut impl ModuleWriter,
+    pyproject_dir: &Path,
     metadata24: &Metadata24,
     tags: &[String],
 ) -> Result<()> {
@@ -1494,10 +1499,7 @@ pub fn write_dist_info(
         let license_files_dir = dist_info_dir.join("licenses");
         writer.add_directory(&license_files_dir)?;
         for path in &metadata24.license_files {
-            let filename = path.file_name().with_context(|| {
-                format!("missing file name for license file {}", path.display())
-            })?;
-            writer.add_file(license_files_dir.join(filename), path)?;
+            writer.add_file(license_files_dir.join(path), pyproject_dir.join(path))?;
         }
     }
 
@@ -1605,6 +1607,30 @@ mod tests {
         assert!(!writer.file_tracker.0.is_empty());
         writer.add_bytes_with_permissions("yes", Some(Path::new("yes")), &[], perm)?;
         assert_eq!(writer.file_tracker.0.len(), 2);
+        writer.finish()?;
+        tmp_dir.close()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn wheel_writer_no_compression() -> Result<(), Box<dyn std::error::Error>> {
+        let metadata = Metadata24::new("dummy".to_string(), Version::new([1, 0]));
+        let tmp_dir = TempDir::new()?;
+
+        let writer = WheelWriter::new(
+            "no compression",
+            tmp_dir.path(),
+            tmp_dir.path(),
+            &metadata,
+            &[],
+            Override::empty(),
+            CompressionOptions {
+                compression_method: CompressionMethod::Stored,
+                ..Default::default()
+            },
+        )?;
+
         writer.finish()?;
         tmp_dir.close()?;
 

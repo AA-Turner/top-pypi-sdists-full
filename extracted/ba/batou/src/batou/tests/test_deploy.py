@@ -18,6 +18,7 @@ def test_main_with_errors(capsys):
             dirty=False,
             consistency_only=False,
             predict_only=False,
+            check_and_predict_local=False,
             jobs=None,
             provision_rebuild=False,
         )
@@ -31,9 +32,9 @@ def test_main_with_errors(capsys):
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `errors`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `errors`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 
 ERROR: Failed loading component file
            File: .../examples/errors/components/component5/component.py
@@ -81,6 +82,7 @@ def test_main_fails_if_no_host_in_environment(capsys):
             dirty=False,
             consistency_only=False,
             predict_only=False,
+            check_and_predict_local=False,
             jobs=None,
             provision_rebuild=False,
         )
@@ -93,9 +95,9 @@ def test_main_fails_if_no_host_in_environment(capsys):
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `errorsnohost`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `errorsnohost`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
 
 ERROR: No host found in environment.

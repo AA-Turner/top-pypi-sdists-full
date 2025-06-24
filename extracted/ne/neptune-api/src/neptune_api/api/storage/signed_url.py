@@ -68,6 +68,9 @@ def _parse_response(
         if response.status_code == HTTPStatus.FORBIDDEN:
             response_403 = cast(Any, None)
             return response_403
+        if response.status_code == HTTPStatus.GONE:
+            response_410 = cast(Any, None)
+            return response_410
         if response.status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE:
             response_413 = cast(Any, None)
             return response_413

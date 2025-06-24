@@ -6,7 +6,9 @@ from typing import Optional, Union
 
 class GoogleCredentialsLoader:
     @staticmethod
-    def load(credentials_path: Optional[Union[Path, str]] = None) -> Credentials:
+    def load(
+        credentials_path: Optional[Union[Path, str]] = None
+    ) -> Credentials:
         """
         Load Google credentials either from a service account file or from the default credentials.
         Priority:

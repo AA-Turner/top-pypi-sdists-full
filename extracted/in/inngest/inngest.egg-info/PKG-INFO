@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inngest
-Version: 0.4.22
+Version: 0.5.0
 Summary: Python SDK for Inngest
 Author-email: "Inngest Inc." <hello@inngest.com>
 Project-URL: Homepage, https://github.com/inngest/inngest-py
@@ -10,16 +10,16 @@ Classifier: Framework :: Django
 Classifier: Framework :: FastAPI
 Classifier: Framework :: Flask
 Classifier: Intended Audience :: Developers
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: httpx>=0.24.0
+Requires-Dist: httpx>=0.26.0
 Requires-Dist: jcs>=0.2.1
-Requires-Dist: pydantic>=2.1.1
-Requires-Dist: typing-extensions>=4.8.0
+Requires-Dist: pydantic>=2.11.0
+Requires-Dist: typing-extensions>=4.13.0
 Provides-Extra: connect
 Requires-Dist: protobuf>=5.29.4; extra == "connect"
 Requires-Dist: psutil>=6.0.0; extra == "connect"
@@ -27,7 +27,7 @@ Requires-Dist: websockets>=15.0.0; extra == "connect"
 
 <div align="center">
   <br/>
-    <a href="https://www.inngest.com"><img src="https://user-images.githubusercontent.com/306177/191580717-1f563f4c-31e3-4aa0-848c-5ddc97808a9a.png" width="250" /></a>
+    <a href="https://www.inngest.com"><img src="https://github.com/inngest/.github/raw/main/profile/github-readme-banner-2025-06-20.png"/></a>
   <br/>
   <br/>
   <p>
@@ -50,18 +50,18 @@ Requires-Dist: websockets>=15.0.0; extra == "connect"
 
 # Inngest Python SDK
 
-Inngest's SDK adds durable functions to Python in a few lines of code.  Using this SDK, you can write
+Inngest's SDK adds durable functions to Python in a few lines of code. Using this SDK, you can write
 background jobs as step functions without new queueing infrastructure such as celery.
 
 We currently support the following frameworks (but adding a new framework is easy!):
 
 - DigitalOcean Functions
-- Django (`>=4.2`)
-- FastAPI (`>=0.100.0`)
-- Flask (`>=2.3.0`)
-- Tornado (`>=6.3`)
+- Django (`>=5.0`)
+- FastAPI (`>=0.110.0`)
+- Flask (`>=3.0.0`)
+- Tornado (`>=6.4`)
 
-Python 3.9 is the minimum version we support.
+Python 3.10 is the minimum version we support.
 
 ## Getting started
 
@@ -93,12 +93,9 @@ inngest_client = inngest.Inngest(
     fn_id="find_person",
     trigger=inngest.TriggerEvent(event="app/person.find"),
 )
-def fetch_person(
-    ctx: inngest.Context,
-    step: inngest.StepSync,
-) -> dict:
+def fetch_person(ctx: inngest.ContextSync) -> dict:
     person_id = ctx.event.data["person_id"]
-    res = requests.get(f"https://swapi.dev/api/people/{person_id}")
+    res = requests.get(f"https://swapi.dev/api/people/{person_id}", verify=False)
     return res.json()
 
 app = flask.Flask(__name__)
@@ -113,10 +110,10 @@ inngest.flask.serve(
 app.run(port=8000)
 ```
 
-[Each function is automatically backed by its own queue](https://www.inngest.com/docs/learn/how-functions-are-executed).  Functions can contain steps, which act as code
-level transactions.  Each step retries on failure, and runs once on success.  Function state is automatically managed.
+[Each function is automatically backed by its own queue](https://www.inngest.com/docs/learn/how-functions-are-executed). Functions can contain steps, which act as code
+level transactions. Each step retries on failure, and runs once on success. Function state is automatically managed.
 
-Let's run the function.  Send the following event in the [local development server (Dev Server UI)](https://www.inngest.com/docs/local-development) and the `fetch_person` function will run:
+Let's run the function. Send the following event in the [local development server (Dev Server UI)](https://www.inngest.com/docs/local-development) and the `fetch_person` function will run:
 
 ```json
 {
@@ -141,10 +138,7 @@ The following example registers a function that will:
     fn_id="find_ships",
     trigger=inngest.TriggerEvent(event="app/ships.find"),
 )
-def fetch_ships(
-    ctx: inngest.Context,
-    step: inngest.StepSync,
-) -> dict:
+def fetch_ships(ctx: inngest.ContextSync) -> dict:
     """
     Find all the ships a person has.
     """
@@ -152,7 +146,7 @@ def fetch_ships(
     person_id = ctx.event.data["person_id"]
 
     def _fetch_person() -> dict:
-        res = requests.get(f"https://swapi.dev/api/people/{person_id}")
+        res = requests.get(f"https://swapi.dev/api/people/{person_id}", verify=False)
         return res.json()
 
     # Wrap the function with step.run to enable retries
@@ -193,12 +187,9 @@ Send the following event in the Dev Server UI and the `fetch_person` function wi
     fn_id="find_person",
     trigger=inngest.TriggerEvent(event="app/person.find"),
 )
-async def fetch_person(
-    ctx: inngest.Context,
-    step: inngest.Step,
-) -> dict:
+async def fetch_person(ctx: inngest.Context) -> dict:
     person_id = ctx.event.data["person_id"]
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         res = await client.get(f"https://swapi.dev/api/people/{person_id}")
         return res.json()
 ```

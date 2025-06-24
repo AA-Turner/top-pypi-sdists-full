@@ -733,11 +733,9 @@ class GenericContext(BaseContext, t.Generic[C]):
                     raise SQLMeshError(f"Environment '{environment}' was not found.")
                 if environment_state.finalized_ts:
                     return environment_state.plan_id
-                logger.warning(
-                    "Environment '%s' is being updated by plan '%s'. Retrying in %s seconds...",
-                    environment,
-                    environment_state.plan_id,
-                    self.config.run.environment_check_interval,
+                self.console.log_warning(
+                    f"Environment '{environment}' is being updated by plan '{environment_state.plan_id}'. "
+                    f"Retrying in {self.config.run.environment_check_interval} seconds..."
                 )
                 time.sleep(self.config.run.environment_check_interval)
             raise SQLMeshError(
@@ -774,9 +772,8 @@ class GenericContext(BaseContext, t.Generic[C]):
                 )
                 done = True
             except CircuitBreakerError:
-                logger.warning(
-                    "Environment '%s' modified while running. Restarting the run...",
-                    environment,
+                self.console.log_warning(
+                    f"Environment '{environment}' modified while running. Restarting the run..."
                 )
                 if exit_on_env_update:
                     interrupted = True
@@ -2698,15 +2695,21 @@ class GenericContext(BaseContext, t.Generic[C]):
     def _cleanup_environments(self, current_ts: t.Optional[int] = None) -> None:
         current_ts = current_ts or now_timestamp()
 
-        expired_environments = self.state_sync.get_expired_environments(current_ts=current_ts)
-
-        cleanup_expired_views(
-            default_adapter=self.engine_adapter,
-            engine_adapters=self.engine_adapters,
-            environments=expired_environments,
-            warn_on_delete_failure=self.config.janitor.warn_on_delete_failure,
-            console=self.console,
+        expired_environments_summaries = self.state_sync.get_expired_environments(
+            current_ts=current_ts
         )
+
+        for expired_env_summary in expired_environments_summaries:
+            expired_env = self.state_reader.get_environment(expired_env_summary.name)
+
+            if expired_env:
+                cleanup_expired_views(
+                    default_adapter=self.engine_adapter,
+                    engine_adapters=self.engine_adapters,
+                    environments=[expired_env],
+                    warn_on_delete_failure=self.config.janitor.warn_on_delete_failure,
+                    console=self.console,
+                )
 
         self.state_sync.delete_expired_environments(current_ts=current_ts)
 

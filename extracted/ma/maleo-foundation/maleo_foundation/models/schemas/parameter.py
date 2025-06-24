@@ -9,19 +9,19 @@ from maleo_foundation.extended_types import ExtendedTypes
 
 class BaseParameterSchemas:
     class IdentifierType(BaseModel):
-        identifier:BaseEnums.IdentifierTypes = Field(..., description="Data's identifier type")
+        identifier: BaseEnums.IdentifierTypes = Field(..., description="Data's identifier type")
 
     class IdentifierValue(BaseModel):
-        value:BaseTypes.IdentifierValue = Field(..., description="Data's identifier value")
+        value: BaseTypes.IdentifierValue = Field(..., description="Data's identifier value")
 
     class OptionalListOfIds(BaseModel):
-        ids:BaseTypes.OptionalListOfIntegers = Field(None, description="Specific Ids")
+        ids: BaseTypes.OptionalListOfIntegers = Field(None, description="Specific Ids")
 
     class OptionalListOfUuids(BaseModel):
-        uuids:BaseTypes.OptionalListOfUUIDs = Field(None, description="Specific Uuids")
+        uuids: BaseTypes.OptionalListOfUUIDs = Field(None, description="Specific Uuids")
 
     class Filters(BaseModel):
-        filters:BaseTypes.ListOfStrings = Field([], description="Filters for date range, e.g. 'created_at|from::<ISO_DATETIME>|to::<ISO_DATETIME>'.")
+        filters: BaseTypes.ListOfStrings = Field([], description="Filters for date range, e.g. 'created_at|from::<ISO_DATETIME>|to::<ISO_DATETIME>'.")
 
         @field_validator("filters")
         @classmethod
@@ -38,25 +38,25 @@ class BaseParameterSchemas:
                 return final_values
 
     class DateFilters(BaseModel):
-        date_filters:ExtendedTypes.ListOfDateFilters = Field([], description="Date filters to be applied")
+        date_filters: ExtendedTypes.ListOfDateFilters = Field([], description="Date filters to be applied")
 
     class OptionalListOfStatuses(BaseModel):
-        statuses:BaseTypes.OptionalListOfStatuses = Field(None, description="Data's status")
+        statuses: BaseTypes.OptionalListOfStatuses = Field(None, description="Data's status")
 
     class OptionalListOfCodes(BaseModel):
-        codes:BaseTypes.OptionalListOfStrings = Field(None, description="Specific Codes")
+        codes: BaseTypes.OptionalListOfStrings = Field(None, description="Specific Codes")
 
     class OptionalListOfKeys(BaseModel):
-        keys:BaseTypes.OptionalListOfStrings = Field(None, description="Specific Keys")
+        keys: BaseTypes.OptionalListOfStrings = Field(None, description="Specific Keys")
 
     class OptionalListOfNames(BaseModel):
-        names:BaseTypes.OptionalListOfStrings = Field(None, description="Specific Names")
+        names: BaseTypes.OptionalListOfStrings = Field(None, description="Specific Names")
 
     class Search(BaseModel):
-        search:BaseTypes.OptionalString = Field(None, description="Search string.")
+        search: BaseTypes.OptionalString = Field(None, description="Search string.")
 
     class Sorts(BaseModel):
-        sorts:BaseTypes.ListOfStrings = Field(["id.asc"], description="Sorting columns in 'column_name.asc' or 'column_name.desc' format.")
+        sorts: BaseTypes.ListOfStrings = Field(["id.asc"], description="Sorting columns in 'column_name.asc' or 'column_name.desc' format.")
 
         @field_validator("sorts")
         @classmethod
@@ -64,10 +64,10 @@ class BaseParameterSchemas:
             return [value for value in values if SORT_COLUMN_PATTERN.match(value)]
 
     class SortColumns(BaseModel):
-        sort_columns:ExtendedTypes.ListOfSortColumns = Field([BaseGeneralSchemas.SortColumn(name="id", order=BaseEnums.SortOrder.ASC)], description="List of columns to be sorted")
+        sort_columns: ExtendedTypes.ListOfSortColumns = Field([BaseGeneralSchemas.SortColumn(name="id", order=BaseEnums.SortOrder.ASC)], description="List of columns to be sorted")
 
     class Expand(BaseModel):
-        expand:BaseTypes.OptionalListOfStrings = Field(None, description="Expanded field(s)")
+        expand: BaseTypes.OptionalListOfStrings = Field(None, description="Expanded field(s)")
 
     class Data(BaseModel):
-        data:BaseTypes.StringToAnyDict = Field(..., description="Data")
+        data: BaseTypes.StringToAnyDict = Field(..., description="Data")

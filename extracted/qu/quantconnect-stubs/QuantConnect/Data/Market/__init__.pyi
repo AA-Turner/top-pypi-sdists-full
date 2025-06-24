@@ -348,6 +348,20 @@ class Tick(QuantConnect.Data.BaseData):
         ...
 
     @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], bid_size: float, bid_price: float, ask_size: float, ask_price: float) -> None:
+        """
+        Quote tick type constructor
+        
+        :param time: Full date and time
+        :param symbol: Underlying equity security symbol
+        :param bid_size: The bid size
+        :param bid_price: The bid price
+        :param ask_size: The ask size
+        :param ask_price: The ask price
+        """
+        ...
+
+    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sale_condition: str, exchange: QuantConnect.Exchange, bid_size: float, bid_price: float, ask_size: float, ask_price: float) -> None:
         """
         Quote tick type constructor

@@ -7,7 +7,7 @@ class MaleoFoundationHashResultsTransfers:
     class Fail(BaseServiceGeneralResultsTransfers.Fail): pass
 
     class Hash(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationHashSchemas.Hash = Field(..., description="Hash data")
+        data: MaleoFoundationHashSchemas.Hash = Field(..., description="Hash data")
 
     class Verify(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationHashSchemas.IsValid = Field(..., description="Verify data")
+        data: MaleoFoundationHashSchemas.IsValid = Field(..., description="Verify data")

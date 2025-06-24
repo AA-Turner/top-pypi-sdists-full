@@ -858,6 +858,16 @@ async def handle_js_auth_event(
     ctx: Auth.types.AuthContext | None,
     value: dict,
 ) -> Auth.types.FilterType | None:
+    if hasattr(ctx.user, "dict") and callable(ctx.user.dict):
+        user = ctx.user.dict()
+    else:
+        user = {
+            "is_authenticated": ctx.user.is_authenticated,
+            "display_name": ctx.user.display_name,
+            "identity": ctx.user.identity,
+            "permissions": ctx.user.permissions,
+        }
+
     res = await _client.post(
         "/auth/authorize",
         headers={"Content-Type": "application/json"},
@@ -868,7 +878,7 @@ async def handle_js_auth_event(
                 "value": value,
                 "context": (
                     {
-                        "user": cast(DotDict, ctx.user).dict(),
+                        "user": user,
                         "scopes": ctx.permissions,
                     }
                     if ctx

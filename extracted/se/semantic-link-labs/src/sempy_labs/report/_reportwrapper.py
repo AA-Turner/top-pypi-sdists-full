@@ -17,6 +17,7 @@ from sempy_labs._helper_functions import (
     get_jsonpath_value,
     set_json_value,
     remove_json_value,
+    get_tenant_id,
 )
 from sempy_labs._dictionary_diffs import (
     diff_parts,
@@ -425,7 +426,9 @@ class ReportWrapper:
             ]
         )
 
-    def _get_url(self, page_name: Optional[str] = None) -> str:
+    def _get_url(
+        self, page_name: Optional[str] = None, visual_name: Optional[str] = None
+    ) -> str:
         """
         Gets the URL of the report. If specified, gets the URL of the specified page.
 
@@ -444,7 +447,15 @@ class ReportWrapper:
         url = f"https://app.powerbi.com/groups/{self._workspace_id}/reports/{self._report_id}"
 
         if page_name:
+            if page_name in [page["payload"]["name"] for page in self.__all_pages()]:
+                pass
+            else:
+                page_name = self.resolve_page_name(page_name)
             url += f"/{page_name}"
+
+            if visual_name:
+                tenant_id = get_tenant_id()
+                url += f"?ctid={tenant_id}&pbi_source=shareVisual&visual={visual_name}"
 
         return url
 
@@ -1120,6 +1131,7 @@ class ReportWrapper:
             "Has Sparkline": "bool",
             "Visual Filter Count": "int",
             "Data Limit": "int",
+            "URL": "str",
         }
         df = _create_dataframe(columns=columns)
 
@@ -1247,12 +1259,13 @@ class ReportWrapper:
 
             # Sparkline
             has_sparkline = contains_key(payload, ["SparklineData"])
+            visual_name = payload.get("name")
 
             new_data = {
                 "File Path": path,
                 "Page Name": page_id,
                 "Page Display Name": page_display,
-                "Visual Name": payload.get("name"),
+                "Visual Name": visual_name,
                 "X": pos.get("x"),
                 "Y": pos.get("y"),
                 "Z": pos.get("z"),
@@ -1275,6 +1288,7 @@ class ReportWrapper:
                 "Has Sparkline": has_sparkline,
                 "Visual Filter Count": visual_filter_count,
                 "Data Limit": data_limit,
+                "URL": self._get_url(page_name=page_id, visual_name=visual_name),
             }
             dfs.append(pd.DataFrame(new_data, index=[0]))
 
@@ -1361,6 +1375,7 @@ class ReportWrapper:
                     if isinstance(expression, dict)
                     else {}
                 )
+
                 if (
                     isinstance(source_ref, dict)
                     and "Entity" in source_ref
@@ -1374,9 +1389,15 @@ class ReportWrapper:
                         if keys_path
                         else "Unknown"
                     )
-                    is_agg = keys_path[-3] == "Aggregation"
-                    is_viz_calc = keys_path[-3] == "NativeVisualCalculation"
-                    is_sparkline = keys_path[-3] == "SparklineData"
+                    is_agg = len(keys_path) > 2 and keys_path[-3] == "Aggregation"
+                    is_viz_calc = (
+                        len(keys_path) > 2
+                        and keys_path[-3] == "NativeVisualCalculation"
+                    )
+                    is_sparkline = (
+                        len(keys_path) > 2 and keys_path[-3] == "SparklineData"
+                    )
+
                     result[property_value] = (
                         entity,
                         object_type,
@@ -1384,13 +1405,10 @@ class ReportWrapper:
                         is_viz_calc,
                         is_sparkline,
                     )
-                    if keys_path:
-                        keys_path.pop()
 
                 # Recursively search the rest of the dictionary
                 for key, value in data.items():
-                    keys_path.append(key)
-                    find_entity_property_pairs(value, result, keys_path)
+                    find_entity_property_pairs(value, result, keys_path + [key])
 
             elif isinstance(data, list):
                 for item in data:
@@ -1797,46 +1815,61 @@ class ReportWrapper:
         return self.get(file_path=theme_file_path)
 
     # Action functions
-    def set_theme(self, theme_file_path: str):
+    def set_theme(
+        self, theme_file_path: Optional[str] = None, theme_json: Optional[dict] = None
+    ):
         """
         Sets a custom theme for a report based on a theme .json file.
 
         Parameters
         ----------
-        theme_file_path : str
+        theme_file_path : str, default=None
             The file path of the theme.json file. This can either be from a Fabric lakehouse or from the web.
             Example for lakehouse: file_path = '/lakehouse/default/Files/CY23SU09.json'
             Example for web url: file_path = 'https://raw.githubusercontent.com/PowerBiDevCamp/FabricUserApiDemo/main/FabricUserApiDemo/DefinitionTemplates/Shared/Reports/StaticResources/SharedResources/BaseThemes/CY23SU08.json'
+        theme_json : dict, default=None
+            The theme file in .json format. Must specify either the theme_file_path or the theme_json.
         """
+
+        if theme_file_path and theme_json:
+            raise ValueError(
+                f"{icons.red_dot} Please specify either the 'theme_file_path' or the 'theme_json' parameter, not both."
+            )
+        if not theme_file_path and not theme_json:
+            raise ValueError(
+                f"{icons.red_dot} Please specify either the 'theme_file_path' or the 'theme_json' parameter."
+            )
 
         self._ensure_pbir()
         theme_version = "5.6.4"
 
-        # Open file
-        if not theme_file_path.endswith(".json"):
-            raise ValueError(
-                f"{icons.red_dot} The '{theme_file_path}' theme file path must be a .json file."
-            )
-        elif theme_file_path.startswith("https://"):
-            response = requests.get(theme_file_path)
-            theme_file = response.json()
-        elif theme_file_path.startswith("/lakehouse") or theme_file_path.startswith(
-            "/synfs/"
-        ):
-            with open(theme_file_path, "r", encoding="utf-8-sig") as file:
-                theme_file = json.load(file)
-        else:
-            ValueError(
-                f"{icons.red_dot} Incorrect theme file path value '{theme_file_path}'."
-            )
+        # Extract theme_json from theme_file_path
+        if theme_file_path:
+            # Open file
+            if not theme_file_path.endswith(".json"):
+                raise ValueError(
+                    f"{icons.red_dot} The '{theme_file_path}' theme file path must be a .json file."
+                )
+            elif theme_file_path.startswith("https://"):
+                response = requests.get(theme_file_path)
+                theme_json = response.json()
+            elif theme_file_path.startswith("/lakehouse") or theme_file_path.startswith(
+                "/synfs/"
+            ):
+                with open(theme_file_path, "r", encoding="utf-8-sig") as file:
+                    theme_json = json.load(file)
+            else:
+                ValueError(
+                    f"{icons.red_dot} Incorrect theme file path value '{theme_file_path}'."
+                )
 
-        theme_name = theme_file.get("name")
+        theme_name = theme_json.get("name")
         theme_name_full = f"{theme_name}.json"
 
         # Add theme.json file
         self.add(
             file_path=f"StaticResources/RegisteredResources/{theme_name_full}",
-            payload=theme_file,
+            payload=theme_json,
         )
 
         custom_theme = {
@@ -2107,7 +2140,7 @@ class ReportWrapper:
                 format_string = r["Format String"]
                 # Add measures to the model
                 if (
-                    measure_name in measures or measures is None
+                    measures is None or measure_name in measures
                 ) and measure_name not in existing_measures:
                     tom.add_measure(
                         table_name=table_name,

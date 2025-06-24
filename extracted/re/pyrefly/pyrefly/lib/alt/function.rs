@@ -158,7 +158,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             defining_cls
                 .as_ref()
-                .map(|cls| Type::SelfType(cls.as_class_type()))
+                .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)))
         };
 
         let mut is_overload = false;
@@ -352,7 +352,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     def.range,
                     ErrorKind::InvalidParamSpec,
                     None,
-                    "ParamSpec *args and **kwargs must be used together".to_owned(),
+                    "`ParamSpec` *args and **kwargs must be used together".to_owned(),
                 );
             } else {
                 self.error(
@@ -360,7 +360,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     def.range,
                     ErrorKind::InvalidParamSpec,
                     None,
-                    "*args and **kwargs must come from the same ParamSpec".to_owned(),
+                    "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
                 );
             }
             // If ParamSpec args and kwargs are invalid, fall back to Any

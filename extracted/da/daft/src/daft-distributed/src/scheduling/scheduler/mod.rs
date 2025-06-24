@@ -4,7 +4,9 @@ use super::{
     task::{SchedulingStrategy, Task, TaskDetails, TaskID, TaskPriority},
     worker::{Worker, WorkerId},
 };
-use crate::{pipeline_node::MaterializedOutput, utils::channel::OneshotSender};
+use crate::{
+    pipeline_node::MaterializedOutput, scheduling::task::TaskContext, utils::channel::OneshotSender,
+};
 
 mod default;
 mod linear;
@@ -16,7 +18,6 @@ pub(crate) use scheduler_actor::{
 };
 use tokio_util::sync::CancellationToken;
 
-#[allow(dead_code)]
 pub(super) trait Scheduler<T: Task>: Send + Sync {
     fn update_worker_state(&mut self, worker_snapshots: &[WorkerSnapshot]);
     fn enqueue_tasks(&mut self, tasks: Vec<SchedulableTask<T>>);
@@ -24,7 +25,6 @@ pub(super) trait Scheduler<T: Task>: Send + Sync {
     fn num_pending_tasks(&self) -> usize;
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct SchedulableTask<T: Task> {
     task: T,
@@ -32,7 +32,6 @@ pub(crate) struct SchedulableTask<T: Task> {
     cancel_token: CancellationToken,
 }
 
-#[allow(dead_code)]
 impl<T: Task> SchedulableTask<T> {
     pub fn new(
         task: T,
@@ -50,13 +49,13 @@ impl<T: Task> SchedulableTask<T> {
         self.task.strategy()
     }
 
+    #[allow(dead_code)]
     pub fn priority(&self) -> TaskPriority {
         self.task.priority()
     }
 
-    #[allow(dead_code)]
-    pub fn task_id(&self) -> &str {
-        self.task.task_id()
+    pub fn task_context(&self) -> TaskContext {
+        self.task.task_context()
     }
 
     pub fn into_inner(
@@ -90,25 +89,29 @@ impl<T: Task> Ord for SchedulableTask<T> {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(super) struct ScheduledTask<T: Task> {
-    task: SchedulableTask<T>,
+    schedulable_task: SchedulableTask<T>,
     worker_id: WorkerId,
 }
 
-#[allow(dead_code)]
 impl<T: Task> ScheduledTask<T> {
     pub fn new(task: SchedulableTask<T>, worker_id: WorkerId) -> Self {
-        Self { task, worker_id }
+        Self {
+            schedulable_task: task,
+            worker_id,
+        }
+    }
+
+    pub fn task(&self) -> &T {
+        &self.schedulable_task.task
     }
 
     pub fn into_inner(self) -> (WorkerId, SchedulableTask<T>) {
-        (self.worker_id, self.task)
+        (self.worker_id, self.schedulable_task)
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(super) struct WorkerSnapshot {
     worker_id: WorkerId,
@@ -117,7 +120,6 @@ pub(super) struct WorkerSnapshot {
     active_task_details: HashMap<TaskID, TaskDetails>,
 }
 
-#[allow(dead_code)]
 impl WorkerSnapshot {
     pub fn new(
         worker_id: WorkerId,
@@ -155,10 +157,12 @@ impl WorkerSnapshot {
         self.total_num_gpus - self.active_num_gpus()
     }
 
+    #[allow(dead_code)]
     pub fn total_num_cpus(&self) -> f64 {
         self.total_num_cpus
     }
 
+    #[allow(dead_code)]
     pub fn total_num_gpus(&self) -> f64 {
         self.total_num_gpus
     }

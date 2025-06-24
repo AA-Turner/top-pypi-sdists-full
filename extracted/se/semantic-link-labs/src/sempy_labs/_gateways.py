@@ -47,6 +47,7 @@ def list_gateways() -> pd.DataFrame:
         request="/v1/gateways", client="fabric_sp", uses_pagination=True
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             new_data = {
@@ -62,13 +63,16 @@ def list_gateways() -> pd.DataFrame:
                 "Allow Custom Connectors": v.get("allowCustomConnectors"),
             }
 
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def _resolve_gateway_id(gateway: str | UUID) -> UUID:
 
     dfG = list_gateways()
@@ -83,6 +87,7 @@ def _resolve_gateway_id(gateway: str | UUID) -> UUID:
     return dfG_filt["Gateway Id"].iloc[0]
 
 
+@log
 def delete_gateway(gateway: str | UUID):
     """
     Deletes a gateway.
@@ -102,6 +107,7 @@ def delete_gateway(gateway: str | UUID):
     print(f"{icons.green_dot} The '{gateway}' gateway has been deleted.")
 
 
+@log
 def list_gateway_role_assigments(gateway: str | UUID) -> pd.DataFrame:
     """
     Returns a list of gateway role assignments.
@@ -135,6 +141,7 @@ def list_gateway_role_assigments(gateway: str | UUID) -> pd.DataFrame:
         uses_pagination=True,
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             new_data = {
@@ -144,11 +151,15 @@ def list_gateway_role_assigments(gateway: str | UUID) -> pd.DataFrame:
                 "Role": v.get("role"),
             }
 
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def delete_gateway_role_assignment(gateway: str | UUID, role_assignment_id: UUID):
     """
     Delete the specified role assignment for the gateway.
@@ -177,6 +188,7 @@ def delete_gateway_role_assignment(gateway: str | UUID, role_assignment_id: UUID
     )
 
 
+@log
 def _resolve_gateway_member_id(gateway: str | UUID, gateway_member: str | UUID) -> UUID:
 
     gateway_id = _resolve_gateway_id(gateway)
@@ -194,6 +206,7 @@ def _resolve_gateway_member_id(gateway: str | UUID, gateway_member: str | UUID) 
     return dfM_filt["Member Id"].iloc[0]
 
 
+@log
 def delete_gateway_member(gateway: str | UUID, gateway_member: str | UUID):
     """
     Delete gateway member of an on-premises gateway.
@@ -225,6 +238,7 @@ def delete_gateway_member(gateway: str | UUID, gateway_member: str | UUID):
     )
 
 
+@log
 def list_gateway_members(gateway: str | UUID) -> pd.DataFrame:
     """
     Lists gateway members of an on-premises gateway.
@@ -260,6 +274,7 @@ def list_gateway_members(gateway: str | UUID) -> pd.DataFrame:
         request=f"/v1/gateways/{gateway_id}/members", client="fabric_sp"
     )
 
+    dfs = []
     for v in response.json().get("value", []):
         new_data = {
             "Member Id": v.get("id"),
@@ -270,13 +285,16 @@ def list_gateway_members(gateway: str | UUID) -> pd.DataFrame:
             "Enabled": v.get("enabled"),
         }
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def create_vnet_gateway(
     name: str,
     capacity: str | UUID,
@@ -342,6 +360,7 @@ def create_vnet_gateway(
     )
 
 
+@log
 def update_on_premises_gateway(
     gateway: str | UUID,
     allow_cloud_connection_refresh: Optional[bool] = None,
@@ -395,6 +414,7 @@ def update_on_premises_gateway(
     print(f"{icons.green_dot} The '{gateway}' has been updated accordingly.")
 
 
+@log
 def update_vnet_gateway(
     gateway: str | UUID,
     capacity: str | UUID,
@@ -448,6 +468,7 @@ def update_vnet_gateway(
     print(f"{icons.green_dot} The '{gateway}' has been updated accordingly.")
 
 
+@log
 def bind_semantic_model_to_gateway(
     dataset: str | UUID, gateway: str | UUID, workspace: Optional[str | UUID] = None
 ):

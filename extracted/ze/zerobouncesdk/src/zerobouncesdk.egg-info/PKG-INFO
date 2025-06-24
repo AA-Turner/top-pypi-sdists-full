@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zerobouncesdk
-Version: 1.1.1
+Version: 1.1.2
 Summary: ZeroBounce Python API - https://www.zerobounce.net.
 Author-email: ZeroBounce <support@zerobounce.net>
 Project-URL: Homepage, https://github.com/zerobounce/zero-bounce-python-sdk-setup
@@ -14,6 +14,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests>=2.22.0
+Dynamic: license-file
 
 ## Zero Bounce Python SDK
 This SDK contains methods for interacting easily with ZeroBounce API.

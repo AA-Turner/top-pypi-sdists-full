@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supabase
-Version: 2.15.3
+Version: 2.16.0
 Summary: Supabase client for Python.
 Home-page: https://github.com/supabase/supabase-py
 License: MIT
@@ -17,10 +17,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: gotrue (>=2.11.0,<3.0.0)
 Requires-Dist: httpx (>=0.26,<0.29)
-Requires-Dist: postgrest (>0.19,<1.1)
-Requires-Dist: realtime (>=2.4.0,<2.5.0)
-Requires-Dist: storage3 (>=0.10,<0.12)
-Requires-Dist: supafunc (>=0.9,<0.10)
+Requires-Dist: postgrest (>0.19,<1.2)
+Requires-Dist: realtime (>=2.4.0,<2.6.0)
+Requires-Dist: storage3 (>=0.10,<0.13)
+Requires-Dist: supafunc (>=0.9,<0.11)
 Project-URL: Documentation, https://github.com/supabase/supabase-py
 Project-URL: Repository, https://github.com/supabase/supabase-py
 Description-Content-Type: text/markdown
@@ -33,9 +33,6 @@ Python client for [Supabase](https://supabase.com)
 - Usage:
   - [GitHub OAuth in your Python Flask app](https://supabase.com/blog/oauth2-login-python-flask-apps)
   - [Python data loading with Supabase](https://supabase.com/blog/loading-data-supabase-python)
- 
-> [!NOTE]
-> Do you want to help us shape the future of this library? [We're hiring](https://jobs.ashbyhq.com/supabase/85d07345-47c6-4980-82e2-57782f83ab4e).
 
 ## Set up a Local Development Environment
 

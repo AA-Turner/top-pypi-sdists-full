@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.17.2
+Version: 0.17.3
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -30,7 +30,7 @@ Requires-Python: <4,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fpdf2
-Requires-Dist: grpcio<1.71,>=1.50.0
+Requires-Dist: grpcio<1.73,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil
 Requires-Dist: pyedb>=0.4.0; python_version == "3.7"
@@ -40,13 +40,13 @@ Requires-Dist: tomli-w
 Requires-Dist: rpyc<6.1,>=6.0.0
 Requires-Dist: pyyaml
 Requires-Dist: defusedxml<8.0,>=0.7
+Requires-Dist: numpy<2.3,>=1.20.0
 Provides-Extra: unit-tests
-Requires-Dist: pytest<8.4,>=7.4.0; extra == "unit-tests"
+Requires-Dist: pytest<8.5,>=7.4.0; extra == "unit-tests"
 Requires-Dist: pytest-cov<6.2,>=4.0.0; extra == "unit-tests"
 Requires-Dist: mock<5.3,>=5.1.0; extra == "unit-tests"
 Provides-Extra: integration-tests
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "integration-tests"
-Requires-Dist: numpy<2.3,>=1.20.0; extra == "integration-tests"
 Requires-Dist: pandas<2.3,>=1.1.0; extra == "integration-tests"
 Requires-Dist: pyaedt[unit-tests]; extra == "integration-tests"
 Provides-Extra: tests
@@ -89,7 +89,6 @@ Requires-Dist: ipython<9.1,>=7.30.0; extra == "jupyter"
 Requires-Dist: ipyvtklink<0.2.4,>=0.2.0; extra == "jupyter"
 Provides-Extra: all
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "all"
-Requires-Dist: numpy<2.3,>=1.20.0; extra == "all"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "all"
 Requires-Dist: osmnx<2.1,>=1.1.0; extra == "all"
 Requires-Dist: pandas<2.3,>=1.1.0; extra == "all"
@@ -103,14 +102,13 @@ Requires-Dist: requests; extra == "all"
 Provides-Extra: examples
 Requires-Dist: imageio<2.38,>=2.34.0; extra == "examples"
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "examples"
-Requires-Dist: numpy<2.3,>=1.20.0; extra == "examples"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "examples"
 Requires-Dist: osmnx<2.1,>=1.1.0; extra == "examples"
 Requires-Dist: pandas<2.3,>=1.1.0; extra == "examples"
 Requires-Dist: pyvista<0.45,>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
 Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
-Requires-Dist: plotly<6.1,>=6.0; extra == "examples"
+Requires-Dist: plotly<6.2,>=6.0; extra == "examples"
 Requires-Dist: scikit-rf<1.8,>=0.30.0; extra == "examples"
 Dynamic: license-file
 

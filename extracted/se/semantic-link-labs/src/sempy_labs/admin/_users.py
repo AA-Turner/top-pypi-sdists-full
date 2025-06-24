@@ -5,8 +5,10 @@ from sempy_labs._helper_functions import (
 )
 from uuid import UUID
 import pandas as pd
+from sempy._utils._log import log
 
 
+@log
 def list_access_entities(
     user_email_address: str,
 ) -> pd.DataFrame:
@@ -43,6 +45,7 @@ def list_access_entities(
         uses_pagination=True,
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("accessEntities", []):
             new_data = {
@@ -54,11 +57,15 @@ def list_access_entities(
                     "additionalPermissions"
                 ),
             }
-            df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def list_user_subscriptions(user: str | UUID) -> pd.DataFrame:
     """
     Shows a list of subscriptions for the specified user. This is a preview API call.
@@ -127,7 +134,6 @@ def list_user_subscriptions(user: str | UUID) -> pd.DataFrame:
 
     if rows:
         df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df

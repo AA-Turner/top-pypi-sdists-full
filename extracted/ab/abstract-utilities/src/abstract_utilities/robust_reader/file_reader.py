@@ -21,14 +21,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 DEFAULT_EXCLUDE_DIRS = {"node_modules", "__pycache__","backups","backup"}
 DEFAULT_EXCLUDE_FILE_PATTERNS = {"__init__*", "*.tmp", "*.log"}
-def convert_date_string(s):
-    # … your existing stub or real implementation …
-    try:
-        return datetime.fromisoformat(s)
-    except ValueError:
-        return None
-# file_utils.py (below your existing imports)
-
+DEFAULT_EXCLUDE_TYPES = {"image","video","audio","presentation"}
+def get_ext(item):
+    return item.split('.')[-1]
 def _should_skip_dir(dir_name: str, exclude_dirs: set[str]) -> bool:
     """
     Return True if dir_name matches one of the excluded directory names exactly.
@@ -46,6 +41,79 @@ def _should_skip_file(filename: str, exclude_patterns: set[str]) -> bool:
             return True
     return False
 
+def _should_skip_type(filename: str, exclude_types:set[str]) -> bool:
+    """
+    Return True if filename matches any pattern in exclude_patterns.
+    Uses fnmatch (Unix‐style wildcard matching).
+    """
+    return is_media_type(filename,media_types=exclude_types)
+class shoudSkipManager(metaclass=SingletonMeta):
+    def __init__(self,exclude_type=None,exclude_file_pattern=None,exclude_dir=None):
+        if not hasattr(self, 'initialized') or self.initialized == False:
+            self.initialized = True
+            exclude_type = exclude_type or set()
+            exclude_file_pattern = exclude_file_pattern or set()
+            exclude_dir = exclude_dir or set()
+            self.exclude_dirs = exclude_dirs.copy()
+            self.exclude_file_patterns = exclude_file_patterns.copy()
+            self.exclude_types = exclude_types.copy()
+    def should_skip(self,exclude_item=None,exclude_type=None,exclude_file_pattern=None,exclude_dir=None):
+        if (exclude_dir==None and exclude_file_pattern == None and exclude_type == None) and exclude_item:
+            if isinstance(item,str):
+               if _should_skip_dir(dir_name=exclude_item, exclude_dirs=self.exclude_dirs):
+                   return True
+               if _should_skip_type(filename=exclude_item, exclude_types=self.exclude_types):
+                   return True
+               if _should_skip_file(filename=exclude_item, exclude_patterns=self.exclude_file_patterns):
+                   return True
+               return False
+        elif exclude_type or exclude_file_pattern:
+            if exclude_file_pattern != False:
+                if _should_skip_file(filename=exclude_item,
+                                     exclude_patterns=self.exclude_file_patterns):
+                    return True
+            if exclude_type != False:
+                if _should_skip_type(filename=exclude_item,
+                                     exclude_types=self.exclude_types)
+                    return True
+            
+        if exclude_dir:
+            if _should_skip_dir(filename=exclude_item, exclude_patterns=self.exclude_dirs)
+                return True
+        return False
+    if not os.path.isdir(root_path):
+        raise FileNotFoundError(f"Not a valid directory: {root_path!r}")
+SKIP_MPGR = shoudSkipManager()
+def should_skip(
+    self,
+    exclude_item=None,
+    exclude_type=None,
+    exclude_file_pattern=None,
+    exclude_dir=None
+    ):
+    return shoudSkipManager().should_skip(
+        exclude_item=exclude_item,
+        exclude_type=exclude_type,
+        exclude_file_pattern=exclude_file_pattern,
+        exclude_dir=exclude_dir
+        )
+def re_initialize_skip_mgr(exclude_types=None,
+                           exclude_file_patterns=None,
+                           exclude_dirs=None):
+    SKIP_MPGR.initialized = False
+    SKIP_MPGR.shoudSkipManager(
+        exclude_types=exclude_types,
+        exclude_file_patterns=exclude_file_patterns,
+        exclude_dirs=exclude_dirs
+        )
+
+def convert_date_string(s):
+    # … your existing stub or real implementation …
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+# file_utils.py (below your existing imports)
 
 
 
@@ -189,7 +257,8 @@ def read_shape_file(path: str) -> Union[gpd.GeoDataFrame, None]:
 def collect_filepaths(
     inputs: Union[str, List[str]],
     exclude_dirs: set[str] = None,
-    exclude_file_patterns: set[str] = None
+    exclude_file_patterns: set[str] = None,
+    exclude_types: set[str] = None
 ) -> List[str]:
     """
     Given a path or list of paths, return a list of all file paths under them.
@@ -198,11 +267,10 @@ def collect_filepaths(
         • Skip any subdirectory named in `exclude_dirs`
         • Skip any file whose name matches one of `exclude_file_patterns`
     """
+    re_initialize_skip_mgr(exclude_types=exclude_types,
+                           exclude_file_patterns=exclude_file_patterns,
+                           exclude_dirs=exclude_dirs)
 
-    if exclude_dirs is None:
-        exclude_dirs = exclude_dirs.copy()
-    if exclude_file_patterns is None:
-        exclude_file_patterns = exclude_file_patterns.copy()
 
     # Normalize to list
     if isinstance(inputs, str):
@@ -212,11 +280,7 @@ def collect_filepaths(
 
     all_files: List[str] = []
 
-    def _should_skip_file(filename: str) -> bool:
-        for pat in exclude_file_patterns:
-            if fnmatch.fnmatch(filename, pat):
-                return True
-        return False
+
 
     def _collect_from_dir(dirpath: str):
         for dirpath_root, dirnames, filenames in os.walk(dirpath):
@@ -224,7 +288,9 @@ def collect_filepaths(
             dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
 
             for fname in filenames:
-                if _should_skip_file(fname):
+                if should_skip(exclude_item=fname,
+                               exclude_type=True,
+                               exclude_file_pattern=True):
                     continue
                 full = os.path.join(dirpath_root, fname)
                 all_files.append(full)
@@ -236,7 +302,9 @@ def collect_filepaths(
 
         if os.path.isfile(p):
             basename = os.path.basename(p)
-            if not _should_skip_file(basename):
+            if not should_skip(exclude_item=fname,,
+                               exclude_type=True,
+                               exclude_file_pattern=True):
                 all_files.append(p)
         else:
             # p is a directory
@@ -481,28 +549,27 @@ def read_directory(
     root_path: str,
     exclude_dirs: set[str] = None,
     exclude_file_patterns: set[str] = None,
+    exclude_types: set[str] = None,
 ) -> Dict[str, Union[pd.DataFrame, str]]:
-    if exclude_dirs is None:
-        exclude_dirs = exclude_dirs.copy()
-    if exclude_file_patterns is None:
-        exclude_file_patterns = exclude_file_patterns.copy()
-
+    re_initialize_skip_mgr(exclude_types=exclude_types,
+                           exclude_file_patterns=exclude_file_patterns,
+                           exclude_dirs=exclude_dirs)
     if not os.path.isdir(root_path):
         raise FileNotFoundError(f"Not a valid directory: {root_path!r}")
-
-    collected: Dict[str, Union[pd.DataFrame, str]] = {}
+        collected: Dict[str, Union[pd.DataFrame, str]] = {}
     root_path = os.path.abspath(root_path)
     root_len = len(root_path.rstrip(os.sep)) + 1
 
     for dirpath, dirnames, filenames in os.walk(root_path):
         # 1) Skip excluded subfolders
         dirnames[:] = [
-            d for d in dirnames if not _should_skip_dir(d, exclude_dirs)
+            d for d in dirnames if not should_skip(exclude_item=d,
+                                                   exclude_dir=True)
         ]
 
         for fname in filenames:
             # 2) Skip excluded filename patterns
-            if _should_skip_file(fname, exclude_file_patterns):
+            if should_skip(exclude_type=fname,exclude_file_pattern=fname):
                 _logger.debug(f"Skipping file by pattern: {os.path.join(dirpath, fname)}")
                 continue
 

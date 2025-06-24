@@ -2,7 +2,7 @@
 
 [package]
 name = "pyrefly"
-version = "0.20.2"
+version = "0.21.0"
 authors = ["Meta"]
 edition = "2024"
 repository = "https://github.com/facebook/pyrefly"
@@ -18,7 +18,7 @@ path = "bin/main.rs"
 
 [dependencies]
 anstream = "0.6.11"
-anyhow = "1.0.95"
+anyhow = "1.0.98"
 base64 = { version = "0.22.1", features = ["alloc"] }
 blake3 = { version = "=1.6.1", features = ["mmap", "rayon", "traits-preview"] }
 clap = { version = "4.5.38", features = ["derive", "env", "string", "unicode", "wrap_help"] }
@@ -28,6 +28,7 @@ crossbeam-channel = "0.5.15"
 dupe = "0.9.1"
 enum-iterator = "1.4.1"
 equivalent = "1.0"
+fuzzy-matcher = "0.3.7"
 indicatif = { version = "0.17.6", features = ["futures", "improved_unicode", "rayon", "tokio"] }
 itertools = "0.14.0"
 lsp-server = "0.7.2"
@@ -81,6 +82,9 @@ zstd = { version = "0.13", features = ["experimental", "zstdmt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 zstd = "0.13"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+mimalloc = "0.1.46"
 
 [lints]
 rust = { unexpected_cfgs = { check-cfg = ["cfg(fbcode_build)"], level = "warn" } }

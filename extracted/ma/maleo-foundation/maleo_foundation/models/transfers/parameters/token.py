@@ -8,7 +8,7 @@ class MaleoFoundationTokenParametersTransfers:
         MaleoFoundationTokenSchemas.Password,
         MaleoFoundationTokenSchemas.Key
     ):
-        payload:MaleoFoundationTokenGeneralTransfers.BaseEncodePayload = Field(..., description="Encode payload")
+        payload: MaleoFoundationTokenGeneralTransfers.BaseEncodePayload = Field(..., description="Encode payload")
 
     class Decode(
         MaleoFoundationTokenSchemas.Token,

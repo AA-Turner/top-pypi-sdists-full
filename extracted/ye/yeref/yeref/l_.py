@@ -13263,12 +13263,12 @@ l_tonest_btn3 = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_welcome = {
-    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(жетоны) FT\n▪️смарт-контракты</blockqoute>",
-    "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-app</i> for creating Web3ᵀᴼᴺ projects on the blockchain:\n\n<blockquote>▪️solo/NFT album\n▪️coins (tokens) FT\n▪️smart contracts</blockqoute>",
-    "es": "🌱 <b>{0}</b>, bienvenido a la <i>@tg-app</i> para la creación de proyectos Web3ᵀᴼᴺ en la blockchain:\n\n<blockquote>▪️álbum solo/NFT\n▪️monedas (tokens) FT\n▪️contratos inteligentes</blockqoute>",
-    "fr": "🌱 <b>{0}</b>, bienvenue dans l’<i>@tg-app</i> de création de projets Web3ᵀᴼᴺ sur la blockchain:\n\n<blockquote>▪️solo/album NFT\n▪️pièces (jetons) FT\n▪️contrats intelligents</blockqoute>",
-    "zh": "🌱 <b>{0}</b>，欢迎来到<i>@tg-app</i>区块链上创建Web3ᵀᴼᴺ项目：\n\n<blockquote>▪️单独/NFT专辑\n▪️货币（代币）FT\n▪️智能合约</blockqoute>",
-    "ar": "🌱 <b>{0}</b>، مرحبًا بك في <i>@tg-app</i> لإنشاء مشاريع Web3ᵀᴼᴺ على البلوكتشين:\n\n<blockquote>▪️ألبوم منفرد/NFT\n▪️عملات (رموز) FT\n▪️العقود الذكية</blockqoute>",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(жетоны) FT\n▪️смарт-контракты</blockquote>",
+    "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-app</i> for creating Web3ᵀᴼᴺ projects on the blockchain:\n\n<blockquote>▪️solo/NFT album\n▪️coins (tokens) FT\n▪️smart contracts</blockquote>",
+    "es": "🌱 <b>{0}</b>, bienvenido a la <i>@tg-app</i> para la creación de proyectos Web3ᵀᴼᴺ en la blockchain:\n\n<blockquote>▪️álbum solo/NFT\n▪️monedas (tokens) FT\n▪️contratos inteligentes</blockquote>",
+    "fr": "🌱 <b>{0}</b>, bienvenue dans l’<i>@tg-app</i> de création de projets Web3ᵀᴼᴺ sur la blockchain:\n\n<blockquote>▪️solo/album NFT\n▪️pièces (jetons) FT\n▪️contrats intelligents</blockquote>",
+    "zh": "🌱 <b>{0}</b>，欢迎来到<i>@tg-app</i>区块链上创建Web3ᵀᴼᴺ项目：\n\n<blockquote>▪️单独/NFT专辑\n▪️货币（代币）FT\n▪️智能合约</blockquote>",
+    "ar": "🌱 <b>{0}</b>، مرحبًا بك في <i>@tg-app</i> لإنشاء مشاريع Web3ᵀᴼᴺ على البلوكتشين:\n\n<blockquote>▪️ألبوم منفرد/NFT\n▪️عملات (رموز) FT\n▪️العقود الذكية</blockquote>",
 }
 l_subscribe_tonest = {
     'ru': "👩🏽‍💻 <b>Оформи</b> ежемесячную подписку:\n\n¹ [<b>Все боты</b> и проекты (-<u>22</u>%)]\n² [@{0}-бот]:\n<blockquote>▪️> 10 <b>NFT</b> в > 1 <b>коллекции</b>\n(<i>+редактирование</i>)\n▪️> 1 млн FT-<b>монет</b>\n(<i>+редактирование</i>)</blockquote>",
@@ -14882,247 +14882,135 @@ l_pack_item_add2 = {
 
 # region FereyCodexBot
 l_codex_btn1 = {
-    'ru': "👩🏽‍💻 Кодекс",
-    'en': "👩🏽‍💻 Projects",
-    'es': "👩🏽‍💻 Proyectos",
-    'fr': "👩🏽‍💻 Projets",
-    'zh': "👩🏽‍💻 项目",
-    'ar': "👩🏽‍💻 المشاريع",
+    "ru": "👩🏽‍💻 Кодекс",
+    "en": "👩🏽‍💻 Codex",
+    "es": "👩🏽‍💻 Código",
+    "fr": "👩🏽‍💻 Code",
+    "zh": "👩🏽‍💻 守则",
+    "ar": "👩🏽‍💻 المدونة",
 }
 l_codex_btn2 = {
-    'ru': "💨 Подписка",
-    'en': "💨 Subscription",
-    'es': "💨 Suscripción",
-    'fr': "💨 Abonnement",
-    'zh': "💨 订阅",
-    'ar': "💨 الاشتراك",
+    "ru": "💨 Подписка",
+    "en": "💨 Subscription",
+    "es": "💨 Suscripción",
+    "fr": "💨 Abonnement",
+    "zh": "💨 订阅",
+    "ar": "💨 الاشتراك",
 }
 l_codex_welcome = {
-    'ru': "🌱 <b>{0}</b>, добро пожаловать в [<b>Кодекс {1}</b>] - лэндинг-бот быстрого погружения в новые @tg-инструменты #нейро-маркетинга и блокчейна:\n\n▪️<b>экспресс</b>-интенсив 3 мин\n▪️@tg-<b>приложения</b>\n▪️<b>нейро</b>-инструменты\n▪️<b>веб3</b>-интеграции",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в [<b>Кодекс {1}</b>] - <i>@tg-приложение</i> быстрого погружения в новые @tg-инструменты #нейро-маркетинга и блокчейна:\n\n▪️<b>экспресс</b>-интенсив 3 мин\n▪️@tg-<b>приложения</b>\n▪️<b>нейро</b>-инструменты\n▪️<b>веб3</b>-интеграции",
+    "en": "🌱 <b>{0}</b>, welcome to [<b>Codex {1}</b>] - <i>@tg-app</i> for quick immersion into new @tg-tools of #neuro-marketing and blockchain:\n\n▪️<b>express</b> 3-min intensive\n▪️@tg-<b>apps</b>\n▪️<b>neuro</b>-tools\n▪️<b>web3</b>-integrations",
+    "es": "🌱 <b>{0}</b>, bienvenido a [<b>Código {1}</b>] - <i>@tg-aplicación</i> para una inmersión rápida en nuevas herramientas @tg de #neuro-marketing y blockchain:\n\n▪️<b>intensivo</b> exprés de 3 min\n▪️@tg-<b>aplicaciones</b>\n▪️<b>neuro</b>-herramientas\n▪️integraciones <b>web3</b>",
+    "fr": "🌱 <b>{0}</b>, bienvenue dans [<b>Code {1}</b>] - <i>@tg-application</i> pour une immersion rapide dans les nouveaux outils @tg de #neuro-marketing et blockchain :\n\n▪️intensif <b>express</b> de 3 min\n▪️@tg-<b>applications</b>\n▪️<b>neuro</b>-outils\n▪️intégrations <b>web3</b>",
+    "zh": "🌱<b>{0}</b>，欢迎来到 [<b>守则 {1}</b>] - 一个<i>@tg 应用</i>，可快速进入#神经营销与区块链的全新 @tg 工具：\n\n▪️<b>速成</b>3分钟密训\n▪️@tg-<b>应用</b>\n▪️<b>神经</b>工具\n▪️<b>web3</b>集成",
+    "ar": "🌱 <b>{0}</b>، مرحبًا بك في [<b>المدونة {1}</b>] - <i>تطبيق @tg</i> للغوص السريع في أدوات @tg الجديدة لتسويق الأعصاب و البلوكتشين:\n\n▪️<b>كثيف</b> سريع لمدة 3 دقائق\n▪️@tg-<b>تطبيقات</b>\n▪️<b>أدوات</b> عصبية\n▪️تكاملات <b>web3</b>",
 }
 
 l_codex_warm1 = {
-    'ru': "👩🏽‍💻 <b>Кодекс {0}</b> - это программа практического обзора новых <code>@tg</code>-инструментов #нейро-маркетинга и блокчейна:\n\n<blockquote>за несколько минут познакомишься с новым @tg-функционалом, чтобы сэкономить несколько часов</blockquote>\n<blockquote>увидишь связки нейросетей и @tg-приложений, чтобы снизить затраты на подрядчиков</blockquote>\n<blockquote>узнаешь новые способы генерации/администрирования/поиска @tg-контента, чтобы обогнать конкурентов</blockquote>\n<blockquote>сможешь в один клик интегрировать web3-инструменты геймификации в канал/группу/бота</blockquote>\n\n🌱 После изучения <b>кодекса</b>, ты сможешь подробнее разобрать @tg-функционал на <i>экспертном</i> уровне в нашем <u>реалити-фесте</u>, ссылка на который будет в конце кодекса\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>\n\n©️ данный текст написан нейросетью",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "👩🏽‍💻 <b>Кодекс {0}</b> - это программа практического обзора новых <code>@tg</code>-инструментов #нейро-маркетинга и блокчейна:\n\n<blockquote>за несколько минут познакомишься с новым @tg-функционалом, чтобы сэкономить несколько часов</blockquote>\n<blockquote>увидишь связки нейросетей и @tg-приложений, чтобы снизить затраты на подрядчиков</blockquote>\n<blockquote>узнаешь новые способы генерации/администрирования/поиска @tg-контента, чтобы обогнать конкурентов</blockquote>\n<blockquote>сможешь в один клик интегрировать web3-инструменты геймификации в канал/группу/бота</blockquote>\n\n🌱 После изучения <b>кодекса</b>, ты сможешь подробнее разобрать @tg-функционал на <i>экспертном</i> уровне в нашем <u>реалити-фесте</u>, ссылка на который будет в конце кодекса\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>\n\n©️ данный текст написан нейросетью",
+    "en": "👩🏽‍💻 <b>Codex {0}</b> is a practical overview program of new <code>@tg</code> tools for #neuro-marketing and blockchain:\n\n<blockquote>in a few minutes you'll explore new @tg functionality to save hours</blockquote>\n<blockquote>see combinations of neural networks and @tg apps to reduce contractor costs</blockquote>\n<blockquote>learn new ways of generating/administering/searching @tg content to outpace competitors</blockquote>\n<blockquote>integrate web3 gamification tools into a channel/group/bot with one click</blockquote>\n\n🌱 After studying the <b>codex</b>, you can explore @tg functionality in more detail at an <i>expert</i> level in our <u>reality fest</u>, the link will be at the end of the codex\n\n🍃 <b>Click [⭐️ Codex: fee] to access the codex</b>\n\n©️ this text was written by a neural network",
+    "es": "👩🏽‍💻 <b>Código {0}</b> es un programa de revisión práctica de nuevas herramientas <code>@tg</code> de #neuro-marketing y blockchain:\n\n<blockquote>en pocos minutos conocerás nuevas funciones de @tg para ahorrar horas</blockquote>\n<blockquote>verás combinaciones de redes neuronales y apps de @tg para reducir costes</blockquote>\n<blockquote>descubrirás nuevas formas de generar/administrar/buscar contenido @tg para superar a la competencia</blockquote>\n<blockquote>podrás integrar herramientas web3 de gamificación en canal/grupo/bot con un solo clic</blockquote>\n\n🌱 Tras estudiar el <b>código</b>, podrás profundizar en funciones @tg a nivel <i>experto</i> en nuestro <u>reality fest</u>, cuyo enlace estará al final del código\n\n🍃 <b>Haz clic en [⭐️ Código: contribución] para acceder al código</b>\n\n©️ este texto fue escrito por una red neuronal",
+    "fr": "👩🏽‍💻 <b>Codex {0}</b> est un programme d’examen pratique des nouveaux outils <code>@tg</code> pour le #neuro-marketing et la blockchain :\n\n<blockquote>en quelques minutes, tu découvriras de nouvelles fonctionnalités @tg pour gagner des heures</blockquote>\n<blockquote>tu verras des combinaisons de réseaux neuronaux et d’apps @tg pour réduire les coûts</blockquote>\n<blockquote>tu apprendras de nouvelles façons de générer/administrer/rechercher du contenu @tg pour dépasser tes concurrents</blockquote>\n<blockquote>tu pourras intégrer des outils web3 de gamification dans un canal/groupe/bot en un clic</blockquote>\n\n🌱 Après avoir étudié le <b>codex</b>, tu pourras approfondir les fonctionnalités @tg à un niveau <i>expert</i> lors de notre <u>reality fest</u>, dont le lien sera à la fin du codex\n\n🍃 <b>Clique sur [⭐️ Codex : contribution] pour accéder au codex</b>\n\n©️ ce texte a été rédigé par un réseau neuronal",
+    "zh": "👩🏽‍💻 <b>Codex {0}</b> 是一个关于新 <code>@tg</code> 工具的实用概览项目，聚焦 #神经营销 和 区块链：\n\n<blockquote>几分钟内了解新的 @tg 功能，节省数小时</blockquote>\n<blockquote>看到神经网络与 @tg 应用的组合，降低外包成本</blockquote>\n<blockquote>学习生成/管理/搜索 @tg 内容的新方法，超越竞争对手</blockquote>\n<blockquote>一键将 web3 游戏化工具集成到频道/群组/机器人</blockquote>\n\n🌱 学习完 <b>codex</b> 后，你将在我们的 <u>现实节</u> 中以 <i>专家</i> 水平深入探索 @tg 功能，链接将在 codex 末尾提供\n\n🍃 <b>点击 [⭐️ Codex: 费用] 即可访问 codex</b>\n\n©️ 本文由神经网络编写",
+    "ar": "👩🏽‍💻 <b>كودكس {0}</b> هو برنامج عملي لاستعراض أدوات <code>@tg</code> الجديدة في #التسويق_العصبي والبلوكشين:\n\n<blockquote>في بضع دقائق ستتعرف على وظائف @tg الجديدة لتوفير ساعات</blockquote>\n<blockquote>سترى ترابطات بين الشبكات العصبية وتطبيقات @tg لتقليل التكاليف</blockquote>\n<blockquote>ستتعلم طرقًا جديدة لإنشاء/إدارة/البحث عن محتوى @tg لتسبق المنافسين</blockquote>\n<blockquote>ستتمكن من دمج أدوات web3 للألعاب في القناة/المجموعة/البوت بنقرة واحدة</blockquote>\n\n🌱 بعد دراسة <b>الكودكس</b>، يمكنك التعمق في وظائف @tg على مستوى <i>خبير</i> في <u>الواقع-فيست</u>، الرابط سيكون في نهاية الكودكس\n\n🍃 <b>اضغط على [⭐️ كودكس: المساهمة] لفتح الوصول إلى الكودكس</b>\n\n©️ هذا النص كتبه الذكاء الاصطناعي"
 }
 l_codex_warm2 = {
-    'ru': "👩🏽‍💻 <b>Содержание Кодекса {0}:</b>\n\n<b>Акт #1</b>: <code>мастер генераций</code>\n<blockquote>• нейро-блоки\n• нейро-цепочки\n• нейро-постинг\n• нейро-ответ\n• нейро-диалог</blockquote>\n\n<b>Акт #2</b>: <code>мастер администрирования</code>\n<blockquote>• авто-бан\n• авто-декор\n• авто-вход\n• авто-постинг\n• авто-подкаст\n• авто-ответ</blockquote>\n\n<b>Акт #3</b>: <code>мастер поиска</code>\n<blockquote>• премиум поиск\n• пассивный поиск\n• встроенный поиск\n• поиск креативов\n• нейро поиск\n• лайк поиск\n• гео поиск</blockquote>\n\n<b>Акт #4</b>: <code>мастер блокчейна</code>\n<blockquote>• мастер смарт-контрактов\n• мастер NFT\n• мастер токеномики</blockquote>\n\n<b>Акт #5</b>: <code>заключение</code>\n\n🌱 После изучения <b>кодекса</b>, ты сможешь стать резидентом <u>закрытого канала</u> и получить доступ к обновляемой рабочей книге со всеми @tg-инструментами\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "👩🏽‍💻 <b>Содержание Кодекса {0}:</b>\n\n<b>Акт #1</b>: <code>мастер генераций</code>\n<blockquote>• нейро-блоки\n• нейро-цепочки\n• нейро-постинг\n• нейро-ответ\n• нейро-диалог</blockquote>\n\n<b>Акт #2</b>: <code>мастер администрирования</code>\n<blockquote>• авто-бан\n• авто-декор\n• авто-вход\n• авто-постинг\n• авто-подкаст\n• авто-ответ</blockquote>\n\n<b>Акт #3</b>: <code>мастер поиска</code>\n<blockquote>• премиум поиск\n• пассивный поиск\n• встроенный поиск\n• поиск креативов\n• нейро поиск\n• лайк поиск\n• гео поиск</blockquote>\n\n<b>Акт #4</b>: <code>мастер блокчейна</code>\n<blockquote>• мастер смарт-контрактов\n• мастер NFT\n• мастер токеномики</blockquote>\n\n<b>Акт #5</b>: <code>заключение</code>\n\n🌱 После изучения <b>кодекса</b>, ты сможешь стать резидентом <u>закрытого канала</u> и получить доступ к обновляемой рабочей книге со всеми @tg-инструментами\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>",
+    "en": "👩🏽‍💻 <b>Contents of the Codex {0}:</b>\n\n<b>Act #1</b>: <code>generation master</code>\n<blockquote>• neuro-blocks\n• neuro-chains\n• neuro-posting\n• neuro-reply\n• neuro-dialogue</blockquote>\n\n<b>Act #2</b>: <code>administration master</code>\n<blockquote>• auto-ban\n• auto-decor\n• auto-login\n• auto-posting\n• auto-podcast\n• auto-reply</blockquote>\n\n<b>Act #3</b>: <code>search master</code>\n<blockquote>• premium search\n• passive search\n• built-in search\n• creative search\n• neuro search\n• like search\n• geo search</blockquote>\n\n<b>Act #4</b>: <code>blockchain master</code>\n<blockquote>• smart contract master\n• NFT master\n• tokenomics master</blockquote>\n\n<b>Act #5</b>: <code>conclusion</code>\n\n🌱 After studying the <b>codex</b>, you can become a resident of the <u>private channel</u> and get access to the updated workbook with all @tg-tools\n\n🍃 <b>Click [⭐️ Codex: access], to unlock the codex</b>",
+    "es": "👩🏽‍💻 <b>Contenido del Código {0}:</b>\n\n<b>Acto #1</b>: <code>maestro de generación</code>\n<blockquote>• neuro-bloques\n• neuro-cadenas\n• neuro-publicación\n• neuro-respuesta\n• neuro-diálogo</blockquote>\n\n<b>Acto #2</b>: <code>maestro de administración</code>\n<blockquote>• auto-baneo\n• auto-decoración\n• auto-ingreso\n• auto-publicación\n• auto-podcast\n• auto-respuesta</blockquote>\n\n<b>Acto #3</b>: <code>maestro de búsqueda</code>\n<blockquote>• búsqueda premium\n• búsqueda pasiva\n• búsqueda integrada\n• búsqueda creativa\n• búsqueda neuro\n• búsqueda por me gusta\n• búsqueda geográfica</blockquote>\n\n<b>Acto #4</b>: <code>maestro de blockchain</code>\n<blockquote>• maestro de contratos inteligentes\n• maestro de NFT\n• maestro de tokenómica</blockquote>\n\n<b>Acto #5</b>: <code>conclusión</code>\n\n🌱 Después de estudiar el <b>código</b>, podrás convertirte en residente del <u>canal privado</u> y acceder al libro de trabajo actualizado con todas las herramientas @tg\n\n🍃 <b>Haz clic en [⭐️ Código: acceso] para desbloquear el código</b>",
+    "fr": "👩🏽‍💻 <b>Contenu du Codex {0} :</b>\n\n<b>Acte #1</b> : <code>maître des générations</code>\n<blockquote>• neuro-blocs\n• neuro-chaînes\n• neuro-publication\n• neuro-réponse\n• neuro-dialogue</blockquote>\n\n<b>Acte #2</b> : <code>maître de l’administration</code>\n<blockquote>• auto-ban\n• auto-décor\n• auto-connexion\n• auto-publication\n• auto-podcast\n• auto-réponse</blockquote>\n\n<b>Acte #3</b> : <code>maître de la recherche</code>\n<blockquote>• recherche premium\n• recherche passive\n• recherche intégrée\n• recherche créative\n• recherche neuro\n• recherche par likes\n• recherche géographique</blockquote>\n\n<b>Acte #4</b> : <code>maître de la blockchain</code>\n<blockquote>• maître des contrats intelligents\n• maître des NFT\n• maître de la tokenomique</blockquote>\n\n<b>Acte #5</b> : <code>conclusion</code>\n\n🌱 Après avoir étudié le <b>codex</b>, tu pourras devenir résident du <u>canal privé</u> et accéder au carnet de travail mis à jour avec tous les outils @tg\n\n🍃 <b>Clique sur [⭐️ Codex : accès] pour débloquer le codex</b>",
+    "zh": "👩🏽‍💻 <b>Codex {0} 的内容：</b>\n\n<b>第一幕</b>：<code>生成大师</code>\n<blockquote>• 神经模块\n• 神经链\n• 神经发布\n• 神经回复\n• 神经对话</blockquote>\n\n<b>第二幕</b>：<code>管理大师</code>\n<blockquote>• 自动封禁\n• 自动装饰\n• 自动登录\n• 自动发布\n• 自动播客\n• 自动回复</blockquote>\n\n<b>第三幕</b>：<code>搜索大师</code>\n<blockquote>• 高级搜索\n• 被动搜索\n• 内置搜索\n• 创意搜索\n• 神经搜索\n• 点赞搜索\n• 地理搜索</blockquote>\n\n<b>第四幕</b>：<code>区块链大师</code>\n<blockquote>• 智能合约大师\n• NFT 大师\n• 代币经济大师</blockquote>\n\n<b>第五幕</b>：<code>结论</code>\n\n🌱 学习完 <b>codex</b> 后，你可以成为 <u>私密频道</u> 的成员，并获得包含所有 @tg 工具的更新工作手册的访问权限\n\n🍃 <b>点击 [⭐️ Codex: access] 解锁 codex</b>",
+    "ar": "👩🏽‍💻 <b>محتوى المدونة {0}:</b>\n\n<b>الفصل #1</b>: <code>سيد التوليد</code>\n<blockquote>• كتل عصبية\n• سلاسل عصبية\n• نشر عصبي\n• رد عصبي\n• حوار عصبي</blockquote>\n\n<b>الفصل #2</b>: <code>سيد الإدارة</code>\n<blockquote>• حظر تلقائي\n• تزيين تلقائي\n• تسجيل دخول تلقائي\n• نشر تلقائي\n• بودكاست تلقائي\n• رد تلقائي</blockquote>\n\n<b>الفصل #3</b>: <code>سيد البحث</code>\n<blockquote>• بحث متميز\n• بحث سلبي\n• بحث مدمج\n• بحث إبداعي\n• بحث عصبي\n• بحث بالإعجاب\n• بحث جغرافي</blockquote>\n\n<b>الفصل #4</b>: <code>سيد البلوكتشين</code>\n<blockquote>• سيد العقود الذكية\n• سيد NFT\n• سيد الاقتصاد الرمزي</blockquote>\n\n<b>الفصل #5</b>: <code>الخاتمة</code>\n\n🌱 بعد دراسة <b>المدونة</b>، يمكنك أن تصبح مقيمًا في <u>القناة الخاصة</u> والحصول على الوصول إلى دفتر العمل المحدث مع جميع أدوات @tg\n\n🍃 <b>انقر [⭐️ المدونة: الوصول] لفتح المدونة</b>"
 }
 l_codex_warm3 = {
-    'ru': "👩🏽‍💻 <b>Все</b> @tg-инструменты <b>Кодекса {0}</b> поддерживаются официальными сервисами <b>Ferey</b>-проекта:\n\n<blockquote>• Bot\n• Channel\n• Group\n• User\n• Post\n• Media\n• AI\n• Find\n• Tools\n• Tonest\n• и другие •</blockquote>\n\n🌱 После изучения <b>кодекса</b>, ты будешь знать как работать с каждым из <u>сервисов</u>, ссылки на которые найдешь внутри кодекса\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "👩🏽‍💻 <b>Все</b> @tg-инструменты <b>Кодекса {0}</b> поддерживаются официальными сервисами <b>Ferey</b>-проекта:\n\n<blockquote>• Bot\n• Channel\n• Group\n• User\n• Post\n• Media\n• AI\n• Find\n• Tools\n• Tonest\n• и другие •</blockquote>\n\n🌱 После изучения <b>кодекса</b>, ты будешь знать как работать с каждым из <u>сервисов</u>, ссылки на которые найдешь внутри кодекса\n\n🍃 <b>Жми [⭐️ Кодекс: взнос], чтобы открыть доступ к кодексу</b>",
+    "en": "👩🏽‍💻 <b>All</b> @tg-tools of the <b>Codex {0}</b> are supported by the official <b>Ferey</b>-project services:\n\n<blockquote>• Bot\n• Channel\n• Group\n• User\n• Post\n• Media\n• AI\n• Find\n• Tools\n• Tonest\n• and more •</blockquote>\n\n🌱 After studying the <b>codex</b>, you will know how to work with each <u>service</u>, with links found inside the codex\n\n🍃 <b>Click [⭐️ Codex: access] to unlock the codex</b>",
+    "es": "👩🏽‍💻 <b>Todos</b> los @tg-herramientas del <b>Código {0}</b> están respaldados por los servicios oficiales del proyecto <b>Ferey</b>:\n\n<blockquote>• Bot\n• Canal\n• Grupo\n• Usuario\n• Publicación\n• Multimedia\n• IA\n• Buscar\n• Herramientas\n• Tonest\n• y más •</blockquote>\n\n🌱 Después de estudiar el <b>código</b>, sabrás cómo trabajar con cada <u>servicio</u>, con enlaces dentro del código\n\n🍃 <b>Haz clic en [⭐️ Código: acceso] para desbloquear el código</b>",
+    "fr": "👩🏽‍💻 <b>Tous</b> les @tg-outils du <b>Codex {0}</b> sont pris en charge par les services officiels du projet <b>Ferey</b> :\n\n<blockquote>• Bot\n• Canal\n• Groupe\n• Utilisateur\n• Publication\n• Média\n• IA\n• Recherche\n• Outils\n• Tonest\n• et plus encore •</blockquote>\n\n🌱 Après avoir étudié le <b>codex</b>, tu sauras comment utiliser chaque <u>service</u>, avec des liens dans le codex\n\n🍃 <b>Clique sur [⭐️ Codex : accès] pour débloquer le codex</b>",
+    "zh": "👩🏽‍💻 <b>所有</b> <b>Codex {0}</b> 的 @tg-工具 由 <b>Ferey</b> 项目的官方服务支持：\n\n<blockquote>• Bot\n• 频道\n• 群组\n• 用户\n• 帖子\n• 媒体\n• AI\n• 查找\n• 工具\n• Tonest\n• 以及更多 •</blockquote>\n\n🌱 学习完 <b>codex</b> 后，你将知道如何使用每个<u>服务</u>，相关链接可在 codex 中找到\n\n🍃 <b>点击 [⭐️ Codex: access] 解锁 codex</b>",
+    "ar": "👩🏽‍💻 <b>جميع</b> أدوات @tg في <b>المدونة {0}</b> مدعومة من قبل خدمات مشروع <b>Ferey</b> الرسمية:\n\n<blockquote>• بوت\n• قناة\n• مجموعة\n• مستخدم\n• منشور\n• وسائط\n• ذكاء اصطناعي\n• بحث\n• أدوات\n• Tonest\n• والمزيد •</blockquote>\n\n🌱 بعد دراسة <b>المدونة</b>، ستعرف كيفية استخدام كل <u>خدمة</u>، مع الروابط داخل المدونة\n\n🍃 <b>انقر على [⭐️ المدونة: الوصول] لفتح المدونة</b>"
 }
 l_codex_warm4 = {
-    'ru': "👩🏽‍💻 <b>Приобретай</b> доступ к Кодексу {0} или поддержи <i>проект</i> донатом",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "👩🏽‍💻 <b>Приобретай</b> доступ к Кодексу {0} или поддержи <i>проект</i> донатом",
+    "en": "👩🏽‍💻 <b>Get</b> access to Codex {0} or support the <i>project</i> with a donation",
+    "es": "👩🏽‍💻 <b>Obtén</b> acceso al Código {0} o apoya el <i>proyecto</i> con una donación",
+    "fr": "👩🏽‍💻 <b>Obtiens</b> l'accès au Codex {0} ou soutiens le <i>projet</i> par un don",
+    "zh": "👩🏽‍💻 <b>获取</b> Codex {0} 的访问权限，或通过捐赠支持该<i>项目</i>",
+    "ar": "👩🏽‍💻 <b>احصل</b> على الوصول إلى المدونة {0} أو ادعم <i>المشروع</i> بتبرع"
 }
+
 l_codex_pay_text = {
-    'ru': "Кодекс: взнос",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "Кодекс: взнос",
+    "en": "Codex: contribution",
+    "es": "Códice: contribución",
+    "fr": "Codex : contribution",
+    "zh": "Codex：捐助",
+    "ar": "المدونة: مساهمة"
 }
 l_codex_pay_check = {
-    'ru': "👩🏽‍💻 Проверка взноса",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "👩🏽‍💻 Проверка взноса",
+    "en": "👩🏽‍💻 Contribution check",
+    "es": "👩🏽‍💻 Verificación de contribución",
+    "fr": "👩🏽‍💻 Vérification de la contribution",
+    "zh": "👩🏽‍💻 检查捐助",
+    "ar": "👩🏽‍💻 التحقق من المساهمة"
 }
 l_codex_transcribation_btn = {
-    'ru': "💨 Конспект",
-    'en': "🌱 <b>{0}</b>, welcome to the <i>landing bot</i> <b>Ferey</b>-project:\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "🌱 <b>{0}</b>, bienvenido al <i>bot de aterrizaje</i> <b>Ferey</b>-proyecto:\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "🌱 <b>{0}</b>, bienvenue sur le <i>landing bot</i> <b>Ferey</b>-projet :\n\nlessly<b>informations</b> sur les projets\n▪️<b>télégraphe</b>-/blog",
-    'zh': "🌱<b>{0}</b>，欢迎使用<i>登陆机器人</i><b>Ferey</b>-项目：\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客\n\n❗️<b>定期</b>-更新/内容",
-    'ar': "🌱 <b>{0}</b>، مرحبًا بك في <i>روبوت الهبوط</i> <b>Ferey</b>-project:\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog\n\n❗️<b>بانتظام</b>-يتم تحديثه /المحتوى",
+    "ru": "💨 Конспект",
+    "en": "💨 Summary",
+    "es": "💨 Resumen",
+    "fr": "💨 Résumé",
+    "zh": "💨 摘要",
+    "ar": "💨 ملخص"
 }
 
 l_codex_caption_0 = {
-    'ru': "👩🏽‍💻 <b>Акт #1</b>: <code>введение</code>\n\n00:03 - актуальность\n00:05 - цель\n00:07 - задачи\n\n<blockquote>Жми на • 2 • страницу, чтобы перейти к следующему акту</blockquote>",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
+    "ru": "👩🏽‍💻 <b>Акт #1</b>: <code>введение</code>\n\n00:03 - актуальность\n00:05 - цель\n00:07 - задачи\n\n<blockquote>Жми на • 2 • страницу, чтобы перейти к следующему акту</blockquote>",
+    "en": "👩🏽‍💻 <b>Act #1</b>: <code>introduction</code>\n\n00:03 - relevance\n00:05 - goal\n00:07 - tasks\n\n<blockquote>Click on • 2 • page to go to the next act</blockquote>",
+    "es": "👩🏽‍💻 <b>Acto #1</b>: <code>introducción</code>\n\n00:03 - relevancia\n00:05 - objetivo\n00:07 - tareas\n\n<blockquote>Haz clic en • 2 • página para ir al siguiente acto</blockquote>",
+    "fr": "👩🏽‍💻 <b>Acte #1</b> : <code>introduction</code>\n\n00:03 - pertinence\n00:05 - objectif\n00:07 - tâches\n\n<blockquote>Cliquez sur • 2 • page pour passer à l'acte suivant</blockquote>",
+    "zh": "👩🏽‍💻 <b>第1幕</b>：<code>介绍</code>\n\n00:03 - 相关性\n00:05 - 目标\n00:07 - 任务\n\n<blockquote>点击 • 2 • 页进入下一幕</blockquote>",
+    "ar": "👩🏽‍💻 <b>الفصل #1</b>: <code>مقدمة</code>\n\n00:03 - الأهمية\n00:05 - الهدف\n00:07 - المهام\n\n<blockquote>اضغط على • 2 • الصفحة للانتقال إلى الفصل التالي</blockquote>",
 }
 l_codex_caption_1 = {
-    'ru': "👩🏽‍💻 <b>Акт #1</b>: <code>мастер генераций</code>\n\n00:05 нейро-блоки\n00:10 нейро-постинг\n00:15 нейро-цепочки\n00:25 нейро-дилог\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
+    "ru": "👩🏽‍💻 <b>Акт #1</b>: <code>мастер генераций</code>\n\n00:05 нейро-блоки\n00:10 нейро-постинг\n00:15 нейро-цепочки\n00:25 нейро-дилог\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
+    "en": "👩🏽‍💻 <b>Act #1</b>: <code>generation master</code>\n\n00:05 neuro-blocks\n00:10 neuro-posting\n00:15 neuro-chains\n00:25 neuro-dialog\n\n<blockquote>Used @tg-apps in the video:</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
+    "es": "👩🏽‍💻 <b>Acto #1</b>: <code>maestro de generaciones</code>\n\n00:05 neuro-bloques\n00:10 neuro-posting\n00:15 neuro-cadenas\n00:25 neuro-diálogo\n\n<blockquote>Aplicaciones @tg usadas en el video:</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
+    "fr": "👩🏽‍💻 <b>Acte #1</b> : <code>maître des générations</code>\n\n00:05 neuro-blocs\n00:10 neuro-posting\n00:15 neuro-chaînes\n00:25 neuro-dialogue\n\n<blockquote>Applications @tg utilisées dans la vidéo :</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
+    "zh": "👩🏽‍💻 <b>第1幕</b>：<code>生成大师</code>\n\n00:05 神经模块\n00:10 神经发布\n00:15 神经链\n00:25 神经对话\n\n<blockquote>视频中使用的 @tg 应用：</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
+    "ar": "👩🏽‍💻 <b>الفصل #1</b>: <code>ماستر التوليد</code>\n\n00:05 كتل عصبية\n00:10 النشر العصبي\n00:15 سلاسل عصبية\n00:25 حوار عصبي\n\n<blockquote>تطبيقات @tg المستخدمة في الفيديو:</blockquote>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>",
 }
 l_codex_caption_2 = {
-    'ru': "👩🏽‍💻 <b>Акт #2</b>: <code>мастер автоматизации</code>\n\n00:05 авто-бан\n00:15 авто-декор\n00:20 авто-постинг\n00:25 авто-подкаст\n00:30 авто-геймификация\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
+    "ru": "👩🏽‍💻 <b>Акт #2</b>: <code>мастер автоматизации</code>\n\n00:05 авто-бан\n00:15 авто-декор\n00:20 авто-постинг\n00:25 авто-подкаст\n00:30 авто-геймификация\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
+    "en": "👩🏽‍💻 <b>Act #2</b>: <code>automation master</code>\n\n00:05 auto-ban\n00:15 auto-decor\n00:20 auto-posting\n00:25 auto-podcast\n00:30 auto-gamification\n\n<blockquote>Used @tg-apps in the video:</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
+    "es": "👩🏽‍💻 <b>Acto #2</b>: <code>maestro de automatización</code>\n\n00:05 auto-baneo\n00:15 auto-decoración\n00:20 auto-posting\n00:25 auto-podcast\n00:30 auto-gamificación\n\n<blockquote>Aplicaciones @tg usadas en el video:</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
+    "fr": "👩🏽‍💻 <b>Acte #2</b> : <code>maître de l'automatisation</code>\n\n00:05 auto-ban\n00:15 auto-décor\n00:20 auto-posting\n00:25 auto-podcast\n00:30 auto-gamification\n\n<blockquote>Applications @tg utilisées dans la vidéo :</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
+    "zh": "👩🏽‍💻 <b>第2幕</b>：<code>自动化大师</code>\n\n00:05 自动封禁\n00:15 自动装饰\n00:20 自动发布\n00:25 自动播客\n00:30 自动游戏化\n\n<blockquote>视频中使用的 @tg 应用：</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
+    "ar": "👩🏽‍💻 <b>الفصل #2</b>: <code>ماستر الأتمتة</code>\n\n00:05 الحظر التلقائي\n00:15 الديكور التلقائي\n00:20 النشر التلقائي\n00:25 البودكاست التلقائي\n00:30 اللعب التلقائي\n\n<blockquote>تطبيقات @tg المستخدمة في الفيديو:</blockquote>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>",
 }
 l_codex_caption_3 = {
-    'ru': "👩🏽‍💻 <b>Акт #3</b>: <code>мастер поиска</code>\n\n00:05 премиум-поиск\n00:15 пассивный-поиск\n00:20 поиск-креативов\n00:25 нейро-поиск\n00:30 маркетплейс-поиск\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
+    "ru": "👩🏽‍💻 <b>Акт #3</b>: <code>мастер поиска</code>\n\n00:05 премиум-поиск\n00:15 пассивный-поиск\n00:20 поиск-креативов\n00:25 нейро-поиск\n00:30 маркетплейс-поиск\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "en": "👩🏽‍💻 <b>Act #3</b>: <code>search master</code>\n\n00:05 premium search\n00:15 passive search\n00:20 creative search\n00:25 neuro search\n00:30 marketplace search\n\n<blockquote>Used @tg-apps in the video:</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "es": "👩🏽‍💻 <b>Acto #3</b>: <code>maestro de búsqueda</code>\n\n00:05 búsqueda premium\n00:15 búsqueda pasiva\n00:20 búsqueda creativa\n00:25 búsqueda neuro\n00:30 búsqueda en el mercado\n\n<blockquote>Aplicaciones @tg usadas en el video:</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "fr": "👩🏽‍💻 <b>Acte #3</b> : <code>maître de la recherche</code>\n\n00:05 recherche premium\n00:15 recherche passive\n00:20 recherche créative\n00:25 recherche neuro\n00:30 recherche sur le marketplace\n\n<blockquote>Applications @tg utilisées dans la vidéo :</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "zh": "👩🏽‍💻 <b>第3幕</b>：<code>搜索大师</code>\n\n00:05 高级搜索\n00:15 被动搜索\n00:20 创意搜索\n00:25 神经搜索\n00:30 市场搜索\n\n<blockquote>视频中使用的 @tg 应用：</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "ar": "👩🏽‍💻 <b>الفصل #3</b>: <code>ماستر البحث</code>\n\n00:05 البحث المميز\n00:15 البحث السلبي\n00:20 البحث الإبداعي\n00:25 البحث العصبي\n00:30 البحث في السوق\n\n<blockquote>تطبيقات @tg المستخدمة في الفيديو:</blockquote>\n<a href='https://t.me/FereyFindBot?start=codex'>@FereyFindBot</a>\n<a href='https://t.me/FereyUserBot?start=codex'>@FereyUserBot</a>\n<a href='https://t.me/FereyMediaBot?start=codex'>@FereyMediaBot</a>\n<a href='https://t.me/FereyAIBot?start=codex'>@FereyAIBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
 }
 l_codex_caption_4 = {
-    'ru': "👩🏽‍💻 <b>Акт #4</b>: <code>мастер блокчейна</code>\n\n00:05 мастер смарт-контрактов\n00:20 мастер NFT\n00:35 мастер токеномики\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
+    "ru": "👩🏽‍💻 <b>Акт #4</b>: <code>мастер блокчейна</code>\n\n00:05 мастер смарт-контрактов\n00:20 мастер NFT\n00:35 мастер токеномики\n\n<blockquote>Используемые в видео @tg-приложения:</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "en": "👩🏽‍💻 <b>Act #4</b>: <code>blockchain master</code>\n\n00:05 smart contract master\n00:20 NFT master\n00:35 tokenomics master\n\n<blockquote>Used @tg-apps in the video:</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "es": "👩🏽‍💻 <b>Acto #4</b>: <code>maestro de blockchain</code>\n\n00:05 maestro de contratos inteligentes\n00:20 maestro NFT\n00:35 maestro de tokenómica\n\n<blockquote>Aplicaciones @tg usadas en el video:</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "fr": "👩🏽‍💻 <b>Acte #4</b> : <code>maître de la blockchain</code>\n\n00:05 maître des smart contracts\n00:20 maître NFT\n00:35 maître de la tokenomie\n\n<blockquote>Applications @tg utilisées dans la vidéo :</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "zh": "👩🏽‍💻 <b>第4幕</b>：<code>区块链大师</code>\n\n00:05 智能合约大师\n00:20 NFT 大师\n00:35 代币经济学大师\n\n<blockquote>视频中使用的 @tg 应用：</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
+    "ar": "👩🏽‍💻 <b>الفصل #4</b>: <code>ماستر البلوكشين</code>\n\n00:05 ماستر العقود الذكية\n00:20 ماستر NFT\n00:35 ماستر الاقتصاد الرمزي\n\n<blockquote>تطبيقات @tg المستخدمة في الفيديو:</blockquote>\n<a href='https://t.me/FereyTONestBot?start=codex'>@FereyTONestBot</a>\n<a href='https://t.me/FereyChannelBot?start=codex'>@FereyChannelBot</a>\n<a href='https://t.me/FereyGroupBot?start=codex'>@FereyGroupBot</a>\n<a href='https://t.me/FereyBotBot?start=codex'>@FereyBotBot</a>",
 }
 l_codex_caption_5 = {
-    'ru': "👩🏽‍💻 <b>Акт #5</b>: <code>заключение</code>\n\n00:05 - результаты\n00:10 - вывод\n\n<blockquote>Рассмотрены @tg-приложения #нейро-генерации/администрирования/поиска/блокчейн интеграции</blockquote>\n\n🌱 <b>Переходи</b> к <a href='{0}'>реалити-фесту</a>, чтобы подробно в режиме <b>реального времени</b> собрать все @tg-инструменты для развития своего продукта/услуги\n\n🍃 <b>Становись</b> резидентом <a href='{1}'>закрытого канала</a>, чтобы приобрести <b>рабочую книгу</b> с актуальными знаниями и в числе первых получать инструкции нового @tg-функционала",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
-}
-
-l_codex_1 = {
-    'ru': "<b>👩🏽‍💻 Акт #1 - мастер генераций</b>\n\n▪️<b>информация</b> о проектах\n▪️<b>telegraph</b>-/blog\n▪️<b>вакансии</b> проекта",
-    'en': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>information</b> about projects\n▪️<b>telegraph</b>-/blog",
-    'es': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>información</b> sobre proyectos\n▪️<b>telegraph</b>-/blog",
-    'fr': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\nnounced<b>informations</b> sur les projets\nnounced️<b>télégraphe</b>-/blog",
-    'zh': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️有关项目的<b>信息</b>\n▪️<b>电报</b>-/博客",
-    'ar': "<b>👩🏽‍💻 @FereyDemoBot </b>\n\n▪️<b>معلومات</b> حول المشاريع\n▪️<b>تلغراف</b>-/blog",
-}
-l_codex_2 = {
-    'ru': "<b>👩🏽‍💻@FereyBotBot</b> - нейро-конструктор ботов\n\n▪️<b>сбор/бан/аналитика</b> подписчиков\n▪️авто-<b>перевод/оповещения</b>\n▪️<b>интеграции</b> и платежи\n▪️нейро-<b>генерация/клон</b> бота\n▪️<b>веб-мини/нейро</b>-постинг",
-    'en': "<b>👩🏽‍💻 @FereyBotBot </b>-#neuro-bot designer\n\n▪️<b>collection/ban/analytics</b> subscribers\n▪️auto-<b>translation/alerts</b >\n▪️<b>integration</b>and payments\n▪️neuro-<b>generation/clone</b>bot\n▪️<b>web-app/neuro</b>-posting",
-    'es': "<b>👩🏽‍💻 @FereyBotBot </b>-diseñador de neurobots\n\n▪️<b>colección/ban/analítica</b> suscriptores\n▪️auto-<b>traducción/alertas</b >\n▪️<b>integración</b>y pagos\n▪️neuro-<b>generación/clon</b>bot\n▪️<b>aplicación web/neuro</b>-publicación",
-    'fr': "<b>👩🏽‍💻 @FereyBotBot </b>-concepteur de neuro-bots\n\nwithout >\n▪️<b>intégration</b>et paiements\n▪️neuro-<b>génération/clone</b>bot\nnoyer<b>web-app/neuro</b>-publication",
-    'zh': "<b>👩🏽‍💻 @FereyBotBot </b>-神经机器人设计师\n\n▪️<b>收集/禁止/分析</b>订阅者\n▪️自动-<b>翻译/警报</b >\n▪️<b>集成</b>和支付\n▪️neuro-<b>生成/克隆</b>机器人\n▪️<b>网络应用/神经</b>-发布",
-    'ar': "<b>👩🏽‍💻 @FereyBotBot </b>-مصمم الروبوتات العصبية\n\n▪️<b>جمع/حظر/تحليلات</b> المشتركين\n▪️auto-<b>ترجمة/تنبيهات</b >\n▪️<b>التكامل</b>والمدفوعات\n▪️neuro-<b>الجيل/الاستنساخ</b>bot\n▪️<b>web-app/neuro</b>-النشر",
-}
-l_codex_3 = {
-    'ru': "<b>👩🏽‍💻@FereyChannelBot</b> - администрирование каналов\n\n▪️<b>сбор/бан/аналитика</b> подписчиков\n▪️<b>авто-декор/подкасты</b> поста\n▪️кнопочный <b>счетчик</b>\n▪️<b>веб-мини/нейро</b>-постинг",
-    'en': "<b>👩🏽‍💻 @FereyChannelBot </b>-channel #administration\n\n▪️<b>collection/ban/analytics</b> subscribers\n▪️<b>auto-decor/podcasts</b> posts\n▪️button <b>counter</b>\n▪️<b>web app/neuro</b>-posting",
-    'es': "<b>👩🏽‍💻 @FereyChannelBot </b>-administración del canal\n\n▪️<b>colección/ban/analítica</b> suscriptores\n▪️<b>autodecoración/podcasts</b> publicaciones\n▪️botón <b>contador</b>\n▪️<b>aplicación web/neuro</b>-publicación",
-    'fr': "<b>👩🏽‍💻 @FereyChannelBot </b>-administration des chaînes\n\nwithout\n▪️bouton <b>compteur</b>\n▪️<b>application web/neuro</b>-posting",
-    'zh': "<b>👩🏽‍💻 @FereyChannelBot </b>-频道管理\n\n▪️<b>集合/禁止/分析</b>订阅者\n▪️<b>自动装饰/播客</b>帖子\n▪️按钮<b>计数器</b>\n▪️<b>网络应用程序/神经</b>-发布",
-    'ar': "<b>👩🏽‍💻 @FereyChannelBot </b>-إدارة القناة\n\n▪️<b>مجموعة/حظر/تحليلات</b> المشتركين\n▪️<b>ديكور تلقائي/بودكاست</b> منشورات\n▪️زر <b>عداد</b>\n▪️<b>تطبيق ويب/عصبي</b>-النشر",
-}
-l_codex_4 = {
-    'ru': "<b>👩🏽‍💻@FereyGroupBot</b> - модерация групп\n\n▪️<b>защита</b> группы от шпионов\n▪️ограничение прав до <b>подписки</b>\n▪️<b>организация</b> бана/анти-флуда\n▪️аналитика и <b>вовлеченность</b>\n▪️<b>авто-ответы</b> и стоп-слова\n▪️кнопочный <b>счетчик</b>\n▪️<b>веб-мини/нейро</b>-постинг",
-    'en': "<b>👩🏽‍💻 @FereyGroupBot </b>-group #moderation\n\n▪️<b>protection</b> of the group from spies\n▪️limitation of rights to <b>subscription</b>\n▪️<b>organization</b> ban/anti-flood\n▪️analytics and <b>engagement</b>\n▪️<b>auto-responses</b> and stop words\n▪️button <b>counter </b>\n▪️<b>web app/neuro</b>-posting",
-    'es': "<b>👩🏽‍💻 @FereyGroupBot </b>-moderación del grupo\n\n▪️<b>protección</b> del grupo contra espías\n▪️limitación de derechos de <b>suscripción</b>\n▪️<b>organización</b> prohibición/anti-inundación\n▪️análisis y <b>compromiso</b>\n▪️<b>respuestas automáticas</b> y palabras vacías\n▪️botón <b >contador </b>\n▪️<b>aplicación web/publicación neuro</b>",
-    'fr': "<b>👩🏽‍💻 @FereyGroupBot </b>-modération du groupe\n\nnounced<b>protection</b> du groupe contre les espions\nproducerlimitation des droits d'<b>abonnement</b>\nְ️<b>organisation</b> interdiction/lutte contre les inondations\nwithout >compteur </b>\n▪️<b>web app/neuro</b>-posting",
-    'zh': "<b>👩🏽‍💻 @FereyGroupBot </b>-群组审核\n\n▪️<b>保护</b>群组免受间谍侵害\n▪️<b>订阅权利限制</b>\n▪️<b>组织</b>禁止/反泛洪\n▪️分析和<b>参与度</b>\n▪️<b>自动回复</b>和停用词\n▪️按钮<b >计数器</b>\n▪️<b>网络应用/神经</b>-发布",
-    'ar': "<b>👩🏽‍💻 @FereyGroupBot </b>-الإشراف على المجموعة\n\n▪️<b>حماية</b> المجموعة من الجواسيس\n▪️تحديد حقوق <b>الاشتراك</b>\n▪️<b>المنظمة</b> الحظر/مكافحة الفيضانات\n▪️التحليلات و<b>المشاركة</b>\n▪️<b>الردود التلقائية</b> وكلمات الإيقاف\n▪️زر <b >العداد </b>\n▪️<b>تطبيق الويب/العصبي</b>-النشر",
-}
-l_codex_5 = {
-    'ru': "<b>👩🏽‍💻@FereyUserBot</b> - автоматизация аккаунтов\n\n▪️<b>авто</b>-перевод/транскрибация\n▪️<b>нейро-генерация</b> бота\n▪️<b>мониторинг</b> гео/слов\n▪️<b>авто-формат</b> и подкасты\n▪️<b>веб-мини/нейро</b>-постинг",
-    'en': "<b>👩🏽‍💻 @FereyUserBot </b>-account automation\n\n▪️<b>automatic</b>-translation/transcription\n▪️<b>neuro-generation</b> bot\n▪️ <b>monitoring</b> geo/words\n▪️<b>auto-format</b> and podcasts\n▪️<b>web app/neuro</b>-posting",
-    'es': "<b>👩🏽‍💻 @FereyUserBot </b>-automatización de cuentas\n\n▪️<b>traducción/transcripción automática</b>\n▪️<b>bot de neurogeneración</b>\n▪️ <b>monitoreo</b> geo/words\n▪️<b>formato automático</b> y podcasts\n▪️<b>aplicación web/neuro</b>-publicación",
-    'fr': "<b>👩🏽‍💻 @FereyUserBot </b>-automatisation de compte\n\n▪️<b>automatique</b>-traduction/transcription\nnounced<b>bot de neuro-génération</b>\nwithout <b>surveillance</b> géo/mots\nnoyer️<b>formatage automatique</b> et podcasts\nnoyer️<b>application web/neuro</b>-publication",
-    'zh': "<b>👩🏽‍💻 @FereyUserBot </b>-账户自动化\n\n▪️<b>自动</b>-翻译/转录\n▪️<b>神经生成</b>机器人\n▪️ <b>监控</b>地理/单词\n▪️<b>自动格式</b>和播客\n▪️<b>网络应用/神经</b>-发布",
-    'ar': "<b>👩🏽‍💻 @FereyUserBot </b>-أتمتة الحساب\n\n▪️<b>تلقائي</b>-ترجمة/نسخ\n▪️<b>روبوت التوليد العصبي</b>\n▪️ <b>مراقبة</b> الموقع الجغرافي/الكلمات\n▪️<b>التنسيق التلقائي</b> والبودكاست\n▪️<b>تطبيق الويب/العصبي</b>-النشر",
-}
-l_codex_6 = {
-    'ru': "<b>👩🏽‍💻@FereyPostBot</b> - приватные посты\n\n▪️<b>кнопочный</b> счетчик\n▪️инлайн-<b>телескопы</b>\n▪️парсинг/уведомления о <b>кликах</b>\n▪️<b>шёпот</b>-сообщения",
-    'en': "<b>👩🏽‍💻 @FereyPostBot </b>-private posts\n\n▪️<b>button</b> counter\n▪️inline-<b>telescopes</b>\n▪️parsing/notifications <b>clicks</b>\n▪️<b>whispers</b>-messages",
-    'es': "<b>👩🏽‍💻 @FereyPostBot </b>-publicaciones privadas\n\n▪️<b>botón</b> contador\n▪️en línea-<b>telescopios</b>\n▪️análisis/notificaciones <b>clics</b>\n▪️<b>susurros</b>-mensajes",
-    'fr': "<b>👩🏽‍💻 @FereyPostBot </b>-messages privés\n\nnoyer<b>compteur de boutons</b>\nArmoires en ligne-<b>télescopes</b>\n▪️analyse/notifications <b>clics</b>\n▪️<b>chuchotements</b>-messages",
-    'zh': "<b>👩🏽‍💻 @FereyPostBot </b>-私人帖子\n\n▪️<b>按钮</b>计数器\n▪️内联-<b>望远镜</b>\n▪️解析/通知 <b>点击</b>\n▪️<b>窃窃私语</b>-消息",
-    'ar': "<b>👩🏽‍💻 @FereyPostBot </b>-المنشورات الخاصة\n\n▪️<b>زر</b> عداد\n▪️inline-<b>التلسكوبات</b>\n▪️parsing/notifications <b>النقرات</b>\n▪️<b>همسات</b>-الرسائل",
-}
-l_codex_7 = {
-    'ru': "<b>👩🏽‍💻@FereyMediaBot</b> - публичные медиа-креативы\n\n▪️<b>стикеры</b> из текста и фото\n▪️<b>аудио-тренды</b>\n▪️<b>видео-заметки</b>\n▪️инлайн-<b>телескопы</b>\n▪️<b>кнопочные</b> #нейро-титры",
-    'en': "<b>👩🏽‍💻 @FereyMediaBot </b>-public media notes\n\n▪️<b>stickers</b> from text and photos\n▪️<b>audio trends</b>\n▪️<b>video notes</b>\n▪️online<b>telescopes</b>\n▪️<b>button</b> media",
-    'es': "<b>👩🏽‍💻 @FereyMediaBot </b>-notas de medios públicos\n\n▪️<b>pegatinas</b> de texto y fotos\n▪️<b>tendencias de audio</b>\n▪️<b>notas de vídeo</b>\n▪️online<b>telescopios</b>\n▪️<b>botón</b> medios",
-    'fr': "<b>👩🏽‍💻 @FereyMediaBot </b> - notes des médias publics\n\nwithout b>notes vidéo</b>\nƒ️en ligne<b>télescopes</b>\nƒ️<b>bouton</b> média",
-    'zh': "<b>👩🏽‍💻 @FereyMediaBot </b>-公共媒体笔记\n\n▪️来自文本和照片的<b>贴纸</b>\n▪️<b>音频趋势</b>\n▪️<b>视频笔记</b>\n▪️在线<b>望远镜</b>\n▪️<b>按钮</b>媒体",
-    'ar': "<b>👩🏽‍💻 @FereyMediaBot </b>-ملاحظات الوسائط العامة\n\n▪️<b>ملصقات</b> من النصوص والصور\n▪️<b>الاتجاهات الصوتية</b>\n▪️<b>ملاحظات الفيديو</b>\n▪️على الإنترنت<b>التلسكوبات</b>\n▪️<b>زر</b> الوسائط",
-}
-l_codex_8 = {
-    'ru': "<b>👩🏽‍💻@FereyFindBot</b> - премиум поиск\n\n▪️<b>top</b> каналы/группы\n▪️<b>vip</b> пользователи/боты\n▪️<b>geo</b> парсинг\n▪️<b>smm</b> пассивный маркетинг",
-    'en': "<b>👩🏽‍💻 @FereyFindBot </b>-premium search\n\n▪️<b>top</b> channels/groups\n▪️<b>vip</b> users/bots\n▪️<b>geo</b> parsing\n▪️<b>smm</b> passive marketing",
-    'es': "<b>👩🏽‍💻 @FereyFindBot </b>-búsqueda premium\n\n▪️<b>canales/grupos principales</b>\n▪️usuarios/bots<b>vip</b>\n▪️<b>geo</b> análisis\n▪️<b>smm</b> marketing pasivo",
-    'fr': "<b>👩🏽‍💻 @FereyFindBot </b> - recherche premium\n\nwithout b>géo</b> analyse\n▪️<b>smm</b> marketing passif",
-    'zh': "<b>👩🏽‍💻 @FereyFindBot </b>-高级搜索\n\n▪️<b>热门</b>频道/组\n▪️<b>vip</b>用户/机器人\n▪️<b>geo</b>解析\n▪️<b>smm</b>被动营销",
-    'ar': "<b>👩🏽‍💻 @FereyFindBot </b>-بحث متميز\n\n▪️<b>أهم</b> القنوات/المجموعات\n▪️<b>vip</b> المستخدمين/الروبوتات\n▪️<b>التحليل الجغرافي</b>\n▪️<b>smm</b> التسويق السلبي",
-}
-l_codex_9 = {
-    'ru': "<b>👩🏽‍💻@FereyAIBot</b> - нейро-генерация контента\n\n▪️<b>текст/изображение</b>\n▪️<b>нейро-анализ</b> @tg-tech-канала\n▪️<b>распознавание</b> речи\n▪️<b>очистка ⁰истории</b> /start",
-    'en': "<b>👩🏽‍💻 @FereyAIBot </b>-neuro-generation of content\n\n▪️<b>text/image</b>\n▪️<b>neuro-analysis</b> @tg-tech channel\n▪️<b>speech recognition</b>\n▪️<b>clearing ⁰history</b> /start",
-    'es': "<b>👩🏽‍💻 @FereyAIBot </b>-neurogeneración de contenido\n\n▪️<b>texto/imagen</b>\n▪️<b>neuroanálisis</b> canal @tg-tech\n▪️<b>reconocimiento de voz</b>\n▪️<b>borrando ⁰historial</b> /inicio",
-    'fr': "<b>👩🏽‍💻 @FereyAIBot </b>-neuro-génération de contenu\n\nnounced<b>texte/image</b>\nnoyam<b>neuro-analyse</b> @tg-tech canal\n▪️<b>reconnaissance vocale</b>\n▪️<b>effacer l'⁰historique</b> /start",
-    'zh': "<b>👩🏽‍💻 @FereyAIBot </b>-内容的神经生成\n\n▪️<b>文本/图像</b>\n▪️<b>神经分析</b> @tg-tech频道\n▪️<b>语音识别</b>\n▪️<b>清除⁰历史记录</b> /start",
-    'ar': "<b>👩🏽‍💻 @FereyAIBot </b>-التوليد العصبي للمحتوى\n\n▪️<b>نص/صورة</b>\n▪️<b>التحليل العصبي</b> قناة @tg-tech\n▪️<b>التعرف على الكلام</b>\n▪️<b>مسح ⁰السجل</b> /بدء",
-}
-l_codex_10 = {
-    'ru': "<b>👩🏽‍💻@FereyVPNBot</b> - vpn настройки\n\n▪️<b>open vpn</b>\n▪️<b>wire guard</b>\n▪️<b>shadow socks</b>",
-    'en': "<b>👩🏽‍💻@FereyVPNBot</b>-vpn настройки\n\n▪️<b>open vpn</b>\n▪️<b>wire guard</b>\n▪️<b>shadow socks</b>",
-    'es': "<b>👩🏽‍💻 @FereyVPNBot </b>-vpn настройки\n\n▪️<b>vpn abierto</b>\n▪️<b>protección de cables</b>\n▪️<b>calcetines de sombra </b>",
-    'fr': "<b>👩🏽‍💻 @FereyVPNBot </b>-VPN настройки\n\nƒ️<b>open vpn</b>\nƒ️<b>grille de protection</b>\nƒ️<b>chaussettes fantômes </b>",
-    'zh': "<b>👩🏽‍💻 @FereyVPNBot </b>-VPN настройки\n\n▪️<b>开放VPN</b>\n▪️<b>线卫</b>\n▪️<b>影子袜子</b>",
-    'ar': "<b>👩🏽‍💻 @FereyVPNBot </b>-VPN настройки\n\n▪️<b>فتح VPN</b>\n▪️<b>واير الحرس</b>\n▪️<b>جوارب الظل </ب>",
-}
-l_codex_11 = {
-    'ru': "<b>👩🏽‍💻@FereyToolsBot</b> - телеграм инструменты\n\n▪️<b>преобразование</b> контента\n▪️<b>/json</b> информация о сообщ\n▪️<b>удаление</b> фона\n▪️<b>/id</b> группы/канала/бота\n▪️конвертация в <b>телескопы</b>\n▪️<b>/telegraph</b> фото/видео-ссылка\n▪️пустое сообщение <b>0-длины</b>",
-    'en': "<b>👩🏽‍💻 @FereyToolsBot </b>-telegram tools\n\n▪️<b>conversion</b> of content\n▪️<b>/json</b> message information\n▪️<b >removal</b> background\n▪️<b>/id</b> group/channel/bot\n▪️conversion to <b>telescopes</b>\n▪️<b>/telegraph</b> photo /video link\n▪️empty message <b>0-length</b>",
-    'es': "<b>👩🏽‍💻 @FereyToolsBot </b>-herramientas de Telegram\n\n▪️<b>conversión</b> de contenido\n▪️<b>/json</b> información del mensaje\n▪️<b >eliminación</b> de fondo\n▪️<b>/id</b> grupo/canal/bot\n▪️conversión a <b>telescopios</b>\n▪️<b>/telegraph</b> foto /enlace de vídeo\n▪️mensaje vacío <b>0 longitud</b>",
-    'fr': "<b>👩🏽‍💻 @FereyToolsBot </b>-outils de télégramme\n\nnoyer<b>conversion</b> du contenu\nnounced️<b>/json</b> informations sur les messages\nlessly️<b >suppression</b> de l'arrière-plan\nproduced</b> groupe/canal/bot\nwithout /lien vidéo\n▪️message vide <b>longueur 0</b>",
-    'zh': "<b>👩🏽‍💻 @FereyToolsBot </b>-电报工具\n\n▪️<b>内容转换</b>\n▪️<b>/json</b>消息信息\n▪️<b >删除</b>背景\n▪️<b>/id</b>组/频道/机器人\n▪️转换为<b>望远镜</b>\n▪️<b>/电报</b>照片/视频链接\n▪️空消息<b>0-长度</b>",
-    'ar': "<b>👩🏽‍💻 @FereyToolsBot </b>-أدوات التليجرام\n\n▪️<b>تحويل</b> المحتوى\n▪️<b>/json</b> معلومات الرسالة\n▪️<b >إزالة</b> الخلفية\n▪️<b>/id</b> المجموعة/القناة/bot\n▪️التحويل إلى صورة <b>التلسكوبات</b>\n▪️<b>/telegraph</b> /رابط الفيديو\n▪️رسالة فارغة <b>0-الطول</b>",
-}
-l_codex_12 = {
-    'ru': "<b>👩🏽‍💻@FereyAdsBot</b> - ferey реклама\n\n▪️️реклама в ferey-проектах\n▪️️заказ рекламы на канале",
-    'en': "<b>👩🏽‍💻 @FereyAdsBot </b>-ferey advertising\n\n▪️️advertising in ferey-projects\n▪️️ordering advertising on the channel",
-    'es': "<b>👩🏽‍💻 @FereyAdsBot </b>-publicidad de ferey\n\n▪️️publicidad en proyectos de ferey\n▪️️pedido de publicidad en el canal",
-    'fr': "<b>👩🏽‍💻 @FereyAdsBot </b>-publicité ferey\n\nnoyer️publicité dans les projets ferey\nnoyer️commander de la publicité sur la chaîne",
-    'zh': "<b>👩🏽‍💻 @FereyAdsBot </b>-ferey 广告\n\n▪️️ferey 项目中的广告\n▪️️在频道上订购广告",
-    'ar': "<b>👩🏽‍💻 @FereyAdsBot </b>-إعلانات فيري\n\n▪️️إعلان في مشاريع فيري\n▪️️طلب إعلان على القناة",
-}
-# l_codex_14 = {
-#     'ru': "<b>👩🏽‍💻@FereyWorkBot</b> - вакансии проекта\n\n▪️<b>вакансии</b> проекта\n▪️конкурсы и <b>задания</b>\n▪️<b>партнеры</b> и инвесторы\n▪️услуги и <b>пожертвования</b>",
-#     'en': "<b>👩🏽‍💻 @FereyWorkBot </b>-project vacancies\n\n▪️<b>vacancies</b> project\n▪️competitions and <b>tasks</b>\n▪️<b>partners </b> and investors\n▪️services and <b>donations</b>",
-#     'es': "<b>👩🏽‍💻 @FereyWorkBot </b>-vacantes de proyecto\n\n▪️<b>vacantes</b> proyecto\n▪️concursos y <b>tareas</b>\n▪️<b>socios </b> e inversores\n▪️servicios y <b>donaciones</b>",
-#     'fr': "<b>👩🏽‍💻 @FereyWorkBot </b>-postes vacants du projet\n\nwithout </b> et investisseurs\n▪️services et <b>dons</b>",
-#     'zh': "<b>👩🏽‍💻 @FereyWorkBot </b>-项目空缺\n\n▪️<b>空缺</b>项目\n▪️竞赛和<b>任务</b>\n▪️<b>合作伙伴</b>和投资者\n▪️服务和<b>捐赠</b>",
-#     'ar': "<b>👩🏽‍💻 @FereyWorkBot </b>-الوظائف الشاغرة بالمشروع\n\n▪️<b>الوظائف الشاغرة</b> المشروع\n▪️المسابقات و<b>المهام</b>\n▪️<b>الشركاء </b> والمستثمرون\n▪️الخدمات و<b>التبرعات</b>",
-# }
-l_codex_13 = {
-    'ru': "<b>👩🏽‍💻@FereyTONesBot</b> - блокчейн проекты\n\n<blockquote>▪️️соло/альбом NFT\n▪️️монеты (жетоны) FT\n▪️️нейро-парсинг смарт-контрактов</blockquote>",
-    'en': "<b>👩🏽‍💻 @FereyTONesBot </b>-project vacancies\n\n▪️<b>vacancies</b> project\n▪️competitions and <b>tasks</b>\n▪️<b>partners </b> and investors\n▪️services and <b>donations</b>",
-    'es': "<b>👩🏽‍💻 @FereyTONesBot </b>-vacantes de proyecto\n\n▪️<b>vacantes</b> proyecto\n▪️concursos y <b>tareas</b>\n▪️<b>socios </b> e inversores\n▪️servicios y <b>donaciones</b>",
-    'fr': "<b>👩🏽‍💻 @FereyWorkBot </b>-postes vacants du projet\n\nwithout </b> et investisseurs\n▪️services et <b>dons</b>",
-    'zh': "<b>👩🏽‍💻 @FereyWorkBot </b>-项目空缺\n\n▪️<b>空缺</b>项目\n▪️竞赛和<b>任务</b>\n▪️<b>合作伙伴</b>和投资者\n▪️服务和<b>捐赠</b>",
-    'ar': "<b>👩🏽‍💻 @FereyWorkBot </b>-الوظائف الشاغرة بالمشروع\n\n▪️<b>الوظائف الشاغرة</b> المشروع\n▪️المسابقات و<b>المهام</b>\n▪️<b>الشركاء </b> والمستثمرون\n▪️الخدمات و<b>التبرعات</b>",
+    "ru": "👩🏽‍💻 <b>Акт #5</b>: <code>заключение</code>\n\n00:05 - результаты\n00:10 - вывод\n\n<blockquote>Рассмотрены @tg-приложения #нейро-генерации/администрирования/поиска/блокчейн интеграции</blockquote>\n\n🌱 <b>Переходи</b> к <a href='{0}'>реалити-фесту</a>, чтобы подробно в режиме <b>реального времени</b> собрать все @tg-инструменты для развития своего продукта/услуги\n\n🍃 <b>Становись</b> резидентом <a href='{1}'>закрытого канала</a>, чтобы приобрести <b>рабочую книгу</b> с актуальными знаниями и в числе первых получать инструкции нового @tg-функционала",
+    "en": "👩🏽‍💻 <b>Act #5</b>: <code>conclusion</code>\n\n00:05 - results\n00:10 - summary\n\n<blockquote>Considered @tg-apps #neuro-generation/administration/search/blockchain integration</blockquote>\n\n🌱 <b>Go</b> to the <a href='{0}'>reality fest</a> to gather all @tg-tools for developing your product/service in <b>real time</b>\n\n🍃 <b>Become</b> a resident of the <a href='{1}'>closed channel</a> to get a <b>workbook</b> with current knowledge and be among the first to receive instructions for new @tg features",
+    "es": "👩🏽‍💻 <b>Acto #5</b>: <code>conclusión</code>\n\n00:05 - resultados\n00:10 - resumen\n\n<blockquote>Se consideraron aplicaciones @tg #neuro-generación/administración/búsqueda/integración blockchain</blockquote>\n\n🌱 <b>Ve</b> al <a href='{0}'>festival de realidad</a> para reunir todas las herramientas @tg para desarrollar tu producto/servicio en <b>tiempo real</b>\n\n🍃 <b>Conviértete</b> en residente del <a href='{1}'>canal cerrado</a> para obtener un <b>cuaderno de trabajo</b> con conocimientos actualizados y ser de los primeros en recibir instrucciones sobre nuevas funciones @tg",
+    "fr": "👩🏽‍💻 <b>Acte #5</b> : <code>conclusion</code>\n\n00:05 - résultats\n00:10 - résumé\n\n<blockquote>Applications @tg considérées #neuro-génération/administration/recherche/intégration blockchain</blockquote>\n\n🌱 <b>Allez</b> au <a href='{0}'>festival de la réalité</a> pour rassembler tous les outils @tg pour développer votre produit/service en <b>temps réel</b>\n\n🍃 <b>Devenez</b> résident du <a href='{1}'>canal fermé</a> pour obtenir un <b>carnet de travail</b> avec des connaissances à jour et être parmi les premiers à recevoir des instructions sur les nouvelles fonctionnalités @tg",
+    "zh": "👩🏽‍💻 <b>第5幕</b>：<code>结论</code>\n\n00:05 - 结果\n00:10 - 总结\n\n<blockquote>考虑了 @tg 应用 #神经生成/管理/搜索/区块链集成</blockquote>\n\n🌱 <b>前往</b> <a href='{0}'>现实节</a>，实时收集所有用于开发你的产品/服务的 @tg 工具\n\n🍃 <b>成为</b> <a href='{1}'>封闭频道</a> 的居民，以获取包含最新知识的 <b>工作手册</b>，并率先获得新 @tg 功能的指令",
+    "ar": "👩🏽‍💻 <b>الفصل #5</b>: <code>الخاتمة</code>\n\n00:05 - النتائج\n00:10 - الملخص\n\n<blockquote>تم النظر في تطبيقات @tg #التوليد_العصبي/الإدارة/البحث/تكامل البلوكشين</blockquote>\n\n🌱 <b>انتقل</b> إلى <a href='{0}'>مهرجان الواقع</a> لجمع جميع أدوات @tg لتطوير منتجك/خدمتك في <b>الوقت الحقيقي</b>\n\n🍃 <b>كن</b> مقيمًا في <a href='{1}'>القناة المغلقة</a> للحصول على <b>دفتر عمل</b> بالمعرفة الحالية وكن من الأوائل في تلقي تعليمات الميزات الجديدة لـ @tg",
 }
 # endregion
 

@@ -1,20 +1,19 @@
 import pandas as pd
-import json
 from typing import Optional
 from sempy_labs._helper_functions import (
-    resolve_workspace_name_and_id,
+    resolve_workspace_id,
     _base_api,
     _create_dataframe,
     _update_dataframe_datatypes,
-    resolve_item_id,
-    _decode_b64,
-    delete_item,
     get_item_definition,
+    delete_item,
 )
 
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def list_mounted_data_factories(
     workspace: Optional[str | UUID] = None,
 ) -> pd.DataFrame:
@@ -36,7 +35,7 @@ def list_mounted_data_factories(
         A pandas dataframe showing a list of mounted data factories from the specified workspace.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     columns = {
         "Mounted Data Factory Name": "str",
@@ -50,6 +49,7 @@ def list_mounted_data_factories(
         uses_pagination=True,
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             new_data = {
@@ -58,13 +58,16 @@ def list_mounted_data_factories(
                 "Description": v.get("description"),
             }
 
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def get_mounted_data_factory_definition(
     mounted_data_factory: str | UUID, workspace: Optional[str | UUID] = None
 ) -> dict:
@@ -96,6 +99,7 @@ def get_mounted_data_factory_definition(
     )
 
 
+@log
 def delete_mounted_data_factory(
     mounted_data_factory: str | UUID, workspace: Optional[str | UUID]
 ):

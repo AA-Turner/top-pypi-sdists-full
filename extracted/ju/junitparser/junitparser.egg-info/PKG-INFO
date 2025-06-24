@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: junitparser
-Version: 4.0.0
+Version: 4.0.2
 Summary: Manipulates JUnit/xUnit Result XML files
 Author-email: Weiwei Wang <gastlygem@gmail.com>
 License: Apache-2.0

@@ -192,13 +192,21 @@ class InvokeOpts(types.BaseModel):
 
 class InvokeOptsPayload(types.BaseModel):
     data: object
-    user: object
     v: typing.Optional[str]
 
 
 class WaitForEventOpts(types.BaseModel):
     if_exp: typing.Optional[str] = pydantic.Field(..., serialization_alias="if")
     timeout: str
+
+
+class AIInferOpts(types.BaseModel):
+    auth_key: str
+    body: dict[str, object]
+    format: str
+    headers: dict[str, str]
+    type: str = "step.ai.infer"
+    url: str | None = None
 
 
 class StepInfo(types.BaseModel):

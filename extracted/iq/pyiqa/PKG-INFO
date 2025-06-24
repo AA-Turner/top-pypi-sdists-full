@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyiqa
-Version: 0.1.14
+Version: 0.1.14.1
 Summary: PyTorch Toolbox for Image Quality Assessment
 Home-page: https://github.com/chaofengc/IQA-PyTorch
 Author: Chaofeng Chen

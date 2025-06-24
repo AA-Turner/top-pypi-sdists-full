@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
+import sys
 from contextlib import suppress
 from logging import getLogger
 from os import environ
 from pathlib import Path
-from platform import system
 from subprocess import STDOUT, CalledProcessError, check_output
 from time import perf_counter, sleep
 from typing import TYPE_CHECKING
@@ -21,22 +21,18 @@ from .sanitizer_util import SanitizerOptions
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Mapping
 
-if system() == "Windows":
+if sys.platform == "win32":
     from .lsof import pids_by_file
 
-CERTUTIL = "certutil.exe" if system() == "Windows" else "certutil"
-LLVM_SYMBOLIZER = "llvm-symbolizer.exe" if system() == "Windows" else "llvm-symbolizer"
+    IS_WINDOWS = True
+else:
+    IS_WINDOWS = False
+
+CERTUTIL = "certutil.exe" if IS_WINDOWS else "certutil"
+LLVM_SYMBOLIZER = "llvm-symbolizer.exe" if IS_WINDOWS else "llvm-symbolizer"
 LOG = getLogger(__name__)
 
 __author__ = "Tyson Smith"
-__all__ = (
-    "certutil_available",
-    "certutil_find",
-    "files_in_use",
-    "prepare_environment",
-    "wait_on_files",
-    "warn_open",
-)
 
 
 def _configure_sanitizers(
@@ -86,8 +82,8 @@ def _configure_sanitizers(
     # different defaults per OS
     # asan_config.add("alloc_dealloc_mismatch", "false")
     asan_config.add("check_initialization_order", "true")
-    # https://bugzil.la/1057551
-    # asan_config.add("detect_stack_use_after_return", "true")
+    # stack UAR detection works as of clang 18
+    asan_config.add("detect_stack_use_after_return", "true")
     # asan_config.add("detect_stack_use_after_scope", "true")
     asan_config.add("detect_invalid_pointer_pairs", "1")
     asan_config.add("detect_leaks", "false")
@@ -174,7 +170,7 @@ def certutil_available(certutil: str) -> bool:
             return True
     except OSError as exc:
         LOG.debug(str(exc))
-    LOG.debug("%r is not suitable for use", certutil)
+    LOG.debug("'%s' is not suitable for use", certutil)
     return False
 
 
@@ -210,7 +206,7 @@ def files_in_use(files: Iterable[Path]) -> Generator[tuple[Path, int, str]]:
         # WARNING: Process.open_files() has issues on Windows!
         # https://psutil.readthedocs.io/en/latest/#psutil.Process.open_files
         # use an alternative implementation instead
-        if system() == "Windows":
+        if sys.platform == "win32":
             for open_file, pids in pids_by_file().items():
                 for check_file in files:
                     # samefile() can raise if either file cannot be accessed
@@ -243,8 +239,8 @@ def prepare_environment(
         sanitizer_log: Location to write sanitizer logs. Log prefix set
                        with ASAN_OPTIONS=log_path=<sanitizer_log>.
         env_mod: Environment modifier. Add, remove and update entries
-                 in the prepared environment. Add and update by setting
-                 value (str) and remove by setting entry value to None.
+                 in the prepared environment. Add/update by setting
+                 value or remove entry by setting value to None.
 
     Returns:
         Environment to use when launching browser.
@@ -266,8 +262,6 @@ def prepare_environment(
     base["MOZ_DISABLE_CONTENT_SANDBOX"] = "1"
     base["MOZ_DISABLE_GMP_SANDBOX"] = "1"
     base["MOZ_DISABLE_GPU_SANDBOX"] = "1"
-    base["MOZ_DISABLE_NPAPI_SANDBOX"] = "1"
-    base["MOZ_DISABLE_PDFIUM_SANDBOX"] = "1"
     base["MOZ_DISABLE_RDD_SANDBOX"] = "1"
     base["MOZ_DISABLE_SOCKET_PROCESS_SANDBOX"] = "1"
     base["MOZ_DISABLE_UTILITY_SANDBOX"] = "1"
@@ -300,11 +294,11 @@ def prepare_environment(
     for env_name, env_value in base.items():
         if env_value is None:
             if env_name in env:
-                LOG.debug("removing env var %r", env_name)
+                LOG.debug("removing env var '%s'", env_name)
                 del env[env_name]
             continue
         if env_name in optional and env_name in env:
-            LOG.debug("skipping optional env var %r", env_name)
+            LOG.debug("skipping optional env var '%s'", env_name)
             continue
         env[env_name] = env_value
 
@@ -324,12 +318,12 @@ def wait_on_files(
     poll_rate: float = 1.0,
     timeout: float = 60,
 ) -> bool:
-    """Wait for specified files to no longer be in use by any process.
+    """Wait while specified files are in use.
 
     Args:
         wait_files: Files that must no longer be open by a process.
-        poll_rate: Amount of time in seconds to wait between checks.
-        timeout: Amount of time in seconds to poll.
+        poll_rate: Time in seconds to wait between checks.
+        timeout: Maximum number of seconds to wait.
 
     Returns:
         True if all files were closed within given time otherwise False.
@@ -344,7 +338,7 @@ def wait_on_files(
         if deadline <= perf_counter():
             LOG.debug("wait_on_files() timeout (%ds)", timeout)
             for path, pid, name in open_iter:
-                LOG.debug("%r open by %r (%d)", str(path), name, pid)
+                LOG.debug("'%s' open by '%s' (%d)", path, name, pid)
             break
         if not any(open_iter):
             all_closed = True
@@ -364,4 +358,4 @@ def warn_open(path: Path) -> None:
         None
     """
     for file_path, pid, name in files_in_use(path.iterdir()):
-        LOG.warning("%r open by %r (%d)", str(file_path), name, pid)
+        LOG.warning("'%s' open by '%s' (%d)", file_path, name, pid)

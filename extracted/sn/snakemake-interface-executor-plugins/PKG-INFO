@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: snakemake-interface-executor-plugins
-Version: 9.3.6
+Version: 9.3.7
 Summary: This package provides a stable interface for interactions between Snakemake and its executor plugins.
 License: MIT
 Author: Johannes Köster
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: argparse-dataclass (>=2.0.0)
-Requires-Dist: snakemake-interface-common (>=1.17.4)
+Requires-Dist: snakemake-interface-common (>=1.19.0)
 Requires-Dist: throttler (>=1.2.2)
 Description-Content-Type: text/markdown
 

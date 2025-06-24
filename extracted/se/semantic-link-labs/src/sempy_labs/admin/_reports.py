@@ -8,8 +8,10 @@ from sempy_labs._helper_functions import (
 )
 from uuid import UUID
 import sempy_labs._icons as icons
+from sempy._utils._log import log
 
 
+@log
 def list_reports(
     top: Optional[int] = None,
     skip: Optional[int] = None,
@@ -67,37 +69,36 @@ def list_reports(
 
     url.rstrip("$").rstrip("?")
     response = _base_api(request=url, client="fabric_sp")
-    rows = []
 
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "Report Id": v.get("id"),
-                "Report Name": v.get("name"),
-                "Type": v.get("reportType"),
-                "Web URL": v.get("webUrl"),
-                "Embed URL": v.get("embedUrl"),
-                "Dataset Id": v.get("datasetId"),
-                "Created Date": v.get("createdDateTime"),
-                "Modified Date": v.get("modifiedDateTime"),
-                "Created By": v.get("createdBy"),
-                "Modified By": v.get("modifiedBy"),
-                "Sensitivity Label Id": v.get("sensitivityLabel", {}).get("labelId"),
-                "Users": v.get("users"),
-                "Subscriptions": v.get("subscriptions"),
-                "Workspace Id": v.get("workspaceId"),
-                "Report Flags": v.get("reportFlags"),
-            }
-        )
+        new_data = {
+            "Report Id": v.get("id"),
+            "Report Name": v.get("name"),
+            "Type": v.get("reportType"),
+            "Web URL": v.get("webUrl"),
+            "Embed URL": v.get("embedUrl"),
+            "Dataset Id": v.get("datasetId"),
+            "Created Date": v.get("createdDateTime"),
+            "Modified Date": v.get("modifiedDateTime"),
+            "Created By": v.get("createdBy"),
+            "Modified By": v.get("modifiedBy"),
+            "Sensitivity Label Id": v.get("sensitivityLabel", {}).get("labelId"),
+            "Users": v.get("users"),
+            "Subscriptions": v.get("subscriptions"),
+            "Workspace Id": v.get("workspaceId"),
+            "Report Flags": v.get("reportFlags"),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def _resolve_report_id(report: str | UUID) -> str:
     if _is_valid_uuid(report):
         return report
@@ -109,6 +110,7 @@ def _resolve_report_id(report: str | UUID) -> str:
         return df_filt["Report Id"].iloc[0]
 
 
+@log
 def list_report_users(report: str | UUID) -> pd.DataFrame:
     """
     Shows a list of users that have access to the specified report.
@@ -144,27 +146,26 @@ def list_report_users(report: str | UUID) -> pd.DataFrame:
     url = f"/v1.0/myorg/admin/reports/{report_id}/users"
     response = _base_api(request=url, client="fabric_sp")
 
-    rows = []
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "User Name": v.get("displayName"),
-                "Email Address": v.get("emailAddress"),
-                "Report User Access Right": v.get("reportUserAccessRight"),
-                "Identifier": v.get("identifier"),
-                "Graph Id": v.get("graphId"),
-                "Principal Type": v.get("principalType"),
-            }
-        )
+        new_data = {
+            "User Name": v.get("displayName"),
+            "Email Address": v.get("emailAddress"),
+            "Report User Access Right": v.get("reportUserAccessRight"),
+            "Identifier": v.get("identifier"),
+            "Graph Id": v.get("graphId"),
+            "Principal Type": v.get("principalType"),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def list_report_subscriptions(report: str | UUID) -> pd.DataFrame:
     """
     Shows a list of report subscriptions along with subscriber details. This is a preview API call.
@@ -210,30 +211,28 @@ def list_report_subscriptions(report: str | UUID) -> pd.DataFrame:
         client="fabric_sp",
     )
 
-    rows = []
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "Subscription Id": v.get("id"),
-                "Title": v.get("title"),
-                "Artifact Id": v.get("artifactId"),
-                "Artifact Name": v.get("artifactDisplayName"),
-                "Sub Artifact Name": v.get("subArtifactDisplayName"),
-                "Artifact Type": v.get("artifactType"),
-                "Is Enabled": v.get("isEnabled"),
-                "Frequency": v.get("frequency"),
-                "Start Date": v.get("startDate"),
-                "End Date": v.get("endDate"),
-                "Link To Content": v.get("linkToContent"),
-                "Preview Image": v.get("previewImage"),
-                "Attachment Format": v.get("attachmentFormat"),
-                "Users": str(v.get("users")),
-            }
-        )
+        new_data = {
+            "Subscription Id": v.get("id"),
+            "Title": v.get("title"),
+            "Artifact Id": v.get("artifactId"),
+            "Artifact Name": v.get("artifactDisplayName"),
+            "Sub Artifact Name": v.get("subArtifactDisplayName"),
+            "Artifact Type": v.get("artifactType"),
+            "Is Enabled": v.get("isEnabled"),
+            "Frequency": v.get("frequency"),
+            "Start Date": v.get("startDate"),
+            "End Date": v.get("endDate"),
+            "Link To Content": v.get("linkToContent"),
+            "Preview Image": v.get("previewImage"),
+            "Attachment Format": v.get("attachmentFormat"),
+            "Users": str(v.get("users")),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df

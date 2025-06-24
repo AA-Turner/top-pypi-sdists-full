@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: neptune-api
-Version: 0.17.0
+Version: 0.18.0
 Summary: A client library for accessing Neptune API
 License: Apache-2.0
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store

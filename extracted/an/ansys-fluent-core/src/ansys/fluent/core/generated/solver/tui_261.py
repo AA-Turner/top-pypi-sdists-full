@@ -3109,11 +3109,17 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.collision_pair_selection = self.__class__.collision_pair_selection(service, version, mode, path + ["collision_pair_selection"])
                     self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.real_to_simulated_particle_ratio = self.__class__.real_to_simulated_particle_ratio(service, version, mode, path + ["real_to_simulated_particle_ratio"])
                     self.sampling_begin_iteration = self.__class__.sampling_begin_iteration(service, version, mode, path + ["sampling_begin_iteration"])
+                    self.target_number_of_particle_per_subcell = self.__class__.target_number_of_particle_per_subcell(service, version, mode, path + ["target_number_of_particle_per_subcell"])
                     self.time_step = self.__class__.time_step(service, version, mode, path + ["time_step"])
                     super().__init__(service, version, mode, path)
+                class collision_pair_selection(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class enabled(TUIMethod):
                     """
                     No help available.
@@ -3126,6 +3132,10 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
+                class target_number_of_particle_per_subcell(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class time_step(TUIMethod):
                     """
                     No help available.
@@ -3133,7 +3143,7 @@ class main_menu(TUIMenu):
 
             class electrolysis_setup(TUIMenu):
                 """
-                Enter the electrolysis and H2 pump model setup menu.
+                Enter the Electrochemical Devices setup menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.advanced_setup = self.__class__.advanced_setup(service, version, mode, path + ["advanced_setup"])
@@ -3168,10 +3178,15 @@ class main_menu(TUIMenu):
                     """
                     def __init__(self, service, version, mode, path):
                         self.contact_resistivity = self.__class__.contact_resistivity(service, version, mode, path + ["contact_resistivity"])
+                        self.membrane_species_diffusion = self.__class__.membrane_species_diffusion(service, version, mode, path + ["membrane_species_diffusion"])
                         super().__init__(service, version, mode, path)
                     class contact_resistivity(TUIMethod):
                         """
                         Set Contact Resistivity.
+                        """
+                    class membrane_species_diffusion(TUIMethod):
+                        """
+                        Set Membrane Species Diffusion.
                         """
 
                 class anode_setup(TUIMenu):
@@ -9971,11 +9986,11 @@ class main_menu(TUIMenu):
                 """
             class copy_modification(TUIMethod):
                 """
-                No help available.
+                Copy a single case modification.
                 """
             class delete_modification(TUIMethod):
                 """
-                No help available.
+                Delete a single case modification.
                 """
             class disable_modification(TUIMethod):
                 """
@@ -17113,55 +17128,10 @@ class main_menu(TUIMenu):
             self.study = self.__class__.study(service, version, mode, path + ["study"])
             self.update = self.__class__.update(service, version, mode, path + ["update"])
             self.case_settings_changed = self.__class__.case_settings_changed(service, version, mode, path + ["case_settings_changed"])
-            self.delete_study = self.__class__.delete_study(service, version, mode, path + ["delete_study"])
-            self.duplicate_study = self.__class__.duplicate_study(service, version, mode, path + ["duplicate_study"])
-            self.export_design_table = self.__class__.export_design_table(service, version, mode, path + ["export_design_table"])
-            self.import_design_table = self.__class__.import_design_table(service, version, mode, path + ["import_design_table"])
-            self.initialize = self.__class__.initialize(service, version, mode, path + ["initialize"])
-            self.list_studies = self.__class__.list_studies(service, version, mode, path + ["list_studies"])
-            self.rename_study = self.__class__.rename_study(service, version, mode, path + ["rename_study"])
-            self.set_as_current_study = self.__class__.set_as_current_study(service, version, mode, path + ["set_as_current_study"])
-            self.use_base_data = self.__class__.use_base_data(service, version, mode, path + ["use_base_data"])
             super().__init__(service, version, mode, path)
         class case_settings_changed(TUIMethod):
             """
             Check if case settings are changed.
-            """
-        class delete_study(TUIMethod):
-            """
-            Delete Study.
-            """
-        class duplicate_study(TUIMethod):
-            """
-            Duplicate Parametric Study.
-            """
-        class export_design_table(TUIMethod):
-            """
-            Export Design Point Table.
-            """
-        class import_design_table(TUIMethod):
-            """
-            Import Design Point Table.
-            """
-        class initialize(TUIMethod):
-            """
-            Start Parametric Study.
-            """
-        class list_studies(TUIMethod):
-            """
-            List Studies.
-            """
-        class rename_study(TUIMethod):
-            """
-            Rename Study.
-            """
-        class set_as_current_study(TUIMethod):
-            """
-            Set As Current Study.
-            """
-        class use_base_data(TUIMethod):
-            """
-            Use Base Data.
             """
 
         class design_points(TUIMenu):
@@ -28961,25 +28931,14 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
-                    self.case_modification = self.__class__.case_modification(service, version, mode, path + ["case_modification"])
-                    self.initialization_method = self.__class__.initialization_method(service, version, mode, path + ["initialization_method"])
-                    self.add_edit_modification = self.__class__.add_edit_modification(service, version, mode, path + ["add_edit_modification"])
+                    self.automatic_case_modification = self.__class__.automatic_case_modification(service, version, mode, path + ["automatic_case_modification"])
                     self.automatic_initialization = self.__class__.automatic_initialization(service, version, mode, path + ["automatic_initialization"])
                     self.continue_strategy_execution = self.__class__.continue_strategy_execution(service, version, mode, path + ["continue_strategy_execution"])
-                    self.copy_modification = self.__class__.copy_modification(service, version, mode, path + ["copy_modification"])
-                    self.delete_modification = self.__class__.delete_modification(service, version, mode, path + ["delete_modification"])
-                    self.disable_modification = self.__class__.disable_modification(service, version, mode, path + ["disable_modification"])
-                    self.enable_modification = self.__class__.enable_modification(service, version, mode, path + ["enable_modification"])
-                    self.enable_strategy = self.__class__.enable_strategy(service, version, mode, path + ["enable_strategy"])
-                    self.enabled = self.__class__.enabled(service, version, mode, path + ["enabled"])
                     self.execute_strategy = self.__class__.execute_strategy(service, version, mode, path + ["execute_strategy"])
-                    self.export_modifications = self.__class__.export_modifications(service, version, mode, path + ["export_modifications"])
-                    self.import_modifications = self.__class__.import_modifications(service, version, mode, path + ["import_modifications"])
+                    self.export = self.__class__.export(service, version, mode, path + ["export"])
+                    self.import_ = self.__class__.import_(service, version, mode, path + ["import_"])
+                    self.strategy_enable = self.__class__.strategy_enable(service, version, mode, path + ["strategy_enable"])
                     super().__init__(service, version, mode, path)
-                class add_edit_modification(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class automatic_initialization(TUIMethod):
                     """
                     No help available.
@@ -28988,188 +28947,79 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
-                class copy_modification(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class delete_modification(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class disable_modification(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class enable_modification(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class enable_strategy(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class enabled(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class execute_strategy(TUIMethod):
                     """
                     No help available.
                     """
-                class export_modifications(TUIMethod):
+                class export(TUIMethod):
                     """
                     No help available.
                     """
-                class import_modifications(TUIMethod):
+                class import_(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class strategy_enable(TUIMethod):
                     """
                     No help available.
                     """
 
-                class case_modification(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.before_init_modification = self.__class__.before_init_modification(service, version, mode, path + ["before_init_modification"])
-                        self.modifications = self.__class__.modifications(service, version, mode, path + ["modifications"])
-                        self.original_settings = self.__class__.original_settings(service, version, mode, path + ["original_settings"])
-                        super().__init__(service, version, mode, path)
-
-                    class before_init_modification(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.active = self.__class__.active(service, version, mode, path + ["active"])
-                            self.command = self.__class__.command(service, version, mode, path + ["command"])
-                            self.count = self.__class__.count(service, version, mode, path + ["count"])
-                            self.flowtime = self.__class__.flowtime(service, version, mode, path + ["flowtime"])
-                            self.ftselected = self.__class__.ftselected(service, version, mode, path + ["ftselected"])
-                            self.name = self.__class__.name(service, version, mode, path + ["name"])
-                            self.python_cmd = self.__class__.python_cmd(service, version, mode, path + ["python_cmd"])
-                            super().__init__(service, version, mode, path)
-                        class active(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class command(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class count(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class flowtime(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class ftselected(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class name(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class python_cmd(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class modifications(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                            self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                            self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
-                            super().__init__(service, version, mode, path)
-                        class edit(TUIMethod):
-                            """
-                            Edit modifications object.
-                            """
-                        class list_properties(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class resize(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class original_settings(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.active = self.__class__.active(service, version, mode, path + ["active"])
-                            self.command = self.__class__.command(service, version, mode, path + ["command"])
-                            self.count = self.__class__.count(service, version, mode, path + ["count"])
-                            self.flowtime = self.__class__.flowtime(service, version, mode, path + ["flowtime"])
-                            self.ftselected = self.__class__.ftselected(service, version, mode, path + ["ftselected"])
-                            self.name = self.__class__.name(service, version, mode, path + ["name"])
-                            self.python_cmd = self.__class__.python_cmd(service, version, mode, path + ["python_cmd"])
-                            super().__init__(service, version, mode, path)
-                        class active(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class command(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class count(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class flowtime(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class ftselected(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class name(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class python_cmd(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                class initialization_method(TUIMenu):
+                class automatic_case_modification(TUIMenu):
                     """
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.init_from_solution = self.__class__.init_from_solution(service, version, mode, path + ["init_from_solution"])
-                        self.init_from_data_file = self.__class__.init_from_data_file(service, version, mode, path + ["init_from_data_file"])
+                        self.add_edit = self.__class__.add_edit(service, version, mode, path + ["add_edit"])
+                        self.create = self.__class__.create(service, version, mode, path + ["create"])
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.disable = self.__class__.disable(service, version, mode, path + ["disable"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
+                        self.list = self.__class__.list(service, version, mode, path + ["list"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
                         super().__init__(service, version, mode, path)
-                    class init_from_data_file(TUIMethod):
+                    class add_edit(TUIMethod):
                         """
                         No help available.
                         """
-
-                    class init_from_solution(TUIMenu):
+                    class create(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.init_from_data_file = self.__class__.init_from_data_file(service, version, mode, path + ["init_from_data_file"])
-                            self.option = self.__class__.option(service, version, mode, path + ["option"])
-                            super().__init__(service, version, mode, path)
-                        class init_from_data_file(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class option(TUIMethod):
-                            """
-                            No help available.
-                            """
+                    class delete(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class disable(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class edit(TUIMethod):
+                        """
+                        Edit automatic-case-modification object.
+                        """
+                    class enable(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class list_properties(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class make_a_copy(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class rename(TUIMethod):
+                        """
+                        No help available.
+                        """
 
             class execute_commands(TUIMenu):
                 """
@@ -34692,10 +34542,17 @@ class main_menu(TUIMenu):
                 """
                 def __init__(self, service, version, mode, path):
                     self.iter_count = self.__class__.iter_count(service, version, mode, path + ["iter_count"])
+                    self.max_iter_per_time_step = self.__class__.max_iter_per_time_step(service, version, mode, path + ["max_iter_per_time_step"])
                     self.profile_update_interval = self.__class__.profile_update_interval(service, version, mode, path + ["profile_update_interval"])
                     self.reporting_interval = self.__class__.reporting_interval(service, version, mode, path + ["reporting_interval"])
+                    self.time_step_count = self.__class__.time_step_count(service, version, mode, path + ["time_step_count"])
+                    self.time_step_size = self.__class__.time_step_size(service, version, mode, path + ["time_step_size"])
                     super().__init__(service, version, mode, path)
                 class iter_count(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class max_iter_per_time_step(TUIMethod):
                     """
                     No help available.
                     """
@@ -34704,6 +34561,14 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class reporting_interval(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class time_step_count(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class time_step_size(TUIMethod):
                     """
                     No help available.
                     """
@@ -34833,14 +34698,11 @@ class main_menu(TUIMenu):
                     self.flow_time = self.__class__.flow_time(service, version, mode, path + ["flow_time"])
                     self.incremental_time = self.__class__.incremental_time(service, version, mode, path + ["incremental_time"])
                     self.max_flow_time = self.__class__.max_flow_time(service, version, mode, path + ["max_flow_time"])
-                    self.max_iter_per_time_step = self.__class__.max_iter_per_time_step(service, version, mode, path + ["max_iter_per_time_step"])
                     self.method = self.__class__.method(service, version, mode, path + ["method"])
                     self.predict_next = self.__class__.predict_next(service, version, mode, path + ["predict_next"])
                     self.rotating_mesh_flow_predictor = self.__class__.rotating_mesh_flow_predictor(service, version, mode, path + ["rotating_mesh_flow_predictor"])
                     self.solution_status = self.__class__.solution_status(service, version, mode, path + ["solution_status"])
                     self.specified_time_step = self.__class__.specified_time_step(service, version, mode, path + ["specified_time_step"])
-                    self.time_step_count = self.__class__.time_step_count(service, version, mode, path + ["time_step_count"])
-                    self.time_step_size = self.__class__.time_step_size(service, version, mode, path + ["time_step_size"])
                     self.time_step_size_for_acoustic_export = self.__class__.time_step_size_for_acoustic_export(service, version, mode, path + ["time_step_size_for_acoustic_export"])
                     self.total_time = self.__class__.total_time(service, version, mode, path + ["total_time"])
                     self.total_time_step_count = self.__class__.total_time_step_count(service, version, mode, path + ["total_time_step_count"])
@@ -34867,10 +34729,6 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
-                class max_iter_per_time_step(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class method(TUIMethod):
                     """
                     No help available.
@@ -34888,14 +34746,6 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class specified_time_step(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class time_step_count(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class time_step_size(TUIMethod):
                     """
                     No help available.
                     """
@@ -39440,7 +39290,7 @@ class main_menu(TUIMenu):
                     """
                 class multiphase_specific_time_stepping(TUIMethod):
                     """
-                    No help available.
+                    Multiphase specific time stepping parameters.
                     """
                 class number_of_time_steps(TUIMethod):
                     """

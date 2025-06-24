@@ -1,8 +1,11 @@
 from collections.abc import Mapping
 from typing import Dict
 
-def deep_merge(*obj:Dict) -> Dict:
-    def merge_dicts(a:Dict, b:Dict) -> Dict:
+def deep_merge(*obj: Dict) -> Dict:
+    def merge_dicts(
+        a: Dict,
+        b: Dict
+    ) -> Dict:
         result = dict(a)
         for key, value in b.items():
             if (

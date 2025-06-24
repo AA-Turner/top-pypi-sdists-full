@@ -4,13 +4,16 @@ from sempy_labs._helper_functions import (
     _create_dataframe,
     _update_dataframe_datatypes,
     delete_item,
+    resolve_workspace_id,
 )
 import pandas as pd
 from typing import Optional
 import sempy_labs._icons as icons
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def create_warehouse(
     warehouse: str,
     description: Optional[str] = None,
@@ -68,6 +71,7 @@ def create_warehouse(
     return result.get("id")
 
 
+@log
 def list_warehouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the warehouses within a workspace.
@@ -99,7 +103,7 @@ def list_warehouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/warehouses",
@@ -107,6 +111,7 @@ def list_warehouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         client="fabric_sp",
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             prop = v.get("properties", {})
@@ -119,13 +124,16 @@ def list_warehouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 "Created Date": prop.get("createdDate"),
                 "Last Updated Time": prop.get("lastUpdatedTime"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def delete_warehouse(name: str | UUID, workspace: Optional[str | UUID] = None):
     """
     Deletes a Fabric warehouse.
@@ -145,6 +153,7 @@ def delete_warehouse(name: str | UUID, workspace: Optional[str | UUID] = None):
     delete_item(item=name, type="Warehouse", workspace=workspace)
 
 
+@log
 def get_warehouse_tables(
     warehouse: str | UUID, workspace: Optional[str | UUID] = None
 ) -> pd.DataFrame:
@@ -180,6 +189,7 @@ def get_warehouse_tables(
     return df
 
 
+@log
 def get_warehouse_columns(
     warehouse: str | UUID, workspace: Optional[str | UUID] = None
 ) -> pd.DataFrame:

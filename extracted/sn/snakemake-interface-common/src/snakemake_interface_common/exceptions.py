@@ -3,10 +3,9 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from pathlib import Path
 import sys
 import textwrap
-from typing import Optional
+from typing import Optional, Any
 
 from snakemake_interface_common.rules import RuleInterface
 
@@ -16,7 +15,11 @@ class ApiError(Exception):
 
 
 class WorkflowError(Exception):
-    def format_arg(self, arg):
+    lineno: Optional[int]
+    snakefile: Optional[str]
+    rule: Optional[RuleInterface]
+
+    def format_arg(self, arg: object) -> str:
         if isinstance(arg, str):
             return arg
         elif isinstance(arg, WorkflowError):
@@ -38,9 +41,9 @@ class WorkflowError(Exception):
 
     def __init__(
         self,
-        *args,
+        *args: Any,
         lineno: Optional[int] = None,
-        snakefile: Optional[Path] = None,
+        snakefile: Optional[str] = None,
         rule: Optional[RuleInterface] = None,
     ):
         if rule is not None:
@@ -55,12 +58,12 @@ class WorkflowError(Exception):
         if args and isinstance(args[0], str):
             spec = self._get_spec(self)
             if spec:
-                args = [f"{args[0]} ({spec})"] + list(args[1:])
+                args = tuple([f"{args[0]} ({spec})"] + list(args[1:]))
 
         super().__init__("\n".join(self.format_arg(arg) for arg in args))
 
     @classmethod
-    def _get_spec(cls, exc):
+    def _get_spec(cls, exc: "WorkflowError") -> str:
         spec = ""
         if exc.rule is not None:
             spec += f"rule {exc.rule.name}"

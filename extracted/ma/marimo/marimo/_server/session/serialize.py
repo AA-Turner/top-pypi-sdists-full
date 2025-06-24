@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
@@ -37,6 +38,7 @@ from marimo._schemas.session import (
 )
 from marimo._server.session.session_view import SessionView
 from marimo._types.ids import CellId_t
+from marimo._utils.async_path import AsyncPath
 from marimo._utils.background_task import AsyncBackgroundTask
 from marimo._utils.lists import as_list
 
@@ -80,7 +82,8 @@ def serialize_session_view(
         if view.cell_ids is not None:
             cell_ids = view.cell_ids.cell_ids
         else:
-            LOGGER.warning(
+            # TODO: This is a problem for exporting to HTML, but not for caching the session view for replays. Something seems off.
+            LOGGER.debug(
                 "When serializing session view, the notebook-order of cells was "
                 "not known. This may cause issues when attempting to "
                 "reconstruct the notebook state from the serialized session "
@@ -315,13 +318,19 @@ class SessionCacheWriter(AsyncBackgroundTask):
     ) -> None:
         super().__init__()
         self.session_view = session_view
-        self.path = path
+        # Windows does not support our async path implementation
+        self.path: AsyncPath | Path = path
+        if os.name != "nt":
+            self.path = AsyncPath(path)
         self.interval = interval
 
     async def startup(self) -> None:
         # Create parent directories if they don't exist
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(self.path, AsyncPath):
+                await self.path.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             LOGGER.error(f"Failed to create parent directories: {e}")
             raise
@@ -333,7 +342,10 @@ class SessionCacheWriter(AsyncBackgroundTask):
                     self.session_view.mark_auto_export_session()
                     LOGGER.debug(f"Writing session view to cache {self.path}")
                     data = serialize_session_view(self.session_view)
-                    self.path.write_text(json.dumps(data, indent=2))
+                    if isinstance(self.path, AsyncPath):
+                        await self.path.write_text(json.dumps(data, indent=2))
+                    else:
+                        self.path.write_text(json.dumps(data, indent=2))
                 await asyncio.sleep(self.interval)
             except asyncio.CancelledError:
                 raise

@@ -5,10 +5,13 @@
 
 import ctypes
 import ctypes.wintypes
+import sys
 from logging import getLogger
 from subprocess import Handle  # type: ignore[attr-defined]
 
 from psutil import Process
+
+assert sys.platform == "win32"
 
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
 JOB_OBJECT_LIMIT_JOB_MEMORY = 0x200
@@ -16,7 +19,6 @@ JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x100
 
 THREAD_SUSPEND_RESUME = 0x0002
 
-__all__ = ("config_job_object", "resume_suspended_process")
 __author__ = "Jesse Schwartzentruber"
 
 LOG = getLogger(__name__)
@@ -75,7 +77,7 @@ def config_job_object(handle: Handle, limit: int) -> None:
         None
     """
     assert limit > 0
-    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    kernel32 = ctypes.windll.kernel32
     job = Handle(kernel32.CreateJobObjectA(None, None))
     try:
         assert kernel32.AssignProcessToJobObject(job, handle)
@@ -102,7 +104,7 @@ def resume_suspended_process(pid: int) -> None:
     Returns:
         None
     """
-    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    kernel32 = ctypes.windll.kernel32
     for tinfo in Process(pid).threads():
         thnd = Handle(kernel32.OpenThread(THREAD_SUSPEND_RESUME, False, tinfo.id))
         try:

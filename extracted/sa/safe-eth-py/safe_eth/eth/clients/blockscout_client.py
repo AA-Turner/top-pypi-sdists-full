@@ -100,6 +100,14 @@ class BlockscoutClient:
         EthereumNetwork.BIRDLAYER: "https://scan.birdlayer.xyz/api/v2",
         EthereumNetwork.TAC_TURIN: "https://turin.explorer.tac.build/api/v2",
         EthereumNetwork.ALEPH_ZERO: "https://evm-explorer-testnet.alephzero.org/api/v2/",
+        EthereumNetwork.AUTONOMYS_TAURUS_TESTNET: "https://explorer.auto-evm.taurus.autonomys.xyz/api/v2/",
+        EthereumNetwork.STORY_AENEID_TESTNET: "https://aeneid.storyscan.xyz/api/v2/",
+        EthereumNetwork.STORY: "https://mainnet.storyscan.xyz/api/v2/",
+        EthereumNetwork.AUTONITY_PICCADILLY_TIBER_TESTNET: "https://piccadilly.autonity.org/api/v2",
+        EthereumNetwork.SONEIUM_TESTNET_MINATO: "https://soneium-minato.blockscout.com/api/v2/",
+        EthereumNetwork.IMMUTABLE_ZKEVM: "https://explorer.immutable.com/api/v2/",
+        EthereumNetwork.IMMUTABLE_ZKEVM_TESTNET: "https://explorer.testnet.immutable.com/api/v2/",
+        EthereumNetwork.ARENA_Z: "https://explorer.arena-z.gg/api/v2",
     }
 
     def __init__(

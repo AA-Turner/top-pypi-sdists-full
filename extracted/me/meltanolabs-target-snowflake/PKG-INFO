@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: meltanolabs-target-snowflake
-Version: 0.17.4
+Version: 0.17.5
 Summary: Singer target for Snowflake, built with the Meltano SDK for Singer Targets.
 License: Apache-2.0
 Keywords: ELT,Snowflake

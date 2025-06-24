@@ -18,7 +18,7 @@ from maleo_foundation.models.responses import BaseResponses
 from maleo_foundation.models.transfers.general.token import MaleoFoundationTokenGeneralTransfers
 from maleo_foundation.models.transfers.parameters.token import MaleoFoundationTokenParametersTransfers
 from maleo_foundation.models.transfers.parameters.signature import MaleoFoundationSignatureParametersTransfers
-from maleo_foundation.models.transfers.general import RequestContextTransfers
+from maleo_foundation.models.transfers.general.request import RequestContext
 from maleo_foundation.utils.extractor import extract_request_context
 from maleo_foundation.utils.logging import MiddlewareLogger
 
@@ -30,10 +30,10 @@ class RateLimiter:
 
     def __init__(
         self,
-        limit:int,
-        window:timedelta,
-        ip_timeout:timedelta,
-        cleanup_interval:timedelta
+        limit: int,
+        window: timedelta,
+        ip_timeout: timedelta,
+        cleanup_interval: timedelta
     ):
         self.limit = limit
         self.window = window
@@ -46,7 +46,7 @@ class RateLimiter:
 
     def is_rate_limited(
         self,
-        request_context:RequestContextTransfers
+        request_context: RequestContext
     ) -> bool:
         """Check if client IP is rate limited and record the request."""
         with self._lock:
@@ -70,7 +70,7 @@ class RateLimiter:
 
     def cleanup_old_data(
         self,
-        logger:MiddlewareLogger
+        logger: MiddlewareLogger
     ) -> None:
         """Clean up old request data to prevent memory growth."""
         now = datetime.now()
@@ -107,19 +107,19 @@ class ResponseBuilder:
 
     def __init__(
         self,
-        keys:BaseGeneralSchemas.RSAKeys,
-        maleo_foundation:MaleoFoundationClientManager
+        keys: BaseGeneralSchemas.RSAKeys,
+        maleo_foundation: MaleoFoundationClientManager
     ):
         self.keys = keys
         self.maleo_foundation = maleo_foundation
 
     def add_response_headers(
         self,
-        authentication:Authentication,
-        response:Response,
-        request_context:RequestContextTransfers,
-        responded_at:datetime,
-        process_time:float
+        authentication: Authentication,
+        response: Response,
+        request_context: RequestContext,
+        responded_at: datetime,
+        process_time: float
     ) -> Response:
         """Add custom headers to response."""
         # Basic headers
@@ -138,10 +138,10 @@ class ResponseBuilder:
 
     def _add_signature_header(
         self,
-        response:Response,
-        request_context:RequestContextTransfers,
-        responded_at:datetime,
-        process_time:float
+        response: Response,
+        request_context: RequestContext,
+        responded_at: datetime,
+        process_time: float
     ) -> None:
         """Generate and add signature header."""
         message = (
@@ -161,7 +161,7 @@ class ResponseBuilder:
 
     def _add_new_authorization_header(
         self,
-        request_context:RequestContextTransfers,
+        request_context:RequestContext,
         authentication:Authentication,
         response:Response
     ) -> None:
@@ -185,9 +185,9 @@ class ResponseBuilder:
 
     def _should_regenerate_auth(
         self,
-        request_context:RequestContextTransfers,
-        authentication:Authentication,
-        response:Response
+        request_context: RequestContext,
+        authentication: Authentication,
+        response: Response
     ) -> bool:
         """Check if authorization should be regenerated."""
         return (
@@ -205,10 +205,10 @@ class RequestLogger:
 
     def log_request_response(
         self,
-        authentication:Authentication,
-        response:Response,
-        request_context:RequestContextTransfers,
-        log_level:str = "info"
+        authentication: Authentication,
+        response: Response,
+        request_context: RequestContext,
+        log_level: str = "info"
     ) -> None:
         """Log request and response details."""
         authentication_info = self._get_authentication_info(authentication)
@@ -223,9 +223,9 @@ class RequestLogger:
     
     def log_exception(
         self,
-        authentication:Authentication,
-        error:Exception,
-        request_context:RequestContextTransfers
+        authentication: Authentication,
+        error: Exception,
+        request_context: RequestContext
     ) -> None:
         """Log exception details."""
         authentication_info = self._get_authentication_info(authentication)
@@ -260,18 +260,18 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app:FastAPI,
-        keys:BaseGeneralSchemas.RSAKeys,
-        logger:MiddlewareLogger,
-        maleo_foundation:MaleoFoundationClientManager,
-        allow_origins:Sequence[str] = (),
-        allow_methods:Sequence[str] = ("GET",),
-        allow_headers:Sequence[str] = (),
-        allow_credentials:bool = False,
-        limit:int = 10,
-        window:int = 1,
-        cleanup_interval:int = 60,
-        ip_timeout:int = 300
+        app: FastAPI,
+        keys: BaseGeneralSchemas.RSAKeys,
+        logger: MiddlewareLogger,
+        maleo_foundation: MaleoFoundationClientManager,
+        allow_origins: Sequence[str] = (),
+        allow_methods: Sequence[str] = ("GET",),
+        allow_headers: Sequence[str] = (),
+        allow_credentials: bool = False,
+        limit: int = 10,
+        window: int = 1,
+        cleanup_interval: int = 60,
+        ip_timeout: int = 300
     ):
         super().__init__(app)
 
@@ -293,7 +293,11 @@ class BaseMiddleware(BaseHTTPMiddleware):
             'allow_credentials': allow_credentials,
         }
 
-    async def dispatch(self, request:Request, call_next:RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint
+    ) -> Response:
         """Main middleware dispatch method."""
         # Setup
         self.rate_limiter.cleanup_old_data(self.request_logger.logger)
@@ -333,9 +337,9 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
     def _create_rate_limit_response(
         self,
-        authentication:Authentication,
-        request_context:RequestContextTransfers,
-        start_time:float
+        authentication: Authentication,
+        request_context: RequestContext,
+        start_time: float
     ) -> Response:
         """Create rate limit exceeded response."""
         response = JSONResponse(
@@ -349,11 +353,11 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
     def _build_final_response(
         self,
-        authentication:Authentication,
-        response:Response,
-        request_context:RequestContextTransfers,
-        start_time:float,
-        log_level:str = "info"
+        authentication: Authentication,
+        response: Response,
+        request_context: RequestContext,
+        start_time: float,
+        log_level: str = "info"
     ) -> Response:
         """Build final response with headers and logging."""
         responded_at = datetime.now(tz=timezone.utc)
@@ -373,10 +377,10 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
     def _handle_exception(
         self,
-        authentication:Authentication,
-        error:Exception,
-        request_context:RequestContextTransfers,
-        start_time:float
+        authentication: Authentication,
+        error: Exception,
+        request_context: RequestContext,
+        start_time: float
     ) -> Response:
         """Handle exceptions and create error response."""
         responded_at = datetime.now(tz=timezone.utc)
@@ -397,18 +401,18 @@ class BaseMiddleware(BaseHTTPMiddleware):
 
 
 def add_base_middleware(
-    app:FastAPI,
-    keys:BaseGeneralSchemas.RSAKeys,
-    logger:MiddlewareLogger,
-    maleo_foundation:MaleoFoundationClientManager,
-    allow_origins:Sequence[str] = (),
-    allow_methods:Sequence[str] = ("GET",),
-    allow_headers:Sequence[str] = (),
-    allow_credentials:bool = False,
-    limit:int = 10,
-    window:int = 1,
-    cleanup_interval:int = 60,
-    ip_timeout:int = 300
+    app: FastAPI,
+    keys: BaseGeneralSchemas.RSAKeys,
+    logger: MiddlewareLogger,
+    maleo_foundation: MaleoFoundationClientManager,
+    allow_origins: Sequence[str] = (),
+    allow_methods: Sequence[str] = ("GET",),
+    allow_headers: Sequence[str] = (),
+    allow_credentials: bool = False,
+    limit: int = 10,
+    window: int = 1,
+    cleanup_interval: int = 60,
+    ip_timeout: int = 300
 ) -> None:
     """
     Add Base middleware to the FastAPI application.

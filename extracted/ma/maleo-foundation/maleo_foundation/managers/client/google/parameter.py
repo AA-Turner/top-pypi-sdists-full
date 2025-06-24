@@ -11,14 +11,21 @@ from .base import GoogleClientManager
 class GoogleParameterManager(GoogleClientManager):
     def __init__(
         self,
-        log_config:SimpleConfig,
-        service_key:BaseTypes.OptionalString=None,
-        credentials:Optional[Credentials]=None,
-        credentials_path:Optional[Union[Path, str]]=None
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None,
+        credentials: Optional[Credentials] = None,
+        credentials_path: Optional[Union[Path, str]] = None
     ) -> None:
         key = "google-parameter-manager"
         name = "GoogleParameterManager"
-        super().__init__(key, name, log_config, service_key, credentials, credentials_path)
+        super().__init__(
+            key,
+            name,
+            log_config,
+            service_key,
+            credentials,
+            credentials_path
+        )
         self._client = parametermanager.ParameterManagerClient(credentials=self._credentials)
         self._logger.info("Client manager initialized successfully")
 

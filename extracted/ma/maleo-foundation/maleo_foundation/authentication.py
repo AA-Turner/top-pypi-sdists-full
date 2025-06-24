@@ -6,14 +6,14 @@ from maleo_foundation.models.transfers.general.token import MaleoFoundationToken
 from maleo_foundation.types import BaseTypes
 
 class Token(BaseModel):
-    type:BaseEnums.TokenType = Field(..., description="Token's type")
-    payload:MaleoFoundationTokenGeneralTransfers.DecodePayload = Field(..., description="Token's payload")
+    type: BaseEnums.TokenType = Field(..., description="Token's type")
+    payload: MaleoFoundationTokenGeneralTransfers.DecodePayload = Field(..., description="Token's payload")
 
 class Credentials(AuthCredentials):
     def __init__(
         self,
-        token:Optional[Token] = None,
-        scopes:Optional[Sequence[str]] = None
+        token: Optional[Token] = None,
+        scopes: Optional[Sequence[str]] = None
     ) -> None:
         self._token = token
         super().__init__(scopes)
@@ -25,9 +25,9 @@ class Credentials(AuthCredentials):
 class User(BaseUser):
     def __init__(
         self,
-        authenticated:bool = True,
-        username:str = "",
-        email:str = ""
+        authenticated: bool = True,
+        username: str = "",
+        email: str = ""
     ) -> None:
         self._authenticated = authenticated
         self._username = username
@@ -46,8 +46,8 @@ class User(BaseUser):
         return self._email
 
 class Authentication(BaseModel):
-    credentials:Credentials = Field(..., description="Credentials's information")
-    user:User = Field(..., description="User's information")
+    credentials: Credentials = Field(..., description="Credentials's information")
+    user: User = Field(..., description="User's information")
 
     class Config:
         arbitrary_types_allowed=True

@@ -7,53 +7,53 @@ use std::str::FromStr;
 #[derive(Serialize, Debug, Clone, Eq, PartialEq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum PlatformTag {
-    /// Use the manylinux_x_y tag
+    /// Use the `manylinux_<major>_<minor>` tag
     Manylinux {
         /// GLIBC version major
-        x: u16,
+        major: u16,
         /// GLIBC version minor
-        y: u16,
+        minor: u16,
     },
-    /// Use the musllinux_x_y tag
+    /// Use the `musllinux_<major>_<minor>` tag
     Musllinux {
         /// musl libc version major
-        x: u16,
+        major: u16,
         /// musl libc version minor
-        y: u16,
+        minor: u16,
     },
     /// Use the native linux tag
     Linux,
+    /// Ensure that a PyPI-compatible tag is used, error if the target is not supported by PyPI.
+    Pypi,
 }
 
 impl PlatformTag {
     /// `manylinux1` aka `manylinux_2_5`
     pub fn manylinux1() -> Self {
-        Self::Manylinux { x: 2, y: 5 }
+        Self::Manylinux { major: 2, minor: 5 }
     }
 
     /// `manylinux2010` aka `manylinux_2_12`
     pub fn manylinux2010() -> Self {
-        Self::Manylinux { x: 2, y: 12 }
+        Self::Manylinux {
+            major: 2,
+            minor: 12,
+        }
     }
 
     /// `manylinux2014` aka `manylinux_2_17`
     pub fn manylinux2014() -> Self {
-        Self::Manylinux { x: 2, y: 17 }
+        Self::Manylinux {
+            major: 2,
+            minor: 17,
+        }
     }
 
-    /// manylinux aliases
+    /// manylinux aliases, namely `manylinux1`, `manylinux2010` and `manylinux2014`.
     pub fn aliases(&self) -> Vec<String> {
-        match self {
-            PlatformTag::Manylinux { .. } => {
-                if let Some(policy) = Policy::from_name(&self.to_string()) {
-                    policy.aliases
-                } else {
-                    Vec::new()
-                }
-            }
-            PlatformTag::Musllinux { .. } => Vec::new(),
-            PlatformTag::Linux => Vec::new(),
-        }
+        Policy::from_tag(self)
+            .map(|policy| policy.aliases)
+            .unwrap_or_default()
     }
 
     /// Is this a portable linux platform tag
@@ -73,12 +73,18 @@ impl PlatformTag {
         matches!(self, PlatformTag::Musllinux { .. })
     }
 
+    /// Is this the PyPI compatibility option
+    pub fn is_pypi(&self) -> bool {
+        matches!(self, PlatformTag::Pypi)
+    }
+
     /// Is it supported by Rust compiler and manylinux project
     pub fn is_supported(&self) -> bool {
         match self {
-            PlatformTag::Manylinux { x, y } => (*x, *y) >= (2, 17),
+            PlatformTag::Manylinux { major, minor } => (*major, *minor) >= (2, 17),
             PlatformTag::Musllinux { .. } => true,
             PlatformTag::Linux => true,
+            PlatformTag::Pypi => true,
         }
     }
 }
@@ -86,9 +92,10 @@ impl PlatformTag {
 impl fmt::Display for PlatformTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            PlatformTag::Manylinux { x, y } => write!(f, "manylinux_{x}_{y}"),
-            PlatformTag::Musllinux { x, y } => write!(f, "musllinux_{x}_{y}"),
+            PlatformTag::Manylinux { major, minor } => write!(f, "manylinux_{major}_{minor}"),
+            PlatformTag::Musllinux { major, minor } => write!(f, "musllinux_{major}_{minor}"),
             PlatformTag::Linux => write!(f, "linux"),
+            PlatformTag::Pypi => write!(f, "pypi"),
         }
     }
 }
@@ -100,33 +107,34 @@ impl FromStr for PlatformTag {
         let value = value.to_ascii_lowercase();
         match value.as_str() {
             "off" | "linux" => Ok(PlatformTag::Linux),
+            "pypi" => Ok(PlatformTag::Pypi),
             "1" | "manylinux1" => Ok(PlatformTag::manylinux1()),
             "2010" | "manylinux2010" => Ok(PlatformTag::manylinux2010()),
             "2014" | "manylinux2014" => Ok(PlatformTag::manylinux2014()),
             _ => {
                 if let Some(value) = value.strip_prefix("musllinux_") {
                     let mut parts = value.split('_');
-                    let x = parts
+                    let major = parts
                         .next()
-                        .and_then(|x| x.parse::<u16>().ok())
+                        .and_then(|major| major.parse::<u16>().ok())
                         .ok_or("invalid musllinux option")?;
-                    let y = parts
+                    let minor = parts
                         .next()
-                        .and_then(|y| y.parse::<u16>().ok())
+                        .and_then(|minor| minor.parse::<u16>().ok())
                         .ok_or("invalid musllinux option")?;
-                    Ok(PlatformTag::Musllinux { x, y })
+                    Ok(PlatformTag::Musllinux { major, minor })
                 } else {
                     let value = value.strip_prefix("manylinux_").unwrap_or(&value);
                     let mut parts = value.split('_');
-                    let x = parts
+                    let major = parts
                         .next()
-                        .and_then(|x| x.parse::<u16>().ok())
+                        .and_then(|major| major.parse::<u16>().ok())
                         .ok_or("invalid manylinux option")?;
-                    let y = parts
+                    let minor = parts
                         .next()
-                        .and_then(|y| y.parse::<u16>().ok())
+                        .and_then(|minor| minor.parse::<u16>().ok())
                         .ok_or("invalid manylinux option")?;
-                    Ok(PlatformTag::Manylinux { x, y })
+                    Ok(PlatformTag::Manylinux { major, minor })
                 }
             }
         }

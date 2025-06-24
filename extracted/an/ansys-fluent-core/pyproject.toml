@@ -11,7 +11,6 @@ requires-python = ">=3.10,<3.14"
 license = {file = "LICENSE"}
 authors = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
 maintainers = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
-repository = "https://github.com/ansys/pyfluent"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
@@ -22,7 +21,7 @@ dependencies = [
     "ansys-api-fluent>=0.3.35",
     "ansys-platform-instancemanagement~=1.1",
     "ansys-tools-filetransfer>=0.1,<0.3",
-    "ansys-units>=0.6.0,<1.0",
+    "ansys-units>=0.6.dev1,<1.0",
     "defusedxml>=0.7.1",
     "deprecated>=1.2.18",
     "docker>=7.1.0",
@@ -45,16 +44,16 @@ reader = ["h5py==3.13.0"]
 tests = [
     "pytest==8.3.5",
     "pytest-cov==6.1.1",
-    "pytest-mock==3.14.0",
-    "pytest-xdist==3.6.1",
+    "pytest-mock==3.14.1",
+    "pytest-xdist==3.7.0",
     "pyfakefs==5.8.0"
 ]
 docs = [
     "Sphinx==8.1.3",
     "jupyter_sphinx==0.5.3",
     "numpydoc==1.8.0",
-    "matplotlib==3.10.1",
-    "ansys-sphinx-theme==1.4.2",
+    "matplotlib==3.10.3",
+    "ansys-sphinx-theme==1.5.2",
     "pypandoc==1.15",
     "pytest-sphinx==0.6.3",
     "sphinx-autobuild==2024.10.3",
@@ -70,19 +69,18 @@ docs = [
     "openpyxl>=3.1.5",
     "plotly>=5.22.0",
     "python-pptx>=0.6.23",
-    "quarto-cli==1.7.29",
+    "quarto-cli==1.7.32",
     "pdf2image==1.17.0",
     "seaborn>=0.13.2",
-    "tensorflow>=2.17.0",
 ]
 
 [tool.flit.module]
 name = "ansys.fluent.core"
 
 [project.urls]
-"Documentation" = "https://fluent.docs.pyansys.com/"
-"Source" = "https://github.com/ansys/pyfluent"
-"Tracker" = "https://github.com/ansys/pyfluent/issues"
+Documentation = "https://fluent.docs.pyansys.com/"
+Source = "https://github.com/ansys/pyfluent"
+Tracker = "https://github.com/ansys/pyfluent/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

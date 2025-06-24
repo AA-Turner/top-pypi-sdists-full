@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: neptune-scale
-Version: 0.15.0
+Version: 0.16.0
 Summary: A minimal client library
 License: Apache-2.0
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store

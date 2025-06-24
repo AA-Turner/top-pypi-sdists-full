@@ -1970,9 +1970,12 @@ class PyCommand:
                 id,
             ]
         # Possible error thrown from the grpc layer
-        except (RuntimeError, ValueError):
+        except (RuntimeError, ValueError) as e:
             logger.warning(
-                "Create command arguments object is available from 23.1 onwards"
+                "datamodels_se.PyCommand was unable to construct command arguments. "
+                "This may be due to gRPC issues or unsupported Fluent version (23.1+ required). "
+                "Error details: %s",
+                e,
             )
 
     def create_instance(self) -> "PyCommandArguments":
@@ -2225,7 +2228,7 @@ arg_class_by_type = {
         ["String", "ListString", "String List"], PyTextualCommandArgumentsSubItem
     ),
     **dict.fromkeys(
-        ["Real", "Int", "ListReal", "Real List", "Integer", "ListInt"],
+        ["Real", "Int", "ListReal", "Real List", "Integer", "ListInt", "Integer List"],
         PyNumericalCommandArgumentsSubItem,
     ),
     "Dict": PyDictionaryCommandArgumentsSubItem,

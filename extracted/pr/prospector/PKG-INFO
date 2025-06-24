@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: prospector
-Version: 1.17.1
+Version: 1.17.2
 Summary: Prospector is a tool to analyse Python code by aggregating the result of other tools.
 License: GPLv2+
 Keywords: prospector,pylint,static code analysis

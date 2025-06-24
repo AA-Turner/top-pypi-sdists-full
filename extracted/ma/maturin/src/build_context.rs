@@ -10,6 +10,7 @@ use crate::module_writer::{
 };
 use crate::project_layout::ProjectLayout;
 use crate::source_distribution::source_distribution;
+use crate::target::validate_wheel_filename_for_pypi;
 use crate::target::{Arch, Os};
 use crate::{
     compile, pyproject_toml::Format, BridgeModel, BuildArtifact, Metadata24, ModuleWriter,
@@ -121,7 +122,7 @@ pub struct BuildContext {
     /// When compiling for manylinux, use zig as linker to ensure glibc version compliance
     #[cfg(feature = "zig")]
     pub zig: bool,
-    /// Whether to use the the manylinux/musllinux or use the native linux tag (off)
+    /// Whether to use the manylinux/musllinux or use the native linux tag (off)
     pub platform_tag: Vec<PlatformTag>,
     /// The available python interpreter
     pub interpreter: Vec<PythonInterpreter>,
@@ -135,6 +136,8 @@ pub struct BuildContext {
     pub cargo_options: CargoOptions,
     /// Compression options
     pub compression: CompressionOptions,
+    /// Whether to validate wheels against PyPI platform tag rules
+    pub pypi_validation: bool,
 }
 
 /// The wheel file location and its Python version tag (e.g. `py3`).
@@ -184,9 +187,9 @@ impl BuildContext {
                             .map(|interp| interp.to_string())
                             .collect();
                         eprintln!(
-                                "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
-                                interp_names.iter().join(", ")
-                            );
+                            "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
+                            interp_names.iter().join(", ")
+                        );
                         built_wheels.extend(self.build_pyo3_wheels(&non_abi3_interps)?);
                     }
                     built_wheels
@@ -219,9 +222,9 @@ impl BuildContext {
                             .map(|interp| interp.to_string())
                             .collect();
                         eprintln!(
-                                "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
-                                interp_names.iter().join(", ")
-                            );
+                            "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
+                            interp_names.iter().join(", ")
+                        );
                         built_wheels.extend(self.build_pyo3_wheels(&non_abi3_interps)?);
                     }
                     built_wheels
@@ -231,6 +234,21 @@ impl BuildContext {
             BridgeModel::Cffi => self.build_cffi_wheel()?,
             BridgeModel::UniFfi => self.build_uniffi_wheel()?,
         };
+
+        // Validate wheel filenames against PyPI platform tag rules if requested
+        if self.pypi_validation {
+            for wheel in &wheels {
+                let filename = wheel
+                    .0
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .ok_or_else(|| anyhow!("Invalid wheel filename: {:?}", wheel.0))?;
+
+                if let Err(error) = validate_wheel_filename_for_pypi(filename) {
+                    bail!("PyPI validation failed: {}", error);
+                }
+            }
+        }
 
         Ok(wheels)
     }
@@ -255,6 +273,34 @@ impl BuildContext {
             }
             None => Ok(None),
         }
+    }
+
+    /// Return the tags of the wheel that this build context builds.
+    pub fn tags_from_bridge(&self) -> Result<Vec<String>> {
+        let tags = match self.bridge() {
+            BridgeModel::PyO3(bindings) | BridgeModel::Bin(Some(bindings)) => match bindings.abi3 {
+                Some(Abi3Version::Version(major, minor)) => {
+                    let platform = self.get_platform_tag(&[PlatformTag::Linux])?;
+                    vec![format!("cp{major}{minor}-abi3-{platform}")]
+                }
+                Some(Abi3Version::CurrentPython) => {
+                    let interp = &self.interpreter[0];
+                    let platform = self.get_platform_tag(&[PlatformTag::Linux])?;
+                    vec![format!(
+                        "cp{major}{minor}-abi3-{platform}",
+                        major = interp.major,
+                        minor = interp.minor
+                    )]
+                }
+                None => {
+                    vec![self.interpreter[0].get_tag(self, &[PlatformTag::Linux])?]
+                }
+            },
+            BridgeModel::Bin(None) | BridgeModel::Cffi | BridgeModel::UniFfi => {
+                self.get_universal_tags(&[PlatformTag::Linux])?.1
+            }
+        };
+        Ok(tags)
     }
 
     fn auditwheel(
@@ -669,6 +715,7 @@ impl BuildContext {
         let mut writer = WheelWriter::new(
             &tag,
             &self.out,
+            &self.project_layout.project_root,
             &self.metadata24,
             &[tag.clone()],
             self.excludes(Format::Wheel)?,
@@ -747,6 +794,7 @@ impl BuildContext {
         let mut writer = WheelWriter::new(
             &tag,
             &self.out,
+            &self.project_layout.project_root,
             &self.metadata24,
             &[tag.clone()],
             self.excludes(Format::Wheel)?,
@@ -870,6 +918,7 @@ impl BuildContext {
         let mut writer = WheelWriter::new(
             &tag,
             &self.out,
+            &self.project_layout.project_root,
             &self.metadata24,
             &tags,
             self.excludes(Format::Wheel)?,
@@ -942,6 +991,7 @@ impl BuildContext {
         let mut writer = WheelWriter::new(
             &tag,
             &self.out,
+            &self.project_layout.project_root,
             &self.metadata24,
             &tags,
             self.excludes(Format::Wheel)?,
@@ -1041,6 +1091,7 @@ impl BuildContext {
         let mut writer = WheelWriter::new(
             &tag,
             &self.out,
+            &self.project_layout.project_root,
             &metadata24,
             &tags,
             self.excludes(Format::Wheel)?,

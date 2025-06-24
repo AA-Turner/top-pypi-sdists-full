@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
+# use sys.platform for mypy
+import sys
 from enum import IntEnum, unique
 from logging import getLogger
 from os import X_OK, access, getenv
@@ -17,15 +18,8 @@ from re import compile as re_compile
 from re import match as re_match
 from shutil import copy, copyfileobj
 from subprocess import Popen, check_output
-from sys import executable
 from typing import TYPE_CHECKING
 from urllib.request import pathname2url
-
-with suppress(ImportError):
-    # pylint: disable=ungrouped-imports
-    from subprocess import CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-
-    CREATE_SUSPENDED = 0x00000004
 
 from .bootstrapper import Bootstrapper
 from .checks import CheckLogContents, CheckLogSize, CheckMemoryUsage
@@ -40,9 +34,20 @@ from .puppet_logger import PuppetLogger
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
 
-if system() == "Windows":
+if sys.platform == "win32":
+    # pylint: disable=ungrouped-imports
+    from subprocess import CREATE_NEW_PROCESS_GROUP
+
     # config_job_object is only available on Windows
     from .job_object import config_job_object, resume_suspended_process
+
+    CREATE_SUSPENDED = 0x00000004
+    CREATION_FLAGS = CREATE_NEW_PROCESS_GROUP
+    IS_WINDOWS = True
+else:
+    CREATE_SUSPENDED = 0
+    CREATION_FLAGS = 0
+    IS_WINDOWS = False
 
 
 # Note: ignore 245 for now to avoid getting flooded with OOMs that don't
@@ -53,7 +58,6 @@ BENIGN_EXIT_CODES = frozenset((0, 1, 2, 9, 15, 245))
 LOG = getLogger(__name__)
 
 __author__ = "Tyson Smith"
-__all__ = ("Debugger", "FFPuppet", "Reason")
 
 
 @unique
@@ -189,7 +193,7 @@ class FFPuppet:
                     return True
 
         except OSError:
-            LOG.debug("failed to scan log %r", str(report))
+            LOG.debug("failed to scan log '%s'", report)
 
         return False
 
@@ -274,8 +278,8 @@ class FFPuppet:
         assert token
         self._abort_tokens.add(re_compile(token))
 
-    def available_logs(self) -> list[str]:
-        """List of IDs for the currently available logs.
+    def available_logs(self) -> frozenset[str]:
+        """IDs for the currently available logs.
 
         Args:
             None
@@ -283,7 +287,7 @@ class FFPuppet:
         Returns:
             All log IDs.
         """
-        return list(self._logs.available_logs())
+        return self._logs.available_logs()
 
     def build_launch_cmd(
         self, bin_path: str, additional_args: Sequence[str] | None = None
@@ -301,7 +305,7 @@ class FFPuppet:
         # this is used by the test framework
         cmd: list[str] = []
         if bin_path.lower().endswith(".py"):
-            cmd.append(executable)
+            cmd.append(sys.executable)
         cmd += [bin_path, "-new-instance"]
         cmd.extend(self._display.args)
         if self.profile is not None:
@@ -340,10 +344,12 @@ class FFPuppet:
             ]
 
             sup_file = getenv("VALGRIND_SUP_PATH")
-            if sup_file:
+            if sup_file is not None:
                 if not isfile(sup_file):
-                    raise OSError(f"Missing Valgrind suppressions {sup_file!r}")
-                LOG.debug("using Valgrind suppressions: %r", sup_file)
+                    raise FileNotFoundError(
+                        f"Missing Valgrind suppressions '{sup_file}'"
+                    )
+                LOG.debug("using Valgrind suppressions '%s'", sup_file)
                 valgrind_cmd.append(f"--suppressions={sup_file}")
 
             cmd = valgrind_cmd + cmd
@@ -394,6 +400,10 @@ class FFPuppet:
                 "rr",
                 "record",
             ]
+            if getenv("RR_ASAN") == "1":
+                rr_cmd.append("--asan")
+            if getenv("RR_TSAN") == "1":
+                rr_cmd.append("--tsan")
             if getenv("RR_CHAOS") == "1":
                 rr_cmd.append("--chaos")
             if self._dbg == Debugger.PERNOSCO:
@@ -462,7 +472,7 @@ class FFPuppet:
         Returns:
             None
         """
-        LOG.debug("close(force_close=%r) called", force_close)
+        LOG.debug("close(force_close=%s) called", force_close)
         assert self._launches > -1, "clean_up() has been called"
         if self.reason is not None:
             # make sure browser logs are closed
@@ -601,7 +611,7 @@ class FFPuppet:
         Returns:
             None
         """
-        if system() != "Linux":  # pragma: no cover
+        if sys.platform != "linux":  # pragma: no cover
             raise NotImplementedError("dump_coverage() is not available")
         if self._proc_tree and not self._proc_tree.dump_coverage(timeout=timeout):
             LOG.warning("Timeout writing coverage data")
@@ -632,7 +642,7 @@ class FFPuppet:
             in a valid functioning state otherwise False.
         """
         if self.reason is not None:
-            LOG.debug("reason is set to %r", self.reason.name)
+            LOG.debug("reason is set to '%s'", self.reason.name)
             return False
         if self._proc_tree is None or not self._proc_tree.is_running():
             LOG.debug("ProcessTree.is_running() returned False")
@@ -642,7 +652,7 @@ class FFPuppet:
             return False
         for check in self._checks:
             if check.check():
-                LOG.debug("%r check abort conditions met", check.name)
+                LOG.debug("'%s' check abort conditions met", check.name)
                 return False
         return True
 
@@ -703,12 +713,12 @@ class FFPuppet:
         # need the path to help find symbols
         self._bin_path = bin_path.parent
 
-        LOG.debug("requested location: %r", location)
         if location is not None:
+            LOG.debug("requested location '%s'", location)
             if isfile(location):
                 location = f"file:///{pathname2url(realpath(location)).lstrip('/')}"
             elif re_match(r"http(s)?://", location, IGNORECASE) is None:
-                raise OSError(f"Cannot find {location!r}")
+                raise OSError(f"Cannot find '{location}'")
 
         # clean up existing log files
         self._logs.reset()
@@ -754,8 +764,7 @@ class FFPuppet:
             }
 
             launch_args = [bootstrapper.location]
-            is_windows = system() == "Windows"
-            if is_windows:
+            if IS_WINDOWS:
                 # disable launcher process
                 launch_args.append("-no-deelevate")
                 launch_args.append("-wait-for-browser")
@@ -785,13 +794,11 @@ class FFPuppet:
             stderr.flush()
             # launch the browser
             launch_timeout = max(launch_timeout, self.LAUNCH_TIMEOUT_MIN)
-            LOG.debug("launching (%ds) %r", launch_timeout, " ".join(cmd))
+            LOG.debug("launching (%ds) '%s'", launch_timeout, " ".join(cmd))
             self.reason = None
-            creationflags = 0
-            if is_windows:
-                creationflags |= CREATE_NEW_PROCESS_GROUP
-                if memory_limit:
-                    creationflags |= CREATE_SUSPENDED
+            creationflags = CREATION_FLAGS
+            if memory_limit and IS_WINDOWS:
+                creationflags |= CREATE_SUSPENDED
             # pylint: disable=consider-using-with
             proc = Popen(
                 cmd,
@@ -807,15 +814,16 @@ class FFPuppet:
                 stdout=self._logs.get_fp("stdout"),
             )
             self._proc_tree = ProcessTree(proc)
-            # pylint: disable=possibly-used-before-assignment
-            if memory_limit and is_windows:
-                LOG.debug("configuring job object")
-                # pylint: disable=no-member,protected-access
-                config_job_object(
-                    proc._handle,  # type: ignore[attr-defined]
-                    memory_limit,
-                )
-                resume_suspended_process(proc.pid)
+            if sys.platform == "win32":
+                # pylint: disable=possibly-used-before-assignment
+                if memory_limit:
+                    LOG.debug("configuring job object")
+                    # pylint: disable=no-member,protected-access
+                    config_job_object(
+                        proc._handle,  # type: ignore[attr-defined]
+                        memory_limit,
+                    )
+                    resume_suspended_process(proc.pid)
             bootstrapper.wait(self.is_healthy, timeout=launch_timeout, url=location)
             # check if launcher process is in use
             if self._proc_tree.launcher is not None:
@@ -849,7 +857,7 @@ class FFPuppet:
             self._checks.append(
                 CheckLogSize(log_limit, logs_fp_stderr.name, logs_fp_stdout.name)
             )
-        if memory_limit and not is_windows:
+        if memory_limit and not IS_WINDOWS:
             # memory limit is enforced with config_job_object on Windows
             self._checks.append(
                 CheckMemoryUsage(proc.pid, memory_limit, self._proc_tree.processes)
@@ -902,7 +910,7 @@ class FFPuppet:
         Returns:
             None
         """
-        LOG.debug("save_logs('%s', logs_only=%r)", dest, logs_only)
+        LOG.debug("save_logs('%s', logs_only=%s)", dest, logs_only)
         assert self._launches > -1, "clean_up() has been called"
         assert self._logs.closed, "Logs are still in use. Call close() first!"
         self._logs.save_logs(

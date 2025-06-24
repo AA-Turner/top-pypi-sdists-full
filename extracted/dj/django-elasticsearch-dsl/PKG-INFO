@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-elasticsearch-dsl
-Version: 8.0
+Version: 8.2
 Summary: Wrapper around elasticsearch-dsl-py for django models
 Home-page: https://github.com/sabricot/django-elasticsearch-dsl
 Author: Sabricot
@@ -22,10 +22,21 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: elasticsearch-dsl<9.0.0,>=8.9.0
+Requires-Dist: elasticsearch<9.0.0,>=8.18.0
 Requires-Dist: six
 Provides-Extra: celery
 Requires-Dist: celery>=4.1.0; extra == "celery"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Django Elasticsearch DSL
@@ -41,17 +52,17 @@ Django Elasticsearch DSL
     :target: https://django-elasticsearch-dsl.readthedocs.io/en/latest/
 
 Django Elasticsearch DSL is a package that allows indexing of django models in elasticsearch.
-It is built as a thin wrapper around elasticsearch-dsl-py_
-so you can use all the features developed by the elasticsearch-dsl-py team.
+It is built as a thin wrapper around elasticsearch-py_
+so you can use all the features developed by the elasticsearch-py team.
 
 You can view the full documentation at https://django-elasticsearch-dsl.readthedocs.io
 
-.. _elasticsearch-dsl-py: https://github.com/elastic/elasticsearch-dsl-py
+.. _elasticsearch-py: https://github.com/elastic/elasticsearch-py
 
 Features
 --------
 
-- Based on elasticsearch-dsl-py_ so you can make queries with the Search_ class.
+- Based on elasticsearch-py_ so you can make queries with the Search_ class.
 - Django signal receivers on save and delete for keeping Elasticsearch in sync.
 - Management commands for creating, deleting, rebuilding and populating indices.
 - Elasticsearch auto mapping from django models fields.

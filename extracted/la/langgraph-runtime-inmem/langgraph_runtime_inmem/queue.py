@@ -201,7 +201,7 @@ def _enable_blockbuster():
         "os.listdir",
         "os.remove",
         # If people are using threadpoolexecutor, etc. they'd be using this.
-        "lock.acquire",
+        "threading.Lock.acquire",
     ]
 
     for function in bb.functions:

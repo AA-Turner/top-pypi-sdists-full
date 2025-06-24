@@ -14,8 +14,8 @@ from maleo_foundation.utils.logging import ClientLogger
 class MaleoClientHTTPController(ClientHTTPController):
     def __init__(
         self,
-        service_manager:ServiceManager,
-        manager:ClientHTTPControllerManager
+        service_manager: ServiceManager,
+        manager: ClientHTTPControllerManager
     ):
         super().__init__(manager)
         self._service_manager = service_manager
@@ -33,9 +33,9 @@ class MaleoClientServiceControllers(ClientServiceControllers):
 class MaleoClientService(ClientService):
     def __init__(
         self,
-        key:str,
-        logger:ClientLogger,
-        service_manager:ServiceManager
+        key: str,
+        logger: ClientLogger,
+        service_manager: ServiceManager
     ):
         super().__init__(logger)
         self._key = key
@@ -52,10 +52,10 @@ class MaleoClientService(ClientService):
 class MaleoClientManager(ClientManager):
     def __init__(
         self,
-        key:str,
-        name:str,
-        url:str,
-        service_manager:ServiceManager
+        key: str,
+        name: str,
+        url: str,
+        service_manager: ServiceManager
     ):
         self._url = url
         self._service_manager = service_manager

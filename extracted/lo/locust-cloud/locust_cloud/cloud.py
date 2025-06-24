@@ -7,10 +7,9 @@ from threading import Thread
 import requests
 from locust_cloud.actions import delete
 from locust_cloud.apisession import ApiSession
-from locust_cloud.args import combined_cloud_parser
+from locust_cloud.args import combined_cloud_parser, transfer_encoded_file
 from locust_cloud.common import __version__
 from locust_cloud.input_events import input_listener
-from locust_cloud.web_login import logout, web_login
 from locust_cloud.websocket import SessionMismatchError, Websocket, WebsocketTimeout
 
 logger = logging.getLogger(__name__)
@@ -28,34 +27,26 @@ def configure_logging(loglevel: str) -> None:
     logging.getLogger("urllib3").setLevel(logging.INFO)
 
 
-def main():
+def deprecated_main():
+    import sys
+
+    print("`locust-cloud` is deprecated; use `locust --cloud` instead.", file=sys.stderr)
+    return 1
+
+
+def main(locustfiles: list[str] | None = None):
     options, locust_options = combined_cloud_parser.parse_known_args()
 
     configure_logging(options.loglevel)
 
-    if not options.locustfile:
+    if not locustfiles:
         logger.error("A locustfile is required to run a test.")
         return 1
 
-    if options.login:
-        try:
-            web_login()
-        except Exception:
-            pass
-        return
-    if options.logout:
-        try:
-            logout()
-        except Exception:
-            pass
-        return
+    s3_locustfiles = [transfer_encoded_file(locustfile) for locustfile in locustfiles]
 
     session = ApiSession(options.non_interactive)
     websocket = Websocket()
-
-    if options.delete:
-        delete(session)
-        return
 
     try:
         logger.info(f"Deploying ({session.region}, {__version__})")
@@ -85,7 +76,7 @@ def main():
 
         payload = {
             "locust_args": locust_args,
-            "locustfile": options.locustfile,
+            "locustfile": s3_locustfiles,
             "user_count": options.users,
             "mock_server": options.mock_server,
         }

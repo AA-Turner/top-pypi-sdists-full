@@ -1842,7 +1842,11 @@ def try_saving_to_db() -> None:
 
             initialized_storage = True
 
-        save_experiment_to_db(ax_client.experiment)
+        if ax_client is not None:
+            save_experiment_to_db(ax_client.experiment)
+        else:
+            print_red("ax_client was not defined in try_saving_to_db")
+            my_exit(101)
         save_generation_strategy(global_gs)
     except Exception as e:
         print_debug(f"Failed trying to save sqlite3-DB: {e}")
@@ -2014,6 +2018,9 @@ def print_logo() -> None:
             "Climbing the hyperparameter mountain... Montana Sacra style!",
             "better than OmniOpt1!",
             "Optimizing like it's the Matrix, but I am the One.",
+            "Not all who wander are lost... just doing a random search.",
+            "Grid search? Please, I’m doing ballet through parameter space.",
+            "Hyperparameter tuning: part science, part sorcery.",
             "Channeling my inner Gandalf: ‘You shall not pass... without fine-tuning!’",
             "Inception-level optimization: going deeper with every layer.",
             "Hyperparameter quest: It's dangerous to go alone, take this!",
@@ -3634,7 +3641,7 @@ def _write_job_infos_csv_main(parameters: dict, stdout: Optional[str], program_s
     values = _write_job_infos_csv_replace_none_with_str(values)
 
     headline = ["trial_index", *headline]
-    values = [trial_index, *values]
+    values = [str(trial_index), *values]
 
     run_folder = get_current_run_folder()
     if run_folder is not None and os.path.exists(run_folder):
@@ -3685,10 +3692,8 @@ def _write_job_infos_csv_result_to_strlist(result: Optional[Union[Dict[str, Opti
         for rkey in result:
             result_values.append(str(rkey))
     elif isinstance(result, dict):
-        result_keys = list(result.keys())
-        for rkey in result_keys:
-            rval = str(result[str(rkey)])
-            result_values.append(rval)
+        for _rkey, rval in result.items():  # type: str, Optional[float]
+            result_values.append(str(rval))
     elif result is not None:  # int or float
         result_values.append(str(result))
 
@@ -3909,6 +3914,20 @@ def _evaluate_create_signal_map() -> Dict[str, type[BaseException]]:
     }
 
 @beartype
+def sanitize_for_evaluate_handle_result(val: Optional[Union[int, float, list, tuple]]) -> Optional[Union[float, Tuple]]:
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return float(val)
+    if isinstance(val, float):
+        return val
+    if isinstance(val, list):
+        return tuple(val)
+    if isinstance(val, tuple):
+        return val
+    raise TypeError(f"Unexpected result type: {type(val)}")
+
+@beartype
 def _evaluate_handle_result(
     stdout: str,
     result: Optional[Union[int, float, dict, list]],
@@ -3918,16 +3937,19 @@ def _evaluate_handle_result(
 
     if isinstance(result, (int, float)):
         for name in arg_result_names:
-            final_result[name] = attach_sem_to_result(stdout, name, float(result))
+            value = attach_sem_to_result(stdout, name, float(result))
+            final_result[name] = sanitize_for_evaluate_handle_result(value)
 
     elif isinstance(result, list):
         float_values = [float(r) for r in result]
         for name in arg_result_names:
-            final_result[name] = attach_sem_to_result(stdout, name, float_values)
+            value = attach_sem_to_result(stdout, name, float_values)
+            final_result[name] = sanitize_for_evaluate_handle_result(value)
 
     elif isinstance(result, dict):
         for name in arg_result_names:
-            final_result[name] = attach_sem_to_result(stdout, name, result.get(name))
+            value = attach_sem_to_result(stdout, name, result.get(name))
+            final_result[name] = sanitize_for_evaluate_handle_result(value)
 
     else:
         write_failed_logs(parameters, "No Result")
@@ -5332,7 +5354,39 @@ def copy_continue_uuid() -> None:
         print_debug(f"copy_continue_uuid: Source file does not exist: {source_file}")
 
 @beartype
-def get_experiment_parameters(_params: list) -> Tuple[AxClient, Union[list, dict], dict, str, str]:
+def load_ax_client_from_experiment_parameters(experiment_parameters: dict) -> None:
+    global ax_client
+    tmp_file_path = get_tmp_file_from_json(experiment_parameters)
+    ax_client = AxClient.load_from_json_file(tmp_file_path)
+    ax_client = cast(AxClient, ax_client)
+    os.unlink(tmp_file_path)
+
+@beartype
+def save_checkpoint_for_continued(experiment_parameters: dict) -> None:
+    state_files_folder = f"{get_current_run_folder()}/state_files"
+    checkpoint_filepath = f'{state_files_folder}/checkpoint.json'
+
+    makedirs(state_files_folder)
+
+    with open(checkpoint_filepath, mode="w", encoding="utf-8") as outfile:
+        json.dump(experiment_parameters, outfile)
+
+    if not os.path.exists(checkpoint_filepath):
+        _fatal_error(f"{checkpoint_filepath} not found. Cannot continue_previous_job without.", 47)
+
+@beartype
+def load_original_generation_strategy(experiment_parameters: dict, original_ax_client_file: str) -> dict:
+    with open(original_ax_client_file, encoding="utf-8") as f:
+        loaded_original_ax_client_json = json.load(f)
+        original_generation_strategy = loaded_original_ax_client_json["generation_strategy"]
+
+        if original_generation_strategy:
+            experiment_parameters["generation_strategy"] = original_generation_strategy
+
+    return experiment_parameters
+
+@beartype
+def get_experiment_parameters(_params: list) -> Optional[Tuple[AxClient, Union[list, dict], dict, str, str]]:
     cli_params_experiment_parameters, experiment_parameters = _params
 
     continue_previous_job = args.continue_previous_job
@@ -5340,10 +5394,9 @@ def get_experiment_parameters(_params: list) -> Tuple[AxClient, Union[list, dict
 
     experiment_constraints = get_constraints()
 
-    global ax_client
-
     if not ax_client:
         _fatal_error("Something went wrong with the ax_client", 9)
+        return None
 
     gpu_string = ""
     gpu_color = "green"
@@ -5356,8 +5409,6 @@ def get_experiment_parameters(_params: list) -> Tuple[AxClient, Union[list, dict
         checkpoint_file: str = f"{continue_previous_job}/state_files/checkpoint.json"
         checkpoint_parameters_filepath: str = f"{continue_previous_job}/state_files/checkpoint.json.parameters.json"
         original_ax_client_file: str = f"{get_current_run_folder()}/state_files/original_ax_client_before_loading_tmp_one.json"
-        state_files_folder = f"{get_current_run_folder()}/state_files"
-        checkpoint_filepath = f'{state_files_folder}/checkpoint.json'
 
         die_with_47_if_file_doesnt_exists(checkpoint_parameters_filepath)
         die_with_47_if_file_doesnt_exists(checkpoint_file)
@@ -5368,37 +5419,27 @@ def get_experiment_parameters(_params: list) -> Tuple[AxClient, Union[list, dict
 
         copy_state_files_from_previous_job(continue_previous_job)
 
-        replace_parameters_for_continued_jobs(parameter, cli_params_experiment_parameters, experiment_parameters)
+        if experiment_parameters is None or "experiment" not in experiment_parameters or "search_space" not in experiment_parameters["experiment"] or "parameters" not in experiment_parameters["experiment"]["search_space"]:
+            print_red(f"Either, experiment_parameters was empty or it had no path to experiment/search_space/parameters: {experiment_parameters}")
+            my_exit(95)
+        else:
+            replace_parameters_for_continued_jobs(parameter, cli_params_experiment_parameters, experiment_parameters)
 
-        ax_client.save_to_json_file(filepath=original_ax_client_file)
+            ax_client.save_to_json_file(filepath=original_ax_client_file)
 
-        with open(original_ax_client_file, encoding="utf-8") as f:
-            loaded_original_ax_client_json = json.load(f)
-            original_generation_strategy = loaded_original_ax_client_json["generation_strategy"]
+            experiment_parameters = load_original_generation_strategy(experiment_parameters, original_ax_client_file)
 
-            if original_generation_strategy:
-                experiment_parameters["generation_strategy"] = original_generation_strategy
+            load_ax_client_from_experiment_parameters(experiment_parameters)
 
-        tmp_file_path = get_tmp_file_from_json(experiment_parameters)
-        ax_client = AxClient.load_from_json_file(tmp_file_path)
-        ax_client = cast(AxClient, ax_client)
-        os.unlink(tmp_file_path)
+            save_checkpoint_for_continued(experiment_parameters)
 
-        makedirs(state_files_folder)
+            with open(f'{get_current_run_folder()}/checkpoint_load_source', mode='w', encoding="utf-8") as f:
+                print(f"Continuation from checkpoint {continue_previous_job}", file=f)
 
-        with open(checkpoint_filepath, mode="w", encoding="utf-8") as outfile:
-            json.dump(experiment_parameters, outfile)
+            copy_continue_uuid()
 
-        if not os.path.exists(checkpoint_filepath):
-            _fatal_error(f"{checkpoint_filepath} not found. Cannot continue_previous_job without.", 47)
-
-        with open(f'{get_current_run_folder()}/checkpoint_load_source', mode='w', encoding="utf-8") as f:
-            print(f"Continuation from checkpoint {continue_previous_job}", file=f)
-
-        copy_continue_uuid()
-
-        if experiment_constraints:
-            experiment_args = set_experiment_constraints(experiment_constraints, experiment_args, experiment_parameters["experiment"]["search_space"]["parameters"])
+            if experiment_constraints:
+                experiment_args = set_experiment_constraints(experiment_constraints, experiment_args, experiment_parameters["experiment"]["search_space"]["parameters"])
     else:
         objectives = set_objectives()
 
@@ -6245,6 +6286,9 @@ def insert_job_into_ax_client(arm_params: dict, result: dict, new_job_type: str 
 
     while not done_converting:
         try:
+            if ax_client is None:
+                return False
+
             new_trial = ax_client.attach_trial(arm_params)
             if not isinstance(new_trial, tuple) or len(new_trial) < 2:
                 raise RuntimeError("attach_trial didn't return the expected tuple")
@@ -6704,6 +6748,10 @@ def _finish_job_core_helper_check_valid_result(result: Union[None, list, int, fl
 
 @beartype
 def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -> None:
+    if ax_client is None:
+        print_red("ax_client is not defined in _finish_job_core_helper_complete_trial")
+        return None
+
     try:
         print_debug(f"Completing trial: {trial_index} with result: {raw_result}...")
         ax_client.complete_trial(trial_index=trial_index, raw_data=raw_result)
@@ -6715,6 +6763,8 @@ def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -
             print_debug(f"Completing trial: {trial_index} with result: {raw_result} after failure... Done!")
         else:
             _fatal_error(f"Error completing trial: {e}", 234)
+
+    return None
 
 @beartype
 def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: Union[float, int, tuple]) -> None:
@@ -6731,6 +6781,10 @@ def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: Un
 
 @beartype
 def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any) -> None:
+    if ax_client is None:
+        print_red("ax_client is not defined in _finish_job_core_helper_mark_failure")
+        return None
+
     print_debug(f"Counting job {job} as failed, because the result is {job.result() if job else 'None'}")
     if job:
         try:
@@ -6744,6 +6798,8 @@ def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any
 
     mark_trial_as_failed(trial_index, _trial)
     failed_jobs(1)
+
+    return None
 
 @beartype
 def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
@@ -6782,6 +6838,10 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
 
 @beartype
 def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -> None:
+    if ax_client is None:
+        print_red("ax_client is not defined in _finish_job_core_helper_mark_failure")
+        return None
+
     if job:
         try:
             progressbar_description(["job_failed"])
@@ -6799,6 +6859,8 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
     with global_vars_jobs_lock:
         print_debug(f"finish_previous_jobs: removing job {job}, trial_index: {trial_index}")
         global_vars["jobs"].remove((job, trial_index))
+
+    return None
 
 @beartype
 def _finish_previous_jobs_helper_handle_exception(job: Any, trial_index: int, error: Exception) -> int:
@@ -7449,6 +7511,10 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
         return []
 
+    if ax_client is None:
+        print_red("get_batched_arms: ax_client was None")
+        return []
+
     while len(batched_arms) != nr_of_jobs_to_get:
         if attempts > args.max_attempts_for_generation:
             print_debug(f"_fetch_next_trials: Stopped after {attempts} attempts: could not generate enough arms "
@@ -7534,6 +7600,10 @@ class TrialRejected(Exception):
 
 @beartype
 def _create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
+    if ax_client is None:
+        print_red("ax_client is None in _create_and_handle_trial")
+        return None
+
     start = time.time()
 
     if global_gs is None:
@@ -9982,44 +10052,48 @@ def main() -> None:
 
     initialize_ax_client()
 
-    ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = get_experiment_parameters([
+    exp_params = get_experiment_parameters([
         cli_params_experiment_parameters,
         experiment_parameters,
     ])
 
-    print_debug(f"experiment_parameters: {experiment_parameters}")
+    if exp_params is not None:
+        ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = exp_params
+        print_debug(f"experiment_parameters: {experiment_parameters}")
 
-    set_orchestrator()
+        set_orchestrator()
 
-    show_available_hardware_and_generation_strategy_string(gpu_string, gpu_color)
+        show_available_hardware_and_generation_strategy_string(gpu_string, gpu_color)
 
-    original_print(f"Run-Program: {global_vars['joined_run_program']}")
+        original_print(f"Run-Program: {global_vars['joined_run_program']}")
 
-    if args.external_generator:
-        original_print(f"External-Generator: {decode_if_base64(args.external_generator)}")
+        if args.external_generator:
+            original_print(f"External-Generator: {decode_if_base64(args.external_generator)}")
 
-    checkpoint_parameters_filepath = f"{get_current_run_folder()}/state_files/checkpoint.json.parameters.json"
-    save_experiment_parameters(checkpoint_parameters_filepath, experiment_parameters)
+        checkpoint_parameters_filepath = f"{get_current_run_folder()}/state_files/checkpoint.json.parameters.json"
+        save_experiment_parameters(checkpoint_parameters_filepath, experiment_parameters)
 
-    print_overview_tables(experiment_parameters, experiment_args)
+        print_overview_tables(experiment_parameters, experiment_args)
 
-    write_files_and_show_overviews()
+        write_files_and_show_overviews()
 
-    for existing_run in args.load_data_from_existing_jobs:
-        insert_jobs_from_csv(f"{existing_run}/results.csv".replace("//", "/"), experiment_parameters)
+        for existing_run in args.load_data_from_existing_jobs:
+            insert_jobs_from_csv(f"{existing_run}/results.csv".replace("//", "/"), experiment_parameters)
 
-        set_global_generation_strategy()
+            set_global_generation_strategy()
 
-    try:
-        run_search_with_progress_bar()
+        try:
+            run_search_with_progress_bar()
 
-        live_share()
+            live_share()
 
-        time.sleep(2)
-    except ax.exceptions.core.UnsupportedError:
-        pass
+            time.sleep(2)
+        except ax.exceptions.core.UnsupportedError:
+            pass
 
-    end_program()
+        end_program()
+    else:
+        print_red("exp_params is None!")
 
 @beartype
 def log_worker_creation() -> None:

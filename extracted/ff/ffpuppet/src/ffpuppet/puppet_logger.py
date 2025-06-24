@@ -19,14 +19,12 @@ from typing import IO, TYPE_CHECKING
 from .helpers import warn_open
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, KeysView
+    from collections.abc import Generator
 
 LOG = getLogger(__name__)
 
 __author__ = "Tyson Smith"
 __credits__ = ["Tyson Smith"]
-
-__all__ = ("PuppetLogger",)
 
 
 class PuppetLogger:  # pylint: disable=missing-docstring
@@ -65,7 +63,9 @@ class PuppetLogger:  # pylint: disable=missing-docstring
         assert log_id not in self._logs
         assert not self.closed
         if logfp is None:
-            logfp = PuppetLogger.open_unique(base_dir=str(self.path))
+            logfp = PuppetLogger.open_unique(
+                base_dir=str(self.path) if self.path else None
+            )
         self._logs[log_id] = logfp
         return logfp
 
@@ -82,20 +82,20 @@ class PuppetLogger:  # pylint: disable=missing-docstring
         assert not self.closed
         assert self.path is not None
         path = self.path / name
-        LOG.debug("adding path %r as '%s'", name, path)
+        LOG.debug("adding path '%s' as '%s'", name, path)
         path.mkdir()
         return path
 
-    def available_logs(self) -> KeysView[str]:
-        """List of IDs for the available logs.
+    def available_logs(self) -> frozenset[str]:
+        """IDs for the available logs.
 
         Args:
             None
 
         Returns:
-            A list containing log IDs.
+            All available log IDs.
         """
-        return self._logs.keys()
+        return frozenset(self._logs.keys())
 
     def clean_up(self, ignore_errors: bool = False) -> None:
         """Remove log files from disk.
@@ -189,10 +189,10 @@ class PuppetLogger:  # pylint: disable=missing-docstring
         try:
             log_fp = self._logs[log_id]
         except KeyError:
-            LOG.warning("log_id %r does not exist", log_id)
+            LOG.warning("log_id '%s' does not exist", log_id)
             return None
         if log_fp.name is None or not isfile(log_fp.name):
-            raise OSError(f"log file {log_fp.name!r} does not exist")
+            raise FileNotFoundError(f"Log file not found: {log_fp.name}")
         return log_fp
 
     def log_length(self, log_id: str) -> int | None:

@@ -11,10 +11,7 @@ class RetryableException(Exception):
     pass
 
 
-RETRIABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
-    RetryableException,
-    asyncio.CancelledError,
-)
+RETRIABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (RetryableException,)
 OVERLOADED_EXCEPTIONS: tuple[type[BaseException], ...] = ()
 
 

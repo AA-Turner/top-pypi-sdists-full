@@ -11,8 +11,10 @@ from sempy_labs._helper_functions import (
     create_item,
 )
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def create_environment(
     environment: str,
     description: Optional[str] = None,
@@ -43,6 +45,7 @@ def create_environment(
     )
 
 
+@log
 def list_environments(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the environments within a workspace.
@@ -85,6 +88,7 @@ def list_environments(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         client="fabric_sp",
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             pub = v.get("properties", {}).get("publishDetails", {})
@@ -103,11 +107,15 @@ def list_environments(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 .get("sparkSettings", {})
                 .get("state"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def delete_environment(environment: str | UUID, workspace: Optional[str | UUID] = None):
     """
     Deletes a Fabric environment.
@@ -127,6 +135,7 @@ def delete_environment(environment: str | UUID, workspace: Optional[str | UUID] 
     delete_item(item=environment, type="Environment", workspace=workspace)
 
 
+@log
 def publish_environment(
     environment: str | UUID, workspace: Optional[str | UUID] = None
 ):

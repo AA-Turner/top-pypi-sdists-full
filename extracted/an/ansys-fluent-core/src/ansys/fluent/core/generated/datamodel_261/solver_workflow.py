@@ -205,8 +205,15 @@ class Root(PyMenu):
         Singleton GlobalSettings.
         """
         def __init__(self, service, rules, path):
+            self.CurrentTask = self.__class__.CurrentTask(service, rules, path + [("CurrentTask", "")])
             self.EnableTurboMeshing = self.__class__.EnableTurboMeshing(service, rules, path + [("EnableTurboMeshing", "")])
             super().__init__(service, rules, path)
+
+        class CurrentTask(PyTextual):
+            """
+            Parameter CurrentTask of value type str.
+            """
+            pass
 
         class EnableTurboMeshing(PyParameter):
             """

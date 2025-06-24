@@ -4,7 +4,11 @@ from fastapi.encoders import jsonable_encoder
 
 class BaseCacheConfigurations:
     @staticmethod
-    def key_builder(func: Callable, *args, **kwargs) -> str:
+    def key_builder(
+        func: Callable,
+        *args,
+        **kwargs
+    ) -> str:
         arg_values = []
         for arg in args:
             try:

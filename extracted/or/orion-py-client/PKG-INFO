@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orion_py_client
-Version: 0.1.4
+Version: 0.1.5
 Summary: Python Client for Orion Feature Store to push/produce Model Features and get features' metadata
 Project-URL: Homepage, https://github.com/Meesho/orion/orion_py_client
 Project-URL: Bug Tracker, https://github.com/Meesho/orion/issues

@@ -71,10 +71,8 @@ impl<'a> BindingsBuilder<'a> {
         //   entire RHS and another one, pointing at the first one, for `(y, z)`.
         // - We will also get three `Key::Definition` bindings, one each for `x`, `y`, and `z`.
         let mut user = self.declare_user(Key::Unpack(range));
-        if ensure_assigned {
-            assigned
-                .iter_mut()
-                .for_each(|e| self.ensure_expr(e, user.usage()))
+        if ensure_assigned && let Some(assigned) = &mut assigned {
+            self.ensure_expr(assigned, user.usage())
         }
         let unpack_idx = self.insert_binding_user(user, make_binding(assigned.as_deref(), None));
 
@@ -138,15 +136,13 @@ impl<'a> BindingsBuilder<'a> {
             identifier_and_chain_prefix_for_expr(&Expr::Attribute(attr.clone()))
                 .map(|(identifier, _)| identifier);
         let mut user = if let Some(identifier) = &narrowing_identifier {
-            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+            self.declare_user(Key::FacetAssign(ShortIdentifier::new(identifier)))
         } else {
             self.declare_user(Key::Anon(attr.range))
         };
         self.ensure_expr(&mut attr.value, user.usage());
-        if ensure_assigned {
-            assigned
-                .iter_mut()
-                .for_each(|e| self.ensure_expr(e, user.usage()));
+        if ensure_assigned && let Some(assigned) = &mut assigned {
+            self.ensure_expr(assigned, user.usage());
         }
         let value = make_assigned_value(assigned.as_deref(), None);
         let idx = self.insert_binding_user(
@@ -189,16 +185,14 @@ impl<'a> BindingsBuilder<'a> {
             identifier_and_chain_prefix_for_expr(&Expr::Subscript(subscript.clone()))
                 .map(|(identifier, _)| identifier);
         let mut user = if let Some(identifier) = &narrowing_identifier {
-            self.declare_user(Key::PropertyAssign(ShortIdentifier::new(identifier)))
+            self.declare_user(Key::FacetAssign(ShortIdentifier::new(identifier)))
         } else {
             self.declare_user(Key::Anon(subscript.range))
         };
         self.ensure_expr(&mut subscript.slice, user.usage());
         self.ensure_expr(&mut subscript.value, user.usage());
-        if ensure_assigned {
-            assigned
-                .iter_mut()
-                .for_each(|e| self.ensure_expr(e, user.usage()));
+        if ensure_assigned && let Some(assigned) = &mut assigned {
+            self.ensure_expr(assigned, user.usage());
         }
         let value = make_assigned_value(assigned.as_deref(), None);
         let idx = self.insert_binding_user(
@@ -246,7 +240,7 @@ impl<'a> BindingsBuilder<'a> {
     fn bind_target_impl(
         &mut self,
         target: &mut Expr,
-        assigned: Option<&mut Expr>,
+        mut assigned: Option<&mut Expr>,
         make_assigned_value: &dyn Fn(Option<&Expr>, Option<Idx<KeyAnnotation>>) -> ExprOrBinding,
         ensure_assigned: bool,
     ) {
@@ -311,6 +305,14 @@ impl<'a> BindingsBuilder<'a> {
                 // We ignore such names for first-usage-tracking purposes, since
                 // we are not going to analyze the code at all.
                 self.ensure_expr(illegal_target, &mut Usage::StaticTypeInformation);
+
+                // Make sure the RHS is properly bound, so that we can report errors there.
+                let mut user = self.declare_user(Key::Anon(illegal_target.range()));
+                if ensure_assigned && let Some(assigned) = &mut assigned {
+                    self.ensure_expr(assigned, user.usage());
+                }
+                let binding = binding_of(make_assigned_value(assigned.as_deref(), None), None);
+                self.insert_binding_user(user, binding);
             }
         }
     }
@@ -392,10 +394,8 @@ impl<'a> BindingsBuilder<'a> {
         ensure_assigned: bool,
     ) {
         let mut user = self.declare_user(Key::Definition(ShortIdentifier::expr_name(name)));
-        if ensure_assigned {
-            assigned
-                .iter_mut()
-                .for_each(|e| self.ensure_expr(e, user.usage()));
+        if ensure_assigned && let Some(assigned) = &mut assigned {
+            self.ensure_expr(assigned, user.usage());
         }
         let (ann, default) = self.bind_user(&name.id, &user, FlowStyle::Other);
         let mut binding = make_binding(assigned.as_deref(), ann);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pemja
-Version: 0.5.2
+Version: 0.6.0
 Summary: PemJa
 Author: Apache Software Foundation
 Author-email: hxbks2ks@gmail.com
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
@@ -45,10 +46,6 @@ Java Maven Dependency
 </dependency>
 ```
 
-## Dependencies
-
-- [NumPy - Adds support for large, multi-dimensional arrays, matrices and high-level mathematical functions to operate on these arrays](https://www.numpy.org)
-
 ## Installation from sources
 
 Prerequisites for building PemJa:
@@ -56,7 +53,7 @@ Prerequisites for building PemJa:
 * Git
 * Maven (we recommend version 3.2.5 and require at least 3.1.1)
 * Java 8 or 11 (Java 9 or 10 may work) with $JAVA_HOME set correctly
-* Python >= 3.8 (we recommend version 3.8, 3.9, 3.10, 3.11, 3.12)
+* Python >= 3.8 (we recommend version 3.8, 3.9, 3.10, 3.11, 3.12, 3.13)
 
 
 **NOTE for windows:**
@@ -150,3 +147,6 @@ print(interpreter.invoke("call_back.callback_java"))
 ```
 
 ## Documentation
+
+### How To Contribute
+* [Contributing](CONTRIBUTING.md)

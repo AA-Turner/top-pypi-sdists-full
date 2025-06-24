@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compressed-tensors
-Version: 0.10.1
+Version: 0.10.2
 Summary: Library for utilization of compressed safetensors of neural network models
 Home-page: https://github.com/neuralmagic/compressed-tensors
 Author: Neuralmagic, Inc.

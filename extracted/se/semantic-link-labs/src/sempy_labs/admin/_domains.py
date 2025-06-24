@@ -8,8 +8,10 @@ from sempy_labs._helper_functions import (
     _create_dataframe,
     _is_valid_uuid,
 )
+from sempy._utils._log import log
 
 
+@log
 def resolve_domain_id(domain: Optional[str | UUID] = None, **kwargs) -> UUID:
     """
     Obtains the domain Id for a given domain name.
@@ -45,6 +47,7 @@ def resolve_domain_id(domain: Optional[str | UUID] = None, **kwargs) -> UUID:
     return dfL_filt["Domain ID"].iloc[0]
 
 
+@log
 def resolve_domain_name(domain: Optional[str | UUID], **kwargs) -> UUID:
     """
     Obtains the domain name for a given domain ID.
@@ -80,6 +83,7 @@ def resolve_domain_name(domain: Optional[str | UUID], **kwargs) -> UUID:
     return dfL_filt["Domain Name"].iloc[0]
 
 
+@log
 def list_domains(non_empty_only: bool = False) -> pd.DataFrame:
     """
     Shows a list of domains.
@@ -115,6 +119,7 @@ def list_domains(non_empty_only: bool = False) -> pd.DataFrame:
 
     response = _base_api(request=url, client="fabric_sp")
 
+    dfs = []
     for v in response.json().get("domains", []):
         new_data = {
             "Domain ID": v.get("id"),
@@ -123,11 +128,15 @@ def list_domains(non_empty_only: bool = False) -> pd.DataFrame:
             "Parent Domain ID": v.get("parentDomainId"),
             "Contributors Scope": v.get("contributorsScope"),
         }
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+        dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def list_domain_workspaces(domain: Optional[str] = None, **kwargs) -> pd.DataFrame:
     """
     Shows a list of workspaces within the domain.
@@ -178,6 +187,7 @@ def list_domain_workspaces(domain: Optional[str] = None, **kwargs) -> pd.DataFra
     return df
 
 
+@log
 def create_domain(
     domain_name: str,
     description: Optional[str] = None,
@@ -222,6 +232,7 @@ def create_domain(
     print(f"{icons.green_dot} The '{domain_name}' domain has been created.")
 
 
+@log
 def delete_domain(domain: Optional[str | UUID], **kwargs):
     """
     Deletes a domain.
@@ -249,6 +260,7 @@ def delete_domain(domain: Optional[str | UUID], **kwargs):
     print(f"{icons.green_dot} The '{domain}' domain has been deleted.")
 
 
+@log
 def update_domain(
     domain: Optional[str | UUID] = None,
     description: Optional[str] = None,
@@ -301,6 +313,7 @@ def update_domain(
     print(f"{icons.green_dot} The '{domain_name}' domain has been updated.")
 
 
+@log
 def assign_domain_workspaces_by_capacities(
     domain: str | UUID,
     capacity_names: str | List[str],
@@ -369,6 +382,7 @@ def assign_domain_workspaces_by_capacities(
     )
 
 
+@log
 def assign_domain_workspaces(domain: str | UUID, workspace_names: str | List[str]):
     """
     Assigns workspaces to the specified domain by workspace.
@@ -420,6 +434,7 @@ def assign_domain_workspaces(domain: str | UUID, workspace_names: str | List[str
     )
 
 
+@log
 def unassign_all_domain_workspaces(domain: str | UUID):
     """
     Unassigns all workspaces from the specified domain.
@@ -446,6 +461,7 @@ def unassign_all_domain_workspaces(domain: str | UUID):
     )
 
 
+@log
 def unassign_domain_workspaces(
     domain: str | UUID,
     workspace_names: str | List[str],

@@ -1,6 +1,6 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from typing import Literal
+from typing import Literal, Optional, Union
 import requests
 
 from .base_ts_message import BaseTsServerMessage
@@ -10,21 +10,23 @@ from contrast.utils.decorators import fail_loudly
 class ServerInventory(BaseTsServerMessage):
     def __init__(
         self,
-        os_info: str,
+        *,
+        operating_system: str,
         runtime_path: str,
         runtime_version: str,
         hostname: str,
-        is_kubernetes: bool = False,
-        is_docker: bool = False,
-        cloud_provider: Literal["aws", "azure"] = None,
-        cloud_resource_id: str = None,
+        is_kubernetes: bool,
+        is_docker: bool,
+        cloud_provider: Optional[Literal["aws", "azure"]],
+        cloud_resource_id: Optional[str],
+        process_memory_limit_bytes: Optional[int],
     ):
         super().__init__()
 
         self.base_url = f"{self.settings.api_url}/agents/v1.1/"
 
-        self.body = {
-            "operating_system": os_info,
+        self.body: dict[str, Union[str, dict[str, int]]] = {
+            "operating_system": operating_system,
             "runtime_path": runtime_path,
             "runtime_version": runtime_version,
             "hostname": hostname,
@@ -39,6 +41,11 @@ class ServerInventory(BaseTsServerMessage):
 
         if is_docker:
             self.body["is_docker"] = "true"
+
+        if process_memory_limit_bytes is not None:
+            self.body["memory_metrics"] = {
+                "process_memory_limit_bytes": process_memory_limit_bytes,
+            }
 
     @property
     def name(self) -> str:

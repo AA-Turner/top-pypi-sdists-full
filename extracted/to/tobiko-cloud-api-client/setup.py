@@ -13,8 +13,8 @@ setup(**{
         'pydantic>=2.0.0',
         'ruamel.yaml',
         'tenacity',
-        'tobiko-cloud-helpers==202525.37.0',
-        'tobiko-cloud-pydantic==202525.37.0',
+        'tobiko-cloud-helpers==202526.6.0',
+        'tobiko-cloud-pydantic==202526.6.0',
         'typing_extensions',
     ),
     'name': 'tobiko-cloud-api-client',
@@ -31,5 +31,5 @@ setup(**{
         'tobikodata.http_client.api_models.v1',
     ),
     'python_requires': '<3.13,>=3.9',
-    'version': '202525.37.0',
+    'version': '202526.6.0',
 })

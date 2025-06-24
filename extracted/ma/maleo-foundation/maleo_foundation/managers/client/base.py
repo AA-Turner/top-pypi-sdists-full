@@ -6,18 +6,18 @@ from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.logging import ClientLogger, SimpleConfig
 
 class BearerAuth(httpx.Auth):
-    def __init__(self, token:str) -> None:
+    def __init__(self, token: str) -> None:
         self._auth_header = self._build_auth_header(token)
 
-    def auth_flow(self, request:httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         request.headers["Authorization"] = self._auth_header
         yield request
 
-    def _build_auth_header(self, token:str) -> str:
+    def _build_auth_header(self, token: str) -> str:
         return f"Bearer {token}"
 
 class ClientHTTPControllerManager:
-    def __init__(self, url:str) -> None:
+    def __init__(self, url: str) -> None:
         self._client = httpx.AsyncClient()
         self._url = url
 
@@ -95,10 +95,10 @@ class ClientServices(BaseModel):
 class ClientManager:
     def __init__(
         self,
-        key:str,
-        name:str,
-        log_config:SimpleConfig,
-        service_key:BaseTypes.OptionalString=None
+        key: str,
+        name: str,
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None
     ) -> None:
         self._key = key
         self._name = name

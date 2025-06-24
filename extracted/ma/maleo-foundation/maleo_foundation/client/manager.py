@@ -21,10 +21,19 @@ from maleo_foundation.client.services import (
 )
 
 class MaleoFoundationClientManager(ClientManager):
-    def __init__(self, log_config:SimpleConfig, service_key:BaseTypes.OptionalString=None):
+    def __init__(
+        self,
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None
+    ) -> None:
         key = "maleo-foundation"
         name = "MaleoFoundation"
-        super().__init__(key, name, log_config, service_key)
+        super().__init__(
+            key,
+            name,
+            log_config,
+            service_key
+        )
         self._initialize_services()
         self._logger.info("Client manager initialized successfully")
 

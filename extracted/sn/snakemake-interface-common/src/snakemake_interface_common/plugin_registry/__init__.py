@@ -7,24 +7,32 @@ from abc import ABC, abstractmethod
 import types
 import pkgutil
 import importlib
-from typing import List, Mapping
+from typing import Dict, List, Mapping, TYPE_CHECKING, Type, TypeVar, Generic
 
 from snakemake_interface_common.exceptions import InvalidPluginException
 from snakemake_interface_common.plugin_registry.plugin import PluginBase
 from snakemake_interface_common.plugin_registry.attribute_types import AttributeType
 
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
 
-class PluginRegistryBase(ABC):
+TPlugin = TypeVar("TPlugin", bound=PluginBase, covariant=True)
+
+
+class PluginRegistryBase(ABC, Generic[TPlugin]):
     """This class is a singleton that holds all registered executor plugins."""
 
     _instance = None
+    plugins: Dict[str, TPlugin]
 
-    def __new__(cls):
+    def __new__(
+        cls: Type["PluginRegistryBase[TPlugin]"],
+    ) -> "PluginRegistryBase[TPlugin]":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         if hasattr(self, "plugins"):
             # init has been called before
             return
@@ -53,13 +61,13 @@ class PluginRegistryBase(ABC):
         """Get the package name of a plugin by name."""
         return f"{self.module_prefix.replace('_', '-')}{plugin_name}"
 
-    def register_cli_args(self, argparser):
+    def register_cli_args(self, argparser: "ArgumentParser") -> None:
         """Add arguments derived from self.executor_settings to given
         argparser."""
         for _, plugin in self.plugins.items():
             plugin.register_cli_args(argparser)
 
-    def collect_plugins(self):
+    def collect_plugins(self) -> None:
         """Collect plugins and call register_plugin for each."""
         self.plugins = dict()
 
@@ -77,7 +85,7 @@ class PluginRegistryBase(ABC):
             module = importlib.import_module(moduleinfo.name)
             self.register_plugin(moduleinfo.name, module)
 
-    def register_plugin(self, name: str, plugin: types.ModuleType):
+    def register_plugin(self, name: str, plugin: types.ModuleType) -> None:
         """Validate and register a plugin.
 
         Does nothing if the plugin is already registered.
@@ -92,7 +100,7 @@ class PluginRegistryBase(ABC):
 
         self.plugins[plugin_name] = self.load_plugin(plugin_name, plugin)
 
-    def validate_plugin(self, name: str, module: types.ModuleType):
+    def validate_plugin(self, name: str, module: types.ModuleType) -> None:
         """Validate a plugin for attributes and naming"""
         expected_attributes = self.expected_attributes()
         for attr, attr_type in expected_attributes.items():
@@ -123,7 +131,7 @@ class PluginRegistryBase(ABC):
     def module_prefix(self) -> str: ...
 
     @abstractmethod
-    def load_plugin(self, name: str, module: types.ModuleType) -> PluginBase:
+    def load_plugin(self, name: str, module: types.ModuleType) -> TPlugin:
         """Load a plugin by name."""
         ...
 

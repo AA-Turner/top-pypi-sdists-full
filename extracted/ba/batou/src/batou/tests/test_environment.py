@@ -308,14 +308,14 @@ Post sub"""
     log = "\n".join(c[0][0].strip() for c in output.call_args_list)
     assert (
         """\
-localhost > Hello
+localhost: Hello
 localhost: <Hello (localhost) "Hello"> verify: asdf=None\
 """
         == log
     )
 
 
-def test_resolver_overrides(sample_service):
+def test_resolve_overrides(sample_service):
     e = Environment("test-resolver")
     e.load()
     assert {"localhost": "127.0.0.2"} == e._resolve_override
@@ -325,7 +325,7 @@ def test_resolver_overrides(sample_service):
     assert "::2" == batou.utils.resolve_v6("localhost", 0)
 
 
-def test_resolver_overrides_invalid_address(sample_service):
+def test_resolve_overrides_invalid_address(sample_service):
     e = Environment("test-resolver-invalid")
     e.load()
 
@@ -342,3 +342,12 @@ def test_unused_components_get_reported(sample_service, output):
     e.configure()
 
     assert "'Unused': BadUnused" in output.backend.output
+
+
+def test_environment_with_check_local_does_not_load_provisioners(
+    sample_service,
+):
+    e = Environment("test-with-check-local", check_and_predict_local=True)
+    e.load()
+
+    assert not e.provisioners

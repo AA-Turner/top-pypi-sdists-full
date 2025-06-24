@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.2.6
+Version: 0.2.7
 Summary: SDK for the HUD evaluation platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-sdk
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-sdk/issues
@@ -47,6 +47,7 @@ Requires-Dist: langchain-openai
 Requires-Dist: mcp
 Requires-Dist: numpy
 Requires-Dist: openai
+Requires-Dist: pathspec>=0.12.1
 Requires-Dist: pillow>=11.1.0
 Requires-Dist: pydantic-settings<3,>=2
 Requires-Dist: pydantic<3,>=2
@@ -61,7 +62,7 @@ Requires-Dist: ipython<9; extra == 'dev'
 Requires-Dist: jupyter-client; extra == 'dev'
 Requires-Dist: jupyter-core; extra == 'dev'
 Requires-Dist: openai; extra == 'dev'
-Requires-Dist: pyright==1.1.364; extra == 'dev'
+Requires-Dist: pyright==1.1.401; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
@@ -90,7 +91,7 @@ We're here to help with eval strategies, custom environments, or improving your 
 
 ## ✨ What You Can Do
 
-**Evaluate Existing Benchmarks**
+**[Evaluate Existing Benchmarks](https://docs.hud.so/examples/benchmarking-agents)**
 ```python
 from hud import load_taskset, run_job, ClaudeAgent
 
@@ -98,7 +99,7 @@ taskset = await load_taskset("WebVoyager")  # or GAIA, OSWorld-Ubuntu, Mind2Web
 job = await run_job(ClaudeAgent, taskset, "my-evaluation")
 ```
 
-**Create Custom Tasks**
+**[Create Custom Tasks](https://docs.hud.so/task-creation)** 
 ```python
 from hud.task import Task
 
@@ -110,7 +111,7 @@ task = Task(
 )
 ```
 
-**Build Custom Environments**
+**[Build Custom Environments](https://docs.hud.so/environment-creation)**
 ```python
 from hud.types import CustomGym
 
@@ -123,7 +124,7 @@ custom_gym = CustomGym(
 # Or create complex Docker environments - see environments/ folder for examples
 ```
 
-**Trace Tool Calls Alongside HUD Environments (or Independently)**
+**[Trace Tool Calls Alongside HUD Environments (or Independently)](https://docs.hud.so/examples/mcp-agent-tracing)**
 ```python
 import hud
 
@@ -171,6 +172,7 @@ async def main():
         setup=("goto", "google.com"),
         evaluate=("contains_text", "capybara")
     )
+    print(f"Running task with prompt: {task.prompt}")
     
     # Create environment using the gym module
     env = await gym.make(task)
@@ -182,6 +184,7 @@ async def main():
     obs, _ = await env.reset() # Gets first observation
     for i in range(5):
         actions, done = await agent.predict(obs)
+        print(f"Agent action {i}: {actions}")
 
         obs, reward, terminated, info = await env.step(actions)
         if done or terminated: break

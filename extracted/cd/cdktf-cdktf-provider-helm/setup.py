@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-helm",
-    "version": "12.0.0",
+    "version": "12.0.1",
     "description": "Prebuilt helm Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-helm.git",
@@ -29,7 +29,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_helm._jsii": [
-            "provider-helm@12.0.0.jsii.tgz"
+            "provider-helm@12.0.1.jsii.tgz"
         ],
         "cdktf_cdktf_provider_helm": [
             "py.typed"

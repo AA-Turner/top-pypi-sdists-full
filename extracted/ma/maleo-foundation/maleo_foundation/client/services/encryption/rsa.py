@@ -17,7 +17,7 @@ from maleo_foundation.utils.loaders.key.rsa import RSAKeyLoader
 class MaleoFoundationRSAEncryptionClientService(ClientService):
     def encrypt(
         self,
-        parameters:MaleoFoundationRSAEncryptionParametersTransfers.Encrypt
+        parameters: MaleoFoundationRSAEncryptionParametersTransfers.Encrypt
     ) -> MaleoFoundationRSAEncryptionResultsTypes.Encrypt:
         """Encrypt a plaintext using RSA algorithm."""
         @BaseExceptions.service_exception_handler(
@@ -67,7 +67,7 @@ class MaleoFoundationRSAEncryptionClientService(ClientService):
 
     def decrypt(
         self,
-        parameters:MaleoFoundationRSAEncryptionParametersTransfers.Decrypt
+        parameters: MaleoFoundationRSAEncryptionParametersTransfers.Decrypt
     ) -> MaleoFoundationRSAEncryptionResultsTypes.Decrypt:
         """Decrypt a ciphertext using RSA algorithm."""
         @BaseExceptions.service_exception_handler(

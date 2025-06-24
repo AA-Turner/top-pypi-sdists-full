@@ -34,6 +34,7 @@ __all__ = (
     "CloudWatchEncryptionModeType",
     "ColumnStatisticsStateType",
     "ColumnStatisticsTypeType",
+    "CompactionStrategyType",
     "ComparatorType",
     "CompatibilityType",
     "CompressionTypeType",
@@ -214,6 +215,7 @@ ColumnStatisticsStateType = Literal["FAILED", "RUNNING", "STARTING", "STOPPED", 
 ColumnStatisticsTypeType = Literal[
     "BINARY", "BOOLEAN", "DATE", "DECIMAL", "DOUBLE", "LONG", "STRING"
 ]
+CompactionStrategyType = Literal["binpack", "sort", "z-order"]
 ComparatorType = Literal[
     "EQUALS", "GREATER_THAN", "GREATER_THAN_EQUALS", "LESS_THAN", "LESS_THAN_EQUALS"
 ]
@@ -953,6 +955,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

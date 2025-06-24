@@ -50,8 +50,6 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::class::Substitution;
-use crate::types::class::TArgs;
 use crate::types::literal::Lit;
 use crate::types::quantified::Quantified;
 use crate::types::typed_dict::TypedDict;
@@ -63,7 +61,9 @@ use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
+use crate::types::types::Substitution;
 use crate::types::types::SuperObj;
+use crate::types::types::TArgs;
 use crate::types::types::Type;
 
 /// Correctly analyzing which attributes are visible on class objects, as well
@@ -123,7 +123,7 @@ impl Display for ClassField {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty, initialization, ..
-            } => write!(f, "@{ty} ({initialization})"),
+            } => write!(f, "{ty} ({initialization})"),
         }
     }
 }
@@ -259,7 +259,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
         };
-        tparams.quantified().any(|q| qs.contains(q))
+        tparams.quantifieds().any(|q| qs.contains(q))
     }
 
     fn as_raw_special_method_type(self, instance: &Instance) -> Option<Type> {
@@ -794,6 +794,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
+        // Pin any vars in the type: leaking a var in a class field is particularly
+        // likely to lead to data races where downstream uses can pin inconsistently.
+        //
+        // TODO(stroxler): Ideally we would implement some simple heuristics, similar to
+        // first-use based inference we use with assignments, to get more useful types here.
+        let ty = self.solver().deep_force(ty);
+
         // Create the resulting field and check for override inconsistencies before returning
         let class_field = ClassField::new(
             ty,
@@ -1006,7 +1013,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldInner::Simple {
-                ty,
+                mut ty,
                 readonly,
                 annotation,
                 ..
@@ -1014,6 +1021,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::Class(_) => {
+                        self.expand_type_mut(&mut ty); // bind_instance matches on the type, so resolve it if we can
                         bind_instance_attribute(instance, ty, is_class_var, readonly)
                     }
                     ClassFieldInitialization::Instance(_) if readonly || is_class_var => {
@@ -1066,17 +1074,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Attribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
-                tparams: cls.tparams().clone(),
+                tparams: self.class_tparams(cls),
                 body: Forallable::Function((**func).clone()),
             })),
             Type::Forall(box Forall {
                 tparams,
                 body: body @ Forallable::Function(_),
             }) => {
-                let mut new_tparams = tparams.clone();
+                let mut new_tparams = tparams.as_ref().clone();
                 new_tparams.extend(cls.tparams());
                 Type::Forall(Box::new(Forall {
-                    tparams: new_tparams,
+                    tparams: Arc::new(new_tparams),
                     body: body.clone(),
                 }))
             }
@@ -1086,17 +1094,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }) => {
                 let new_signatures = signatures.clone().mapped(|sig| match sig {
                     OverloadType::Callable(callable) => OverloadType::Forall(Forall {
-                        tparams: cls.tparams().clone(),
+                        tparams: self.class_tparams(cls),
                         body: Function {
                             signature: callable,
                             metadata: (**metadata).clone(),
                         },
                     }),
                     OverloadType::Forall(Forall { tparams, body }) => {
-                        let mut new_tparams = tparams.clone();
+                        let mut new_tparams = tparams.as_ref().clone();
                         new_tparams.extend(cls.tparams());
                         OverloadType::Forall(Forall {
-                            tparams: new_tparams,
+                            tparams: Arc::new(new_tparams),
                             body,
                         })
                     }
@@ -1196,7 +1204,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
                 got_attr = Some(self.as_instance_attribute(
                     class_field,
-                    &Instance::of_class(&class.as_class_type()),
+                    &Instance::of_class(&self.as_class_type_unchecked(class)),
                 ));
             }
             let attr_check =
@@ -1389,6 +1397,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_class_attribute(&self, cls: &Class, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls, name)
             .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
+    }
+
+    pub fn method_is_inherited_from_object(&self, cls: &ClassType, name: &Name) -> bool {
+        let member = self.get_class_member(cls.class_object(), name);
+        match member {
+            Some(member) => member.defined_on("builtins", "object"),
+            None => false,
+        }
     }
 
     /// Get the class's `__new__` method.

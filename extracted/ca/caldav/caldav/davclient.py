@@ -2,6 +2,7 @@
 import logging
 import os
 import sys
+import warnings
 from types import TracebackType
 from typing import Any
 from typing import cast
@@ -13,23 +14,25 @@ from typing import TYPE_CHECKING
 from typing import Union
 from urllib.parse import unquote
 
-import requests
+import niquests
 from lxml import etree
 from lxml.etree import _Element
-from requests.auth import AuthBase
-from requests.models import Response
-from requests.structures import CaseInsensitiveDict
+from niquests.auth import AuthBase
+from niquests.models import Response
+from niquests.structures import CaseInsensitiveDict
 
 from .elements.base import BaseElement
 from caldav import __version__
+from caldav.collection import Calendar
+from caldav.collection import CalendarSet
+from caldav.collection import Principal
+from caldav.elements import cdav
 from caldav.elements import dav
 from caldav.lib import error
 from caldav.lib.python_utilities import to_normal_str
 from caldav.lib.python_utilities import to_wire
 from caldav.lib.url import URL
-from caldav.objects import Calendar
 from caldav.objects import log
-from caldav.objects import Principal
 from caldav.requests import HTTPBearerAuth
 
 if TYPE_CHECKING:
@@ -44,6 +47,22 @@ if sys.version_info < (3, 11):
     from typing_extensions import Self
 else:
     from typing import Self
+
+"""
+The ``DAVClient`` class handles the basic communication with a
+CalDAV server.  In 1.x the recommended usage of the library is to
+start constructing a DAVClient object.  In 2.0 the function
+``get_davclient`` was added as the new recommended way to get a
+DAVClient object.  In later versions there may be a ``get_calendar``,
+eliminating the need to deal with DAVClient for most use cases.
+
+The ``DAVResponse`` class handles the data returned from the server.
+In most use-cases library users will not interface with this class
+directly.
+
+``get_davclient`` will return a DAVClient object, based either on
+environmental variables, a configuration file or test configuration.
+"""
 
 ## TODO: this is also declared in davclient.DAVClient.__init__(...)
 ## TODO: it should be consolidated, duplication is a bad thing
@@ -60,6 +79,7 @@ CONNKEYS = set(
         "ssl_verify_cert",
         "ssl_cert",
         "auth",
+        "auth_type",
     )
 )
 
@@ -84,6 +104,7 @@ class DAVResponse:
         self, response: Response, davclient: Optional["DAVClient"] = None
     ) -> None:
         self.headers = response.headers
+        self.status = response.status_code
         log.debug("response headers: " + str(self.headers))
         log.debug("response status: " + str(self.status))
 
@@ -97,7 +118,12 @@ class DAVResponse:
         no_xml = ["text/plain", "text/calendar", "application/octet-stream"]
         expect_xml = any((content_type.startswith(x) for x in xml))
         expect_no_xml = any((content_type.startswith(x) for x in no_xml))
-        if content_type and not expect_xml and not expect_no_xml:
+        if (
+            content_type
+            and not expect_xml
+            and not expect_no_xml
+            and response.status_code < 400
+        ):
             error.weirdness(f"Unexpected content type: {content_type}")
         try:
             content_length = int(self.headers["Content-Length"])
@@ -333,11 +359,17 @@ class DAVResponse:
         values = []
         if proptag in props_found:
             prop_xml = props_found[proptag]
-            if prop_xml.items():
-                from caldav.lib.debug import xmlstring
-
+            for item in prop_xml.items():
+                if proptag == "{urn:ietf:params:xml:ns:caldav}calendar-data":
+                    if (
+                        item[0].lower().endswith("content-type")
+                        and item[1].lower() == "text/calendar"
+                    ):
+                        continue
+                    if item[0].lower().endswith("version") and item[1] in ("2", "2.0"):
+                        continue
                 log.error(
-                    f"If you see this, please add a report at https://github.com/python-caldav/caldav/issues/209 - in _expand_simple_prop, dealing with {proptag}, extra items found: {xmlstring(prop_xml)}."
+                    f"If you see this, please add a report at https://github.com/python-caldav/caldav/issues/209 - in _expand_simple_prop, dealing with {proptag}, extra item found: {'='.join(item)}."
                 )
             if not xpath and len(prop_xml) == 0:
                 if prop_xml.text:
@@ -402,7 +434,7 @@ class DAVResponse:
 
 class DAVClient:
     """
-    Basic client for webdav, uses the requests lib; gives access to
+    Basic client for webdav, uses the niquests lib; gives access to
     low-level operations towards the caldav server.
 
     Unless you have special needs, you should probably care most about
@@ -420,6 +452,7 @@ class DAVClient:
         username: Optional[str] = None,
         password: Optional[str] = None,
         auth: Optional[AuthBase] = None,
+        auth_type: Optional[str] = None,
         timeout: Optional[int] = None,
         ssl_verify_cert: Union[bool, str] = True,
         ssl_cert: Union[str, Tuple[str, str], None] = None,
@@ -428,22 +461,32 @@ class DAVClient:
     ) -> None:
         """
         Sets up a HTTPConnection object towards the server in the url.
-        Parameters:
-         * url: A fully qualified url: `scheme://user:pass@hostname:port`
-         * proxy: A string defining a proxy server: `hostname:port`
-         * username and password should be passed as arguments or in the URL
-         * auth, timeout and ssl_verify_cert are passed to requests.request.
-         * ssl_verify_cert can be the path of a CA-bundle or False.
-         * huge_tree: boolean, enable XMLParser huge_tree to handle big events, beware
-           of security issues, see : https://lxml.de/api/lxml.etree.XMLParser-class.html
 
-        The requests library will honor a .netrc-file, if such a file exists
-        username and password may be omitted.  Known bug: .netrc is honored
-        even if a username/password is given, ref https://github.com/python-caldav/caldav/issues/206
+        Args:
+          url: A fully qualified url: `scheme://user:pass@hostname:port`
+          proxy: A string defining a proxy server: `scheme://hostname:port`. Scheme defaults to http, port defaults to 8080.
+          auth: A niquests.auth.AuthBase or requests.auth.AuthBase object, may be passed instead of username/password.  username and password should be passed as arguments or in the URL
+          timeout and ssl_verify_cert are passed to niquests.request.
+          if auth_type is given, the auth-object will be auto-created. Auth_type can be ``bearer``, ``digest`` or ``basic``. Things are likely to work without ``auth_type`` set, but if nothing else the number of requests to the server will be reduced, and some servers may require this to squelch warnings of unexpected HTML delivered from the
+           server etc.
+          ssl_verify_cert can be the path of a CA-bundle or False.
+          huge_tree: boolean, enable XMLParser huge_tree to handle big events, beware of security issues, see : https://lxml.de/api/lxml.etree.XMLParser-class.html
+
+        The niquests library will honor a .netrc-file, if such a file exists
+        username and password may be omitted.
+
+        THe niquest library will honor standard proxy environmental variables like
+        HTTP_PROXY, HTTPS_PROXY and ALL_PROXY.  See https://niquests.readthedocs.io/en/latest/user/advanced.html#proxies
+
+        If the caldav server is behind a proxy or replies with html instead of xml
+        when returning 401, warnings will be printed which might be unwanted.
+        Check auth parameter for details.
         """
         headers = headers or {}
 
-        self.session = requests.Session()
+        ## Deprecation TODO: give a warning, user should use get_davclient or auto_calendar instead
+
+        self.session = niquests.Session(multiplexed=True)
 
         log.debug("url: " + str(url))
         self.url = URL.objectify(url)
@@ -451,7 +494,7 @@ class DAVClient:
         # Prepare proxy info
         if proxy is not None:
             _proxy = proxy
-            # requests library expects the proxy url to have a scheme
+            # niquests library expects the proxy url to have a scheme
             if "://" not in proxy:
                 _proxy = self.url.scheme + "://" + proxy
 
@@ -480,10 +523,19 @@ class DAVClient:
 
         self.username = username
         self.password = password
+        self.auth = auth
+        self.auth_type = auth_type
+
         ## I had problems with passwords with non-ascii letters in it ...
         if isinstance(self.password, str):
             self.password = self.password.encode("utf-8")
-        self.auth = auth
+        if auth and self.auth_type:
+            logging.error(
+                "both auth object and auth_type sent to DAVClient.  The latter will be ignored."
+            )
+        elif self.auth_type:
+            self.build_auth_object()
+
         # TODO: it's possible to force through a specific auth method here,
         # but no test code for this.
         self.timeout = timeout
@@ -495,21 +547,77 @@ class DAVClient:
         self._principal = None
 
     def __enter__(self) -> Self:
+        ## Used for tests, to set up a temporarily test server
+        if hasattr(self, "setup"):
+            try:
+                self.setup()
+            except:
+                self.setup(self)
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[BaseException],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: Optional[BaseException] = None,
+        exc_value: Optional[BaseException] = None,
+        traceback: Optional[TracebackType] = None,
     ) -> None:
         self.close()
+        ## Used for tests, to tear down a temporarily test server
+        if hasattr(self, "teardown"):
+            try:
+                self.teardown()
+            except:
+                self.teardown(self)
 
     def close(self) -> None:
         """
         Closes the DAVClient's session object
         """
         self.session.close()
+
+    def principals(self, name=None):
+        """
+        Instead of returning the current logged-in principal, it attempts to query for all principals. This may or may not work dependent on the permissions and implementation of the calendar server.
+        """
+        ## TODO: allow server side filtering.  We need a  <D:property-search><D:prop><D:displayname/></D:prop><D:match>{name}</D:match></D:property-search> inside the PrincipalPropertySearch
+
+        if name:
+            name_filter = [
+                dav.PropertySearch()
+                + [dav.Prop() + [dav.DisplayName()]]
+                + dav.Match(value=name)
+            ]
+        else:
+            name_filter = []
+
+        query = (
+            dav.PrincipalPropertySearch()
+            + name_filter
+            + [dav.Prop() + cdav.CalendarHomeSet() + dav.DisplayName()]
+        )
+        response = self.report(self.url, etree.tostring(query.xmlelement()))
+        principal_dict = response.find_objects_and_props()
+        ret = []
+        for x in principal_dict:
+            p = principal_dict[x]
+            name = p[dav.DisplayName.tag].text
+            error.assert_(not p[dav.DisplayName.tag].getchildren())
+            error.assert_(not p[dav.DisplayName.tag].items())
+            chs = p[cdav.CalendarHomeSet.tag]
+            error.assert_(not chs.items())
+            error.assert_(not chs.text)
+            chs_href = chs.getchildren()
+            error.assert_(len(chs_href) == 1)
+            error.assert_(not chs_href[0].items())
+            error.assert_(not chs_href[0].getchildren())
+            chs_url = chs_href[0].text
+            calendar_home_set = CalendarSet(client=self, url=chs_url)
+            ret.append(
+                Principal(
+                    client=self, url=x, name=name, calendar_home_set=calendar_home_set
+                )
+            )
+        return ret
 
     def principal(self, *largs, **kwargs):
         """
@@ -538,6 +646,9 @@ class DAVClient:
         return Calendar(client=self, **kwargs)
 
     def check_dav_support(self) -> Optional[str]:
+        """
+        Does a probe towards the server and returns True if it says it supports RFC4918 / DAV
+        """
         try:
             ## SOGo does not return the full capability list on the caldav
             ## root URL, and that's OK according to the RFC ... so apparently
@@ -550,10 +661,16 @@ class DAVClient:
         return response.headers.get("DAV", None)
 
     def check_cdav_support(self) -> bool:
+        """
+        Does a probe towards the server and returns True if it says it supports RFC4791 / CalDAV
+        """
         support_list = self.check_dav_support()
         return support_list is not None and "calendar-access" in support_list
 
     def check_scheduling_support(self) -> bool:
+        """
+        Does a probe towards the server and returns True if it says it supports RFC6833 / CalDAV Scheduling
+        """
         support_list = self.check_dav_support()
         return support_list is not None and "calendar-auto-schedule" in support_list
 
@@ -563,13 +680,18 @@ class DAVClient:
         """
         Send a propfind request.
 
-        Parameters:
-         * url: url for the root of the propfind.
-         * props = (xml request), properties we want
-         * depth: maximum recursion depth
+        Parameters
+        ----------
+        url : URL
+            url for the root of the propfind.
+        props : xml
+            properties we want
+        depth : int
+            maximum recursion depth
 
         Returns
-         * DAVResponse
+        -------
+        DAVResponse
         """
         return self.request(
             url or str(self.url), "PROPFIND", props, {"Depth": str(depth)}
@@ -579,13 +701,13 @@ class DAVClient:
         """
         Send a proppatch request.
 
-        Parameters:
-         * url: url for the root of the propfind.
-         * body: XML propertyupdate request
-         * dummy: compatibility parameter
+        Args:
+            url: url for the root of the propfind.
+            body: XML propertyupdate request
+            dummy: compatibility parameter
 
-        Returns
-         * DAVResponse
+        Returns:
+            DAVResponse
         """
         return self.request(url, "PROPPATCH", body)
 
@@ -593,13 +715,13 @@ class DAVClient:
         """
         Send a report request.
 
-        Parameters:
-         * url: url for the root of the propfind.
-         * query: XML request
-         * depth: maximum recursion depth
+        Args:
+            url: url for the root of the propfind.
+            query: XML request
+            depth: maximum recursion depth
 
         Returns
-         * DAVResponse
+            DAVResponse
         """
         return self.request(
             url,
@@ -621,13 +743,13 @@ class DAVClient:
         DAVClient class can be used for vCards and other WebDAV
         purposes.
 
-        Parameters:
-         * url: url for the root of the mkcol
-         * body: XML request
-         * dummy: compatibility parameter
+        Args:
+            url: url for the root of the mkcol
+            body: XML request
+            dummy: compatibility parameter
 
-        Returns
-         * DAVResponse
+        Returns:
+            DAVResponse
         """
         return self.request(url, "MKCOL", body)
 
@@ -635,13 +757,13 @@ class DAVClient:
         """
         Send a mkcalendar request.
 
-        Parameters:
-         * url: url for the root of the mkcalendar
-         * body: XML request
-         * dummy: compatibility parameter
+        Args:
+            url: url for the root of the mkcalendar
+            body: XML request
+            dummy: compatibility parameter
 
-        Returns
-         * DAVResponse
+        Returns:
+            DAVResponse
         """
         return self.request(url, "MKCALENDAR", body)
 
@@ -668,11 +790,56 @@ class DAVClient:
         return self.request(url, "DELETE")
 
     def options(self, url: str) -> DAVResponse:
+        """
+        Send an options request.
+        """
         return self.request(url, "OPTIONS")
 
     def extract_auth_types(self, header: str):
+        """This is probably meant for internal usage.  It takes the
+        headers it got from the server and figures out what
+        authentication types the server supports
+        """
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/WWW-Authenticate#syntax
         return {h.split()[0] for h in header.lower().split(",")}
+
+    def build_auth_object(self, auth_types: Optional[List[str]] = None):
+        """Fixes self.auth.  If ``self.auth_type`` is given, then
+        insist on using this one.  If not, then assume auth_types to
+        be a list of acceptable auth types and choose the most
+        appropriate one (prefer digest or basic if username is given,
+        and bearer if password is given).
+
+        Args:
+            auth_types - A list/tuple of acceptable auth_types
+        """
+        auth_type = self.auth_type
+        if not auth_type and not auth_types:
+            raise error.AuthorizationError(
+                "No auth-type given.  This shouldn't happen.  Raise an issue at https://github.com/python-caldav/caldav/issues/ or by email noauthtype@plann.no"
+            )
+        if auth_types and auth_type and auth_type not in auth_types:
+            raise error.AuthorizationError(
+                reason=f"Configuration specifies to use {auth_type}, but server only accepts {auth_types}"
+            )
+        if not auth_type and auth_types:
+            if self.username and "digest" in auth_types:
+                auth_type = "digest"
+            elif self.username and "basic" in auth_types:
+                auth_type = "basic"
+            elif self.password and "bearer" in auth_types:
+                auth_type = "bearer"
+            elif "bearer" in auth_types:
+                raise error.AuthorizationError(
+                    reason="Server provides bearer auth, but no password given.  The bearer token should be configured as password"
+                )
+
+            if auth_type == "digest":
+                self.auth = niquests.auth.HTTPDigestAuth(self.username, self.password)
+            elif auth_type == "basic":
+                self.auth = niquests.auth.HTTPBasicAuth(self.username, self.password)
+            elif auth_type == "bearer":
+                self.auth = HTTPBearerAuth(self.password)
 
     def request(
         self,
@@ -718,6 +885,29 @@ class DAVClient:
                 cert=self.ssl_cert,
             )
             log.debug("server responded with %i %s" % (r.status_code, r.reason))
+            if (
+                r.status_code == 401
+                and "text/html" in self.headers.get("Content-Type", "")
+                and not self.auth
+            ):
+                # The server can return HTML on 401 sometimes (ie. it's behind a proxy)
+                # The user can avoid logging errors by setting the authentication type by themselves.
+                msg = (
+                    "No authentication object was provided. "
+                    "HTML was returned when probing the server for supported authentication types. "
+                    "To avoid logging errors, consider passing the auth_type connection parameter"
+                )
+                if r.headers.get("WWW-Authenticate"):
+                    auth_types = [
+                        t
+                        for t in self.extract_auth_types(r.headers["WWW-Authenticate"])
+                        if t in ["basic", "digest", "bearer"]
+                    ]
+                    if auth_types:
+                        msg += "\nSupported authentication types: %s" % (
+                            ", ".join(auth_types)
+                        )
+                log.warning(msg)
             response = DAVResponse(r, self)
         except:
             ## this is a workaround needed due to some weird server
@@ -744,20 +934,12 @@ class DAVClient:
             r.status_code == 401
             and "WWW-Authenticate" in r_headers
             and not self.auth
-            and self.username
+            and (self.username or self.password)
         ):
             auth_types = self.extract_auth_types(r_headers["WWW-Authenticate"])
-            if self.username and "digest" in auth_types:
-                self.auth = requests.auth.HTTPDigestAuth(self.username, self.password)
-            elif self.username and "basic" in auth_types:
-                self.auth = requests.auth.HTTPBasicAuth(self.username, self.password)
-            elif self.password and "bearer" in auth_types:
-                self.auth = HTTPBearerAuth(self.password)
-            elif "bearer" in auth_types:
-                raise error.AuthorizationError(
-                    reason="Server provides bearer auth, but no password given.  The bearer token should be configured as password"
-                )
-            else:
+            self.build_auth_object(auth_types)
+
+            if not self.auth:
                 raise NotImplementedError(
                     "The server does not provide any of the currently "
                     "supported authentication methods: basic, digest, bearer"
@@ -782,17 +964,8 @@ class DAVClient:
             ## introduced this regression)
 
             auth_types = self.extract_auth_types(r_headers["WWW-Authenticate"])
-
-            if self.password and self.username and "digest" in auth_types:
-                self.auth = requests.auth.HTTPDigestAuth(
-                    self.username, self.password.decode()
-                )
-            elif self.password and self.username and "basic" in auth_types:
-                self.auth = requests.auth.HTTPBasicAuth(
-                    self.username, self.password.decode()
-                )
-            elif self.password and "bearer" in auth_types:
-                self.auth = HTTPBearerAuth(self.password.decode())
+            self.password = self.password.decode()
+            self.build_auth_object(auth_types)
 
             self.username = None
             self.password = None
@@ -800,8 +973,8 @@ class DAVClient:
 
         # this is an error condition that should be raised to the application
         if (
-            response.status == requests.codes.forbidden
-            or response.status == requests.codes.unauthorized
+            response.status == niquests.codes.forbidden
+            or response.status == niquests.codes.unauthorized
         ):
             try:
                 reason = response.reason
@@ -844,8 +1017,9 @@ class DAVClient:
 
 
 def auto_calendars(
-    configfile: str = f"{os.environ.get('HOME')}/.config/calendar.conf",
-    testconfig=False,
+    config_file: str = None,
+    config_section: str = "default",
+    testconfig: bool = False,
     environment: bool = True,
     config_data: dict = None,
     config_name: str = None,
@@ -863,46 +1037,65 @@ def auto_calendar(*largs, **kwargs) -> Iterable["Calendar"]:
     return next(auto_calendars(*largs, **kwargs), None)
 
 
-def auto_conn(
-    configfile: str = f"{os.environ.get('HOME')}/.config/calendar.conf",
-    testconfig=False,
+def auto_conn(*largs, config_data: dict = None, **kwargs):
+    """A quite stubbed verison of get_davclient was included in the
+    v1.5-release as auto_conn, but renamed a few days later.  Probably
+    nobody except my caldav tester project uses auto_conn, but as a
+    thumb of rule anything released should stay "deprecated" for at
+    least one major release before being removed.
+
+    TODO: remove in version 3.0
+    """
+    warnings.warn(
+        "auto_conn was renamed get_davclient",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    if config_data:
+        kwargs.update(config_data)
+    return get_davclient(*largs, **kwargs)
+
+
+def get_davclient(
+    check_config_file: bool = True,
+    config_file: str = None,
+    config_section: str = None,
+    testconfig: bool = False,
     environment: bool = True,
-    config_data: dict = None,
     name: str = None,
+    **config_data,
 ) -> "DAVClient":
     """
-    Normally you would like to look into auto_calendars or
-    auto_calendar instead.  However, in some cases it's needed
-    with a DAVClient object rather than a Calendar object.
-
     This function will yield a DAVClient object.  It will not try to
     connect (see auto_calendars for that).  It will read configuration
     from various sources, dependent on the parameters given, in this
     order:
 
-    * Data from the given dict
-    * Environment variables prepended with "CALDAV_"
+    * Data from the parameters given
+    * Environment variables prepended with `CALDAV_`, like `CALDAV_URL`, `CALDAV_USERNAME`, `CALDAV_PASSWORD`.
+    * Environment variables `PYTHON_CALDAV_USE_TEST_SERVER` and `CALDAV_CONFIG_FILE` will be honored if environment is set
     * Data from `./tests/conf.py` or `./conf.py` (this includes the possibility to spin up a test server)
     * Configuration file.  Documented in the plann project as for now.  (TODO - move it)
-
     """
     if config_data:
         return DAVClient(**config_data)
 
-    if testconfig:
+    if testconfig or (environment and os.environ.get("PYTHON_CALDAV_USE_TEST_SERVER")):
         sys.path.insert(0, "tests")
         sys.path.insert(1, ".")
         ## TODO: move the code from client into here
         try:
             from conf import client
 
+            idx = None
+            if name:
+                try:
+                    idx = int(name)
+                    name = None
+                except ValueError:
+                    pass
             try:
-                idx = int(name)
-                name = None
-            except ValueError:
-                idx = None
-            try:
-                conn = client(idx, name, **config_data)
+                conn = client(idx, name)
                 if conn:
                     return conn
             except:
@@ -913,11 +1106,38 @@ def auto_conn(
             sys.path = sys.path[2:]
 
     if environment:
-        raise NotImplementedError(
-            "Not possible to configure the caldav server through environmental variables yet"
-        )
+        conf = {}
+        for conf_key in (
+            x
+            for x in os.environ
+            if x.startswith("CALDAV_") and not x.startswith("CALDAV_CONFIG")
+        ):
+            conf[conf_key[7:].lower()] = os.environ[conf_key]
+        if conf:
+            return DAVClient(**conf)
+        if not config_file:
+            config_file = os.environ.get("CALDAV_CONFIG_FILE")
+        if not config_section:
+            config_section = os.environ.get("CALDAV_CONFIG_SECTION")
 
-    if configfile:
-        raise NotImplementedError(
-            "Support for configuration file not made yet (TODO: copy the code from the plann tool)"
-        )
+    if check_config_file:
+        ## late import in 2.0, as the config stuff isn't properly tested
+        from . import config
+
+        if not config_section:
+            config_section = "default"
+
+        cfg = config.read_config(config_file)
+        if cfg:
+            section = config.config_section(cfg, config_section)
+            conn_params = {}
+            for k in section:
+                if k.startswith("caldav_") and section[k]:
+                    key = k[7:]
+                    if key == "pass":
+                        key = "password"
+                    if key == "user":
+                        key = "username"
+                    conn_params[key] = section[k]
+            if conn_params:
+                return DAVClient(**conn_params)

@@ -4642,15 +4642,15 @@ class sbes(Group):
     update_interval_k_omega: update_interval_k_omega
     les_subgrid_scale_model: les_subgrid_scale_model
     les_subgrid_dynamic_fvar: les_subgrid_dynamic_fvar
-class f_length(String):
+class f_length(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class re_theta_c(String):
+class re_theta_c(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class re_theta_t(String):
+class re_theta_t(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -4662,6 +4662,10 @@ class user_defined_transition(Group):
     f_length: f_length
     re_theta_c: re_theta_c
     re_theta_t: re_theta_t
+class turb_buoyancy_effects(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class viscous_heating(Boolean):
     _version: str
     fluent_name: str
@@ -4765,10 +4769,6 @@ class production_limiter(Group):
     child_names: list[str]
     enabled: enabled_3
     clip_factor: clip_factor
-class turb_buoyancy_effects(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class kw_buoyancy_effects(Boolean):
     _version: str
     fluent_name: str
@@ -4782,6 +4782,7 @@ class options_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    turb_buoyancy_effects: turb_buoyancy_effects
     viscous_heating: viscous_heating
     low_pressure_boundary_slip: low_pressure_boundary_slip
     curvature_correction: curvature_correction
@@ -4789,7 +4790,6 @@ class options_1(Group):
     compressibility_effects: compressibility_effects
     production_kato_launder_enabled: production_kato_launder_enabled
     production_limiter: production_limiter
-    turb_buoyancy_effects: turb_buoyancy_effects
     kw_buoyancy_effects: kw_buoyancy_effects
     enable_geko: enable_geko
 class dispersion_force_in_momentum(Boolean):
@@ -5431,6 +5431,10 @@ class non_participating_boundary_zones(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
+class non_participating_physics_boundaries(StringList, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class non_participating_zone_temperature(Real):
     _version: str
     fluent_name: str
@@ -5448,6 +5452,7 @@ class viewfactor_settings(Group):
     separation: separation
     subdivide: subdivide
     non_participating_boundary_zones: non_participating_boundary_zones
+    non_participating_physics_boundaries: non_participating_physics_boundaries
     non_participating_zone_temperature: non_participating_zone_temperature
 class enable_mesh_interface_clustering(Boolean):
     _version: str
@@ -9885,6 +9890,14 @@ class real_to_simulated_particle_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class collision_pair_selection(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class target_number_of_particle_per_subcell(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class dsmc(Group):
     _version: str
     fluent_name: str
@@ -9894,6 +9907,8 @@ class dsmc(Group):
     time_step: time_step
     sampling_begin_iteration: sampling_begin_iteration
     real_to_simulated_particle_ratio: real_to_simulated_particle_ratio
+    collision_pair_selection: collision_pair_selection
+    target_number_of_particle_per_subcell: target_number_of_particle_per_subcell
 class enabled_25(Boolean):
     _version: str
     fluent_name: str
@@ -10339,6 +10354,10 @@ class options_5(Group):
     bc_type: bc_type
     tot_voltage: tot_voltage
     tot_current: tot_current
+class anode_mech(String):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class anode_jref(Real):
     _version: str
     fluent_name: str
@@ -10364,6 +10383,10 @@ class anode_ex_a(Real):
     fluent_name: str
     _python_name: str
 class anode_ex_c(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class cathode_mech(String):
     _version: str
     fluent_name: str
     _python_name: str
@@ -10440,6 +10463,7 @@ class parameters_3(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    anode_mech: anode_mech
     anode_jref: anode_jref
     anode_jea: anode_jea
     anode_tref: anode_tref
@@ -10447,6 +10471,7 @@ class parameters_3(Group):
     anode_exp: anode_exp
     anode_ex_a: anode_ex_a
     anode_ex_c: anode_ex_c
+    cathode_mech: cathode_mech
     cathode_jref: cathode_jref
     cathode_jea: cathode_jea
     cathode_tref: cathode_tref
@@ -11980,6 +12005,10 @@ class anode_p_diameter(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class anode_specific_area(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class anode_n_sphere(Integer):
     _version: str
     fluent_name: str
@@ -12035,6 +12064,10 @@ class anode_brugg(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class anode_trans_efficiency(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class anode_sigma(Group):
     _version: str
     fluent_name: str
@@ -12073,6 +12106,17 @@ class anode_ocv_1(Group):
     polynomial: polynomial_1
     user_defined: user_defined_15
     _child_aliases: dict
+class anode_entropic_coef(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_33
+    value: value_8
+    piecewise_linear: piecewise_linear
+    polynomial: polynomial_1
+    user_defined: user_defined_15
+    _child_aliases: dict
 class cathode_thickness(Real):
     _version: str
     fluent_name: str
@@ -12086,6 +12130,10 @@ class cathode_size_ratio(Real):
     fluent_name: str
     _python_name: str
 class cathode_p_diameter(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class cathode_specific_area(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -12140,6 +12188,10 @@ class cathode_brugg(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class cathode_trans_efficiency(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class cathode_sigma(Group):
     _version: str
     fluent_name: str
@@ -12178,6 +12230,17 @@ class cathode_ocv_1(Group):
     polynomial: polynomial_1
     user_defined: user_defined_15
     _child_aliases: dict
+class cathode_entropic_coef(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_33
+    value: value_8
+    piecewise_linear: piecewise_linear
+    polynomial: polynomial_1
+    user_defined: user_defined_15
+    _child_aliases: dict
 class electrolyte_thickness(Real):
     _version: str
     fluent_name: str
@@ -12198,6 +12261,10 @@ class electrolyte_brugg(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class electrolyte_trans_efficiency(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class electrolyte_de(Group):
     _version: str
     fluent_name: str
@@ -12209,6 +12276,10 @@ class electrolyte_de(Group):
     polynomial: polynomial_1
     user_defined: user_defined_15
     _child_aliases: dict
+class electrolyte_de_act(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class electrolyte_t_plus(Group):
     _version: str
     fluent_name: str
@@ -12231,6 +12302,10 @@ class electrolyte_sigma(Group):
     polynomial: polynomial_1
     user_defined: user_defined_15
     _child_aliases: dict
+class electrolyte_sigma_act(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class electrolyte_activity(Group):
     _version: str
     fluent_name: str
@@ -12267,12 +12342,14 @@ class p2d_model_settings(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
     initial_soc: initial_soc_1
     ref_capacity: ref_capacity_2
     anode_thickness: anode_thickness
     anode_n_grid: anode_n_grid
     anode_size_ratio: anode_size_ratio
     anode_p_diameter: anode_p_diameter
+    anode_specific_area: anode_specific_area
     anode_n_sphere: anode_n_sphere
     anode_size_ratio_r: anode_size_ratio_r
     anode_cs_max: anode_cs_max
@@ -12284,16 +12361,19 @@ class p2d_model_settings(Group):
     anode_ds: anode_ds
     anode_ed: anode_ed
     anode_brugg: anode_brugg
+    anode_trans_efficiency: anode_trans_efficiency
     anode_sigma: anode_sigma
     anode_i0: anode_i0_1
     anode_er: anode_er
     anode_alpha_a: anode_alpha_a_1
     anode_alpha_c: anode_alpha_c_1
     anode_ocv: anode_ocv_1
+    anode_entropic_coef: anode_entropic_coef
     cathode_thickness: cathode_thickness
     cathode_n_grid: cathode_n_grid
     cathode_size_ratio: cathode_size_ratio
     cathode_p_diameter: cathode_p_diameter
+    cathode_specific_area: cathode_specific_area
     cathode_n_sphere: cathode_n_sphere
     cathode_size_ratio_r: cathode_size_ratio_r
     cathode_cs_max: cathode_cs_max
@@ -12305,26 +12385,40 @@ class p2d_model_settings(Group):
     cathode_ds: cathode_ds
     cathode_ed: cathode_ed
     cathode_brugg: cathode_brugg
+    cathode_trans_efficiency: cathode_trans_efficiency
     cathode_sigma: cathode_sigma
     cathode_i0: cathode_i0_1
     cathode_er: cathode_er
     cathode_alpha_a: cathode_alpha_a_1
     cathode_alpha_c: cathode_alpha_c_1
     cathode_ocv: cathode_ocv_1
+    cathode_entropic_coef: cathode_entropic_coef
     electrolyte_thickness: electrolyte_thickness
     electrolyte_n_grid: electrolyte_n_grid
     electrolyte_ce_0: electrolyte_ce_0
     electrolyte_vof: electrolyte_vof
     electrolyte_brugg: electrolyte_brugg
+    electrolyte_trans_efficiency: electrolyte_trans_efficiency
     electrolyte_de: electrolyte_de
+    electrolyte_de_act: electrolyte_de_act
     electrolyte_t_plus: electrolyte_t_plus
     electrolyte_sigma: electrolyte_sigma
+    electrolyte_sigma_act: electrolyte_sigma_act
     electrolyte_activity: electrolyte_activity
     analytical_cs: analytical_cs
     analytical_cs_order: analytical_cs_order
     aging_model_enabled: aging_model_enabled_1
     aging_file: aging_file
     aging_profile: aging_profile
+    def import_properties_from_bpx_file(self, file_name: str):
+        """
+        Command object to read BPX file.
+        
+        Parameters
+        ----------
+            file_name_1 : str
+                BPX file name with its full path.
+        """
 class memory_num_per_cell(Integer):
     _version: str
     fluent_name: str
@@ -13856,7 +13950,7 @@ class echem_model_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class file_name_1_15(Filename, _InputFile):
+class file_name_1_16(Filename, _InputFile):
     _version: str
     fluent_name: str
     _python_name: str
@@ -13893,7 +13987,7 @@ class test_data_sets_child(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    file_name: file_name_1_15
+    file_name: file_name_1_16
     initial_alpha: initial_alpha
     initial_temp: initial_temp
     ambient_temp: ambient_temp_1
@@ -13958,7 +14052,7 @@ class nvalue(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class file_name_1_14(Filename, _InputFile):
+class file_name_1_15(Filename, _InputFile):
     _version: str
     fluent_name: str
     _python_name: str
@@ -13981,7 +14075,7 @@ class thermal_abuse_fitting(Group):
     mvalue: mvalue
     fixn_enabled: fixn_enabled
     nvalue: nvalue
-    file_name: file_name_1_14
+    file_name: file_name_1_15
     initial_temp: initial_temp
     ambient_temp: ambient_temp
     external_ht_coeff: external_ht_coeff
@@ -14099,7 +14193,7 @@ class max_n_per_time_step(Integer):
     _version: str
     fluent_name: str
     _python_name: str
-class file_name_1_16(Filename, _InputFile):
+class file_name_1_17(Filename, _InputFile):
     _version: str
     fluent_name: str
     _python_name: str
@@ -14119,7 +14213,7 @@ class transient_setup(Group):
     increment_factor: increment_factor
     n_time_step_per_setting: n_time_step_per_setting
     max_n_per_time_step: max_n_per_time_step
-    file_name: file_name_1_16
+    file_name: file_name_1_17
     stop_range_fraction: stop_range_fraction
 class volume_heat_run(Integer):
     _version: str
@@ -21149,6 +21243,10 @@ class fan_tip_rad(Real):
     _version: str
     fluent_name: str
     _python_name: str
+class fan_inflection_point(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class fan_origin_child(Real):
     _version: str
     fluent_name: str
@@ -21182,10 +21280,6 @@ class fan_rot_dir(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 class fan_opert_angvel(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class fan_inflection_point(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -21259,10 +21353,10 @@ class fan_zone(Group):
     fan_thickness: fan_thickness
     fan_hub_rad: fan_hub_rad
     fan_tip_rad: fan_tip_rad
+    fan_inflection_point: fan_inflection_point
     fan_origin: fan_origin
     fan_rot_dir: fan_rot_dir
     fan_opert_angvel: fan_opert_angvel
-    fan_inflection_point: fan_inflection_point
     limit_flow_fan: limit_flow_fan
     max_flow_rate: max_flow_rate
     min_flow_rate: min_flow_rate
@@ -22827,52 +22921,212 @@ class locations_2(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class geom_disable(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_dir_spec(Boolean):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_dir_x(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_dir_y(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_dir_z(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_levels(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geom_bgthread(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class geometry_6(Group):
+class phase_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    geom_disable: geom_disable
-    geom_dir_spec: geom_dir_spec
-    geom_dir_x: geom_dir_x
-    geom_dir_y: geom_dir_y
-    geom_dir_z: geom_dir_z
-    geom_levels: geom_levels
-    geom_bgthread: geom_bgthread
+    general: general_2
+    conical: conical
+    reference_frame: reference_frame_2
+    mesh_motion: mesh_motion
+    zonal_models: zonal_models
+    porous_zone: porous_zone
+    fan_zone: fan_zone
+    embedded_les: embedded_les
+    reaction: reaction
+    sources: sources_1
+    fixed_values: fixed_values
+    multiphase: multiphase_1
+    disabled: disabled
+class phase_2(NamedObject[phase_2_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: phase_2_child
+class fluid_2_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    general: general_2
+    conical: conical
+    reference_frame: reference_frame_2
+    mesh_motion: mesh_motion
+    zonal_models: zonal_models
+    porous_zone: porous_zone
+    fan_zone: fan_zone
+    embedded_les: embedded_les
+    reaction: reaction
+    sources: sources_1
+    fixed_values: fixed_values
+    multiphase: multiphase_1
+    disabled: disabled
+    phase: phase_2
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input volume and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new volume name.
+            locations : List
+                Input location name which should be part of new volume.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this volume.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class fluid_2(NamedObject[fluid_2_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: fluid_2_child
 class phase_3_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    geometry: geometry_6
+    general: general_3
+    reference_frame: reference_frame_3
+    mesh_motion: mesh_motion_1
+    solid_motion: solid_motion
+    sources: sources_1
+    fixed_values: fixed_values
+    material_orientation: material_orientation
+    disabled: disabled_1
+    internal: internal
 class phase_3(NamedObject[phase_3_child]):
     _version: str
     fluent_name: str
@@ -22932,14 +23186,7 @@ class phase_3(NamedObject[phase_3_child]):
                 The name of the new object.
         """
     child_object_type: phase_3_child
-class settings_1(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    geometry: geometry_6
-    phase: phase_3
-class axis_5_child(Group):
+class solid_3_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -22947,20 +23194,51 @@ class axis_5_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_1
+    general: general_3
+    reference_frame: reference_frame_3
+    mesh_motion: mesh_motion_1
+    solid_motion: solid_motion
+    sources: sources_1
+    fixed_values: fixed_values
+    material_orientation: material_orientation
+    disabled: disabled_1
+    internal: internal
+    phase: phase_3
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
-        Input boundary and location names to split.
+        Input volume and location names to split.
         
         Parameters
         ----------
             name : str
-                Input new boundary name.
+                Input new volume name.
             locations : List
-                Input location name which should be part of new boundary.
+                Input location name which should be part of new volume.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this volume.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
         """
     _child_aliases: dict
-class axis_5(NamedObject[axis_5_child]):
+class solid_3(NamedObject[solid_3_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -23018,29 +23296,88 @@ class axis_5(NamedObject[axis_5_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: axis_5_child
-class degassing_child(Group):
+    child_object_type: solid_3_child
+class volumes(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_1
-    def split(self, name: str, locations: list[str]):
+    fluid: fluid_2
+    solid: solid_3
+    def list_physics(self):
         """
-        Input boundary and location names to split.
+        List volume information.
+        """
+    def create(self, name: str, type: str):
+        """
+        Crate new volume.
         
         Parameters
         ----------
             name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
+                Input new volume name .
+            type : str
+                Input volume type.
         """
-    _child_aliases: dict
-class degassing(NamedObject[degassing_child]):
+    def set_type(self, volume_names: list[str], type: str):
+        """
+        Input volume name(s) to change its type.
+        
+        Parameters
+        ----------
+            volume_names : List
+                Input volume names .
+            type : str
+                Input volume type.
+        """
+class geom_disable(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_dir_spec(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_dir_x(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_dir_y(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_dir_z(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_levels(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geom_bgthread(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class geometry_6(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    geom_disable: geom_disable
+    geom_dir_spec: geom_dir_spec
+    geom_dir_x: geom_dir_x
+    geom_dir_y: geom_dir_y
+    geom_dir_z: geom_dir_z
+    geom_levels: geom_levels
+    geom_bgthread: geom_bgthread
+class phase_4_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    geometry: geometry_6
+class phase_4(NamedObject[phase_4_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -23053,6 +23390,216 @@ class degassing(NamedObject[degassing_child]):
         ----------
             name : str
                 Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: phase_4_child
+class axis_5_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input boundary and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new boundary name.
+            locations : List
+                Input location name which should be part of new boundary.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class axis_5(NamedObject[axis_5_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: axis_5_child
+class degassing_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input boundary and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new boundary name.
+            locations : List
+                Input location name which should be part of new boundary.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class degassing(NamedObject[degassing_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -25746,7 +26293,7 @@ class icing(Group):
     fensapice_dpm_rh_mode: fensapice_dpm_rh_mode
     fensapice_drop_vrh: fensapice_drop_vrh
     fensapice_drop_vc: fensapice_drop_vc
-class phase_4_child(Group):
+class phase_5_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -25763,7 +26310,7 @@ class phase_4_child(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-class phase_4(NamedObject[phase_4_child]):
+class phase_5(NamedObject[phase_5_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -25821,12 +26368,15 @@ class phase_4(NamedObject[phase_4_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_4_child
-class settings_2(Group):
+    child_object_type: phase_5_child
+class exhaust_fan_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum
     turbulence: turbulence
     thermal: thermal
@@ -25839,16 +26389,11 @@ class settings_2(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-    phase: phase_4
-class exhaust_fan_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_2
+    phase: phase_5
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -25860,20 +26405,40 @@ class exhaust_fan_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class exhaust_fan(NamedObject[exhaust_fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -26153,7 +26718,7 @@ class discrete_phase_2(Group):
     bc_user_function: bc_user_function
     dem_collision_partner: dem_collision_partner
     _child_aliases: dict
-class phase_5_child(Group):
+class phase_6_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -26162,7 +26727,7 @@ class phase_5_child(Group):
     swirl_velocity_specification: swirl_velocity_specification
     discrete_phase: discrete_phase_2
     geometry: geometry_6
-class phase_5(NamedObject[phase_5_child]):
+class phase_6(NamedObject[phase_6_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -26220,17 +26785,7 @@ class phase_5(NamedObject[phase_5_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_5_child
-class settings_3(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    pressure_jump_specification: pressure_jump_specification
-    swirl_velocity_specification: swirl_velocity_specification
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_5
+    child_object_type: phase_6_child
 class fan_child(Group):
     _version: str
     fluent_name: str
@@ -26239,7 +26794,15 @@ class fan_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_3
+    pressure_jump_specification: pressure_jump_specification
+    swirl_velocity_specification: swirl_velocity_specification
+    discrete_phase: discrete_phase_2
+    geometry: geometry_6
+    phase: phase_6
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -26251,20 +26814,40 @@ class fan_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class fan(NamedObject[fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -26319,7 +26902,12 @@ class geometry_5_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_1
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -26331,20 +26919,40 @@ class geometry_5_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class geometry_5(NamedObject[geometry_5_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -27509,7 +28117,7 @@ class icing_1(Group):
     fensapice_drop_vrh: fensapice_drop_vrh_1
     fensapice_drop_vrh_1: fensapice_drop_vrh_1_1
     fensapice_drop_vc: fensapice_drop_vc
-class phase_6_child(Group):
+class phase_7_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -27526,7 +28134,7 @@ class phase_6_child(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-class phase_6(NamedObject[phase_6_child]):
+class phase_7(NamedObject[phase_7_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -27584,12 +28192,15 @@ class phase_6(NamedObject[phase_6_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_6_child
-class settings_4(Group):
+    child_object_type: phase_7_child
+class inlet_vent_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_1
     turbulence: turbulence_1
     thermal: thermal_1
@@ -27602,16 +28213,11 @@ class settings_4(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-    phase: phase_6
-class inlet_vent_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_4
+    phase: phase_7
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -27623,20 +28229,40 @@ class inlet_vent_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class inlet_vent(NamedObject[inlet_vent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -27719,196 +28345,22 @@ class momentum_2(Group):
     strength: strength
     new_fan_definition: new_fan_definition
     _child_aliases: dict
-class phase_7_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_2
-    turbulence: turbulence_1
-    thermal: thermal_1
-    radiation: radiation_2
-    species: species_6
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_3
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-class phase_7(NamedObject[phase_7_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: phase_7_child
-class settings_5(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_2
-    turbulence: turbulence_1
-    thermal: thermal_1
-    radiation: radiation_2
-    species: species_6
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_3
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_7
-class intake_fan_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_5
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    _child_aliases: dict
-class intake_fan(NamedObject[intake_fan_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: intake_fan_child
-class non_overlap_zone_name(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class interface_1(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    non_overlap_zone_name: non_overlap_zone_name
 class phase_8_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    interface: interface_1
+    momentum: momentum_2
+    turbulence: turbulence_1
+    thermal: thermal_1
+    radiation: radiation_2
+    species: species_6
+    discrete_phase: discrete_phase_1
+    multiphase: multiphase_3
+    potential: potential
+    structure: structure_1
+    uds: uds
+    icing: icing_1
     geometry: geometry_6
 class phase_8(NamedObject[phase_8_child]):
     _version: str
@@ -27969,15 +28421,7 @@ class phase_8(NamedObject[phase_8_child]):
                 The name of the new object.
         """
     child_object_type: phase_8_child
-class settings_6(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    interface: interface_1
-    geometry: geometry_6
-    phase: phase_8
-class interface_child(Group):
+class intake_fan_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -27985,7 +28429,23 @@ class interface_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_6
+    momentum: momentum_2
+    turbulence: turbulence_1
+    thermal: thermal_1
+    radiation: radiation_2
+    species: species_6
+    discrete_phase: discrete_phase_1
+    multiphase: multiphase_3
+    potential: potential
+    structure: structure_1
+    uds: uds
+    icing: icing_1
+    geometry: geometry_6
+    phase: phase_8
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -27997,20 +28457,40 @@ class interface_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
-class interface(NamedObject[interface_child]):
+class intake_fan(NamedObject[intake_fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -28056,23 +28536,24 @@ class interface(NamedObject[interface_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interface_child
-class is_not_a_rans_les_interface(Boolean):
+    child_object_type: intake_fan_child
+class non_overlap_zone_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class interior_1(Group):
+class interface_1(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    is_not_a_rans_les_interface: is_not_a_rans_les_interface
+    non_overlap_zone_name: non_overlap_zone_name
 class phase_9_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    interior: interior_1
+    interface: interface_1
+    geometry: geometry_6
 class phase_9(NamedObject[phase_9_child]):
     _version: str
     fluent_name: str
@@ -28132,14 +28613,7 @@ class phase_9(NamedObject[phase_9_child]):
                 The name of the new object.
         """
     child_object_type: phase_9_child
-class settings_7(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    interior: interior_1
-    phase: phase_9
-class interior_child(Group):
+class interface_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28147,7 +28621,13 @@ class interior_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_7
+    interface: interface_1
+    geometry: geometry_6
+    phase: phase_9
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -28159,8 +28639,103 @@ class interior_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
-class interior(NamedObject[interior_child]):
+class interface(NamedObject[interface_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: interface_child
+class is_not_a_rans_les_interface(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class interior_1(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    is_not_a_rans_les_interface: is_not_a_rans_les_interface
+class phase_10_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    interior: interior_1
+class phase_10(NamedObject[phase_10_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28173,6 +28748,111 @@ class interior(NamedObject[interior_child]):
         ----------
             name : str
                 Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: phase_10_child
+class interior_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    interior: interior_1
+    phase: phase_10
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input boundary and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new boundary name.
+            locations : List
+                Input location name which should be part of new boundary.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class interior(NamedObject[interior_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -28488,7 +29168,7 @@ class multiphase_4(Group):
     liquid_mass_fraction: liquid_mass_fraction
     log10_droplets_per_unit_volume: log10_droplets_per_unit_volume
     _child_aliases: dict
-class phase_10_child(Group):
+class phase_11_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28505,7 +29185,7 @@ class phase_10_child(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-class phase_10(NamedObject[phase_10_child]):
+class phase_11(NamedObject[phase_11_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28563,12 +29243,15 @@ class phase_10(NamedObject[phase_10_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_10_child
-class settings_8(Group):
+    child_object_type: phase_11_child
+class mass_flow_inlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_3
     turbulence: turbulence_2
     thermal: thermal_2
@@ -28581,16 +29264,11 @@ class settings_8(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-    phase: phase_10
-class mass_flow_inlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_8
+    phase: phase_11
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -28602,20 +29280,40 @@ class mass_flow_inlet_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class mass_flow_inlet(NamedObject[mass_flow_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -28721,184 +29419,23 @@ class potential_1(Group):
     _version: str
     fluent_name: str
     _python_name: str
-class phase_11_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_4
-    turbulence: turbulence_3
-    thermal: thermal_3
-    radiation: radiation_4
-    species: species_8
-    discrete_phase: discrete_phase_3
-    multiphase: multiphase_5
-    potential: potential_1
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-class phase_11(NamedObject[phase_11_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: phase_11_child
-class settings_9(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_4
-    turbulence: turbulence_3
-    thermal: thermal_3
-    radiation: radiation_4
-    species: species_8
-    discrete_phase: discrete_phase_3
-    multiphase: multiphase_5
-    potential: potential_1
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_11
-class mass_flow_outlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_9
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    _child_aliases: dict
-class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: mass_flow_outlet_child
 class phase_12_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
+    child_names: list[str]
+    momentum: momentum_4
+    turbulence: turbulence_3
+    thermal: thermal_3
+    radiation: radiation_4
+    species: species_8
+    discrete_phase: discrete_phase_3
+    multiphase: multiphase_5
+    potential: potential_1
+    structure: structure_1
+    uds: uds
+    icing: icing_1
+    geometry: geometry_6
 class phase_12(NamedObject[phase_12_child]):
     _version: str
     fluent_name: str
@@ -28958,13 +29495,7 @@ class phase_12(NamedObject[phase_12_child]):
                 The name of the new object.
         """
     child_object_type: phase_12_child
-class settings_10(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    phase: phase_12
-class network_child(Group):
+class mass_flow_outlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28972,7 +29503,23 @@ class network_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_10
+    momentum: momentum_4
+    turbulence: turbulence_3
+    thermal: thermal_3
+    radiation: radiation_4
+    species: species_8
+    discrete_phase: discrete_phase_3
+    multiphase: multiphase_5
+    potential: potential_1
+    structure: structure_1
+    uds: uds
+    icing: icing_1
+    geometry: geometry_6
+    phase: phase_12
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -28984,8 +29531,91 @@ class network_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
-class network(NamedObject[network_child]):
+class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: mass_flow_outlet_child
+class phase_13_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class phase_13(NamedObject[phase_13_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -28998,6 +29628,110 @@ class network(NamedObject[network_child]):
         ----------
             name : str
                 Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: phase_13_child
+class network_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    phase: phase_13
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input boundary and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new boundary name.
+            locations : List
+                Input location name which should be part of new boundary.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class network(NamedObject[network_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -29078,13 +29812,13 @@ class network_end_1(Group):
     thermal_bc: thermal_bc
     temperature: temperature_3
     q: q
-class phase_13_child(Group):
+class phase_14_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     network_end: network_end_1
-class phase_13(NamedObject[phase_13_child]):
+class phase_14(NamedObject[phase_14_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29142,14 +29876,7 @@ class phase_13(NamedObject[phase_13_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_13_child
-class settings_11(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    network_end: network_end_1
-    phase: phase_13
+    child_object_type: phase_14_child
 class network_end_child(Group):
     _version: str
     fluent_name: str
@@ -29158,7 +29885,12 @@ class network_end_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_11
+    network_end: network_end_1
+    phase: phase_14
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -29170,20 +29902,40 @@ class network_end_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class network_end(NamedObject[network_end_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -29257,7 +30009,7 @@ class discrete_phase_4(Group):
     bc_user_function: bc_user_function
     dem_collision_partner: dem_collision_partner
     _child_aliases: dict
-class phase_14_child(Group):
+class phase_15_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29269,7 +30021,7 @@ class phase_14_child(Group):
     radiation: radiation_2
     discrete_phase: discrete_phase_4
     geometry: geometry_6
-class phase_14(NamedObject[phase_14_child]):
+class phase_15(NamedObject[phase_15_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29327,20 +30079,7 @@ class phase_14(NamedObject[phase_14_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_14_child
-class settings_12(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_5
-    potential: potential
-    structure: structure_1
-    uds: uds_2
-    radiation: radiation_2
-    discrete_phase: discrete_phase_4
-    geometry: geometry_6
-    phase: phase_14
+    child_object_type: phase_15_child
 class outflow_child(Group):
     _version: str
     fluent_name: str
@@ -29349,7 +30088,18 @@ class outflow_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_12
+    momentum: momentum_5
+    potential: potential
+    structure: structure_1
+    uds: uds_2
+    radiation: radiation_2
+    discrete_phase: discrete_phase_4
+    geometry: geometry_6
+    phase: phase_15
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -29361,20 +30111,40 @@ class outflow_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class outflow(NamedObject[outflow_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -29459,7 +30229,7 @@ class momentum_6(Group):
     loss_coefficient: loss_coefficient
     strength: strength
     _child_aliases: dict
-class phase_15_child(Group):
+class phase_16_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29476,7 +30246,7 @@ class phase_15_child(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-class phase_15(NamedObject[phase_15_child]):
+class phase_16(NamedObject[phase_16_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29534,12 +30304,15 @@ class phase_15(NamedObject[phase_15_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_15_child
-class settings_13(Group):
+    child_object_type: phase_16_child
+class outlet_vent_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_6
     turbulence: turbulence
     thermal: thermal
@@ -29552,16 +30325,11 @@ class settings_13(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-    phase: phase_15
-class outlet_vent_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_13
+    phase: phase_16
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -29573,20 +30341,40 @@ class outlet_vent_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class outlet_vent(NamedObject[outlet_vent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -29641,7 +30429,12 @@ class overset_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_1
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -29653,20 +30446,40 @@ class overset_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class overset(NamedObject[overset_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -29833,14 +30646,14 @@ class geometry_7(Group):
     geom_dir_z: geom_dir_z
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
-class phase_16_child(Group):
+class phase_17_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     periodic: periodic_1
     geometry: geometry_7
-class phase_16(NamedObject[phase_16_child]):
+class phase_17(NamedObject[phase_17_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -29898,15 +30711,7 @@ class phase_16(NamedObject[phase_16_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_16_child
-class settings_14(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    periodic: periodic_1
-    geometry: geometry_7
-    phase: phase_16
+    child_object_type: phase_17_child
 class periodic_child(Group):
     _version: str
     fluent_name: str
@@ -29915,7 +30720,13 @@ class periodic_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_14
+    periodic: periodic_1
+    geometry: geometry_7
+    phase: phase_17
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -29927,20 +30738,40 @@ class periodic_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class periodic(NamedObject[periodic_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -30155,7 +30986,7 @@ class porous_jump_1(Group):
     z_disp_boundary_condition: z_disp_boundary_condition
     z_disp_boundary_value: z_disp_boundary_value
     _child_aliases: dict
-class phase_17_child(Group):
+class phase_18_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30163,7 +30994,7 @@ class phase_17_child(Group):
     porous_jump: porous_jump_1
     discrete_phase: discrete_phase_2
     geometry: geometry_6
-class phase_17(NamedObject[phase_17_child]):
+class phase_18(NamedObject[phase_18_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30221,16 +31052,7 @@ class phase_17(NamedObject[phase_17_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_17_child
-class settings_15(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    porous_jump: porous_jump_1
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_17
+    child_object_type: phase_18_child
 class porous_jump_child(Group):
     _version: str
     fluent_name: str
@@ -30239,7 +31061,14 @@ class porous_jump_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_15
+    porous_jump: porous_jump_1
+    discrete_phase: discrete_phase_2
+    geometry: geometry_6
+    phase: phase_18
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -30251,20 +31080,40 @@ class porous_jump_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class porous_jump(NamedObject[porous_jump_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -30415,7 +31264,7 @@ class species_9(Group):
     pollutant_hgcl_mass_fraction: pollutant_hgcl_mass_fraction
     pollutant_hocl_mass_fraction: pollutant_hocl_mass_fraction
     _child_aliases: dict
-class phase_18_child(Group):
+class phase_19_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30431,7 +31280,7 @@ class phase_18_child(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-class phase_18(NamedObject[phase_18_child]):
+class phase_19(NamedObject[phase_19_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30489,12 +31338,15 @@ class phase_18(NamedObject[phase_18_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_18_child
-class settings_16(Group):
+    child_object_type: phase_19_child
+class pressure_far_field_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_7
     turbulence: turbulence_2
     thermal: thermal_4
@@ -30506,16 +31358,11 @@ class settings_16(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-    phase: phase_18
-class pressure_far_field_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_16
+    phase: phase_19
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -30527,20 +31374,40 @@ class pressure_far_field_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class pressure_far_field(NamedObject[pressure_far_field_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -30608,7 +31475,7 @@ class momentum_8(Group):
     complex_pole_series: complex_pole_series
     incoming_wave: incoming_wave
     _child_aliases: dict
-class phase_19_child(Group):
+class phase_20_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30625,7 +31492,7 @@ class phase_19_child(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-class phase_19(NamedObject[phase_19_child]):
+class phase_20(NamedObject[phase_20_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30683,12 +31550,15 @@ class phase_19(NamedObject[phase_19_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_19_child
-class settings_17(Group):
+    child_object_type: phase_20_child
+class pressure_inlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_8
     turbulence: turbulence_1
     thermal: thermal_1
@@ -30701,16 +31571,11 @@ class settings_17(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-    phase: phase_19
-class pressure_inlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_17
+    phase: phase_20
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -30722,20 +31587,40 @@ class pressure_inlet_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class pressure_inlet(NamedObject[pressure_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -30818,7 +31703,7 @@ class momentum_9(Group):
     complex_pole_series: complex_pole_series
     incoming_wave: incoming_wave
     _child_aliases: dict
-class phase_20_child(Group):
+class phase_21_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30835,7 +31720,7 @@ class phase_20_child(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-class phase_20(NamedObject[phase_20_child]):
+class phase_21(NamedObject[phase_21_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -30893,12 +31778,15 @@ class phase_20(NamedObject[phase_20_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_20_child
-class settings_18(Group):
+    child_object_type: phase_21_child
+class pressure_outlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_9
     turbulence: turbulence
     thermal: thermal
@@ -30911,16 +31799,11 @@ class settings_18(Group):
     uds: uds
     icing: icing
     geometry: geometry_6
-    phase: phase_20
-class pressure_outlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_18
+    phase: phase_21
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -30932,20 +31815,40 @@ class pressure_outlet_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class pressure_outlet(NamedObject[pressure_outlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -31024,7 +31927,7 @@ class radiator_1(Group):
     heat_flux: heat_flux
     strength: strength
     _child_aliases: dict
-class phase_21_child(Group):
+class phase_22_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -31032,7 +31935,7 @@ class phase_21_child(Group):
     radiator: radiator_1
     discrete_phase: discrete_phase_2
     geometry: geometry_6
-class phase_21(NamedObject[phase_21_child]):
+class phase_22(NamedObject[phase_22_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -31090,16 +31993,7 @@ class phase_21(NamedObject[phase_21_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_21_child
-class settings_19(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    radiator: radiator_1
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_21
+    child_object_type: phase_22_child
 class radiator_child(Group):
     _version: str
     fluent_name: str
@@ -31108,7 +32002,14 @@ class radiator_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_19
+    radiator: radiator_1
+    discrete_phase: discrete_phase_2
+    geometry: geometry_6
+    phase: phase_22
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -31120,20 +32021,40 @@ class radiator_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class radiator(NamedObject[radiator_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -31205,14 +32126,14 @@ class turbulence_4(Group):
     rfg_number_of_modes: rfg_number_of_modes
     vm_nvortices: vm_nvortices
     les_embedded_fluctuations: les_embedded_fluctuations
-class phase_22_child(Group):
+class phase_23_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     turbulence: turbulence_4
     geometry: geometry_6
-class phase_22(NamedObject[phase_22_child]):
+class phase_23(NamedObject[phase_23_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -31270,15 +32191,7 @@ class phase_22(NamedObject[phase_22_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_22_child
-class settings_20(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    turbulence: turbulence_4
-    geometry: geometry_6
-    phase: phase_22
+    child_object_type: phase_23_child
 class rans_les_interface_child(Group):
     _version: str
     fluent_name: str
@@ -31287,7 +32200,13 @@ class rans_les_interface_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_20
+    turbulence: turbulence_4
+    geometry: geometry_6
+    phase: phase_23
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -31299,20 +32218,40 @@ class rans_les_interface_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class rans_les_interface(NamedObject[rans_les_interface_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -31525,177 +32464,12 @@ class recirculation_inlet_1(Group):
     participates_in_solar_ray_tracing: participates_in_solar_ray_tracing
     solar_transmissivity_factor: solar_transmissivity_factor
     _child_aliases: dict
-class phase_23_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    recirculation_inlet: recirculation_inlet_1
-    geometry: geometry_6
-class phase_23(NamedObject[phase_23_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: phase_23_child
-class settings_21(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    recirculation_inlet: recirculation_inlet_1
-    geometry: geometry_6
-    phase: phase_23
-class recirculation_inlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_21
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    _child_aliases: dict
-class recirculation_inlet(NamedObject[recirculation_inlet_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: recirculation_inlet_child
-class recirculation_outlet_1(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    mass_flow_specification: mass_flow_specification
-    mass_flow_rate: mass_flow_rate_1
-    mass_flux: mass_flux
-    participates_in_solar_ray_tracing: participates_in_solar_ray_tracing
-    solar_transmissivity_factor: solar_transmissivity_factor
-    _child_aliases: dict
 class phase_24_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    recirculation_outlet: recirculation_outlet_1
+    recirculation_inlet: recirculation_inlet_1
     geometry: geometry_6
 class phase_24(NamedObject[phase_24_child]):
     _version: str
@@ -31756,15 +32530,7 @@ class phase_24(NamedObject[phase_24_child]):
                 The name of the new object.
         """
     child_object_type: phase_24_child
-class settings_22(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    recirculation_outlet: recirculation_outlet_1
-    geometry: geometry_6
-    phase: phase_24
-class recirculation_outlet_child(Group):
+class recirculation_inlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -31772,7 +32538,13 @@ class recirculation_outlet_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_22
+    recirculation_inlet: recirculation_inlet_1
+    geometry: geometry_6
+    phase: phase_24
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -31784,8 +32556,105 @@ class recirculation_outlet_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
-class recirculation_outlet(NamedObject[recirculation_outlet_child]):
+class recirculation_inlet(NamedObject[recirculation_inlet_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: recirculation_inlet_child
+class recirculation_outlet_1(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    mass_flow_specification: mass_flow_specification
+    mass_flow_rate: mass_flow_rate_1
+    mass_flux: mass_flux
+    participates_in_solar_ray_tracing: participates_in_solar_ray_tracing
+    solar_transmissivity_factor: solar_transmissivity_factor
+    _child_aliases: dict
+class phase_25_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    recirculation_outlet: recirculation_outlet_1
+    geometry: geometry_6
+class phase_25(NamedObject[phase_25_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -31798,6 +32667,112 @@ class recirculation_outlet(NamedObject[recirculation_outlet_child]):
         ----------
             name : str
                 Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    child_object_type: phase_25_child
+class recirculation_outlet_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
+    recirculation_outlet: recirculation_outlet_1
+    geometry: geometry_6
+    phase: phase_25
+    def display(self):
+        """
+        Display physics object.
+        """
+    def split(self, name: str, locations: list[str]):
+        """
+        Input boundary and location names to split.
+        
+        Parameters
+        ----------
+            name : str
+                Input new boundary name.
+            locations : List
+                Input location name which should be part of new boundary.
+        """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
+    _child_aliases: dict
+class recirculation_outlet(NamedObject[recirculation_outlet_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str, volume: str):
+        """
+        Crate new boundary.
+        
+        Parameters
+        ----------
+            name : str
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -31852,7 +32827,12 @@ class shadow_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_1
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -31864,20 +32844,40 @@ class shadow_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class shadow(NamedObject[shadow_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -31932,7 +32932,12 @@ class symmetry_child(Group):
     command_names: list[str]
     name: name_4
     locations: locations_2
-    settings: settings_1
+    geometry: geometry_6
+    phase: phase_4
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -31944,20 +32949,40 @@ class symmetry_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class symmetry(NamedObject[symmetry_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -32020,6 +33045,21 @@ class reference_frame_5(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
+class averaged_flow_specification_method(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class avg_flow_velocity(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_44
+    value: value_17
+    profile_name: profile_name
+    field_name: field_name
+    udf: udf
+    _child_aliases: dict
 class velocity_magnitude(Group):
     _version: str
     fluent_name: str
@@ -32096,6 +33136,41 @@ class moving_object_velocity(Group):
     field_name: field_name
     udf: udf
     _child_aliases: dict
+class moving_object_direction_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_44
+    value: value_17
+    profile_name: profile_name
+    field_name: field_name
+    udf: udf
+    _child_aliases: dict
+class moving_object_direction(ListObject[moving_object_direction_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: moving_object_direction_child
 class moving_object_velocity_inputs(Group):
     _version: str
     fluent_name: str
@@ -32103,6 +33178,7 @@ class moving_object_velocity_inputs(Group):
     child_names: list[str]
     moving_object_velocity_specification_method: moving_object_velocity_specification_method
     moving_object_velocity: moving_object_velocity
+    moving_object_direction: moving_object_direction
     _child_aliases: dict
 class primary_phase_velocity_specification_method(String, AllowedValuesMixin):
     _version: str
@@ -32119,6 +33195,41 @@ class primary_phase_velocity(Group):
     field_name: field_name
     udf: udf
     _child_aliases: dict
+class primary_phase_direction_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_44
+    value: value_17
+    profile_name: profile_name
+    field_name: field_name
+    udf: udf
+    _child_aliases: dict
+class primary_phase_direction(ListObject[primary_phase_direction_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: primary_phase_direction_child
 class primary_phase_velocity_inputs(Group):
     _version: str
     fluent_name: str
@@ -32126,6 +33237,7 @@ class primary_phase_velocity_inputs(Group):
     child_names: list[str]
     primary_phase_velocity_specification_method: primary_phase_velocity_specification_method
     primary_phase_velocity: primary_phase_velocity
+    primary_phase_direction: primary_phase_direction
     _child_aliases: dict
 class secondary_phase_velocity_specification_method(String, AllowedValuesMixin):
     _version: str
@@ -32142,6 +33254,41 @@ class secondary_phase_velocity(Group):
     field_name: field_name
     udf: udf
     _child_aliases: dict
+class secondary_phase_direction_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    option: option_44
+    value: value_17
+    profile_name: profile_name
+    field_name: field_name
+    udf: udf
+    _child_aliases: dict
+class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def list_properties(self, object_at: int):
+        """
+        List properties of selected object.
+        
+        Parameters
+        ----------
+            object_at : int
+                Object index to delete.
+        """
+    def resize(self, size: int):
+        """
+        Set number of objects for list-object.
+        
+        Parameters
+        ----------
+            size : int
+                New size for list-object.
+        """
+    child_object_type: secondary_phase_direction_child
 class secondary_phase_velocity_inputs(Group):
     _version: str
     fluent_name: str
@@ -32149,6 +33296,7 @@ class secondary_phase_velocity_inputs(Group):
     child_names: list[str]
     secondary_phase_velocity_specification_method: secondary_phase_velocity_specification_method
     secondary_phase_velocity: secondary_phase_velocity
+    secondary_phase_direction: secondary_phase_direction
     _child_aliases: dict
 class momentum_10(Group):
     _version: str
@@ -32160,14 +33308,16 @@ class momentum_10(Group):
     system_coupling: system_coupling_1
     velocity_specification_method: velocity_specification_method
     reference_frame: reference_frame_5
+    averaged_flow_specification_method: averaged_flow_specification_method
+    avg_flow_velocity: avg_flow_velocity
     velocity_magnitude: velocity_magnitude
     initial_gauge_pressure: initial_gauge_pressure
     coordinate_system: coordinate_system
     velocity_components: velocity_components
+    swirl_angular_velocity: swirl_angular_velocity
     flow_direction: flow_direction
     axis_direction: axis_direction_2
     axis_origin: axis_origin_2
-    swirl_angular_velocity: swirl_angular_velocity
     gauge_pressure: gauge_pressure
     acoustic_wave_model: acoustic_wave_model
     impedance_zero_order_term: impedance_zero_order_term
@@ -32266,21 +33416,6 @@ class radiation_6(Group):
     participates_in_solar_ray_tracing: participates_in_solar_ray_tracing
     solar_transmissivity_factor: solar_transmissivity_factor
     _child_aliases: dict
-class averaged_flow_specification_method(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class avg_flow_velocity(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_44
-    value: value_17
-    profile_name: profile_name
-    field_name: field_name
-    udf: udf
-    _child_aliases: dict
 class flow_velocity_child(Group):
     _version: str
     fluent_name: str
@@ -32316,76 +33451,6 @@ class flow_velocity(ListObject[flow_velocity_child]):
                 New size for list-object.
         """
     child_object_type: flow_velocity_child
-class moving_object_direction_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_44
-    value: value_17
-    profile_name: profile_name
-    field_name: field_name
-    udf: udf
-    _child_aliases: dict
-class moving_object_direction(ListObject[moving_object_direction_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: moving_object_direction_child
-class secondary_phase_direction_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_44
-    value: value_17
-    profile_name: profile_name
-    field_name: field_name
-    udf: udf
-    _child_aliases: dict
-class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: secondary_phase_direction_child
 class primary_phase_reference_height_above_free_surface(Real):
     _version: str
     fluent_name: str
@@ -32405,41 +33470,6 @@ class primary_phase_reference_velocity(Group):
     field_name: field_name
     udf: udf
     _child_aliases: dict
-class primary_phase_direction_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_44
-    value: value_17
-    profile_name: profile_name
-    field_name: field_name
-    udf: udf
-    _child_aliases: dict
-class primary_phase_direction(ListObject[primary_phase_direction_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def list_properties(self, object_at: int):
-        """
-        List properties of selected object.
-        
-        Parameters
-        ----------
-            object_at : int
-                Object index to delete.
-        """
-    def resize(self, size: int):
-        """
-        Set number of objects for list-object.
-        
-        Parameters
-        ----------
-            size : int
-                New size for list-object.
-        """
-    child_object_type: primary_phase_direction_child
 class wave_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
@@ -32755,15 +33785,10 @@ class multiphase_6(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    averaged_flow_specification_method: averaged_flow_specification_method
-    avg_flow_velocity: avg_flow_velocity
     flow_velocity: flow_velocity
-    moving_object_direction: moving_object_direction
-    secondary_phase_direction: secondary_phase_direction
     primary_phase_reference_height_above_free_surface: primary_phase_reference_height_above_free_surface
     primary_phase_power_law_coefficient: primary_phase_power_law_coefficient
     primary_phase_reference_velocity: primary_phase_reference_velocity
-    primary_phase_direction: primary_phase_direction
     secondary_phase_for_inlet: secondary_phase_for_inlet
     wave_option: wave_option
     free_surface_level: free_surface_level
@@ -32800,7 +33825,7 @@ class multiphase_6(Group):
     dqmom_boundary_condition: dqmom_boundary_condition
     dqmom_boundary_value: dqmom_boundary_value
     _child_aliases: dict
-class phase_25_child(Group):
+class phase_26_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -32817,7 +33842,7 @@ class phase_25_child(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-class phase_25(NamedObject[phase_25_child]):
+class phase_26(NamedObject[phase_26_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -32875,12 +33900,15 @@ class phase_25(NamedObject[phase_25_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: phase_25_child
-class settings_23(Group):
+    child_object_type: phase_26_child
+class velocity_inlet_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    command_names: list[str]
+    name: name_4
+    locations: locations_2
     momentum: momentum_10
     turbulence: turbulence_5
     thermal: thermal_5
@@ -32893,16 +33921,11 @@ class settings_23(Group):
     uds: uds
     icing: icing_1
     geometry: geometry_6
-    phase: phase_25
-class velocity_inlet_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_23
+    phase: phase_26
+    def display(self):
+        """
+        Display physics object.
+        """
     def split(self, name: str, locations: list[str]):
         """
         Input boundary and location names to split.
@@ -32914,20 +33937,40 @@ class velocity_inlet_child(Group):
             locations : List
                 Input location name which should be part of new boundary.
         """
+    def set_location(self, locations: list[str]):
+        """
+        Input location name.
+        
+        Parameters
+        ----------
+            locations : List
+                Input location name.
+        """
+    def set_type(self, type: str):
+        """
+        Change the type for this boundary.
+        
+        Parameters
+        ----------
+            type : str
+                Input new type.
+        """
     _child_aliases: dict
 class velocity_inlet(NamedObject[velocity_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def create(self, name: str):
+    def create(self, name: str, volume: str):
         """
-        Create a new instance of the current object type.
+        Crate new boundary.
         
         Parameters
         ----------
             name : str
-                Object name.
+                Input boundary name .
+            volume : str
+                Input volume name for which the new boundary.
         """
     def delete(self, name_list: list[str]):
         """
@@ -35755,438 +36798,25 @@ class ablation_1(Group):
     ablation_surfacerxn_density: ablation_surfacerxn_density
     species_mass_fraction: species_mass_fraction_1
     _child_aliases: dict
-class phase_26_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_11
-    turbulence: turbulence_6
-    thermal: thermal_6
-    radiation: radiation_7
-    species: species_10
-    discrete_phase: discrete_phase_5
-    wall_film: wall_film_1
-    multiphase: multiphase_7
-    potential: potential_2
-    structure: structure_1
-    uds: uds
-    icing: icing_2
-    ablation: ablation_1
-    geometry: geometry_6
-class phase_26(NamedObject[phase_26_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: phase_26_child
-class settings_24(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    momentum: momentum_11
-    turbulence: turbulence_6
-    thermal: thermal_6
-    radiation: radiation_7
-    species: species_10
-    discrete_phase: discrete_phase_5
-    wall_film: wall_film_1
-    multiphase: multiphase_7
-    potential: potential_2
-    structure: structure_1
-    uds: uds
-    icing: icing_2
-    ablation: ablation_1
-    geometry: geometry_6
-    phase: phase_26
-class wall_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    settings: settings_24
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    _child_aliases: dict
-class wall(NamedObject[wall_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: wall_child
-class boundaries_1(Group):
-    _deprecated_version: str
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    axis: axis_5
-    degassing: degassing
-    exhaust_fan: exhaust_fan
-    fan: fan
-    geometry: geometry_5
-    inlet_vent: inlet_vent
-    intake_fan: intake_fan
-    interface: interface
-    interior: interior
-    mass_flow_inlet: mass_flow_inlet
-    mass_flow_outlet: mass_flow_outlet
-    network: network
-    network_end: network_end
-    outflow: outflow
-    outlet_vent: outlet_vent
-    overset: overset
-    periodic: periodic
-    porous_jump: porous_jump
-    pressure_far_field: pressure_far_field
-    pressure_inlet: pressure_inlet
-    pressure_outlet: pressure_outlet
-    radiator: radiator
-    rans_les_interface: rans_les_interface
-    recirculation_inlet: recirculation_inlet
-    recirculation_outlet: recirculation_outlet
-    shadow: shadow
-    symmetry: symmetry
-    velocity_inlet: velocity_inlet
-    wall: wall
-    def set_type(self, boundary_names: list[str], type: str):
-        """
-        Input boundary name(s) to change its type.
-        
-        Parameters
-        ----------
-            boundary_names : List
-                Input boundary names .
-            type : str
-                Input boundary type.
-        """
-class phase_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    general: general_2
-    conical: conical
-    reference_frame: reference_frame_2
-    mesh_motion: mesh_motion
-    zonal_models: zonal_models
-    porous_zone: porous_zone
-    fan_zone: fan_zone
-    embedded_les: embedded_les
-    reaction: reaction
-    sources: sources_1
-    fixed_values: fixed_values
-    multiphase: multiphase_1
-    disabled: disabled
-class phase_2(NamedObject[phase_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: phase_2_child
-class fluid_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    boundaries: boundaries_1
-    general: general_2
-    conical: conical
-    reference_frame: reference_frame_2
-    mesh_motion: mesh_motion
-    zonal_models: zonal_models
-    porous_zone: porous_zone
-    fan_zone: fan_zone
-    embedded_les: embedded_les
-    reaction: reaction
-    sources: sources_1
-    fixed_values: fixed_values
-    multiphase: multiphase_1
-    disabled: disabled
-    phase: phase_2
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input volume and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new volume name.
-            locations : List
-                Input location name which should be part of new volume.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this volume.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class fluid_2(NamedObject[fluid_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: fluid_2_child
 class phase_27_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    general: general_3
-    reference_frame: reference_frame_3
-    mesh_motion: mesh_motion_1
-    solid_motion: solid_motion
-    sources: sources_1
-    fixed_values: fixed_values
-    material_orientation: material_orientation
-    disabled: disabled_1
-    internal: internal
+    momentum: momentum_11
+    turbulence: turbulence_6
+    thermal: thermal_6
+    radiation: radiation_7
+    species: species_10
+    discrete_phase: discrete_phase_5
+    wall_film: wall_film_1
+    multiphase: multiphase_7
+    potential: potential_2
+    structure: structure_1
+    uds: uds
+    icing: icing_2
+    ablation: ablation_1
+    geometry: geometry_6
 class phase_27(NamedObject[phase_27_child]):
     _version: str
     fluent_name: str
@@ -36246,3219 +36876,7 @@ class phase_27(NamedObject[phase_27_child]):
                 The name of the new object.
         """
     child_object_type: phase_27_child
-class solid_3_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    boundaries: boundaries_1
-    general: general_3
-    reference_frame: reference_frame_3
-    mesh_motion: mesh_motion_1
-    solid_motion: solid_motion
-    sources: sources_1
-    fixed_values: fixed_values
-    material_orientation: material_orientation
-    disabled: disabled_1
-    internal: internal
-    phase: phase_27
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input volume and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new volume name.
-            locations : List
-                Input location name which should be part of new volume.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this volume.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class solid_3(NamedObject[solid_3_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: solid_3_child
-class volumes(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    fluid: fluid_2
-    solid: solid_3
-    def list_physics(self):
-        """
-        List volume information.
-        """
-    def create(self, name: str, type: str):
-        """
-        Crate new volume.
-        
-        Parameters
-        ----------
-            name : str
-                Input new volume name .
-            type : str
-                Input volume type.
-        """
-    def set_type(self, volume_names: list[str], type: str):
-        """
-        Input volume name(s) to change its type.
-        
-        Parameters
-        ----------
-            volume_names : List
-                Input volume names .
-            type : str
-                Input volume type.
-        """
-class axis_6_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class axis_6(NamedObject[axis_6_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: axis_6_child
-class degassing_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class degassing_1(NamedObject[degassing_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: degassing_1_child
-class exhaust_fan_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum
-    turbulence: turbulence
-    thermal: thermal
-    radiation: radiation_1
-    species: species_5
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_2
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing
-    geometry: geometry_6
-    phase: phase_4
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class exhaust_fan_1(NamedObject[exhaust_fan_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: exhaust_fan_1_child
-class fan_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    pressure_jump_specification: pressure_jump_specification
-    swirl_velocity_specification: swirl_velocity_specification
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_5
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class fan_1(NamedObject[fan_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: fan_1_child
-class geometry_8_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class geometry_8(NamedObject[geometry_8_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: geometry_8_child
-class inlet_vent_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_1
-    turbulence: turbulence_1
-    thermal: thermal_1
-    radiation: radiation_2
-    species: species_6
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_3
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_6
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class inlet_vent_1(NamedObject[inlet_vent_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: inlet_vent_1_child
-class intake_fan_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_2
-    turbulence: turbulence_1
-    thermal: thermal_1
-    radiation: radiation_2
-    species: species_6
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_3
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_7
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class intake_fan_1(NamedObject[intake_fan_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: intake_fan_1_child
-class interface_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    interface: interface_1
-    geometry: geometry_6
-    phase: phase_8
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class interface_2(NamedObject[interface_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: interface_2_child
-class interior_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    interior: interior_1
-    phase: phase_9
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class interior_2(NamedObject[interior_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: interior_2_child
-class mass_flow_inlet_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_3
-    turbulence: turbulence_2
-    thermal: thermal_2
-    radiation: radiation_3
-    species: species_7
-    discrete_phase: discrete_phase_3
-    multiphase: multiphase_4
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_10
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: mass_flow_inlet_1_child
-class mass_flow_outlet_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_4
-    turbulence: turbulence_3
-    thermal: thermal_3
-    radiation: radiation_4
-    species: species_8
-    discrete_phase: discrete_phase_3
-    multiphase: multiphase_5
-    potential: potential_1
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_11
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: mass_flow_outlet_1_child
-class network_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    phase: phase_12
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class network_1(NamedObject[network_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: network_1_child
-class network_end_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    network_end: network_end_1
-    phase: phase_13
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class network_end_2(NamedObject[network_end_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: network_end_2_child
-class outflow_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_5
-    potential: potential
-    structure: structure_1
-    uds: uds_2
-    radiation: radiation_2
-    discrete_phase: discrete_phase_4
-    geometry: geometry_6
-    phase: phase_14
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class outflow_1(NamedObject[outflow_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: outflow_1_child
-class outlet_vent_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_6
-    turbulence: turbulence
-    thermal: thermal
-    radiation: radiation_1
-    species: species_5
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_2
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing
-    geometry: geometry_6
-    phase: phase_15
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class outlet_vent_1(NamedObject[outlet_vent_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: outlet_vent_1_child
-class overset_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class overset_1(NamedObject[overset_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: overset_1_child
-class periodic_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    periodic: periodic_1
-    geometry: geometry_7
-    phase: phase_16
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class periodic_2(NamedObject[periodic_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: periodic_2_child
-class porous_jump_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    porous_jump: porous_jump_1
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_17
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class porous_jump_2(NamedObject[porous_jump_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: porous_jump_2_child
-class pressure_far_field_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_7
-    turbulence: turbulence_2
-    thermal: thermal_4
-    radiation: radiation_5
-    species: species_9
-    discrete_phase: discrete_phase_4
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_18
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class pressure_far_field_1(NamedObject[pressure_far_field_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: pressure_far_field_1_child
-class pressure_inlet_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_8
-    turbulence: turbulence_1
-    thermal: thermal_1
-    radiation: radiation_2
-    species: species_6
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_3
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_19
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class pressure_inlet_1(NamedObject[pressure_inlet_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: pressure_inlet_1_child
-class pressure_outlet_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_9
-    turbulence: turbulence
-    thermal: thermal
-    radiation: radiation_1
-    species: species_5
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_2
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing
-    geometry: geometry_6
-    phase: phase_20
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class pressure_outlet_1(NamedObject[pressure_outlet_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: pressure_outlet_1_child
-class radiator_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    radiator: radiator_1
-    discrete_phase: discrete_phase_2
-    geometry: geometry_6
-    phase: phase_21
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class radiator_2(NamedObject[radiator_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: radiator_2_child
-class rans_les_interface_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    turbulence: turbulence_4
-    geometry: geometry_6
-    phase: phase_22
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class rans_les_interface_1(NamedObject[rans_les_interface_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: rans_les_interface_1_child
-class recirculation_inlet_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    recirculation_inlet: recirculation_inlet_1
-    geometry: geometry_6
-    phase: phase_23
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: recirculation_inlet_2_child
-class recirculation_outlet_2_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    recirculation_outlet: recirculation_outlet_1
-    geometry: geometry_6
-    phase: phase_24
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: recirculation_outlet_2_child
-class shadow_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class shadow_1(NamedObject[shadow_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: shadow_1_child
-class symmetry_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    geometry: geometry_6
-    phase: phase_3
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class symmetry_1(NamedObject[symmetry_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: symmetry_1_child
-class velocity_inlet_1_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    command_names: list[str]
-    name: name_4
-    locations: locations_2
-    momentum: momentum_10
-    turbulence: turbulence_5
-    thermal: thermal_5
-    radiation: radiation_6
-    species: species_7
-    discrete_phase: discrete_phase_1
-    multiphase: multiphase_6
-    potential: potential
-    structure: structure_1
-    uds: uds
-    icing: icing_1
-    geometry: geometry_6
-    phase: phase_25
-    def display(self):
-        """
-        Display physics object.
-        """
-    def split(self, name: str, locations: list[str]):
-        """
-        Input boundary and location names to split.
-        
-        Parameters
-        ----------
-            name : str
-                Input new boundary name.
-            locations : List
-                Input location name which should be part of new boundary.
-        """
-    def set_location(self, locations: list[str]):
-        """
-        Input location name.
-        
-        Parameters
-        ----------
-            locations : List
-                Input location name.
-        """
-    def set_type(self, type: str):
-        """
-        Change the type for this boundary.
-        
-        Parameters
-        ----------
-            type : str
-                Input new type.
-        """
-    _child_aliases: dict
-class velocity_inlet_1(NamedObject[velocity_inlet_1_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str, volume: str):
-        """
-        Crate new boundary.
-        
-        Parameters
-        ----------
-            name : str
-                Input boundary name .
-            volume : str
-                Input volume name for which the new boundary.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    child_object_type: velocity_inlet_1_child
-class wall_1_child(Group):
+class wall_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39480,7 +36898,7 @@ class wall_1_child(Group):
     icing: icing_2
     ablation: ablation_1
     geometry: geometry_6
-    phase: phase_26
+    phase: phase_27
     def display(self):
         """
         Display physics object.
@@ -39515,7 +36933,7 @@ class wall_1_child(Group):
                 Input new type.
         """
     _child_aliases: dict
-class wall_1(NamedObject[wall_1_child]):
+class wall(NamedObject[wall_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39575,42 +36993,42 @@ class wall_1(NamedObject[wall_1_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: wall_1_child
+    child_object_type: wall_child
 class boundaries(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    axis: axis_6
-    degassing: degassing_1
-    exhaust_fan: exhaust_fan_1
-    fan: fan_1
-    geometry: geometry_8
-    inlet_vent: inlet_vent_1
-    intake_fan: intake_fan_1
-    interface: interface_2
-    interior: interior_2
-    mass_flow_inlet: mass_flow_inlet_1
-    mass_flow_outlet: mass_flow_outlet_1
-    network: network_1
-    network_end: network_end_2
-    outflow: outflow_1
-    outlet_vent: outlet_vent_1
-    overset: overset_1
-    periodic: periodic_2
-    porous_jump: porous_jump_2
-    pressure_far_field: pressure_far_field_1
-    pressure_inlet: pressure_inlet_1
-    pressure_outlet: pressure_outlet_1
-    radiator: radiator_2
-    rans_les_interface: rans_les_interface_1
-    recirculation_inlet: recirculation_inlet_2
-    recirculation_outlet: recirculation_outlet_2
-    shadow: shadow_1
-    symmetry: symmetry_1
-    velocity_inlet: velocity_inlet_1
-    wall: wall_1
+    axis: axis_5
+    degassing: degassing
+    exhaust_fan: exhaust_fan
+    fan: fan
+    geometry: geometry_5
+    inlet_vent: inlet_vent
+    intake_fan: intake_fan
+    interface: interface
+    interior: interior
+    mass_flow_inlet: mass_flow_inlet
+    mass_flow_outlet: mass_flow_outlet
+    network: network
+    network_end: network_end
+    outflow: outflow
+    outlet_vent: outlet_vent
+    overset: overset
+    periodic: periodic
+    porous_jump: porous_jump
+    pressure_far_field: pressure_far_field
+    pressure_inlet: pressure_inlet
+    pressure_outlet: pressure_outlet
+    radiator: radiator
+    rans_les_interface: rans_les_interface
+    recirculation_inlet: recirculation_inlet
+    recirculation_outlet: recirculation_outlet
+    shadow: shadow
+    symmetry: symmetry
+    velocity_inlet: velocity_inlet
+    wall: wall
     def set_type(self, boundary_names: list[str], type: str):
         """
         Input boundary name(s) to change its type.
@@ -39813,7 +37231,7 @@ class phase_28(NamedObject[phase_28_child]):
                 The name of the new object.
         """
     child_object_type: phase_28_child
-class axis_7_child(Group):
+class axis_6_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39839,7 +37257,7 @@ class axis_7_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class axis_7(NamedObject[axis_7_child]):
+class axis_6(NamedObject[axis_6_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39897,8 +37315,8 @@ class axis_7(NamedObject[axis_7_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: axis_7_child
-class degassing_2_child(Group):
+    child_object_type: axis_6_child
+class degassing_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39924,7 +37342,7 @@ class degassing_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class degassing_2(NamedObject[degassing_2_child]):
+class degassing_1(NamedObject[degassing_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -39982,7 +37400,7 @@ class degassing_2(NamedObject[degassing_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: degassing_2_child
+    child_object_type: degassing_1_child
 class phase_29_child(Group):
     _version: str
     fluent_name: str
@@ -40069,7 +37487,7 @@ class phase_29(NamedObject[phase_29_child]):
                 The name of the new object.
         """
     child_object_type: phase_29_child
-class exhaust_fan_2_child(Group):
+class exhaust_fan_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40107,7 +37525,7 @@ class exhaust_fan_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class exhaust_fan_2(NamedObject[exhaust_fan_2_child]):
+class exhaust_fan_1(NamedObject[exhaust_fan_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40165,7 +37583,7 @@ class exhaust_fan_2(NamedObject[exhaust_fan_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: exhaust_fan_2_child
+    child_object_type: exhaust_fan_1_child
 class phase_30_child(Group):
     _version: str
     fluent_name: str
@@ -40244,7 +37662,7 @@ class phase_30(NamedObject[phase_30_child]):
                 The name of the new object.
         """
     child_object_type: phase_30_child
-class fan_2_child(Group):
+class fan_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40274,7 +37692,7 @@ class fan_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class fan_2(NamedObject[fan_2_child]):
+class fan_1(NamedObject[fan_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40332,8 +37750,8 @@ class fan_2(NamedObject[fan_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: fan_2_child
-class geometry_9_child(Group):
+    child_object_type: fan_1_child
+class geometry_8_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40359,7 +37777,7 @@ class geometry_9_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class geometry_9(NamedObject[geometry_9_child]):
+class geometry_8(NamedObject[geometry_8_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40417,7 +37835,7 @@ class geometry_9(NamedObject[geometry_9_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: geometry_9_child
+    child_object_type: geometry_8_child
 class phase_31_child(Group):
     _version: str
     fluent_name: str
@@ -40504,7 +37922,7 @@ class phase_31(NamedObject[phase_31_child]):
                 The name of the new object.
         """
     child_object_type: phase_31_child
-class inlet_vent_2_child(Group):
+class inlet_vent_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40542,7 +37960,7 @@ class inlet_vent_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class inlet_vent_2(NamedObject[inlet_vent_2_child]):
+class inlet_vent_1(NamedObject[inlet_vent_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40600,7 +38018,7 @@ class inlet_vent_2(NamedObject[inlet_vent_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: inlet_vent_2_child
+    child_object_type: inlet_vent_1_child
 class phase_32_child(Group):
     _version: str
     fluent_name: str
@@ -40687,7 +38105,7 @@ class phase_32(NamedObject[phase_32_child]):
                 The name of the new object.
         """
     child_object_type: phase_32_child
-class intake_fan_2_child(Group):
+class intake_fan_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40725,7 +38143,7 @@ class intake_fan_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class intake_fan_2(NamedObject[intake_fan_2_child]):
+class intake_fan_1(NamedObject[intake_fan_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40783,7 +38201,7 @@ class intake_fan_2(NamedObject[intake_fan_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: intake_fan_2_child
+    child_object_type: intake_fan_1_child
 class phase_33_child(Group):
     _version: str
     fluent_name: str
@@ -40859,7 +38277,7 @@ class phase_33(NamedObject[phase_33_child]):
                 The name of the new object.
         """
     child_object_type: phase_33_child
-class interface_3_child(Group):
+class interface_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40886,7 +38304,7 @@ class interface_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class interface_3(NamedObject[interface_3_child]):
+class interface_2(NamedObject[interface_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -40944,7 +38362,7 @@ class interface_3(NamedObject[interface_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interface_3_child
+    child_object_type: interface_2_child
 class phase_34_child(Group):
     _version: str
     fluent_name: str
@@ -41019,7 +38437,7 @@ class phase_34(NamedObject[phase_34_child]):
                 The name of the new object.
         """
     child_object_type: phase_34_child
-class interior_3_child(Group):
+class interior_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41045,7 +38463,7 @@ class interior_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class interior_3(NamedObject[interior_3_child]):
+class interior_2(NamedObject[interior_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41103,7 +38521,7 @@ class interior_3(NamedObject[interior_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interior_3_child
+    child_object_type: interior_2_child
 class phase_35_child(Group):
     _version: str
     fluent_name: str
@@ -41190,7 +38608,7 @@ class phase_35(NamedObject[phase_35_child]):
                 The name of the new object.
         """
     child_object_type: phase_35_child
-class mass_flow_inlet_2_child(Group):
+class mass_flow_inlet_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41228,7 +38646,7 @@ class mass_flow_inlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class mass_flow_inlet_2(NamedObject[mass_flow_inlet_2_child]):
+class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41286,7 +38704,7 @@ class mass_flow_inlet_2(NamedObject[mass_flow_inlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_inlet_2_child
+    child_object_type: mass_flow_inlet_1_child
 class phase_36_child(Group):
     _version: str
     fluent_name: str
@@ -41373,7 +38791,7 @@ class phase_36(NamedObject[phase_36_child]):
                 The name of the new object.
         """
     child_object_type: phase_36_child
-class mass_flow_outlet_2_child(Group):
+class mass_flow_outlet_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41411,7 +38829,7 @@ class mass_flow_outlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class mass_flow_outlet_2(NamedObject[mass_flow_outlet_2_child]):
+class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41469,7 +38887,7 @@ class mass_flow_outlet_2(NamedObject[mass_flow_outlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: mass_flow_outlet_2_child
+    child_object_type: mass_flow_outlet_1_child
 class phase_37_child(Group):
     _version: str
     fluent_name: str
@@ -41542,7 +38960,7 @@ class phase_37(NamedObject[phase_37_child]):
                 The name of the new object.
         """
     child_object_type: phase_37_child
-class network_2_child(Group):
+class network_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41567,7 +38985,7 @@ class network_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class network_2(NamedObject[network_2_child]):
+class network_1(NamedObject[network_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41625,7 +39043,7 @@ class network_2(NamedObject[network_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_2_child
+    child_object_type: network_1_child
 class phase_38_child(Group):
     _version: str
     fluent_name: str
@@ -41700,7 +39118,7 @@ class phase_38(NamedObject[phase_38_child]):
                 The name of the new object.
         """
     child_object_type: phase_38_child
-class network_end_3_child(Group):
+class network_end_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41726,7 +39144,7 @@ class network_end_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class network_end_3(NamedObject[network_end_3_child]):
+class network_end_2(NamedObject[network_end_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41784,7 +39202,7 @@ class network_end_3(NamedObject[network_end_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: network_end_3_child
+    child_object_type: network_end_2_child
 class phase_39_child(Group):
     _version: str
     fluent_name: str
@@ -41866,7 +39284,7 @@ class phase_39(NamedObject[phase_39_child]):
                 The name of the new object.
         """
     child_object_type: phase_39_child
-class outflow_2_child(Group):
+class outflow_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41899,7 +39317,7 @@ class outflow_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class outflow_2(NamedObject[outflow_2_child]):
+class outflow_1(NamedObject[outflow_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -41957,7 +39375,7 @@ class outflow_2(NamedObject[outflow_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outflow_2_child
+    child_object_type: outflow_1_child
 class phase_40_child(Group):
     _version: str
     fluent_name: str
@@ -42044,7 +39462,7 @@ class phase_40(NamedObject[phase_40_child]):
                 The name of the new object.
         """
     child_object_type: phase_40_child
-class outlet_vent_2_child(Group):
+class outlet_vent_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42082,7 +39500,7 @@ class outlet_vent_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class outlet_vent_2(NamedObject[outlet_vent_2_child]):
+class outlet_vent_1(NamedObject[outlet_vent_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42140,8 +39558,8 @@ class outlet_vent_2(NamedObject[outlet_vent_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: outlet_vent_2_child
-class overset_2_child(Group):
+    child_object_type: outlet_vent_1_child
+class overset_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42167,7 +39585,7 @@ class overset_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class overset_2(NamedObject[overset_2_child]):
+class overset_1(NamedObject[overset_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42225,7 +39643,7 @@ class overset_2(NamedObject[overset_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: overset_2_child
+    child_object_type: overset_1_child
 class phase_41_child(Group):
     _version: str
     fluent_name: str
@@ -42301,7 +39719,7 @@ class phase_41(NamedObject[phase_41_child]):
                 The name of the new object.
         """
     child_object_type: phase_41_child
-class periodic_3_child(Group):
+class periodic_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42328,7 +39746,7 @@ class periodic_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class periodic_3(NamedObject[periodic_3_child]):
+class periodic_2(NamedObject[periodic_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42386,7 +39804,7 @@ class periodic_3(NamedObject[periodic_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: periodic_3_child
+    child_object_type: periodic_2_child
 class phase_42_child(Group):
     _version: str
     fluent_name: str
@@ -42464,7 +39882,7 @@ class phase_42(NamedObject[phase_42_child]):
                 The name of the new object.
         """
     child_object_type: phase_42_child
-class porous_jump_3_child(Group):
+class porous_jump_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42493,7 +39911,7 @@ class porous_jump_3_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class porous_jump_3(NamedObject[porous_jump_3_child]):
+class porous_jump_2(NamedObject[porous_jump_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42551,7 +39969,7 @@ class porous_jump_3(NamedObject[porous_jump_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: porous_jump_3_child
+    child_object_type: porous_jump_2_child
 class phase_43_child(Group):
     _version: str
     fluent_name: str
@@ -42637,7 +40055,7 @@ class phase_43(NamedObject[phase_43_child]):
                 The name of the new object.
         """
     child_object_type: phase_43_child
-class pressure_far_field_2_child(Group):
+class pressure_far_field_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42674,7 +40092,7 @@ class pressure_far_field_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class pressure_far_field_2(NamedObject[pressure_far_field_2_child]):
+class pressure_far_field_1(NamedObject[pressure_far_field_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42732,7 +40150,7 @@ class pressure_far_field_2(NamedObject[pressure_far_field_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_far_field_2_child
+    child_object_type: pressure_far_field_1_child
 class phase_44_child(Group):
     _version: str
     fluent_name: str
@@ -42819,7 +40237,7 @@ class phase_44(NamedObject[phase_44_child]):
                 The name of the new object.
         """
     child_object_type: phase_44_child
-class pressure_inlet_2_child(Group):
+class pressure_inlet_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42857,7 +40275,7 @@ class pressure_inlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class pressure_inlet_2(NamedObject[pressure_inlet_2_child]):
+class pressure_inlet_1(NamedObject[pressure_inlet_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -42915,7 +40333,7 @@ class pressure_inlet_2(NamedObject[pressure_inlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_inlet_2_child
+    child_object_type: pressure_inlet_1_child
 class phase_45_child(Group):
     _version: str
     fluent_name: str
@@ -43002,7 +40420,7 @@ class phase_45(NamedObject[phase_45_child]):
                 The name of the new object.
         """
     child_object_type: phase_45_child
-class pressure_outlet_2_child(Group):
+class pressure_outlet_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43040,7 +40458,7 @@ class pressure_outlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class pressure_outlet_2(NamedObject[pressure_outlet_2_child]):
+class pressure_outlet_1(NamedObject[pressure_outlet_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43098,7 +40516,7 @@ class pressure_outlet_2(NamedObject[pressure_outlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: pressure_outlet_2_child
+    child_object_type: pressure_outlet_1_child
 class phase_46_child(Group):
     _version: str
     fluent_name: str
@@ -43176,7 +40594,7 @@ class phase_46(NamedObject[phase_46_child]):
                 The name of the new object.
         """
     child_object_type: phase_46_child
-class radiator_3_child(Group):
+class radiator_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43205,7 +40623,7 @@ class radiator_3_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class radiator_3(NamedObject[radiator_3_child]):
+class radiator_2(NamedObject[radiator_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43263,7 +40681,7 @@ class radiator_3(NamedObject[radiator_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: radiator_3_child
+    child_object_type: radiator_2_child
 class phase_47_child(Group):
     _version: str
     fluent_name: str
@@ -43339,7 +40757,7 @@ class phase_47(NamedObject[phase_47_child]):
                 The name of the new object.
         """
     child_object_type: phase_47_child
-class rans_les_interface_2_child(Group):
+class rans_les_interface_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43366,7 +40784,7 @@ class rans_les_interface_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class rans_les_interface_2(NamedObject[rans_les_interface_2_child]):
+class rans_les_interface_1(NamedObject[rans_les_interface_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43424,7 +40842,7 @@ class rans_les_interface_2(NamedObject[rans_les_interface_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: rans_les_interface_2_child
+    child_object_type: rans_les_interface_1_child
 class phase_48_child(Group):
     _version: str
     fluent_name: str
@@ -43500,7 +40918,7 @@ class phase_48(NamedObject[phase_48_child]):
                 The name of the new object.
         """
     child_object_type: phase_48_child
-class recirculation_inlet_3_child(Group):
+class recirculation_inlet_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43527,7 +40945,7 @@ class recirculation_inlet_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class recirculation_inlet_3(NamedObject[recirculation_inlet_3_child]):
+class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43585,7 +41003,7 @@ class recirculation_inlet_3(NamedObject[recirculation_inlet_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_inlet_3_child
+    child_object_type: recirculation_inlet_2_child
 class phase_49_child(Group):
     _version: str
     fluent_name: str
@@ -43661,7 +41079,7 @@ class phase_49(NamedObject[phase_49_child]):
                 The name of the new object.
         """
     child_object_type: phase_49_child
-class recirculation_outlet_3_child(Group):
+class recirculation_outlet_2_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43688,7 +41106,7 @@ class recirculation_outlet_3_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class recirculation_outlet_3(NamedObject[recirculation_outlet_3_child]):
+class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43746,8 +41164,8 @@ class recirculation_outlet_3(NamedObject[recirculation_outlet_3_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: recirculation_outlet_3_child
-class shadow_2_child(Group):
+    child_object_type: recirculation_outlet_2_child
+class shadow_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43773,7 +41191,7 @@ class shadow_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class shadow_2(NamedObject[shadow_2_child]):
+class shadow_1(NamedObject[shadow_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43831,8 +41249,8 @@ class shadow_2(NamedObject[shadow_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: shadow_2_child
-class symmetry_2_child(Group):
+    child_object_type: shadow_1_child
+class symmetry_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43858,7 +41276,7 @@ class symmetry_2_child(Group):
         """
         Get shadow zone for this wall zone.
         """
-class symmetry_2(NamedObject[symmetry_2_child]):
+class symmetry_1(NamedObject[symmetry_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -43916,7 +41334,7 @@ class symmetry_2(NamedObject[symmetry_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: symmetry_2_child
+    child_object_type: symmetry_1_child
 class phase_50_child(Group):
     _version: str
     fluent_name: str
@@ -44003,7 +41421,7 @@ class phase_50(NamedObject[phase_50_child]):
                 The name of the new object.
         """
     child_object_type: phase_50_child
-class velocity_inlet_2_child(Group):
+class velocity_inlet_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44041,7 +41459,7 @@ class velocity_inlet_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class velocity_inlet_2(NamedObject[velocity_inlet_2_child]):
+class velocity_inlet_1(NamedObject[velocity_inlet_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44099,7 +41517,7 @@ class velocity_inlet_2(NamedObject[velocity_inlet_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: velocity_inlet_2_child
+    child_object_type: velocity_inlet_1_child
 class phase_51_child(Group):
     _version: str
     fluent_name: str
@@ -44188,7 +41606,7 @@ class phase_51(NamedObject[phase_51_child]):
                 The name of the new object.
         """
     child_object_type: phase_51_child
-class wall_2_child(Group):
+class wall_1_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44228,7 +41646,7 @@ class wall_2_child(Group):
         Get shadow zone for this wall zone.
         """
     _child_aliases: dict
-class wall_2(NamedObject[wall_2_child]):
+class wall_1(NamedObject[wall_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44286,7 +41704,7 @@ class wall_2(NamedObject[wall_2_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: wall_2_child
+    child_object_type: wall_1_child
 class sigma(Real):
     _version: str
     fluent_name: str
@@ -44363,6 +41781,7 @@ class setup_method(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 class ninjections(Integer):
+    _deprecated_version: str
     _version: str
     fluent_name: str
     _python_name: str
@@ -44382,11 +41801,12 @@ class extraction_thread(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class uniform(Boolean):
+class uniform(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
 class injection_hole_count(Integer):
+    _deprecated_version: str
     _version: str
     fluent_name: str
     _python_name: str
@@ -44394,15 +41814,19 @@ class discrete_ext(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class static(Boolean):
+class static(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class formulation(Integer):
+class formulation(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
 class cht_coupling(Boolean):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class method_7(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44455,9 +41879,9 @@ class holes_setup(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_4
+    method: method_7
     injection_hole: injection_hole
-class method_7(Integer):
+class method_8(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44515,9 +41939,9 @@ class dynamic_setup(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_7
+    method: method_8
     dynamic_injection: dynamic_injection
-class method_8(Integer):
+class method_9(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44585,7 +42009,7 @@ class static_setup(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_8
+    method: method_9
     static_injection: static_injection
 class injection_1_child(Group):
     _version: str
@@ -44668,7 +42092,7 @@ class average_pressure(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class pressure_outlet_3(Group):
+class pressure_outlet_2(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44684,7 +42108,7 @@ class type_9(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class pressure_far_field_3(Group):
+class pressure_far_field_2(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44765,7 +42189,7 @@ class periodic_conditions(Group):
     relax: relax_1
     niter: niter
     flow_direction: flow_direction_2
-class settings_25(Group):
+class settings_1(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44773,8 +42197,8 @@ class settings_25(Group):
     command_names: list[str]
     degassing_verbosity: degassing_verbosity
     mass_flow: mass_flow
-    pressure_outlet: pressure_outlet_3
-    pressure_far_field: pressure_far_field_3
+    pressure_outlet: pressure_outlet_2
+    pressure_far_field: pressure_far_field_2
     physical_velocity_porous_formulation: physical_velocity_porous_formulation
     target_mass_flow_rate_settings: target_mass_flow_rate_settings
     advanced: advanced_2
@@ -44789,38 +42213,38 @@ class boundary_conditions(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    axis: axis_7
-    degassing: degassing_2
-    exhaust_fan: exhaust_fan_2
-    fan: fan_2
-    geometry: geometry_9
-    inlet_vent: inlet_vent_2
-    intake_fan: intake_fan_2
-    interface: interface_3
-    interior: interior_3
-    mass_flow_inlet: mass_flow_inlet_2
-    mass_flow_outlet: mass_flow_outlet_2
-    network: network_2
-    network_end: network_end_3
-    outflow: outflow_2
-    outlet_vent: outlet_vent_2
-    overset: overset_2
-    periodic: periodic_3
-    porous_jump: porous_jump_3
-    pressure_far_field: pressure_far_field_2
-    pressure_inlet: pressure_inlet_2
-    pressure_outlet: pressure_outlet_2
-    radiator: radiator_3
-    rans_les_interface: rans_les_interface_2
-    recirculation_inlet: recirculation_inlet_3
-    recirculation_outlet: recirculation_outlet_3
-    shadow: shadow_2
-    symmetry: symmetry_2
-    velocity_inlet: velocity_inlet_2
-    wall: wall_2
+    axis: axis_6
+    degassing: degassing_1
+    exhaust_fan: exhaust_fan_1
+    fan: fan_1
+    geometry: geometry_8
+    inlet_vent: inlet_vent_1
+    intake_fan: intake_fan_1
+    interface: interface_2
+    interior: interior_2
+    mass_flow_inlet: mass_flow_inlet_1
+    mass_flow_outlet: mass_flow_outlet_1
+    network: network_1
+    network_end: network_end_2
+    outflow: outflow_1
+    outlet_vent: outlet_vent_1
+    overset: overset_1
+    periodic: periodic_2
+    porous_jump: porous_jump_2
+    pressure_far_field: pressure_far_field_1
+    pressure_inlet: pressure_inlet_1
+    pressure_outlet: pressure_outlet_1
+    radiator: radiator_2
+    rans_les_interface: rans_les_interface_1
+    recirculation_inlet: recirculation_inlet_2
+    recirculation_outlet: recirculation_outlet_2
+    shadow: shadow_1
+    symmetry: symmetry_1
+    velocity_inlet: velocity_inlet_1
+    wall: wall_1
     non_reflecting_bc: non_reflecting_bc
     perforated_wall: perforated_wall
-    settings: settings_25
+    settings: settings_1
     def copy(self, from_: str, to: list[str], verbosity: bool):
         """
         Copy boundary conditions to another zone.
@@ -44947,7 +42371,7 @@ class zone2_1(String):
     _version: str
     fluent_name: str
     _python_name: str
-class interface_4_child(Group):
+class interface_3_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -44962,11 +42386,11 @@ class interface_4_child(Group):
     use_local_edge_length_factor: use_local_edge_length_factor
     local_relative_mapped_tolerance: local_relative_mapped_tolerance
     local_absolute_mapped_tolerance: local_absolute_mapped_tolerance
-    periodic: periodic_4
+    periodic: periodic_3
     coupled: coupled_1
     matching: matching
     static: static_1
-class interface_4(NamedObject[interface_4_child]):
+class interface_3(NamedObject[interface_3_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -45052,7 +42476,7 @@ class interface_4(NamedObject[interface_4_child]):
             to : str
                 The name of the new object.
         """
-    child_object_type: interface_4_child
+    child_object_type: interface_3_child
 class proximity_tolerance(Real):
     _version: str
     fluent_name: str
@@ -45344,7 +42768,7 @@ class mesh_interfaces(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    interface: interface_4
+    interface: interface_3
     auto_options: auto_options
     turbo_create: turbo_create
     verbosity: verbosity_8
@@ -45581,7 +43005,7 @@ class enabled_56(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class method_9(String, AllowedValuesMixin):
+class method_10(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -45769,7 +43193,7 @@ class smoothing_1(Group):
     _python_name: str
     child_names: list[str]
     enabled: enabled_56
-    method: method_9
+    method: method_10
     spring_settings: spring_settings
     diffusion_settings: diffusion_settings
     linelast_settings: linelast_settings
@@ -45802,7 +43226,7 @@ class length_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_26(Group):
+class settings_2(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -45819,7 +43243,7 @@ class remeshing(Group):
     _python_name: str
     child_names: list[str]
     enabled: enabled_57
-    settings: settings_26
+    settings: settings_2
 class enabled_58(Boolean):
     _version: str
     fluent_name: str
@@ -45836,7 +43260,7 @@ class constant_height(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_27(Group):
+class settings_3(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -45850,7 +43274,7 @@ class layering(Group):
     _python_name: str
     child_names: list[str]
     enabled: enabled_58
-    settings: settings_27
+    settings: settings_3
 class methods(Group):
     _version: str
     fluent_name: str
@@ -45932,6 +43356,10 @@ class tumble_y(RealList):
     fluent_name: str
     _python_name: str
 class threads(StringList, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class file_name_15(String):
     _version: str
     fluent_name: str
     _python_name: str
@@ -46239,7 +43667,7 @@ class enabled_60(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class method_10(String, AllowedValuesMixin):
+class method_11(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -46254,7 +43682,7 @@ class flow_control(Group):
     child_names: list[str]
     command_names: list[str]
     enabled: enabled_60
-    method: method_10
+    method: method_11
     solution_stabilization: solution_stabilization
     def create_zone(self, zone: str, new_name: str):
         """
@@ -46556,7 +43984,7 @@ class feature_detection(Group):
     child_names: list[str]
     enabled: enabled_59
     feature_angle: feature_angle
-class geometry_10(Group):
+class geometry_9(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -46570,7 +43998,7 @@ class enabled_61(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class method_11(String, AllowedValuesMixin):
+class method_12(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -46583,7 +44011,7 @@ class parameters_6(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_11
+    method: method_12
     scale: scale_2
 class stabilization(Group):
     _version: str
@@ -46608,7 +44036,7 @@ class dynamic_zones_child(Group):
     type: type_11
     motion: motion
     meshing: meshing
-    geometry: geometry_10
+    geometry: geometry_9
     solver: solver_1
 class dynamic_zones(NamedObject[dynamic_zones_child]):
     _version: str
@@ -47298,12 +44726,127 @@ class models_1(Group):
             global_ : bool
                 Enable/disable output of mesh global number.
         """
+class periodic_type(String, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class surfaces_7(StringList, AllowedValuesMixin):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class translation(RealList):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class axis_origin_4(RealList):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class axis_direction_4(RealList):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class repeats(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class repeats_in_360_degrees(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class periodic_instances_child(Group):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    name: name_4
+    periodic_type: periodic_type
+    surfaces: surfaces_7
+    translation: translation
+    axis_origin: axis_origin_4
+    axis_direction: axis_direction_4
+    angle: angle_3
+    repeats: repeats
+    repeats_in_360_degrees: repeats_in_360_degrees
+class periodic_instances(NamedObject[periodic_instances_child]):
+    _version: str
+    fluent_name: str
+    _python_name: str
+    command_names: list[str]
+    def create(self, name: str):
+        """
+        Create a new instance of the current object type.
+        
+        Parameters
+        ----------
+            name : str
+                Object name.
+        """
+    def delete(self, name_list: list[str]):
+        """
+        Delete selected objects.
+        
+        Parameters
+        ----------
+            name_list : List
+                Objects to be deleted.
+        """
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    def detect_surfaces(self, clear_current_instances: bool):
+        """
+        Detect the surfaces for the periodic instance.
+        
+        Parameters
+        ----------
+            clear_current_instances : bool
+                Clear the current periodic instances.
+        """
+    def clear_repeats(self):
+        """
+        Clear the periodic instance repeats.
+        """
+    child_object_type: periodic_instances_child
 class turbomachinery(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     models: models_1
+    periodic_instances: periodic_instances
 class auto_compile_compiled_functions(Boolean):
     _version: str
     fluent_name: str
@@ -49132,7 +46675,7 @@ class expert_7(Group):
     child_names: list[str]
     mass_flux_correction_method: mass_flux_correction_method
     hybrid_mode_selection: hybrid_mode_selection
-class overset_3(Group):
+class overset_2(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -49406,7 +46949,7 @@ class methods_2(Group):
     nb_gradient_boundary_option: nb_gradient_boundary_option
     nita: nita
     nita_expert_controls: nita_expert_controls
-    overset: overset_3
+    overset: overset_2
     phase_based_vof_discretization: phase_based_vof_discretization
     reduced_rank_extrapolation: reduced_rank_extrapolation
     reduced_rank_extrapolation_options: reduced_rank_extrapolation_options
@@ -50458,7 +48001,7 @@ class residual_reduction_tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class method_12(String, AllowedValuesMixin):
+class method_13(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -50474,7 +48017,7 @@ class mg_controls_1_child(Group):
     cycle_type: cycle_type
     termination_criteria: termination_criteria
     residual_reduction_tolerance: residual_reduction_tolerance
-    method: method_12
+    method: method_13
     stabilization: stabilization_1
 class mg_controls_1(NamedObject[mg_controls_1_child]):
     _version: str
@@ -51338,11 +48881,11 @@ class physics_3(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class geometry_11(StringList, AllowedValuesMixin):
+class geometry_10(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class surfaces_7(StringList, AllowedValuesMixin):
+class surfaces_8(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -51352,8 +48895,8 @@ class locations_5(Group):
     _python_name: str
     child_names: list[str]
     physics: physics_3
-    geometry: geometry_11
-    surfaces: surfaces_7
+    geometry: geometry_10
+    surfaces: surfaces_8
 class output_parameter_1(Boolean):
     _version: str
     fluent_name: str
@@ -52058,7 +49601,7 @@ class time_1(NamedObject[time_1_child]):
                 The name of the new object.
         """
     child_object_type: time_1_child
-class boundaries_2(StringList, AllowedValuesMixin):
+class boundaries_1(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -52070,7 +49613,7 @@ class flux_1_child(Group):
     command_names: list[str]
     name: name_4
     report_type: report_type
-    boundaries: boundaries_2
+    boundaries: boundaries_1
     locations: locations_5
     per_selection: per_selection
     average_over: average_over
@@ -52273,7 +49816,7 @@ class injection_2_child(Group):
     name: name_4
     report_type: report_type
     injection_list: injection_list
-    boundaries: boundaries_2
+    boundaries: boundaries_1
     locations: locations_5
     per_injection: per_injection
     average_over: average_over
@@ -54998,32 +52541,10 @@ class solution_animations(NamedObject[solution_animations_child]):
         """
     child_object_type: solution_animations_child
     _child_aliases: dict
-class enabled_65(Boolean):
+class strategy_enable(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class init_from_data_file(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class option_52(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class init_from_solution(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    option: option_52
-    init_from_data_file: init_from_data_file
-class initialization_method(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    init_from_data_file: init_from_data_file
-    init_from_solution: init_from_solution
 class python_cmd_1(Boolean):
     _version: str
     fluent_name: str
@@ -55044,7 +52565,7 @@ class flowtime(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class before_init_modification(Group):
+class automatic_case_modification_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55056,71 +52577,95 @@ class before_init_modification(Group):
     count: count
     ftselected: ftselected
     flowtime: flowtime
-class original_settings(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    active: active_1
-    name: name_24
-    python_cmd: python_cmd_1
-    command: command
-    count: count
-    ftselected: ftselected
-    flowtime: flowtime
-class modifications_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    active: active_1
-    name: name_24
-    python_cmd: python_cmd_1
-    command: command
-    count: count
-    ftselected: ftselected
-    flowtime: flowtime
-class modifications(ListObject[modifications_child]):
+class automatic_case_modification(NamedObject[automatic_case_modification_child]):
     _version: str
     fluent_name: str
     _python_name: str
     command_names: list[str]
-    def list_properties(self, object_at: int):
+    def create(self, name: str):
         """
-        List properties of selected object.
+        Create a new instance of the current object type.
         
         Parameters
         ----------
-            object_at : int
-                Object index to delete.
+            name : str
+                Object name.
         """
-    def resize(self, size: int):
+    def delete(self, name_list: list[str]):
         """
-        Set number of objects for list-object.
+        Delete selected objects.
         
         Parameters
         ----------
-            size : int
-                New size for list-object.
+            name_list : List
+                Objects to be deleted.
         """
-    child_object_type: modifications_child
-class case_modification_1(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    before_init_modification: before_init_modification
-    original_settings: original_settings
-    modifications: modifications
+    def rename(self, new: str, old: str):
+        """
+        Rename the object.
+        
+        Parameters
+        ----------
+            new : str
+                New name for the object.
+            old : str
+                Object to rename.
+        """
+    def list(self):
+        """
+        List the names of the objects.
+        """
+    def list_properties(self, object_name: str):
+        """
+        List active properties of the object.
+        
+        Parameters
+        ----------
+            object_name : str
+                Object for which properties are to be listed.
+        """
+    def make_a_copy(self, from_: str, to: str):
+        """
+        Create a copy of the object.
+        
+        Parameters
+        ----------
+            from_ : str
+                The object to duplicate.
+            to : str
+                The name of the new object.
+        """
+    def enable(self, mod_name: str):
+        """
+        Enable a single defined case modification.
+        
+        Parameters
+        ----------
+            mod_name : str
+                Name of Modification.
+        """
+    def disable(self, mod_name: str):
+        """
+        Disable a single defined case modification.
+        
+        Parameters
+        ----------
+            mod_name : str
+                Modificatoins name to disable.
+        """
+    def add_edit(self, mod_name: str, mod_exists: bool, mod_active: bool, mod_execution_option: str, mod_iterations: int, mod_timesteps: int, mod_flowtime: float | str, mod_python: bool, mod_command: str):
+        """
+        Define a single case modification.
+        """
+    child_object_type: automatic_case_modification_child
 class case_modification(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enabled: enabled_65
-    initialization_method: initialization_method
-    case_modification: case_modification_1
+    strategy_enable: strategy_enable
+    automatic_case_modification: automatic_case_modification
     def automatic_initialization(self, initialization_type: str, data_file_name: str, init_from_solution: str, data_file_name2: str):
         """
         Define how the case is to be initialized automatically.
@@ -55128,77 +52673,15 @@ class case_modification(Group):
         Parameters
         ----------
             initialization_type : str
-                'initialization_type' child.
+                Initialization Type.
             data_file_name : str
-                'data_file_name' child.
+                Data file name to initialize.
             init_from_solution : str
-                'init_from_solution' child.
+                If no solution data exists, how to initialize the case.
             data_file_name2 : str
-                'data_file_name2' child.
+                Data file name to initialize.
         """
-    def execute_strategy(self, save_mode: str, continue_with_current_mesh: bool, discard_all_data: bool):
-        """
-        Execute the automatic initialization and case modification strategy defined at present .
-        
-        Parameters
-        ----------
-            save_mode : str
-                'save_mode' child.
-            continue_with_current_mesh : bool
-                Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
-            discard_all_data : bool
-                'discard_all_data' child.
-        """
-    def enable_strategy(self, enable: bool):
-        """
-        Specify whether automatic initialization and case modification should be enabled.
-        
-        Parameters
-        ----------
-            enable : bool
-                'enable' child.
-        """
-    def add_edit_modification(self, mod_name: str, mod_exists: bool, mod_active: bool, mod_execution_option: str, mod_iterations: int, mod_timesteps: int, mod_flowtime: float | str, mod_python: bool, mod_command: str):
-        """
-        Define a single case modification.
-        """
-    def copy_modification(self, mod_name: str):
-        """
-        Copy a single case modification.
-        
-        Parameters
-        ----------
-            mod_name : str
-                'mod_name' child.
-        """
-    def delete_modification(self, mod_name: str):
-        """
-        Delete a single case modification.
-        
-        Parameters
-        ----------
-            mod_name : str
-                'mod_name' child.
-        """
-    def enable_modification(self, mod_name: str):
-        """
-        Enable a single defined case modification.
-        
-        Parameters
-        ----------
-            mod_name : str
-                'mod_name' child.
-        """
-    def disable_modification(self, mod_name: str):
-        """
-        Disable a single defined case modification.
-        
-        Parameters
-        ----------
-            mod_name : str
-                'mod_name' child.
-        """
-    def import_modifications(self, file_name: str):
+    def import_(self, file_name: str):
         """
         Import a list of case modifications from a tsv file.
         
@@ -55207,9 +52690,22 @@ class case_modification(Group):
             file_name_1 : str
                 TSV filename.
         """
-    def export_modifications(self, command_list: list[str], file_name: str):
+    def export(self, command_list: list[str], file_name: str):
         """
         Export all case modifications to a tsv file.
+        """
+    def execute_strategy(self, save_mode: str, continue_with_current_mesh: bool, discard_all_data: bool):
+        """
+        Execute the automatic initialization and case modification strategy defined at present .
+        
+        Parameters
+        ----------
+            save_mode : str
+                Save Mode.
+            continue_with_current_mesh : bool
+                Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
+            discard_all_data : bool
+                Discard data.
         """
     def continue_strategy_execution(self):
         """
@@ -55223,7 +52719,7 @@ class register_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class option_53(String, AllowedValuesMixin):
+class option_52(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55240,7 +52736,7 @@ class frequency_5(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_53
+    option: option_52
     iterations: iterations_1
     time_steps: time_steps
 class active_2(Boolean):
@@ -55406,7 +52902,7 @@ class pseudo_time_settings(Group):
     child_names: list[str]
     time_step_method: time_step_method
     _child_aliases: dict
-class enabled_66(Boolean):
+class enabled_65(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55447,7 +52943,7 @@ class adaptive_time_stepping(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_66
+    enabled: enabled_65
     user_defined_timestep: user_defined_timestep
     error_tolerance: error_tolerance_2
     time_end: time_end
@@ -55456,7 +52952,7 @@ class adaptive_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
     fixed_time_step_count: fixed_time_step_count
-class enabled_67(Boolean):
+class enabled_66(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55481,7 +52977,7 @@ class cfl_based_adaptive_time_stepping(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_67
+    enabled: enabled_66
     user_defined_timestep: user_defined_timestep
     desired_cfl: desired_cfl
     time_end: time_end
@@ -55492,7 +52988,7 @@ class cfl_based_adaptive_time_stepping(Group):
     max_time_step: max_time_step
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
-class enable_28(Boolean):
+class enable_29(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55514,7 +53010,7 @@ class solution_steering(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    enable: enable_28
+    enable: enable_29
     flow_type: flow_type
     first_to_second_order_blending: first_to_second_order_blending_2
     use_fmg: use_fmg
@@ -55549,7 +53045,7 @@ class type_15(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class method_13(String, AllowedValuesMixin):
+class method_14(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55565,19 +53061,7 @@ class incremental_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class time_step_count_2(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class total_time(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class time_step_size(Real):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class max_iter_per_time_step(Integer):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55685,7 +53169,7 @@ class rotating_mesh_flow_predictor(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class enabled_68(Boolean):
+class enabled_67(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55755,7 +53239,7 @@ class mp_specific_time_stepping(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_68
+    enabled: enabled_67
     global_courant_number: global_courant_number
     initial_time_step_size: initial_time_step_size
     fixed_time_step_size: fixed_time_step_size
@@ -55769,7 +53253,7 @@ class udf_hook(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class enabled_69(Boolean):
+class enabled_68(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55785,7 +53269,7 @@ class frequency_6(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class time_step_size_1(Real):
+class time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55806,11 +53290,11 @@ class fixed_periodic(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_69
+    enabled: enabled_68
     fixed_periodic_type: fixed_periodic_type
     period: period
     frequency: frequency_6
-    time_step_size: time_step_size_1
+    time_step_size: time_step_size
     time_step_size_count: time_step_size_count
     time_steps_per_period: time_steps_per_period
     total_periods: total_periods
@@ -55823,7 +53307,7 @@ class choose_auto_time_stepping(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class time_step_size_2(Real):
+class time_step_size_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
@@ -55834,7 +53318,7 @@ class solid_time_step_size(Group):
     child_names: list[str]
     enable_solid_time_step: enable_solid_time_step
     choose_auto_time_stepping: choose_auto_time_stepping
-    time_step_size: time_step_size_2
+    time_step_size: time_step_size_1
 class time_step_size_for_acoustic_export(Real):
     _version: str
     fluent_name: str
@@ -55913,14 +53397,11 @@ class transient_controls(Group):
     child_names: list[str]
     query_names: list[str]
     type: type_15
-    method: method_13
+    method: method_14
     duration_specification_method: duration_specification_method
     specified_time_step: specified_time_step
     incremental_time: incremental_time
-    time_step_count: time_step_count_2
     total_time: total_time
-    time_step_size: time_step_size
-    max_iter_per_time_step: max_iter_per_time_step
     flow_time: flow_time
     total_time_step_count: total_time_step_count
     solution_status: solution_status
@@ -55941,6 +53422,18 @@ class transient_controls(Group):
         Get the simulation status.
         """
     _child_aliases: dict
+class time_step_count_2(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class time_step_size_2(Real):
+    _version: str
+    fluent_name: str
+    _python_name: str
+class max_iter_per_time_step(Integer):
+    _version: str
+    fluent_name: str
+    _python_name: str
 class iter_count_2(Integer):
     _version: str
     fluent_name: str
@@ -55958,6 +53451,9 @@ class parameters_8(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
+    time_step_count: time_step_count_2
+    time_step_size: time_step_size_2
+    max_iter_per_time_step: max_iter_per_time_step
     iter_count: iter_count_2
     reporting_interval: reporting_interval
     profile_update_interval: profile_update_interval
@@ -55976,7 +53472,7 @@ class pollutants(Group):
     child_names: list[str]
     postprocess: postprocess
     num_of_post_iter_per_timestep: num_of_post_iter_per_timestep
-class enabled_70(Boolean):
+class enabled_69(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -56033,7 +53529,7 @@ class data_sampling(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_70
+    enabled: enabled_69
     sampling_interval: sampling_interval
     time_sampled: time_sampled
     flow_shear_stresses: flow_shear_stresses
@@ -56708,7 +54204,7 @@ class rake_surface(NamedObject[rake_surface_child]):
                 The name of the new object.
         """
     child_object_type: rake_surface_child
-class method_14(String, AllowedValuesMixin):
+class method_15(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -56767,7 +54263,7 @@ class plane_surface_child(Group):
     child_names: list[str]
     command_names: list[str]
     name: name_4
-    method: method_14
+    method: method_15
     x: x_7
     y: y_7
     z: z_7
@@ -56873,7 +54369,7 @@ class range_3(Group):
         """
         Sets the 'minimum' and 'maximum' fields based on the current solution data.
         """
-class surfaces_9(StringList, AllowedValuesMixin):
+class surfaces_10(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -56895,7 +54391,7 @@ class iso_surface_child(Group):
     field: field_2
     iso_values: iso_values
     range: range_3
-    surfaces: surfaces_9
+    surfaces: surfaces_10
     from_location: from_location
     zones: zones_4
     volumes: volumes_2
@@ -56963,7 +54459,7 @@ class iso_surface(NamedObject[iso_surface_child]):
                 The name of the new object.
         """
     child_object_type: iso_surface_child
-class surfaces_10(StringList, AllowedValuesMixin):
+class surfaces_11(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -56995,7 +54491,7 @@ class iso_clip_child(Group):
     command_names: list[str]
     name: name_4
     field: field_2
-    surfaces: surfaces_10
+    surfaces: surfaces_11
     from_location: from_location
     range: range_4
     def display(self):
@@ -57792,7 +55288,7 @@ class group_surface_child(Group):
     child_names: list[str]
     command_names: list[str]
     name: name_30
-    surfaces: surfaces_11
+    surfaces: surfaces_12
     def display(self):
         """
         Display the surface.
@@ -57867,7 +55363,7 @@ class group_surface(NamedObject[group_surface_child]):
                 The surface to ungroup.
         """
     child_object_type: group_surface_child
-class surfaces_8(Group):
+class surfaces_9(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58012,7 +55508,7 @@ class surfaces_8(Group):
             surf_name_prefix : str
                 The prefix for splited surfaces.
         """
-    def external_surface(self, auto_name: bool, surf_base_name: str, stl_filename: str, unit: str, split_surface: bool, zones: list[str]):
+    def external_surface(self, auto_name: bool, surf_name: str, stl_filename: str, unit: str, split_surface: bool, zones: list[str]):
         """
         External Surface.
         
@@ -58020,8 +55516,8 @@ class surfaces_8(Group):
         ----------
             auto_name : bool
                 Specifies whether to do automatic naming or not.
-            surf_base_name : str
-                The prefix for external surface.
+            surf_name : str
+                The name for external surface.
             stl_filename : str
                 STL filename.
             unit : str
@@ -58051,7 +55547,7 @@ class partitions(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class overset_4(Boolean):
+class overset_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58068,9 +55564,9 @@ class options_13(Group):
     edges: edges_1
     faces: faces_1
     partitions: partitions
-    overset: overset_4
+    overset: overset_3
     gap: gap
-class option_54(String, AllowedValuesMixin):
+class option_53(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58094,7 +55590,7 @@ class edge_type(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_54
+    option: option_53
     all: all
     feature: feature
     outline: outline
@@ -58117,7 +55613,7 @@ class shrink_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class option_55(String, AllowedValuesMixin):
+class option_54(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58198,10 +55694,10 @@ class coloring(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_55
+    option: option_54
     automatic: automatic
     manual: manual_1
-class option_56(String, AllowedValuesMixin):
+class option_55(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58214,7 +55710,7 @@ class coloring_options(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_56
+    option: option_55
     faces: faces_2
     edges: edges_3
 class display_state_name(String, AllowedValuesMixin):
@@ -58337,7 +55833,7 @@ class field_3(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class option_57(String, AllowedValuesMixin):
+class option_56(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58377,7 +55873,7 @@ class range_option(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_57
+    option: option_56
     auto_range_on: auto_range_on
     auto_range_off: auto_range_off
 class global_range_1(Boolean):
@@ -58452,7 +55948,7 @@ class contour_lines(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class option_58(String, AllowedValuesMixin):
+class option_57(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58470,7 +55966,7 @@ class coloring_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_58
+    option: option_57
     smooth: smooth
     banded: banded
 class banded_1(Boolean):
@@ -58936,9 +56432,9 @@ class from_location_1(Group):
     _python_name: str
     child_names: list[str]
     physics: physics_3
-    geometry: geometry_11
-    surfaces: surfaces_7
-class option_60(String, AllowedValuesMixin):
+    geometry: geometry_10
+    surfaces: surfaces_8
+class option_59(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -58967,7 +56463,7 @@ class range_5(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_60
+    option: option_59
     auto_range: auto_range_2
     clip_to_range: clip_to_range_2
 class range_options_1(Group):
@@ -59190,7 +56686,7 @@ class options_16(Group):
     reverse: reverse
     node_values: node_values_2
     relative: relative_1
-class option_61(String, AllowedValuesMixin):
+class option_60(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59208,7 +56704,7 @@ class accuracy_control_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_61
+    option: option_60
     step_size: step_size
     tolerance: tolerance_4
 class oil_flow_1(Boolean):
@@ -59255,7 +56751,7 @@ class coarsen_3(Integer):
     _version: str
     fluent_name: str
     _python_name: str
-class option_59(Group):
+class option_58(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59297,9 +56793,9 @@ class on_location(Group):
     _python_name: str
     child_names: list[str]
     physics: physics_3
-    geometry: geometry_11
-    surfaces: surfaces_7
-class enabled_71(Boolean):
+    geometry: geometry_10
+    surfaces: surfaces_8
+class enabled_70(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59320,7 +56816,7 @@ class plot_5(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_71
+    enabled: enabled_70
     x_axis_function: x_axis_function
     to_file_enabled: to_file_enabled
     file_name: file_name_19
@@ -59635,7 +57131,7 @@ class pathline_child(Group):
     style_attributes: style_attributes
     options: options_16
     accuracy_control: accuracy_control_1
-    option: option_59
+    option: option_58
     step: step
     skip: skip_2
     coarsen: coarsen_2
@@ -59788,7 +57284,7 @@ class scale_7(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class option_63(String, AllowedValuesMixin):
+class option_62(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59832,7 +57328,7 @@ class options_18(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_63
+    option: option_62
     constant: constant_2
     variable: variable_1
 class sphere_settings(Group):
@@ -59863,7 +57359,7 @@ class style_4(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class option_64(String, AllowedValuesMixin):
+class option_63(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59880,7 +57376,7 @@ class vector_length(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    option: option_64
+    option: option_63
     constant_length: constant_length
     variable_length: variable_length
 class constant_color(Group):
@@ -59972,7 +57468,7 @@ class track_pdf_particles_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class enabled_72(Boolean):
+class enabled_71(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -59985,7 +57481,7 @@ class track_single_particle_stream_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_72
+    enabled: enabled_71
     stream_id: stream_id
 class skip_5(Integer):
     _version: str
@@ -59995,7 +57491,7 @@ class coarsen_5(Integer):
     _version: str
     fluent_name: str
     _python_name: str
-class option_62(Group):
+class option_61(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60026,7 +57522,7 @@ class options_19(Group):
     option: option_2
     inside: inside_1
     outside: outside
-class enabled_73(Boolean):
+class enabled_72(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60046,10 +57542,10 @@ class filter_settings(Group):
     child_names: list[str]
     field: field_9
     options: options_19
-    enabled: enabled_73
+    enabled: enabled_72
     filter_minimum: filter_minimum
     filter_maximum: filter_maximum
-class enabled_74(Boolean):
+class enabled_73(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60057,7 +57553,7 @@ class field_10(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class option_65(Boolean):
+class option_64(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60086,9 +57582,9 @@ class filter_setting(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_74
+    enabled: enabled_73
     field: field_10
-    option: option_65
+    option: option_64
     range: range_6
 class options_17(Group):
     _version: str
@@ -60096,7 +57592,7 @@ class options_17(Group):
     _python_name: str
     child_names: list[str]
     node_values: node_values_2
-class enabled_75(Boolean):
+class enabled_74(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60110,7 +57606,7 @@ class track_single_particle_stream(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_75
+    enabled: enabled_74
     stream_id: stream_id_1
 class skip_4(Integer):
     _deprecated_version: str
@@ -60152,7 +57648,7 @@ class particle_track_child(Group):
     style_attributes: style_attributes
     vector_settings: vector_settings
     vector_setting: vector_setting
-    option: option_62
+    option: option_61
     color_map: color_map
     annotations_list: annotations_list
     filter_settings: filter_settings
@@ -60638,7 +58134,7 @@ class max_transparency_value(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_29_child(Group):
+class settings_5_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60648,7 +58144,7 @@ class settings_29_child(Group):
     max_value: max_value_1
     min_transparency_value: min_transparency_value
     max_transparency_value: max_transparency_value
-class settings_29(ListObject[settings_29_child]):
+class settings_5(ListObject[settings_5_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60671,7 +58167,7 @@ class settings_29(ListObject[settings_29_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_29_child
+    child_object_type: settings_5_child
 class reset_2(Boolean):
     _version: str
     fluent_name: str
@@ -60686,7 +58182,7 @@ class transparency_options(Group):
     _python_name: str
     child_names: list[str]
     use_home_tab_range: use_home_tab_range
-    settings: settings_29
+    settings: settings_5
     reset: reset_2
     invert: invert
 class hide_volume(Boolean):
@@ -60705,7 +58201,7 @@ class color_8(IntegerList):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_30_child(Group):
+class settings_6_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60714,7 +58210,7 @@ class settings_30_child(Group):
     value: value_20
     transparency: transparency
     color: color_8
-class settings_30(ListObject[settings_30_child]):
+class settings_6(ListObject[settings_6_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60737,14 +58233,14 @@ class settings_30(ListObject[settings_30_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_30_child
+    child_object_type: settings_6_child
 class isovalue_options(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     hide_volume: hide_volume
-    settings: settings_30
+    settings: settings_6
     reset: reset_2
 class selection_type(String, AllowedValuesMixin):
     _version: str
@@ -60774,7 +58270,7 @@ class z_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_31_child(Group):
+class settings_7_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60786,7 +58282,7 @@ class settings_31_child(Group):
     x_max: x_max
     y_max: y_max
     z_max: z_max
-class settings_31(ListObject[settings_31_child]):
+class settings_7(ListObject[settings_7_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60809,14 +58305,14 @@ class settings_31(ListObject[settings_31_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_31_child
+    child_object_type: settings_7_child
 class clip_box_options(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     selection_type: selection_type
-    settings: settings_31
+    settings: settings_7
     reset: reset_2
 class x_center_1(Real):
     _version: str
@@ -60834,7 +58330,7 @@ class radius_7(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_32_child(Group):
+class settings_8_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60844,7 +58340,7 @@ class settings_32_child(Group):
     y_center: y_center_1
     z_center: z_center_1
     radius: radius_7
-class settings_32(ListObject[settings_32_child]):
+class settings_8(ListObject[settings_8_child]):
     _version: str
     fluent_name: str
     _python_name: str
@@ -60867,14 +58363,14 @@ class settings_32(ListObject[settings_32_child]):
             size : int
                 New size for list-object.
         """
-    child_object_type: settings_32_child
+    child_object_type: settings_8_child
 class clip_sphere_options(Group):
     _version: str
     fluent_name: str
     _python_name: str
     child_names: list[str]
     selection_type: selection_type
-    settings: settings_32
+    settings: settings_8
     reset: reset_2
 class compute_node_count(Integer):
     _version: str
@@ -60992,7 +58488,7 @@ class clip_to_range_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class surfaces_14(StringList, AllowedValuesMixin):
+class surfaces_15(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -61046,7 +58542,7 @@ class contours(Group):
     child_names: list[str]
     auto_scale: auto_scale_2
     clip_to_range: clip_to_range_3
-    surfaces: surfaces_14
+    surfaces: surfaces_15
     filled_contours: filled_contours
     global_range: global_range_2
     line_contours: line_contours
@@ -62789,120 +60285,6 @@ class pulse(Group):
         """
         'write' command.
         """
-class periodic_type(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class surfaces_16(StringList, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class translation(RealList):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class axis_origin_4(RealList):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class axis_direction_4(RealList):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class repeats(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class repeats_in_360_degrees(Integer):
-    _version: str
-    fluent_name: str
-    _python_name: str
-class periodic_instances_child(Group):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    child_names: list[str]
-    name: name_4
-    periodic_type: periodic_type
-    surfaces: surfaces_16
-    translation: translation
-    axis_origin: axis_origin_4
-    axis_direction: axis_direction_4
-    angle: angle_3
-    repeats: repeats
-    repeats_in_360_degrees: repeats_in_360_degrees
-class periodic_instances(NamedObject[periodic_instances_child]):
-    _version: str
-    fluent_name: str
-    _python_name: str
-    command_names: list[str]
-    def create(self, name: str):
-        """
-        Create a new instance of the current object type.
-        
-        Parameters
-        ----------
-            name : str
-                Object name.
-        """
-    def delete(self, name_list: list[str]):
-        """
-        Delete selected objects.
-        
-        Parameters
-        ----------
-            name_list : List
-                Objects to be deleted.
-        """
-    def rename(self, new: str, old: str):
-        """
-        Rename the object.
-        
-        Parameters
-        ----------
-            new : str
-                New name for the object.
-            old : str
-                Object to rename.
-        """
-    def list(self):
-        """
-        List the names of the objects.
-        """
-    def list_properties(self, object_name: str):
-        """
-        List active properties of the object.
-        
-        Parameters
-        ----------
-            object_name : str
-                Object for which properties are to be listed.
-        """
-    def make_a_copy(self, from_: str, to: str):
-        """
-        Create a copy of the object.
-        
-        Parameters
-        ----------
-            from_ : str
-                The object to duplicate.
-            to : str
-                The name of the new object.
-        """
-    def detect_surfaces(self, clear_current_instances: bool):
-        """
-        Detect the surfaces for the periodic instance.
-        
-        Parameters
-        ----------
-            clear_current_instances : bool
-                Clear the current periodic instances.
-        """
-    def clear_repeats(self):
-        """
-        Clear the periodic instance repeats.
-        """
-    child_object_type: periodic_instances_child
 class display_10(Group):
     _version: str
     fluent_name: str
@@ -63008,7 +60390,7 @@ class scale_10(Real):
     _version: str
     fluent_name: str
     _python_name: str
-class axis_8(String, AllowedValuesMixin):
+class axis_7(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -63021,7 +60403,7 @@ class rotate_1(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    axis: axis_8
+    axis: axis_7
     angle: angle_4
 class texture_transform(Group):
     _version: str
@@ -63242,7 +60624,7 @@ class node_values_7(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class option_66(Group):
+class option_65(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -63307,7 +60689,7 @@ class xy_plot_child(Group):
     y_axis_data: y_axis_data
     surfaces_list: surfaces_list
     locations: locations_5
-    option: option_66
+    option: option_65
     plot_direction: plot_direction_1
     axes: axes_1
     curves: curves_1
@@ -63654,7 +61036,7 @@ class surfaces_17(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class geometry_12(StringList, AllowedValuesMixin):
+class geometry_11(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -63669,7 +61051,7 @@ class solution_plot(Group):
     zones: zones_8
     physics: physics_4
     surfaces: surfaces_17
-    geometry: geometry_12
+    geometry: geometry_11
     axes: axes
     curves: curves
     def plot(self):
@@ -67100,7 +64482,7 @@ class results(Group):
     child_names: list[str]
     custom_field_functions: custom_field_functions_1
     custom_vectors: custom_vectors
-    surfaces: surfaces_8
+    surfaces: surfaces_9
     graphics: graphics
     plot: plot_4
     scene: scene
@@ -67123,7 +64505,7 @@ class center_3(RealList):
     _version: str
     fluent_name: str
     _python_name: str
-class axis_9(RealList):
+class axis_8(RealList):
     _version: str
     fluent_name: str
     _python_name: str
@@ -67285,7 +64667,7 @@ class definition_1_child(Group):
     walls: walls
     vector: vector_2
     center: center_3
-    axis: axis_9
+    axis: axis_8
     normalized: normalized
     fluid_zones: fluid_zones
     inlets: inlets_2
@@ -67735,7 +65117,7 @@ class strategy(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class method_16(String, AllowedValuesMixin):
+class method_17(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -67810,10 +65192,10 @@ class current_scheme(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_16
+    method: method_17
     dissipation: dissipation
     residual_minimization: residual_minimization
-class method_17(String, AllowedValuesMixin):
+class method_18(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -67830,11 +65212,11 @@ class first_scheme(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_17
+    method: method_18
     auto_detection: auto_detection
     iterations: iterations_2
     dissipation: dissipation
-class method_18(String, AllowedValuesMixin):
+class method_19(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -67843,7 +65225,7 @@ class second_scheme(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_18
+    method: method_19
     iterations: iterations_2
     residual_minimization: residual_minimization
 class stabilization_2(Group):
@@ -68048,7 +65430,7 @@ class sensitivity_orientation(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class method_19(String, AllowedValuesMixin):
+class method_20(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68061,7 +65443,7 @@ class surface_shape_sensitivity(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_19
+    method: method_20
     smoothness: smoothness
 class postprocess_options(Group):
     _version: str
@@ -68101,7 +65483,7 @@ class reporting(Group):
             append_data : bool
                 Append data to file.
         """
-class method_20(String, AllowedValuesMixin):
+class method_21(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68308,7 +65690,7 @@ class morpher(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_20
+    method: method_21
     constraint_method: constraint_method
     numerics: numerics_1
 class modifiable_zones(StringList, AllowedValuesMixin):
@@ -68391,7 +65773,7 @@ class symmetric(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class enabled_76(Boolean):
+class enabled_75(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68404,7 +65786,7 @@ class custom_plane(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_76
+    enabled: enabled_75
     plane: plane_1
 class periodicity_1(Integer):
     _version: str
@@ -68482,7 +65864,7 @@ class axial(Group):
     symmetric: symmetric
     custom_plane: custom_plane
     periodicity: periodicity_1
-class enabled_77(Boolean):
+class enabled_76(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68628,7 +66010,7 @@ class boundary_continuity(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_77
+    enabled: enabled_76
     definition: definition_2
     continuity_order: continuity_order
     specify_boundary: specify_boundary
@@ -68655,7 +66037,7 @@ class origin_8(RealList):
     _version: str
     fluent_name: str
     _python_name: str
-class axis_10(RealList):
+class axis_9(RealList):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68669,7 +66051,7 @@ class coordinate_system_1(Group):
     _python_name: str
     child_names: list[str]
     origin: origin_8
-    axis: axis_10
+    axis: axis_9
     radial: radial_1
 class theta_3(RealList):
     _version: str
@@ -68914,7 +66296,7 @@ class normal_5(RealList):
     _version: str
     fluent_name: str
     _python_name: str
-class axis_11(RealList):
+class axis_10(RealList):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68950,7 +66332,7 @@ class orientation_2(Group):
             surfaces : List
                 Surfaces orientations to be reverse.
         """
-class method_21(String, AllowedValuesMixin):
+class method_22(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -68963,7 +66345,7 @@ class compound(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_21
+    method: method_22
     conditions: conditions_1
 class definition_3_child(Group):
     _version: str
@@ -68987,7 +66369,7 @@ class definition_3_child(Group):
     axis_factor: axis_factor
     origin: origin_9
     normal: normal_5
-    axis: axis_11
+    axis: axis_10
     axis_1: axis_1_1
     axis_2: axis_2_1
     distance: distance_2
@@ -69093,7 +66475,7 @@ class applied_conditions(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class method_22(String, AllowedValuesMixin):
+class method_23(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69115,7 +66497,7 @@ class fix_surfaces(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
-    method: method_22
+    method: method_23
     layers: layers
     distance: distance_3
     applied_moving_conditions: applied_moving_conditions
@@ -69502,7 +66884,7 @@ class results_1(NamedObject[results_1_child]):
                 The name of the new object.
         """
     child_object_type: results_1_child
-class export_2(Group):
+class export_3(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69617,7 +66999,7 @@ class design_change(Group):
     command_names: list[str]
     parameters: parameters_11
     results: results_1
-    export: export_2
+    export: export_3
     preview: preview_1
     history: history
     def check(self):
@@ -69662,7 +67044,7 @@ class selection_2(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class method_23(String, AllowedValuesMixin):
+class method_24(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69679,7 +67061,7 @@ class evaluation(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_23
+    method: method_24
     frequency: frequency_8
     sampling_after: sampling_after
 class observables_1(Group):
@@ -69931,7 +67313,7 @@ class objectives_2(Group):
     observables: observables_1
     operating_conditions: operating_conditions_1
     objectives: objectives_3
-class method_24(String, AllowedValuesMixin):
+class method_25(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
@@ -69960,7 +67342,7 @@ class optimizer_settings(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    method: method_24
+    method: method_25
     current_design_iteration: current_design_iteration
     design_iterations: design_iterations
     convergence_criteria: convergence_criteria
@@ -70108,7 +67490,7 @@ class input_features(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-class settings_33(Group):
+class settings_9(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -70238,7 +67620,7 @@ class model_9(Group):
     child_names: list[str]
     command_names: list[str]
     type: type_21
-    settings: settings_33
+    settings: settings_9
     offline_training: offline_training
     management: management
     def default(self):
@@ -70634,7 +68016,7 @@ class parameterize_and_explore(Group):
     design_conditions: design_conditions
     objectives: objectives
     design_change: design_change
-class geometry_13(Group):
+class geometry_12(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -70651,7 +68033,7 @@ class design(Group):
     _python_name: str
     child_names: list[str]
     gradient_based: gradient_based
-    geometry: geometry_13
+    geometry: geometry_12
 class input_parameters_1_child(Real):
     _version: str
     fluent_name: str
@@ -72077,10 +69459,6 @@ class across_zones(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
-class method_26(String, AllowedValuesMixin):
-    _version: str
-    fluent_name: str
-    _python_name: str
 class load_vector(RealList):
     _version: str
     fluent_name: str
@@ -72096,7 +69474,7 @@ class auto(Group):
     child_names: list[str]
     case_file: case_file
     across_zones: across_zones
-    method: method_26
+    method: method_7
     load_vector: load_vector
     pre_test: pre_test
 class across_zone_boundaries(Boolean):
@@ -72507,7 +69885,7 @@ class load_balance(Group):
     physical_models: physical_models_2
     dynamic_mesh: dynamic_mesh_1
     mesh_adaption: mesh_adaption
-class enabled_78(Boolean):
+class enabled_77(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
@@ -72589,7 +69967,7 @@ class conjugate_heat_transfer(Group):
     fluent_name: str
     _python_name: str
     child_names: list[str]
-    enabled: enabled_78
+    enabled: enabled_77
     set: set_5
 class solve_1(Group):
     _version: str
@@ -72633,7 +70011,7 @@ class shell_script_path(String):
     _version: str
     fluent_name: str
     _python_name: str
-class network_3(Group):
+class network_2(Group):
     _version: str
     fluent_name: str
     _python_name: str
@@ -72707,7 +70085,7 @@ class parallel(Group):
     set: set_2
     load_balance: load_balance
     multidomain: multidomain
-    network: network_3
+    network: network_2
     timer: timer
     def check(self):
         """

@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from hud.env.client import Client
-from hud.env.remote_client import RemoteClient
+from hud.env.remote_client import RemoteClient, SetupRequest
 from hud.task import Task
+from hud.utils.agent import format_agent_prompt
 from hud.utils.common import FunctionConfig, FunctionConfigs, Observation
 from hud.utils.config import (
     LOCAL_EVALUATORS,
     REMOTE_EVALUATE,
     REMOTE_FUNCTION_PREFIX,
-    REMOTE_SETUP,
     expand_config,
 )
 from hud.utils.telemetry import stream
@@ -41,8 +41,14 @@ class Environment(BaseModel):
     task: Task | None = None
     build_data: dict[str, Any]
 
+    # The task run id
+    task_run_id: str | None = None
+
     # final response
     final_response: str | None = None
+
+    # environment prompt information
+    environment_prompt: str | None = None
 
     async def _invoke_all(self, configs: FunctionConfigs) -> list[Any]:
         # Execute each config and collect results
@@ -69,24 +75,45 @@ class Environment(BaseModel):
     async def _setup(self, config: FunctionConfigs | None = None) -> None:
         """
         Setup the environment.
+        No-op if no config or task is provided.
 
         Args:
             config: The configuration to use for the setup
         """
         if isinstance(self.client, RemoteClient):
             await self.get_urls()
-            await self._invoke_all(create_remote_config(self, config, REMOTE_SETUP))
+
+            setup_request = SetupRequest()
+
+            if self.task:
+                setup_request.task_id = self.task.id
+                setup_request.config = self.task.config
+                setup_request.metadata = _format_task_metadata(self.task)
+                if self.task.setup:
+                    setup_request.setup = expand_config(self.task.setup)[0]
+            elif config:
+                setup_request.setup = expand_config(config)[0]
+            else:
+                raise ValueError("No task or config provided for remote environment")
+
+            result = await self.client.setup(setup_request)
+
+            if result and result.get("id"):
+                self.task_run_id = result.get("id")
+                logger.info("View the live trace at https://app.hud.so/trace/%s", self.task_run_id)
+            else:
+                logger.warning("No task run id found in the result")
         else:
             if config is not None:
                 await self._invoke_all(config)
             elif self.task and self.task.setup is not None:
                 await self._invoke_all(self.task.setup)
-            else:
-                raise ValueError(
-                    "No config, task or task setup function provided for local environment"
-                )
 
-    async def evaluate(self, config: FunctionConfigs | None = None) -> Any:
+    async def evaluate(
+        self,
+        config: FunctionConfigs | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Any:
         """
         Evaluate the environment.
 
@@ -97,7 +124,9 @@ class Environment(BaseModel):
             Any: Result of the evaluation
         """
         if isinstance(self.client, RemoteClient):
-            results = await self._invoke_all(create_remote_config(self, config, REMOTE_EVALUATE))
+            results = await self._invoke_all(
+                create_remote_config(self, config, REMOTE_EVALUATE, metadata)
+            )
         else:
             if config is not None:
                 results = await self._invoke_all(config)
@@ -110,27 +139,32 @@ class Environment(BaseModel):
         else:
             return results
 
-    async def reset(
-        self, configs: FunctionConfigs | None = None
-    ) -> tuple[Observation, dict[str, Any]]:
+    async def reset(self) -> tuple[Observation, dict[str, Any]]:
         """
-        Reset the environment.
+        Reset the environment and return the first observation with the agent prompt.
 
         Args:
-            configs: The configuration to use for the reset
+            None
 
         Returns:
-            Observation: The first observation from the environment
+            Observation: The first observation from the environment with the agent prompt
             info: Dictionary of information about the environment
         """
         # await self._setup(configs)
         obs, _, _, info = await self.step()
-        if self.task and self.task.prompt:
-            obs.text = self.task.prompt
+
+        if self.build_data.get("environment_prompt"):
+            self.environment_prompt = self.build_data["environment_prompt"]
+
+        # Format the agent prompt with the environment prompt and the task prompt
+        obs.text = format_agent_prompt(self.environment_prompt, self.task)
+
         return obs, info
 
     async def step(
-        self, actions: CLA | list[CLA] | None = None
+        self,
+        actions: CLA | list[CLA] | None = None,
+        verbose: bool = False,
     ) -> tuple[Observation, float, bool, dict[str, Any]]:
         """Execute a step in the environment.
 
@@ -152,10 +186,11 @@ class Environment(BaseModel):
         result, stdout, stderr = await self.client.invoke(
             FunctionConfig(function="step", args=args)
         )
-        if stdout:
-            logger.info("Step produced stdout: %s", stdout.decode())
-        if stderr:
-            logger.warning("Step produced stderr: %s", stderr.decode())
+        if verbose:
+            if stdout:
+                logger.info("Step produced stdout: %s", stdout.decode())
+            if stderr:
+                logger.warning("Step produced stderr: %s", stderr.decode())
 
         observation = Observation.model_validate(result["observation"], strict=True)
 
@@ -199,12 +234,12 @@ class Environment(BaseModel):
         await self.client.close()
 
     async def stream(self) -> str | None:
-        urls = await self.get_urls()
-        if urls["live_url"] is None:
+        if not self.live_url:
+            await self.get_urls()
+        if self.live_url is None:
             logger.warning("No live URL found")
             return None
-        # Stream the live view
-        return stream(urls["live_url"])
+        return stream(self.live_url)
 
     async def run(self, agent: Agent, max_steps: int = 27, verbose: bool = True) -> Any:
         """Run an agent in the environment.
@@ -218,7 +253,11 @@ class Environment(BaseModel):
         for i in range(max_steps):
             action, done = await agent.predict(obs, verbose=verbose)
             if verbose:
-                logger.info("Step %d: Action: %s", i, action)
+                logger.info(
+                    "Step %d: Action: %s",
+                    i,
+                    [str(a) for a in action] if len(action) > 1 else str(action[0]),
+                )
             obs, reward, terminated, info = await self.step(action)
             if verbose:
                 logger.info("Step %d: Observation: %s", i, obs)
@@ -230,10 +269,21 @@ class Environment(BaseModel):
         return result
 
 
+def _format_task_metadata(task: Task) -> dict[str, Any]:
+    metadata = {}
+    if task.metadata:
+        for key, value in task.metadata.items():
+            metadata[str(key)] = value
+    if task.sensitive_data:
+        metadata["sensitive_data"] = task.sensitive_data
+    return metadata
+
+
 def create_remote_config(
     env: Environment | None = None,
     config: FunctionConfigs | None = None,
     function: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> list[FunctionConfig]:
     """
     Create a remote configuration for setup or evaluate, determining the final
@@ -317,6 +367,8 @@ def create_remote_config(
              `[FunctionConfig(function='evaluate', args=[])]`
     """
     # If no function provided, just expand the config and return it directly
+    if metadata is None:
+        metadata = {}
     if function is None:
         if config:
             return expand_config(config)
@@ -330,7 +382,7 @@ def create_remote_config(
             if not isinstance(expanded_configs[0].args, list):
                 expanded_configs[0].args = [expanded_configs[0].args]
             expanded_configs[0].args.append(env.final_response)  # for remote responses
-        return [FunctionConfig(function=function, args=expanded_configs)]
+        return [FunctionConfig(function=function, args=expanded_configs, metadata=metadata)]
 
     # Otherwise, use the environment's task
     task = env.task if env else None
@@ -338,6 +390,8 @@ def create_remote_config(
     # Must have a task for the remaining cases
     if task is None:
         raise ValueError("Either task or config must be provided")
+
+    metadata = _format_task_metadata(task)
 
     # Case 2: Task has the specified function attribute
     task_config = getattr(task, function, None)
@@ -350,11 +404,7 @@ def create_remote_config(
             if not isinstance(expanded_configs[0].args, list):
                 expanded_configs[0].args = [expanded_configs[0].args]
             expanded_configs[0].args.append(env.final_response)  # for remote responses
-        return [
-            FunctionConfig(
-                function=function, args=expanded_configs, metadata={"task": task.model_dump()}
-            )
-        ]
+        return [FunctionConfig(function=function, args=expanded_configs, metadata=metadata)]
 
     # Case 3: Check for task.config
     if hasattr(task, "config") and task.config:
@@ -369,11 +419,7 @@ def create_remote_config(
             if not isinstance(final_args["args"], list):
                 final_args["args"] = [final_args["args"]]
             final_args["args"].append(env.final_response)
-        return [
-            FunctionConfig(
-                function=function, args=[final_args], metadata={"task": task.model_dump()}
-            )
-        ]
+        return [FunctionConfig(function=function, args=[final_args], metadata=metadata)]
 
     # Case 4: Use task.id
     if task.id:
@@ -384,7 +430,7 @@ def create_remote_config(
             FunctionConfig(
                 function=f"{REMOTE_FUNCTION_PREFIX}{function}",
                 args=args_list,
-                metadata={"task": task.model_dump()},
+                metadata=metadata,
             )
         ]
 
@@ -392,4 +438,4 @@ def create_remote_config(
     args_list = []
     if env and env.final_response:
         args_list.append(env.final_response)
-    return [FunctionConfig(function=function, args=args_list, metadata={"task": task.model_dump()})]
+    return [FunctionConfig(function=function, args=args_list, metadata=metadata)]

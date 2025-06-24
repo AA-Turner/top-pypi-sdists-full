@@ -9,8 +9,10 @@ from sempy_labs._helper_functions import (
 )
 from uuid import UUID
 import sempy_labs._icons as icons
+from sempy._utils._log import log
 
 
+@log
 def list_apps(
     top: Optional[int] = 1000,
     skip: Optional[int] = None,
@@ -56,26 +58,25 @@ def list_apps(
     url = _build_url(url, params)
     response = _base_api(request=url, client="fabric_sp")
 
-    rows = []
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "App Name": v.get("name"),
-                "App Id": v.get("id"),
-                "Description": v.get("description"),
-                "Published By": v.get("publishedBy"),
-                "Last Update": v.get("lastUpdate"),
-            }
-        )
+        new_data = {
+            "App Name": v.get("name"),
+            "App Id": v.get("id"),
+            "Description": v.get("description"),
+            "Published By": v.get("publishedBy"),
+            "Last Update": v.get("lastUpdate"),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def _resolve_app_id(app: str | UUID) -> str:
     if _is_valid_uuid(app):
         return app
@@ -87,6 +88,7 @@ def _resolve_app_id(app: str | UUID) -> str:
         return df_filt["App Id"].iloc[0]
 
 
+@log
 def list_app_users(app: str | UUID) -> pd.DataFrame:
     """
     Shows a list of users that have access to the specified app.
@@ -122,22 +124,20 @@ def list_app_users(app: str | UUID) -> pd.DataFrame:
     url = f"/v1.0/myorg/admin/apps/{app_id}/users"
     response = _base_api(request=url, client="fabric_sp")
 
-    rows = []
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "User Name": v.get("displayName"),
-                "Email Address": v.get("emailAddress"),
-                "App User Access Right": v.get("appUserAccessRight"),
-                "Identifier": v.get("identifier"),
-                "Graph Id": v.get("graphId"),
-                "Principal Type": v.get("principalType"),
-            }
-        )
+        new_data = {
+            "User Name": v.get("displayName"),
+            "Email Address": v.get("emailAddress"),
+            "App User Access Right": v.get("appUserAccessRight"),
+            "Identifier": v.get("identifier"),
+            "Graph Id": v.get("graphId"),
+            "Principal Type": v.get("principalType"),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df

@@ -35,9 +35,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-solutions-constructs/aws-cloudfront-s3",
-    "2.85.4",
+    "2.85.6",
     __name__[0:-6],
-    "aws-cloudfront-s3@2.85.4.jsii.tgz",
+    "aws-cloudfront-s3@2.85.6.jsii.tgz",
 )
 
 __all__ = [

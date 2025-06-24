@@ -10,6 +10,7 @@ from pycti.utils.opencti_stix2_identifier import (
 )
 from pycti.utils.opencti_stix2_utils import (
     STIX_CYBER_OBSERVABLE_MAPPING,
+    SUPPORTED_INTERNAL_OBJECTS,
     SUPPORTED_STIX_ENTITY_OBJECTS,
 )
 
@@ -17,8 +18,10 @@ OPENCTI_EXTENSION = "extension-definition--ea279b3e-5c71-4632-ac08-831c66a786ba"
 
 supported_types = (
     SUPPORTED_STIX_ENTITY_OBJECTS  # entities
+    + SUPPORTED_INTERNAL_OBJECTS  # internals
     + list(STIX_CYBER_OBSERVABLE_MAPPING.keys())  # observables
     + ["relationship", "sighting"]  # relationships
+    + ["pir"]
 )
 
 
@@ -66,7 +69,7 @@ class OpenCTIStix2Splitter:
         for key in list(item.keys()):
             value = item[key]
             # Recursive enlist for every refs
-            if key.endswith("_refs"):
+            if key.endswith("_refs") and item[key] is not None:
                 to_keep = []
                 for element_ref in item[key]:
                     # We need to check if this ref is not already a reference
@@ -120,7 +123,7 @@ class OpenCTIStix2Splitter:
                 else:
                     item[key] = None
             # Case for embedded elements (deduplicating and cleanup)
-            elif key == "external_references":
+            elif key == "external_references" and item[key] is not None:
                 # specific case of splitting external references
                 # reference_ids = []
                 deduplicated_references = []
@@ -146,7 +149,7 @@ class OpenCTIStix2Splitter:
                         #     reference_ids.append(reference_id)
                         # nb_deps += self.enlist_element(reference_id, raw_data)
                 item[key] = deduplicated_references
-            elif key == "kill_chain_phases":
+            elif key == "kill_chain_phases" and item[key] is not None:
                 # specific case of splitting kill_chain phases
                 # kill_chain_ids = []
                 deduplicated_kill_chain = []

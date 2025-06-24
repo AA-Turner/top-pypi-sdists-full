@@ -51,19 +51,28 @@ class Output(object):
         self.clear_buffer()
         self._flushing = False
 
-    def line(self, message, debug=False, **format):
+    def line(self, message, debug=False, icon=False, **format):
         if debug and not self.enable_debug:
             return
         self.flush_buffer()
+
+        if icon is None:
+            icon = "   "
+        elif icon is False:
+            icon = ""
+        else:
+            icon = f"{icon} "
+        message = f"{icon}{message}"
+        if not message.strip():
+            # Clean out lines which only contain whitespace.
+            message = ""
         self.backend.line(message, **format)
 
-    def annotate(self, message, debug=False, **format):
+    def annotate(self, message, debug=False, icon=False, **format):
         if debug and not self.enable_debug:
             return
         self.flush_buffer()
-        lines = message.split("\n")
-        message = "\n".join(lines)
-        self.line(message, **format)
+        self.line(message, icon=icon, **format)
 
     def tabular(self, key, value, separator=": ", debug=False, **kw):
         if debug and not self.enable_debug:
@@ -84,19 +93,19 @@ class Output(object):
         self.flush_buffer()
         return self.backend.sep(sep, title, **format)
 
-    def step(self, context, message, debug=False, **format):
+    def step(self, context, message, debug=False, icon=None, **format):
         if debug and not self.enable_debug:
             return
         self.flush_buffer()
         _format = {"bold": True}
         _format.update(format)
-        self.line("{}: {}".format(context, message), **_format)
+        self.line(f"{context}: {message}", icon=icon, **_format)
 
     def error(self, message, exc_info=None, debug=False):
         if debug and not self.enable_debug:
             return
         self.flush_buffer()
-        self.step("ERROR", message, red=True)
+        self.step("ERROR", message, icon=False, red=True)
         if exc_info:
             if self.enable_debug:
                 out = traceback.format_exception(*exc_info)
@@ -144,6 +153,8 @@ class Deployment(object):
         env_name,
         host_name,
         overrides,
+        resolve_override,
+        resolve_v6_override,
         secret_files,
         secret_data,
         host_data,
@@ -154,6 +165,8 @@ class Deployment(object):
         self.env_name = env_name
         self.host_name = host_name
         self.overrides = overrides
+        self.resolve_override = resolve_override
+        self.resolve_v6_override = resolve_v6_override
         self.host_data = host_data
         self.secret_files = secret_files
         self.secret_data = secret_data
@@ -172,6 +185,12 @@ class Deployment(object):
         self.environment.deployment = self
         self.environment.load()
         self.environment.overrides = self.overrides
+
+        from batou.utils import resolve_override, resolve_v6_override
+
+        resolve_override.update(self.resolve_override)
+        resolve_v6_override.update(self.resolve_v6_override)
+
         for hostname, data in self.host_data.items():
             self.environment.hosts[hostname].data.update(data)
         self.environment.secret_files = self.secret_files

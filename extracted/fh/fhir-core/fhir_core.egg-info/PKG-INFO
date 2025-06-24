@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: fhir-core
-Version: 1.0.1
+Metadata-Version: 2.4
+Name: fhir_core
+Version: 1.0.2
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -33,8 +33,62 @@ Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
+Requires-Dist: pydantic<3.0,>=2.7.4
 Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest>5.4.0; python_version >= "3.6" and extra == "test"
+Requires-Dist: pytest-cov>=2.10.0; python_version >= "3.6" and extra == "test"
+Requires-Dist: flake8==6.0; extra == "test"
+Requires-Dist: flake8-isort>=6.0.0; extra == "test"
+Requires-Dist: flake8-bugbear>=22.12.6; extra == "test"
+Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "test"
+Requires-Dist: isort>=5.11.4; extra == "test"
+Requires-Dist: black; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: PyYAML>=6.0.1; extra == "test"
+Requires-Dist: types-PyYAML; extra == "test"
+Requires-Dist: types-simplejson; extra == "test"
+Requires-Dist: types-requests; extra == "test"
+Requires-Dist: setuptools==65.6.3; python_version >= "3.7" and extra == "test"
+Requires-Dist: lxml; extra == "test"
+Requires-Dist: importlib-metadata>=5.2.0; extra == "test"
+Requires-Dist: pytest-runner; extra == "test"
 Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pytest>5.4.0; python_version >= "3.6" and extra == "dev"
+Requires-Dist: pytest-cov>=2.10.0; python_version >= "3.6" and extra == "dev"
+Requires-Dist: flake8==6.0; extra == "dev"
+Requires-Dist: flake8-isort>=6.0.0; extra == "dev"
+Requires-Dist: flake8-bugbear>=22.12.6; extra == "dev"
+Requires-Dist: requests==2.23.0; python_version < "3.10" and extra == "dev"
+Requires-Dist: isort>=5.11.4; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: PyYAML>=6.0.1; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-simplejson; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: setuptools==65.6.3; python_version >= "3.7" and extra == "dev"
+Requires-Dist: lxml; extra == "dev"
+Requires-Dist: importlib-metadata>=5.2.0; extra == "dev"
+Requires-Dist: Jinja2==2.11.1; extra == "dev"
+Requires-Dist: MarkupSafe==1.1.1; extra == "dev"
+Requires-Dist: colorlog==2.10.0; extra == "dev"
+Requires-Dist: certifi; extra == "dev"
+Requires-Dist: fhirspec; extra == "dev"
+Requires-Dist: zest-releaser[recommended]; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ==========
 FHIR® Core
@@ -133,6 +187,14 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 =======
 History
 =======
+
+1.0.2 (2025-06-23)
+------------------
+
+Fixes
+
+- Issue: deprecated access of ``model_fields`` in Pydantic model instances. https://github.com/nazrulworld/fhir-core/issues/9.
+
 
 1.0.1 (2025-03-23)
 ------------------

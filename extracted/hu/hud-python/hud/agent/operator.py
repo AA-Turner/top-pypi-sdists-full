@@ -19,6 +19,7 @@ from hud.adapters.operator import OperatorAdapter
 from hud.types import Gym
 from hud.utils.common import Observation
 from hud.settings import settings
+from hud.adapters.common.types import LogType
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,10 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
         self,
         client: AsyncOpenAI | None = None,
         model: str = "computer-use-preview",
-        environment: Literal["windows", "mac", "linux", "browser"] = "linux",
+        environment: Literal["windows", "mac", "linux", "browser"] = "browser",
         adapter: Adapter | None = None,
         max_iterations: int = 8,
+        name: str | None = None,
     ):
         """
         Initialize the OperatorAgent.
@@ -50,6 +52,7 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
             environment: The environment type (windows, mac, linux, browser)
             adapter: The adapter to use for preprocessing and postprocessing
             max_iterations: Maximum number of iterations for the agent
+            name: The name of the agent
         """
         # Initialize client if not provided
         if client is None:
@@ -65,7 +68,10 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
 
         adapter = adapter or OperatorAdapter()
 
-        super().__init__(client=client, adapter=adapter)
+        if name is None:
+            name = f"openai-{model}"
+
+        super().__init__(client=client, adapter=adapter, name=name)
 
         self.model = model
         self.environment = environment
@@ -86,6 +92,8 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
         self.initial_prompt = None
         self.pending_safety_checks = []
 
+        self.task_run_id = None
+
     async def fetch_response(self, observation: Observation) -> tuple[list[dict[str, Any]], bool]:
         """
         Fetch a response from the model based on the observation.
@@ -94,8 +102,8 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
             observation: The preprocessed observation
 
         Returns:
-            tuple[list[dict[str, Any]], bool]: A tuple containing the list of raw actions and a
-                                             boolean indicating if the agent believes the task is complete
+            tuple[list[dict[str, Any]], bool, list[LogType] | None]: A tuple containing the list of raw actions,
+                                             boolean indicating if the agent believes the task is complete.
         """
         if not self.client:
             raise ValueError("Client is required")
@@ -112,7 +120,7 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
         )
 
         # Process the observation based on whether it's the first one or a response to an action
-        if self.pending_call_id is None and self.last_response_id is None:
+        if self.pending_call_id is None:  # and self.last_response_id is None:
             # This is the first observation, store and send the prompt
             self.initial_prompt = observation.text
 
@@ -133,13 +141,15 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
             # Structure the input correctly for the API using cast
             input_param = cast(ResponseInputParam, [{"role": "user", "content": input_content}])
 
-            # Call OpenAI API for the initial prompt (asynchronous call)
             response = await self.client.responses.create(
-                model=self.model, tools=[computer_tool], input=input_param, truncation="auto"
+                model=self.model,
+                tools=[computer_tool],
+                input=input_param,
+                truncation="auto",
+                reasoning={"summary": "auto"},
             )
 
         else:
-            # This is a response to a previous action
             if not observation.screenshot:
                 logger.warning("No screenshot provided for response to action")
                 return [], True
@@ -164,7 +174,6 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
             )
             self.pending_safety_checks = []
 
-            # Call OpenAI API for follow-up (asynchronous call)
             response = await self.client.responses.create(
                 model=self.model,
                 previous_response_id=self.last_response_id,
@@ -180,6 +189,8 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
         actions = []
         done = True  # Assume done unless a computer call is found
         final_text_response = ""
+
+        self.pending_call_id = None
 
         # Check for computer calls first
         computer_calls = [
@@ -217,8 +228,22 @@ class OperatorAgent(Agent[AsyncOpenAI, dict[str, Any]]):
                 # No ResponseAgent logic here anymore - just return the response
                 actions = [{"type": "response", "text": final_text_response}]
                 done = True
-            # else:
-            #     logger.info("No computer calls and no final text message found.")
+            else:
+                logger.info("No computer calls and no final text message found.")
             # Keep done = True, actions remains empty
+
+        reasoning = ""
+        for item in response.output:
+            if item.type == "reasoning" and item.summary:
+                reasoning += f"Thinking: {item.summary[0].text}\n"
+            elif item.type == "message":
+                for content in item.content:
+                    if isinstance(content, ResponseOutputText):
+                        reasoning += f"{content.text}\n"
+
+        # add reasoning to the actions
+        for action in actions:
+            action["reasoning"] = reasoning
+            action["logs"] = response.model_dump()  # type: ignore[assignment]
 
         return actions, done

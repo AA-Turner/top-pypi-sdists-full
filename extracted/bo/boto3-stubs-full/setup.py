@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-full",
-    version="1.38.41",
+    version="1.38.42",
     packages=[
         "mypy_boto3_accessanalyzer",
         "mypy_boto3_account",
@@ -417,6 +417,7 @@ setup(
         "mypy_boto3_workmail",
         "mypy_boto3_workmailmessageflow",
         "mypy_boto3_workspaces",
+        "mypy_boto3_workspaces_instances",
         "mypy_boto3_workspaces_thin_client",
         "mypy_boto3_workspaces_web",
         "mypy_boto3_xray",
@@ -425,7 +426,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.38.41 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.38.42 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -852,6 +853,7 @@ setup(
         "mypy_boto3_workmail": ["py.typed", "*.pyi"],
         "mypy_boto3_workmailmessageflow": ["py.typed", "*.pyi"],
         "mypy_boto3_workspaces": ["py.typed", "*.pyi"],
+        "mypy_boto3_workspaces_instances": ["py.typed", "*.pyi"],
         "mypy_boto3_workspaces_thin_client": ["py.typed", "*.pyi"],
         "mypy_boto3_workspaces_web": ["py.typed", "*.pyi"],
         "mypy_boto3_xray": ["py.typed", "*.pyi"],

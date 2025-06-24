@@ -487,17 +487,17 @@ testcase!(
 from typing import *
 Ts = TypeVarTuple('Ts')
 P = ParamSpec('P')
-t1: TypeAlias = Unpack[TypedDict]  # E: Unpack is not allowed in this context
-t2: TypeAlias = P  # E: ParamSpec[P] is not allowed in this context
-t3: TypeAlias = Unpack[Ts]  # E: Unpack is not allowed in this context
+t1: TypeAlias = Unpack[TypedDict]  # E: `Unpack` is not allowed in this context # E: `TypedDict` is not allowed in this context
+t2: TypeAlias = P  # E: `ParamSpec[P]` is not allowed in this context
+t3: TypeAlias = Unpack[Ts]  # E: `Unpack` is not allowed in this context
 t4: TypeAlias = Literal  # E: Expected a type argument for `Literal`
-t5: TypeAlias = Ts  # E: TypeVarTuple must be unpacked
+t5: TypeAlias = Ts  # E: `TypeVarTuple` is not allowed in this context
 t6: TypeAlias = Generic  # E: Expected a type argument for `Generic`
 t7: TypeAlias = Protocol  # E: Expected a type argument for `Protocol`
-t8: TypeAlias = Generic[int]  # E: Generic may not be used in this context
-t9: TypeAlias = Protocol[int]  # E: Protocol may not be used in this context
+t8: TypeAlias = Generic[int]  # E: `Generic` is not allowed in this context
+t9: TypeAlias = Protocol[int]  # E: `Protocol` is not allowed in this context
 t10: TypeAlias = Final  # E: Expected a type argument for `Final`
-t11: TypeAlias = Final[int]  # E: Final may not be used in this context
+t11: TypeAlias = Final[int]  # E: `Final` is not allowed in this context
 t12: TypeAlias = TypeAlias  # OK
 t13: TypeAlias = [int][0]  # E: invalid subscript expression cannot be used in annotations
 "#,
@@ -508,7 +508,7 @@ testcase!(
     r#"
 from typing import Callable, Any
 def foo(x: Callable[[str], Any]) -> None:
-    pass 
+    pass
 
 foo(str)
     "#,
@@ -536,7 +536,7 @@ testcase!(
 from typing import TypeAlias
 
 class B: ...
-R: TypeAlias = B  
+R: TypeAlias = B
 class C: ...
 class F:
     T: TypeAlias = C
@@ -554,4 +554,56 @@ get_class()
 foo = get_class() # Cannot be an alias because of syntax
 bar: type[object] = get_class()
 "#,
+);
+
+testcase!(
+    test_union_with_implicit_generic_alias,
+    r#"
+from typing import Any, TypeVar, assert_type
+T = TypeVar('T')
+X = list[T]
+def f(x1: X | None, x2: X[int] | None):
+    assert_type(x1, list[Any] | None)
+    assert_type(x2, list[int] | None)
+    "#,
+);
+
+testcase!(
+    test_union_with_implicit_generic_alias_union,
+    r#"
+from typing import Any, TypeVar, assert_type
+T = TypeVar('T')
+Y = list[T] | set[T]
+def f(y1: Y | None, y2: Y[int] | None):
+    assert_type(y1, list[Any] | set[Any] | None)
+    assert_type(y2, list[int] | set[int] | None)
+    "#,
+);
+
+testcase!(
+    bug = "Missing check of type argument against TypeVar bound",
+    test_implicit_alias_of_typevar_type,
+    r#"
+from typing import TypeVar
+T = TypeVar('T', bound=int)
+X = type[T]
+def f(x: X[bool]) -> bool:
+    return x()
+def g(x: type[T][int]):  # E: invalid subscript expression
+    pass
+def h(x: X[str]):  # should be an error about str not matching int
+    pass
+    "#,
+);
+
+testcase!(
+    test_bad_type_variable_aliases,
+    r#"
+from typing import ParamSpec, TypeVarTuple, Unpack
+P = ParamSpec('P')
+Ts = TypeVarTuple('Ts')
+Error1 = type[P]  # E: `ParamSpec[P]` is not allowed
+Error2 = type[Ts]  # E: `TypeVarTuple` is not allowed
+Error3 = type[Unpack[Ts]]  # E: `Unpack` is not allowed
+    "#,
 );

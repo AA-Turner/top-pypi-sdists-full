@@ -9,7 +9,6 @@ use super::{
 
 pub(crate) type WorkerId = Arc<str>;
 
-#[allow(dead_code)]
 pub(crate) trait Worker: Send + Sync + Debug + 'static {
     type Task: Task;
     type TaskResultHandle: TaskResultHandle;
@@ -18,17 +17,20 @@ pub(crate) trait Worker: Send + Sync + Debug + 'static {
     fn active_task_details(&self) -> HashMap<TaskID, TaskDetails>;
     fn total_num_cpus(&self) -> f64;
     fn total_num_gpus(&self) -> f64;
+    #[allow(dead_code)]
     fn active_num_cpus(&self) -> f64;
+    #[allow(dead_code)]
     fn active_num_gpus(&self) -> f64;
+    #[allow(dead_code)]
     fn available_num_cpus(&self) -> f64 {
         self.total_num_cpus() - self.active_num_cpus()
     }
+    #[allow(dead_code)]
     fn available_num_gpus(&self) -> f64 {
         self.total_num_gpus() - self.active_num_gpus()
     }
 }
 
-#[allow(dead_code)]
 pub(crate) trait WorkerManager: Send + Sync {
     type Worker: Worker;
 
@@ -96,7 +98,7 @@ pub(super) mod tests {
                     }
 
                     result.push(TaskResultHandleAwaiter::new(
-                        Arc::from(task.task_id().to_string()),
+                        task.task_context(),
                         worker_id.clone(),
                         MockTaskResultHandle::new(task),
                         result_tx,
@@ -154,10 +156,10 @@ pub(super) mod tests {
         }
 
         pub fn add_active_task(&self, task: &impl Task) {
-            self.active_task_details.lock().unwrap().insert(
-                Arc::from(task.task_id().to_string()),
-                TaskDetails::from(task),
-            );
+            self.active_task_details
+                .lock()
+                .unwrap()
+                .insert(task.task_id(), TaskDetails::from(task));
         }
 
         pub fn shutdown(&self) {

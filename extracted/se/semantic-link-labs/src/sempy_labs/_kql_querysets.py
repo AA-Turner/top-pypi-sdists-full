@@ -2,15 +2,17 @@ import pandas as pd
 import sempy_labs._icons as icons
 from typing import Optional
 from sempy_labs._helper_functions import (
-    resolve_workspace_name_and_id,
+    resolve_workspace_id,
     _base_api,
     _create_dataframe,
     delete_item,
     create_item,
 )
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def list_kql_querysets(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the KQL querysets within a workspace.
@@ -37,12 +39,13 @@ def list_kql_querysets(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"v1/workspaces/{workspace_id}/kqlQuerysets", uses_pagination=True
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             new_data = {
@@ -50,11 +53,15 @@ def list_kql_querysets(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 "KQL Queryset Id": v.get("id"),
                 "Description": v.get("description"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def create_kql_queryset(
     name: str, description: Optional[str] = None, workspace: Optional[str | UUID] = None
 ):
@@ -80,6 +87,7 @@ def create_kql_queryset(
     )
 
 
+@log
 def delete_kql_queryset(
     kql_queryset: str | UUID, workspace: Optional[str | UUID] = None, **kwargs
 ):

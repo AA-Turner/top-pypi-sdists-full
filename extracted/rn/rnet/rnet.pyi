@@ -68,14 +68,12 @@ class WebSocketParams(TypedDict, closed=True):
     max_frame_size: NotRequired[int]
     accept_unmasked_frames: NotRequired[bool]
 
-class ProxyParams(TypedDict, total=False, closed=True):
-    scheme: NotRequired[str]
-    host: NotRequired[str]
-    port: NotRequired[int]
+class ProxyParams(TypedDict, closed=True):
     username: NotRequired[str]
     password: NotRequired[str]
-    rdns: NotRequired[bool]
-    headers: NotRequired[Dict[str, str]]
+    custom_http_auth: NotRequired[str]
+    custom_http_headers: NotRequired[Union[Dict[str, str], HeaderMap]]
+    exclusion: NotRequired[str]
 
 class BlockingClient:
     r"""
@@ -1419,7 +1417,7 @@ class Proxy:
     """
 
     @staticmethod
-    def http(**kwargs: Unpack[ProxyParams]) -> Proxy:
+    def http(url: str, **kwargs: Unpack[ProxyParams]) -> Proxy:
         r"""
         Creates a new HTTP proxy.
 
@@ -1444,7 +1442,7 @@ class Proxy:
         """
 
     @staticmethod
-    def https(**kwargs: Unpack[ProxyParams]) -> Proxy:
+    def https(url: str, **kwargs: Unpack[ProxyParams]) -> Proxy:
         r"""
         Creates a new HTTPS proxy.
 
@@ -1469,7 +1467,7 @@ class Proxy:
         """
 
     @staticmethod
-    def all(**kwargs: Unpack[ProxyParams]) -> Proxy:
+    def all(url: str, **kwargs: Unpack[ProxyParams]) -> Proxy:
         r"""
         Creates a new proxy for all protocols.
 
@@ -1798,6 +1796,7 @@ class Impersonate(Enum):
     Chrome134 = auto()
     Chrome135 = auto()
     Chrome136 = auto()
+    Chrome137 = auto()
     Edge101 = auto()
     Edge122 = auto()
     Edge127 = auto()
@@ -1812,6 +1811,7 @@ class Impersonate(Enum):
     FirefoxAndroid135 = auto()
     Firefox136 = auto()
     FirefoxPrivate136 = auto()
+    Firefox139 = auto()
     SafariIos17_2 = auto()
     SafariIos17_4_1 = auto()
     SafariIos16_5 = auto()

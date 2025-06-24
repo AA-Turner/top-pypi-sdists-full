@@ -1,28 +1,27 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
-import functools
 import typing
 
 from inngest._internal import errors, server_lib, step_lib, transforms, types
+from inngest._internal.execution_lib import BaseExecution, BaseExecutionSync
 
 from .models import (
     CallResult,
     Context,
+    ContextSync,
     FunctionHandlerAsync,
     FunctionHandlerSync,
     ReportedStep,
     ReportedStepSync,
     UserError,
 )
-from .utils import is_function_handler_async, is_function_handler_sync
 
 if typing.TYPE_CHECKING:
     from inngest._internal import client_lib, function, middleware_lib
 
 
-class ExecutionV0:
+class ExecutionV0(BaseExecution):
     version = "0"
 
     def __init__(
@@ -31,21 +30,11 @@ class ExecutionV0:
         middleware: middleware_lib.MiddlewareManager,
         request: server_lib.ServerRequest,
         target_hashed_id: typing.Optional[str],
-        thread_pool: typing.Optional[
-            concurrent.futures.ThreadPoolExecutor
-        ] = None,
     ) -> None:
         self._memos = memos
         self._middleware = middleware
         self._request = request
-        self._sync = ExecutionV0Sync(
-            memos,
-            middleware,
-            request,
-            target_hashed_id,
-        )
         self._target_hashed_id = target_hashed_id
-        self._thread_pool = thread_pool
 
     def _handle_skip(
         self,
@@ -124,11 +113,9 @@ class ExecutionV0:
         self,
         client: client_lib.Inngest,
         ctx: Context,
-        handler: typing.Union[
-            FunctionHandlerAsync,
-            FunctionHandlerSync,
-        ],
-        fn: function.Function,
+        handler: FunctionHandlerAsync[types.T],
+        fn: function.Function[types.T],
+        output_type: object = types.EmptySentinel,
     ) -> CallResult:
         # Give middleware the opportunity to change some of params passed to the
         # user's handler.
@@ -147,60 +134,9 @@ class ExecutionV0:
                 return CallResult(err)
 
         try:
-            output: object
-
             try:
-                # # Determine whether the handler is async (i.e. if we need to await
-                # # it). Sync functions are OK in async contexts, so it's OK if the
-                # # handler is sync.
-                if is_function_handler_async(handler):
-                    output = await handler(
-                        ctx=ctx,
-                        step=step_lib.Step(
-                            client,
-                            self,
-                            self._middleware,
-                            step_lib.StepIDCounter(),
-                            self._target_hashed_id,
-                        ),
-                    )
-                elif is_function_handler_sync(handler):
-                    if self._thread_pool is not None:
-                        loop = asyncio.get_running_loop()
-                        func = functools.partial(
-                            handler,
-                            ctx=ctx,
-                            step=step_lib.StepSync(
-                                client,
-                                self._sync,
-                                self._middleware,
-                                step_lib.StepIDCounter(),
-                                self._target_hashed_id,
-                            ),
-                        )
-                        output = await loop.run_in_executor(
-                            self._thread_pool,
-                            func,
-                        )
-                    else:
-                        output = handler(
-                            ctx=ctx,
-                            step=step_lib.StepSync(
-                                client,
-                                self._sync,
-                                self._middleware,
-                                step_lib.StepIDCounter(),
-                                self._target_hashed_id,
-                            ),
-                        )
-                else:
-                    # Should be unreachable but Python's custom type guards don't
-                    # support negative checks :(
-                    return CallResult(
-                        errors.UnknownError(
-                            "unable to determine function handler type"
-                        )
-                    )
+                output: object = await handler(ctx)
+                output = client._serialize(output, output_type)
             except Exception as user_err:
                 transforms.remove_first_traceback_frame(user_err)
                 raise UserError(user_err)
@@ -232,7 +168,7 @@ class ExecutionV0:
             return CallResult(err)
 
 
-class ExecutionV0Sync:
+class ExecutionV0Sync(BaseExecutionSync):
     version = "0"
 
     def __init__(
@@ -320,12 +256,10 @@ class ExecutionV0Sync:
     def run(
         self,
         client: client_lib.Inngest,
-        ctx: Context,
-        handler: typing.Union[
-            FunctionHandlerAsync,
-            FunctionHandlerSync,
-        ],
-        fn: function.Function,
+        ctx: ContextSync,
+        handler: FunctionHandlerSync[types.T],
+        fn: function.Function[types.T],
+        output_type: object = types.EmptySentinel,
     ) -> CallResult:
         # Give middleware the opportunity to change some of params passed to the
         # user's handler.
@@ -342,27 +276,12 @@ class ExecutionV0Sync:
                 return CallResult(err)
 
         try:
-            if is_function_handler_sync(handler):
-                try:
-                    output: object = handler(
-                        ctx=ctx,
-                        step=step_lib.StepSync(
-                            client,
-                            self,
-                            self._middleware,
-                            step_lib.StepIDCounter(),
-                            self._target_hashed_id,
-                        ),
-                    )
-                except Exception as user_err:
-                    transforms.remove_first_traceback_frame(user_err)
-                    raise UserError(user_err)
-            else:
-                return CallResult(
-                    errors.AsyncUnsupportedError(
-                        "encountered async function in non-async context"
-                    )
-                )
+            try:
+                output: object = handler(ctx)
+                output = client._serialize(output, output_type)
+            except Exception as user_err:
+                transforms.remove_first_traceback_frame(user_err)
+                raise UserError(user_err)
 
             err = self._middleware.after_execution_sync()
             if isinstance(err, Exception):

@@ -1,6 +1,6 @@
 """Solver settings."""
 
-from ansys.fluent.core.solver.settings_builtin_bases import _SingletonSetting, _CreatableNamedObjectSetting, _NonCreatableNamedObjectSetting, Solver
+from ansys.fluent.core.solver.settings_builtin_bases import _SingletonSetting, _CreatableNamedObjectSetting, _NonCreatableNamedObjectSetting, _CommandSetting, Solver
 from ansys.fluent.core.solver.flobject import SettingsBase
 
 
@@ -203,6 +203,14 @@ __all__ = [
     "ParametricStudy",
     "DesignPoints",
     "DesignPoint",
+    "ReadCase",
+    "ReadData",
+    "ReadCaseData",
+    "WriteCase",
+    "WriteData",
+    "WriteCaseData",
+    "Initialize",
+    "Calculate",
 ]
 
 class Setup(_SingletonSetting):
@@ -1392,4 +1400,52 @@ class DesignPoint(_CreatableNamedObjectSetting):
 
     def __init__(self, parametric_studies: str, settings_source: SettingsBase | Solver | None = None, name: str = None, new_instance_name: str = None):
         super().__init__(settings_source=settings_source, name=name, new_instance_name=new_instance_name, parametric_studies=parametric_studies)
+
+class ReadCase(_CommandSetting):
+    """ReadCase command."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
+        super().__init__(settings_source=settings_source, **kwargs)
+
+class ReadData(_CommandSetting):
+    """ReadData command."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
+        super().__init__(settings_source=settings_source, **kwargs)
+
+class ReadCaseData(_CommandSetting):
+    """ReadCaseData command."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
+        super().__init__(settings_source=settings_source, **kwargs)
+
+class WriteCase(_SingletonSetting):
+    """WriteCase setting."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None):
+        super().__init__(settings_source=settings_source)
+
+class WriteData(_SingletonSetting):
+    """WriteData setting."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None):
+        super().__init__(settings_source=settings_source)
+
+class WriteCaseData(_SingletonSetting):
+    """WriteCaseData setting."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None):
+        super().__init__(settings_source=settings_source)
+
+class Initialize(_CommandSetting):
+    """Initialize command."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
+        super().__init__(settings_source=settings_source, **kwargs)
+
+class Calculate(_CommandSetting):
+    """Calculate command."""
+
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
+        super().__init__(settings_source=settings_source, **kwargs)
 

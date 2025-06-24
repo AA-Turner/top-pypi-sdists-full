@@ -15,6 +15,7 @@ Example:
       GET /blog/foo/bar - app.blogs.find(request, ) 0
 """
 
+import inspect
 from typing import Callable
 import re
 
@@ -98,6 +99,7 @@ def build_args_from_function(func):
     be a string like '/sqli' and we just return that.
 
     """
+    func = inspect.unwrap(func)
     method_arg_names = "()"
     if func is not None and hasattr(func, "__code__"):
         method_arg_names = str(

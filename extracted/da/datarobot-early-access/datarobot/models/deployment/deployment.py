@@ -483,6 +483,15 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         return f"{self.__class__.__name__}({self.label or self.id})"
 
     @classmethod
+    @deprecated(
+        deprecated_since_version="v3.8",
+        will_remove_version="v3.12",
+        message=(
+            "This method is deprecated, please register the model with "
+            "'RegisteredModelVersion.create_for_leaderboard_item', "
+            "then use 'Deployment.create_from_registered_model_version' instead."
+        ),
+    )
     def create_from_learning_model(
         cls: Type[TDeployment],
         model_id: str,

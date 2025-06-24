@@ -6,7 +6,7 @@ class MaleoFoundationRSAEncryptionResultsTransfers:
     class Fail(BaseServiceGeneralResultsTransfers.Fail): pass
 
     class Encrypt(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationEncryptionSchemas.Ciphertext = Field(..., description="Single encryption data")
+        data: MaleoFoundationEncryptionSchemas.Ciphertext = Field(..., description="Single encryption data")
 
     class Decrypt(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationEncryptionSchemas.Plaintext = Field(..., description="Single decryption data")
+        data: MaleoFoundationEncryptionSchemas.Plaintext = Field(..., description="Single decryption data")

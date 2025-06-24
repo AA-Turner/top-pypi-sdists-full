@@ -11,8 +11,14 @@ from sempy_labs._helper_functions import (
 )
 import sempy_labs._icons as icons
 import re
+import time
+import pandas as pd
+from sempy_labs._job_scheduler import (
+    _get_item_job_instance,
+)
 
 
+@log
 def lakehouse_attached() -> bool:
     """
     Identifies if a lakehouse is attached to the notebook.
@@ -33,6 +39,7 @@ def lakehouse_attached() -> bool:
         return False
 
 
+@log
 def _optimize_table(path):
 
     if _pure_python_notebook():
@@ -46,6 +53,7 @@ def _optimize_table(path):
         DeltaTable.forPath(spark, path).optimize().executeCompaction()
 
 
+@log
 def _vacuum_table(path, retain_n_hours):
 
     if _pure_python_notebook():
@@ -145,6 +153,7 @@ def vacuum_lakehouse_tables(
         _vacuum_table(path=path, retain_n_hours=retain_n_hours)
 
 
+@log
 def run_table_maintenance(
     table_name: str,
     optimize: bool = False,
@@ -154,7 +163,7 @@ def run_table_maintenance(
     schema: Optional[str] = None,
     lakehouse: Optional[str | UUID] = None,
     workspace: Optional[str | UUID] = None,
-):
+) -> pd.DataFrame:
     """
     Runs table maintenance operations on the specified table within the lakehouse.
 
@@ -181,6 +190,11 @@ def run_table_maintenance(
         The Fabric workspace name or ID used by the lakehouse.
         Defaults to None which resolves to the workspace of the attached lakehouse
         or if no lakehouse attached, resolves to the workspace of the notebook.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the job instance details of the table maintenance operation.
     """
 
     (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
@@ -223,13 +237,32 @@ def run_table_maintenance(
     if vacuum and retention_period is not None:
         payload["executionData"]["vacuumSettings"]["retentionPeriod"] = retention_period
 
-    _base_api(
+    response = _base_api(
         request=f"/v1/workspaces/{workspace_id}/lakehouses/{lakehouse_id}/jobs/instances?jobType=TableMaintenance",
         method="post",
         payload=payload,
         status_codes=202,
     )
 
-    print(
-        f"{icons.green_dot} The table maintenance job for the '{table_name}' table in the '{lakehouse_name}' lakehouse within the '{workspace_name}' workspace has been initiated."
-    )
+    f"{icons.in_progress} The table maintenance job for the '{table_name}' table in the '{lakehouse_name}' lakehouse within the '{workspace_name}' workspace has been initiated."
+
+    status_url = response.headers.get("Location").split("fabric.microsoft.com")[1]
+    status = None
+    while status not in ["Completed", "Failed"]:
+        response = _base_api(request=status_url)
+        status = response.json().get("status")
+        time.sleep(10)
+
+    df = _get_item_job_instance(url=status_url)
+
+    if status == "Completed":
+        print(
+            f"{icons.green_dot} The table maintenance job for the '{table_name}' table in the '{lakehouse_name}' lakehouse within the '{workspace_name}' workspace has succeeded."
+        )
+    else:
+        print(status)
+        print(
+            f"{icons.red_dot} The table maintenance job for the '{table_name}' table in the '{lakehouse_name}' lakehouse within the '{workspace_name}' workspace has failed."
+        )
+
+    return df

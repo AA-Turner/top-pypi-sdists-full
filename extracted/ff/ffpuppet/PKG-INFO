@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffpuppet
-Version: 0.17.0
+Version: 0.17.1
 Summary: A Python module that aids in the automation of Firefox at the process level
 Home-page: https://github.com/MozillaSecurity/ffpuppet
 Author: Tyson Smith
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: psutil>=5.9.0
-Requires-Dist: xvfbwrapper>=0.2.9; sys_platform == "linux" or sys_platform == "linux2"
+Requires-Dist: xvfbwrapper>=0.2.9; sys_platform == "linux"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: tox; extra == "dev"
@@ -26,7 +26,7 @@ Dynamic: license-file
 FFPuppet
 ========
 
-[![Task Status](https://community-tc.services.mozilla.com/api/github/v1/repository/MozillaSecurity/ffpuppet/master/badge.svg)](https://community-tc.services.mozilla.com/api/github/v1/repository/MozillaSecurity/ffpuppet/master/latest)
+[![CI](https://github.com/MozillaSecurity/ffpuppet/actions/workflows/ci.yml/badge.svg)](https://github.com/MozillaSecurity/ffpuppet/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/MozillaSecurity/ffpuppet/branch/master/graph/badge.svg)](https://codecov.io/gh/MozillaSecurity/ffpuppet)
 [![Matrix](https://img.shields.io/badge/chat-%23fuzzing-green?logo=matrix)](https://matrix.to/#/#fuzzing:mozilla.org)
 [![PyPI](https://img.shields.io/pypi/v/ffpuppet)](https://pypi.org/project/ffpuppet)

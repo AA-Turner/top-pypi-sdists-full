@@ -2208,6 +2208,19 @@ commands_group_ru = [
     types.BotCommand(command="thanks", description="🎉 Поблагодарить"),
     types.BotCommand(command="birthday", description="🥳 Поздравить")
 ]
+commands_post_ru = [
+    types.BotCommand(command="start", description="⚙️ Перезагрузка"),
+    types.BotCommand(command="lang", description="🇫🇷 Язык"),
+    types.BotCommand(command="happy", description="🐈 Счастье"),
+    types.BotCommand(command="whisper", description="👩🏽‍💻 Шёпот")
+]
+commands_codex_ru = [
+    types.BotCommand(command="start", description="⚙️ Перезагрузка"),
+    types.BotCommand(command="codex", description="1️⃣ Кодекс"),
+    types.BotCommand(command="fest", description="2️⃣ Фест"),
+    types.BotCommand(command="league", description="3️⃣ Лига"),
+    types.BotCommand(command="lang", description="🇫🇷 Язык"),
+]
 
 bot_emj_react = ["👍", "❤", "🔥", "👏", "🎉", "🙏", "👌", "🕊", "🐳", "❤‍🔥", "🌚", "💯", "⚡", "🏆", "💔", "👻", "👨‍💻", "👀", "🎃", "🤝",
                  "✍", "🎄", "☃", "🗿", "🆒", "💘", "🦄", "👾", "🤷‍♂", "🤷‍♀"]
@@ -17768,7 +17781,7 @@ async def correct_link(link):
 
         if '@' in link and '/' in link: link = link[:link.index('/')]
         link = str(link).rstrip('/').rstrip('.').rstrip(':').strip()
-        result = None if link in ['@None', '@'] else link
+        result = None if link in ['@None', '@', '@https'] else link
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
@@ -19386,6 +19399,8 @@ async def in_ban_list(tid, username=None):
                  5105772611,  # Z Yuan
                  5438448668,  # JQ 1, en
                  6126573233,  # @icticiy, en
+                 5152639222,  # 彩虹代发 看我主页 None, en
+                 7535872701,  # @KEDA1SIEMON
                  ]
 
         if username and username.startswith('kwprod'):

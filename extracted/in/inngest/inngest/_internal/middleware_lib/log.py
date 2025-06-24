@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing
+
 from inngest._internal import (
     client_lib,
     execution_lib,
@@ -49,8 +51,8 @@ class LoggerMiddleware(MiddlewareSync):
 
     def transform_input(
         self,
-        ctx: execution_lib.Context,
-        function: function.Function,
+        ctx: execution_lib.Context | execution_lib.ContextSync,
+        function: function.Function[typing.Any],
         steps: step_lib.StepMemos,
     ) -> None:
         self.logger.logger = ctx.logger

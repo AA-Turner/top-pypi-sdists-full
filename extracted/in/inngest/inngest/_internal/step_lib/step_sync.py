@@ -7,9 +7,9 @@ import typing_extensions
 
 from inngest._internal import errors, server_lib, transforms, types
 from inngest._internal.client_lib import models as client_models
+from inngest.experimental import ai
 
 from . import base
-from .group import Group
 
 # Avoid circular import at runtime
 if typing.TYPE_CHECKING:
@@ -37,18 +37,18 @@ class StepSync(base.StepBase):
             target_hashed_id,
         )
 
+        self.ai = AI(self)
         self._execution = exe
 
     def invoke(
         self,
         step_id: str,
         *,
-        function: function.Function,
+        function: function.Function[types.T],
         data: typing.Optional[typing.Mapping[str, object]] = None,
         timeout: typing.Union[int, datetime.timedelta, None] = None,
-        user: typing.Optional[typing.Mapping[str, object]] = None,
         v: typing.Optional[str] = None,
-    ) -> object:
+    ) -> types.T:
         """
         Invoke an Inngest function with data. Returns the result of the returned
         value of the function or `None` if the function does not return a value.
@@ -63,19 +63,21 @@ class StepSync(base.StepBase):
             function: The function object to invoke.
             data: Will become `event.data` in the invoked function. Must be JSON serializable.
             timeout: The maximum number of milliseconds to wait for the function to complete.
-            user: Will become `event.user` in the invoked function. Must be JSON serializable.
             v: Will become `event.v` in the invoked function.
         """
 
-        return self.invoke_by_id(
+        output = self.invoke_by_id(
             step_id,
             app_id=self._client.app_id,
             function_id=function._opts.local_id,
             data=data,
             timeout=timeout,
-            user=user,
             v=v,
         )
+
+        output = self._client._deserialize(output, function._output_type)
+
+        return output  # type: ignore[return-value]
 
     def invoke_by_id(
         self,
@@ -85,7 +87,6 @@ class StepSync(base.StepBase):
         function_id: str,
         data: typing.Optional[typing.Mapping[str, object]] = None,
         timeout: typing.Union[int, datetime.timedelta, None] = None,
-        user: typing.Optional[typing.Mapping[str, object]] = None,
         v: typing.Optional[str] = None,
     ) -> object:
         """
@@ -106,7 +107,6 @@ class StepSync(base.StepBase):
             function_id: The ID of the function to invoke.
             data: Will become `event.data` in the invoked function. Must be JSON serializable.
             timeout: The maximum number of milliseconds to wait for the function to complete.
-            user: Will become `event.user` in the invoked function. Must be JSON serializable.
             v: Will become `event.v` in the invoked function.
         """
 
@@ -123,7 +123,6 @@ class StepSync(base.StepBase):
             function_id=f"{app_id}-{function_id}",
             payload=base.InvokeOptsPayload(
                 data=data,
-                user=user,
                 v=v,
             ),
             timeout=timeout_str,
@@ -149,31 +148,16 @@ class StepSync(base.StepBase):
 
         raise Exception("unreachable")
 
-    def parallel(
-        self,
-        callables: tuple[typing.Callable[[], types.T], ...],
-    ) -> tuple[types.T, ...]:
-        """
-        @deprecated Use `ctx.group.parallel_sync()` instead. This method will be removed in the next major version.
-
-        Run multiple steps in parallel.
-
-        Args:
-        ----
-            callables: An arbitrary number of step callbacks to run. These are callables that contain the step (e.g. `lambda: step.run("my_step", my_step_fn)`.
-        """
-
-        return Group().parallel_sync(callables)
-
     def run(
         self,
         step_id: str,
         handler: typing.Callable[
             [typing_extensions.Unpack[types.TTuple]],
-            types.JSONT,
+            types.T,
         ],
         *handler_args: typing_extensions.Unpack[types.TTuple],
-    ) -> types.JSONT:
+        output_type: object = types.EmptySentinel,
+    ) -> types.T:
         """
         Run logic that should be retried on error and memoized after success.
 
@@ -182,6 +166,7 @@ class StepSync(base.StepBase):
             step_id: Durable step ID. Should usually be unique within a function, but it's OK to reuse as long as your function is deterministic.
             handler: The logic to run.
             *handler_args: Arguments to pass to the handler.
+            output_type: Only set if returning a non-JSON-serializable object. Related to the client's serializer argument.
         """
 
         parsed_step_id = self._parse_step_id(step_id)
@@ -199,10 +184,11 @@ class StepSync(base.StepBase):
             if step.error is not None:
                 raise step.error
             elif not isinstance(step.output, types.EmptySentinel):
-                return step.output  # type: ignore
+                return self._client._deserialize(step.output, output_type)  # type: ignore[return-value]
 
             try:
                 output = handler(*handler_args)
+                output = self._client._serialize(output, output_type)  # type: ignore[assignment]
 
                 raise base.ResponseInterrupt(
                     base.StepResponse(
@@ -407,5 +393,62 @@ class StepSync(base.StepBase):
 
                 # Fulfilled by an event
                 return server_lib.Event.model_validate(step.output)
+
+        raise Exception("unreachable")
+
+
+class AI:
+    def __init__(self, step: StepSync) -> None:
+        self._step = step
+
+    def infer(
+        self,
+        step_id: str,
+        *,
+        adapter: ai.BaseAdapter,
+        body: dict[str, typing.Any],
+    ) -> dict[str, object]:
+        """
+        EXPERIMENTAL: This method's interface is subject to change. Make an AI
+        model call using Inngest as an intermediary. The request-sending
+        responsibility is offloaded to the Inngest server, so you aren't using
+        compute while waiting for a response.
+
+        Args:
+        ----
+            step_id: Durable step ID. Should usually be unique within a function, but it's OK to reuse as long as your function is deterministic.
+            adapter: AI model adapter.
+            body: Request body sent to the AI model.
+        """
+
+        parsed_step_id = self._step._parse_step_id(step_id)
+
+        adapter.on_call(body)
+
+        opts = base.AIInferOpts(
+            auth_key=adapter.auth_key(),
+            body=body,
+            format=adapter.format(),
+            headers=adapter.headers(),
+            url=adapter.url_infer(),
+        ).to_dict()
+        if isinstance(opts, Exception):
+            raise opts
+
+        step_info = base.StepInfo(
+            display_name=parsed_step_id.user_facing,
+            id=parsed_step_id.hashed,
+            name=parsed_step_id.user_facing,
+            op=server_lib.Opcode.AI_GATEWAY,
+            opts=opts,
+        )
+
+        with self._step._execution.report_step(step_info) as step:
+            if step.skip:
+                raise base.SkipInterrupt(parsed_step_id.user_facing)
+            if step.error is not None:
+                raise step.error
+            elif not isinstance(step.output, types.EmptySentinel):
+                return step.output  # type: ignore[return-value]
 
         raise Exception("unreachable")

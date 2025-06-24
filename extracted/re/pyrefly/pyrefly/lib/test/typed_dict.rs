@@ -220,6 +220,155 @@ Invalid = TypedDict()  # E: Expected a callable, got type[TypedDict]
 );
 
 testcase!(
+    test_typed_dict_pop,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TD(TypedDict):
+    x: NotRequired[int]
+    
+def f(td: TD):
+    td.pop("x") 
+    "#,
+);
+
+testcase!(
+    test_typed_dict_pop_2,
+    r#"
+from typing import TypedDict, NotRequired, assert_type, Any
+
+class TDRequired(TypedDict):
+    a: int
+    b: str
+
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
+
+class TDMixed(TypedDict):
+    a: int
+    x: NotRequired[int]
+
+td_r: TDRequired = {"a": 10, "b": "hi"}
+td_o: TDOptional = {"x": 42}
+td_m: TDMixed = {"a": 1, "x": 99}
+
+v1 = td_r.pop("a") # E: 
+assert_type(v1, object)
+
+v2 = td_r.pop("a", 3.14) # E: 
+assert_type(v2, object)
+
+v3 = td_o.pop("x")
+assert_type(v3, int | None)
+
+v4 = td_o.pop("x", -1)
+assert_type(v4, int)
+
+v5 = td_o.pop("x", "fallback")
+assert_type(v5, int | str)
+
+v6 = td_m.pop("a") # E: 
+assert_type(v6, Any)
+
+v7 = td_m.pop("x")
+assert_type(v7, int | None)
+
+v8 = td_m.pop("x", 0)
+assert_type(v8, int)
+
+v9 = td_m.pop("x", "fallback")
+assert_type(v9, int | str)
+
+v10 = td_r.pop("abc", 123) # E:
+assert_type(v10, object)
+
+v11 = td_r.pop("abc", "default") # E: 
+assert_type(v11, object)
+    "#,
+);
+
+testcase!(
+    test_typed_dict_del,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TDRequired(TypedDict):
+    a: int
+    b: str
+
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
+
+class TDMixed(TypedDict):
+    a: int
+    x: NotRequired[int]
+
+td_r: TDRequired = {"a": 10, "b": "hi"}
+td_o: TDOptional = {"x": 42}
+td_m: TDMixed = {"a": 1, "x": 99}
+
+del td_r["a"]  # E: 
+del td_o["x"]  # OK
+del td_o["y"]  # OK
+del td_m["x"]  # OK
+del td_m["a"]  # E: 
+del td_r["nonexistent"]  # E: 
+
+# Delete optional key from TDOptional again 
+del td_o["x"]  # OK
+
+del td_r["b"]  # E:
+
+del td_o["unknown"]  # E:
+
+key_var = "x"
+del td_o[key_var]  
+
+unknown_key = "a"
+del td_m[unknown_key]  # E: 
+    "#,
+);
+
+testcase!(
+    test_typed_dict_dunder_or,
+    r#"
+from typing import TypedDict, assert_type
+
+class TD1(TypedDict):
+    a: int 
+    b: str 
+
+class TD2(TypedDict):
+    c: float 
+    d: bool 
+
+class TD3(TypedDict, total=False):
+    a: str 
+    f: int 
+
+class TD4(TypedDict):
+    a: int 
+
+class TD5(TypedDict, total=False):
+    a: int  
+
+td1 = TD1(a=1, b="x")
+td2 = TD2(c=3.14, d=True)
+td3 = TD3(a="str", f=5)
+td4 = TD4(a=42)
+td5 = TD5(a=100)
+
+td12 = td1 | td2 # E: `|` is not supported between `TypedDict[TD1]` and `TypedDict[TD2]`
+td14 = td1 | td4
+assert_type(td14.get("a"), int)
+td13 = td1 | td3 # E:   No matching overload found for function `_typeshed._type_checker_internals.TypedDictFallback.__or__`
+td15 = td1 | td5 # E: No matching overload found for function `_typeshed._type_checker_internals.TypedDictFallback.__or__`
+    "#,
+);
+
+testcase!(
     test_typed_dict_subtype,
     r#"
 from typing import TypedDict
@@ -627,7 +776,7 @@ class TD(TypedDict):
 testcase!(
     test_typed_dict_isinstance_issubclass_not_allowed,
     r#"
-from typing import *
+from typing import TypedDict
 
 class D(TypedDict):
     x: int
@@ -635,5 +784,46 @@ class D(TypedDict):
 x = int
 isinstance(x, D)  # E: TypedDict `D` not allowed as second argument to isinstance()
 issubclass(x, D)  # E: TypedDict `D` not allowed as second argument to issubclass()
+"#,
+);
+
+testcase!(
+    test_typeddict_valid_base_class,
+    r#"
+from typing import TypedDict
+
+class Person(TypedDict):
+    name: str
+    age: int
+    "#,
+);
+
+testcase!(
+    test_typeddict_invalid_annotations,
+    r#"
+from typing import TypedDict, TypeVar
+
+T = TypeVar("T", bound=TypedDict)  # E: `TypedDict` is not allowed in this context
+
+def test(x: TypedDict):  # E: `TypedDict` is not allowed in this context
+    pass
+
+x: TypedDict  # E: `TypedDict` is not allowed in this context
+    "#,
+);
+
+testcase!(
+    test_invalid_typed_dict_keywords,
+    r#"
+from typing import TypedDict
+
+class TD1(TypedDict, total=True):  # OK
+    x: int
+
+class TD2(TypedDict, foo=1):  # E: TypedDict does not support keyword argument `foo`
+    x: int
+
+class TD3(TypedDict, bar="test", baz=False):  # E: TypedDict does not support keyword argument `bar`  # E: TypedDict does not support keyword argument `baz`
+    x: int
 "#,
 );

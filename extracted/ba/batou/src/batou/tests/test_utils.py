@@ -21,6 +21,7 @@ from batou.utils import (
     hash,
     locked,
     notify,
+    notify_macosx,
     remove_nodes_without_outgoing_edges,
     resolve,
     resolve_v6,
@@ -354,6 +355,23 @@ class NotifyTests(unittest.TestCase):
     def test_notify_does_not_fail_if_os_call_fails(self, call):
         notify("foo", "bar")
 
+    @mock.patch("subprocess.call")
+    def test_macos_notify_gets_escaped(self, event_mocked):
+        notify_text = (
+            "This is a test with a 'single quote' and a \"double quote\"."
+        )
+        notify_macosx(notify_text, notify_text)
+        self.assertEqual(
+            event_mocked.call_args.args,
+            (
+                [
+                    "osascript",
+                    "-e",
+                    'display notification "This is a test with a \'single quote\' and a \\"double quote\\"." with title "This is a test with a \'single quote\' and a \\"double quote\\"."',
+                ],
+            ),
+        )
+
 
 def test_revert_graph_no_edges_is_identical():
     graph = {1: set(), 2: set()}
@@ -472,7 +490,7 @@ def test_call_with_optional_args():
 def test_format_duration():
     assert format_duration(1.23124) == "1.23s"
     assert format_duration(61) == "1m1s"
-    assert format_duration(None) == "NaN"
+    assert format_duration(None) == "∅"
 
 
 def test_export_environment_variables():

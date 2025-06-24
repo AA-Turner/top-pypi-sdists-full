@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioio-tifffile
-Version: 1.1.0
+Version: 1.2.0
 Summary: A BioIO reader plugin for reading TIFFs using Tifffile
 Author-email: Eva Maxfield Brown <evamaxfieldbrown@gmail.com>, Sean Meharry <seanm@alleninstitute.org>
 License: MIT License
@@ -22,9 +22,8 @@ Requires-Dist: dask[array]>=2021.4.1
 Requires-Dist: fsspec>=2022.8.0
 Requires-Dist: imagecodecs>=2020.5.30
 Requires-Dist: numpy>=1.16
-Requires-Dist: tifffile>=2023.7.10
+Requires-Dist: tifffile[zarr]>=2023.7.10
 Requires-Dist: xarray>=0.16.1
-Requires-Dist: zarr<3.0.0,>=2.6
 Provides-Extra: lint
 Requires-Dist: pre-commit>=2.20.0; extra == "lint"
 Provides-Extra: test

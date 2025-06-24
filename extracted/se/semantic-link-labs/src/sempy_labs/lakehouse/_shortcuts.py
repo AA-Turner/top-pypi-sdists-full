@@ -216,6 +216,7 @@ def create_shortcut(
     )
 
 
+@log
 def delete_shortcut(
     shortcut_name: str,
     shortcut_path: str = "Tables",
@@ -260,6 +261,7 @@ def delete_shortcut(
     )
 
 
+@log
 def reset_shortcut_cache(workspace: Optional[str | UUID] = None):
     """
     Deletes any cached files that were stored while reading from shortcuts.
@@ -369,6 +371,7 @@ def list_shortcuts(
         "S3Compatible": "s3Compatible",
     }
 
+    dfs = []
     for r in responses:
         for i in r.get("value", []):
             tgt = i.get("target", {})
@@ -415,6 +418,9 @@ def list_shortcuts(
                 "SubPath": sub_path,
                 "Source Properties Raw": str(tgt),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df

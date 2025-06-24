@@ -739,7 +739,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             self.extra_user_container_ignore_entrypoint = False
 
         self.software_environment = software or dask.config.get("coiled.software")
-        self.software_container = container
+        self.software_container = container or dask.config.get("coiled.container", None)
         self.software_use_entrypoint = not ignore_container_entrypoint
         if not container and not self.software_environment and not package_sync:
             self.package_sync = True

@@ -12,7 +12,10 @@ from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.loaders.credential.google import GoogleCredentialsLoader
 
 class GoogleCloudLogging:
-    def __init__(self, credentials_path:Optional[Union[Path, str]] = None) -> None:
+    def __init__(
+        self,
+        credentials_path: Optional[Union[Path, str]] = None
+    ) -> None:
         self._credentials = GoogleCredentialsLoader.load(credentials_path=credentials_path)
         self._client = Client(credentials=self._credentials)
         self._client.setup_logging()
@@ -31,13 +34,16 @@ class GoogleCloudLogging:
         if self._client is not None:
             self._client = None
 
-    def create_handler(self, name:str) -> CloudLoggingHandler:
+    def create_handler(
+        self,
+        name: str
+    ) -> CloudLoggingHandler:
         return CloudLoggingHandler(client=self._client, name=name)
 
 class SimpleConfig(BaseModel):
-    dir:str = Field(..., description="Log's directory")
-    level:BaseEnums.LoggerLevel = Field(BaseEnums.LoggerLevel.INFO, description="Log's level")
-    google_cloud_logging:Optional[GoogleCloudLogging] = Field(default_factory=GoogleCloudLogging, description="Google cloud logging")
+    dir: str = Field(..., description="Log's directory")
+    level: BaseEnums.LoggerLevel = Field(BaseEnums.LoggerLevel.INFO, description="Log's level")
+    google_cloud_logging: Optional[GoogleCloudLogging] = Field(default_factory=GoogleCloudLogging, description="Google cloud logging")
 
     class Config:
         arbitrary_types_allowed=True
@@ -45,13 +51,13 @@ class SimpleConfig(BaseModel):
 class BaseLogger(logging.Logger):
     def __init__(
         self,
-        dir:str,
-        type:BaseEnums.LoggerType,
-        service_key:BaseTypes.OptionalString = None,
-        middleware_type:Optional[BaseEnums.MiddlewareLoggerType] = None,
-        client_key:BaseTypes.OptionalString = None,
-        level:BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
-        google_cloud_logging:Optional[GoogleCloudLogging] = None
+        dir: str,
+        type: BaseEnums.LoggerType,
+        service_key: BaseTypes.OptionalString = None,
+        middleware_type: Optional[BaseEnums.MiddlewareLoggerType] = None,
+        client_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
     ):
         self._type = type #* Declare logger type
 
@@ -156,8 +162,8 @@ class BaseLogger(logging.Logger):
 class MiddlewareLogger(BaseLogger):
     def __init__(
         self,
-        dir:str,
-        service_key:BaseTypes.OptionalString = None,
+        dir: str,
+        service_key: BaseTypes.OptionalString = None,
         middleware_type = None,
         level = BaseEnums.LoggerLevel.INFO,
         google_cloud_logging = None
@@ -175,11 +181,11 @@ class MiddlewareLogger(BaseLogger):
 class ServiceLogger(BaseLogger):
     def __init__(
         self,
-        dir:str,
-        type:BaseEnums.ServiceLoggerType,
-        service_key:BaseTypes.OptionalString = None,
-        level:BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
-        google_cloud_logging:Optional[GoogleCloudLogging] = None
+        dir: str,
+        type: BaseEnums.ServiceLoggerType,
+        service_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
     ):
         super().__init__(
             dir=dir,
@@ -194,11 +200,11 @@ class ServiceLogger(BaseLogger):
 class ClientLogger(BaseLogger):
     def __init__(
         self,
-        dir:str,
-        client_key:str,
-        service_key:BaseTypes.OptionalString = None,
-        level:BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
-        google_cloud_logging:Optional[GoogleCloudLogging] = None
+        dir: str,
+        client_key: str,
+        service_key: BaseTypes.OptionalString = None,
+        level: BaseEnums.LoggerLevel = BaseEnums.LoggerLevel.INFO,
+        google_cloud_logging: Optional[GoogleCloudLogging] = None
     ):
         super().__init__(
             dir=dir,

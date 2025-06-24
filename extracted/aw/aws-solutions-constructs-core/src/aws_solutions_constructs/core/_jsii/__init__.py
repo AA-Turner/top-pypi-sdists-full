@@ -32,7 +32,7 @@ import aws_cdk._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@aws-solutions-constructs/core", "2.85.4", __name__[0:-6], "core@2.85.4.jsii.tgz"
+    "@aws-solutions-constructs/core", "2.85.6", __name__[0:-6], "core@2.85.6.jsii.tgz"
 )
 
 __all__ = [

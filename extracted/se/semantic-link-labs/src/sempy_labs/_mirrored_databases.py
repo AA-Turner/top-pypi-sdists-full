@@ -2,7 +2,6 @@ import pandas as pd
 from typing import Optional
 from sempy_labs._helper_functions import (
     resolve_workspace_name_and_id,
-    _decode_b64,
     _update_dataframe_datatypes,
     _base_api,
     resolve_item_id,
@@ -10,12 +9,15 @@ from sempy_labs._helper_functions import (
     delete_item,
     create_item,
     get_item_definition,
+    resolve_workspace_id,
 )
 import sempy_labs._icons as icons
 import base64
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def list_mirrored_databases(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the mirrored databases within a workspace.
@@ -49,13 +51,14 @@ def list_mirrored_databases(workspace: Optional[str | UUID] = None) -> pd.DataFr
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/mirroredDatabases",
         uses_pagination=True,
         client="fabric_sp",
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             prop = v.get("properties", {})
@@ -70,11 +73,15 @@ def list_mirrored_databases(workspace: Optional[str | UUID] = None) -> pd.DataFr
                 "Provisioning Status": sql.get("provisioningStatus"),
                 "Default Schema": prop.get("defaultSchema"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def create_mirrored_database(
     name: str, description: Optional[str] = None, workspace: Optional[str | UUID] = None
 ):
@@ -100,6 +107,7 @@ def create_mirrored_database(
     )
 
 
+@log
 def delete_mirrored_database(
     mirrored_database: str, workspace: Optional[str | UUID] = None
 ):
@@ -121,6 +129,7 @@ def delete_mirrored_database(
     delete_item(item=mirrored_database, type="MirroredDatabase", workspace=workspace)
 
 
+@log
 def get_mirroring_status(
     mirrored_database: str | UUID, workspace: Optional[str | UUID] = None
 ) -> str:
@@ -156,6 +165,7 @@ def get_mirroring_status(
     return response.json().get("status", {})
 
 
+@log
 def get_tables_mirroring_status(
     mirrored_database: str | UUID, workspace: Optional[str | UUID] = None
 ) -> pd.DataFrame:
@@ -219,6 +229,7 @@ def get_tables_mirroring_status(
     return df
 
 
+@log
 def start_mirroring(
     mirrored_database: str | UUID, workspace: Optional[str | UUID] = None
 ):
@@ -252,6 +263,7 @@ def start_mirroring(
     )
 
 
+@log
 def stop_mirroring(
     mirrored_database: str | UUID, workspace: Optional[str | UUID] = None
 ):
@@ -285,6 +297,7 @@ def stop_mirroring(
     )
 
 
+@log
 def get_mirrored_database_definition(
     mirrored_database: str | UUID,
     workspace: Optional[str | UUID] = None,
@@ -322,6 +335,7 @@ def get_mirrored_database_definition(
     )
 
 
+@log
 def update_mirrored_database_definition(
     mirrored_database: str | UUID,
     mirrored_database_content: dict,

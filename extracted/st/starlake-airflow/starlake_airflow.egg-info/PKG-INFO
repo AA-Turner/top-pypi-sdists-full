@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlake-airflow
-Version: 0.3.2
+Version: 0.3.2.1
 Summary: Starlake Python Distribution For Airflow
 Author: Stéphane Manciot
 Author-email: stephane.manciot@gmail.com

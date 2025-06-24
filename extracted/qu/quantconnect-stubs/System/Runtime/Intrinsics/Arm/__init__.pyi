@@ -7151,6 +7151,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def add_carry_widening_lower(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svadclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          ADCLB Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
+    def add_carry_widening_upper(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svadclt[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          ADCLT Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
     def bitwise_clear_xor(xor: System.Numerics.Vector[int], value: System.Numerics.Vector[int], mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svbcax[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3)
@@ -7259,6 +7275,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint16_t svshllt[_n_s16](svint8_t op1, uint64_t imm2)
           SSHLLT Zresult.H, Zop1.B, #imm2
+        """
+        ...
+
+    @staticmethod
+    def shift_logical_rounded(value: System.Numerics.Vector[int], count: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrshl[_u8]_m(svbool_t pg, svuint8_t op1, svint8_t op2)
+          URSHL Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def shift_logical_rounded_saturate(value: System.Numerics.Vector[int], count: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqrshl[_u8]_m(svbool_t pg, svuint8_t op1, svint8_t op2)
+          UQRSHL Ztied1.B, Pg/M, Ztied1.B, Zop2.B
         """
         ...
 

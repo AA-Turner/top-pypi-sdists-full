@@ -11,14 +11,14 @@ from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.logging import ServiceLogger
 
 class MetadataManager:
-    Base:DeclarativeMeta = declarative_base()
-    metadata:MetaData = Base.metadata
+    Base: DeclarativeMeta = declarative_base()
+    metadata: MetaData = Base.metadata
 
 class SessionManager:
     def __init__(
         self,
-        logger:ServiceLogger,
-        engine:Engine
+        logger: ServiceLogger,
+        engine: Engine
     ):
         self._logger = logger
         self._logger.info("Initializing SessionMaker")
@@ -66,11 +66,11 @@ class SessionManager:
         self._logger = None
 
 class DatabaseConfigurations(BaseModel):
-    username:str = Field("postgres", description="Database user's username")
-    password:str = Field(..., description="Database user's password")
-    host:str = Field(..., description="Database's host")
-    port:int = Field(5432, description="Database's port")
-    database:str = Field(..., description="Database")
+    username: str = Field("postgres", description="Database user's username")
+    password: str = Field(..., description="Database user's password")
+    host: str = Field(..., description="Database's host")
+    port: int = Field(5432, description="Database's port")
+    database: str = Field(..., description="Database")
 
     @property
     def url(self) -> str:
@@ -79,9 +79,9 @@ class DatabaseConfigurations(BaseModel):
 class DatabaseManager:
     def __init__(
         self,
-        metadata:MetaData,
-        logger:ServiceLogger,
-        url:BaseTypes.OptionalString = None
+        metadata: MetaData,
+        logger: ServiceLogger,
+        url: BaseTypes.OptionalString = None
     ):
         self._metadata = metadata #* Define database metadata
         self._logger = logger #* Define database logger

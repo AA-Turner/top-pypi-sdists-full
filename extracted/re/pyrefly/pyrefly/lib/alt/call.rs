@@ -207,6 +207,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::TypedDict(typed_dict)) => {
                 Some(CallTarget::new(Target::TypedDict(typed_dict)))
             }
+            // TODO: this is wrong, because we lose the information that this is a type variable
+            // TODO: handle type[T]
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
                 Restriction::Bound(bound) => self.as_call_target(bound.clone()),
                 // TODO: handle constraints
@@ -575,7 +577,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let self_obj = match first_arg_type {
                     Some(Type::Type(box Type::ClassType(c))) => Some(c.to_type()),
-                    Some(Type::ClassDef(class)) => Some(class.as_class_type().to_type()),
+                    Some(Type::ClassDef(class)) => {
+                        Some(self.as_class_type_unchecked(&class).to_type())
+                    }
                     _ => None,
                 };
                 if let Some(self_obj) = self_obj {

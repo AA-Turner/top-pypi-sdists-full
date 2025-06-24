@@ -19,10 +19,10 @@
 /* default bit-endianness */
 static int default_endian = ENDIAN_BIG;
 
-static PyTypeObject Bitarray_Type;
-
 /* translation table - setup during module initialization */
 static char reverse_trans[256];
+
+static PyTypeObject Bitarray_Type;
 
 #define bitarray_Check(obj)  PyObject_TypeCheck((obj), &Bitarray_Type)
 
@@ -189,7 +189,7 @@ buffers_overlap(bitarrayobject *self, bitarrayobject *other)
 #undef PIB
 }
 
-/* setup translation table, which maps each byte to it's reversed:
+/* setup translation table, which maps each byte to its reversed:
    reverse_trans = {0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, ..., 0xff} */
 static void
 setup_reverse_trans(void)
@@ -325,7 +325,7 @@ shift_r8(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b, int k)
 
    Notes:
      - self and other may have opposite bit-endianness
-     - other may equal self - copy a section of self onto ifself
+     - other may equal self - copy a section of self onto itself
      - when other and self are distinct objects, their buffers
        may not overlap
 */
@@ -471,7 +471,7 @@ invert_span(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b)
             buff[i] = ~buff[i];
         invert_span(self, 8 * cb, b);
     }
-    else {
+    else {                                    /* (bit-) range(a, b) */
         for (i = a; i < b; i++)
             self->ob_item[i / 8] ^= BITMASK(self, i);
     }
@@ -515,7 +515,7 @@ set_span(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b, int vi)
         memset(self->ob_item + ca, vi ? 0xff : 0x00, (size_t) (cb - ca));
         set_span(self, 8 * cb, b, vi);
     }
-    else {
+    else {                               /* (bit-) range(a, b) */
         while (a < b)
             setbit(self, a++, vi);
     }
@@ -583,7 +583,7 @@ count_span(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b)
         }
         cnt += count_span(self, 8 * cb, b);
     }
-    else {
+    else {                                /* (bit-) range(a, b) */
         while (a < b)
             cnt += getbit(self, a++);
     }
@@ -863,46 +863,32 @@ static int
 extend_unicode01(bitarrayobject *self, PyObject *unicode)
 {
     const Py_ssize_t nbits = self->nbits;
-    Py_ssize_t i = nbits;  /* current index in self */
-    Py_ssize_t strsize, j;
-    PyObject *bytes;
-    char *str;
-    int res = -1, vi = 0;
+    const Py_ssize_t length = PyUnicode_GET_LENGTH(unicode);
+    Py_ssize_t i = nbits, j;  /* i is the current index in self */
 
-    assert(PyUnicode_Check(unicode));
-    if ((bytes = PyUnicode_AsASCIIString(unicode)) == NULL)
+    if (resize(self, nbits + length) < 0)
         return -1;
 
-    str = PyBytes_AS_STRING(bytes);
-    strsize = PyBytes_GET_SIZE(bytes);
-    if (resize(self, nbits + strsize) < 0)
-        goto finish;
+    for (j = 0; j < length; j++) {
+        Py_UCS4 ch = PyUnicode_READ_CHAR(unicode, j);
 
-    for (j = 0; j < strsize; j++) {
-        unsigned char c = str[j];
-        switch (c) {
-        case '0': vi = 0; break;
-        case '1': vi = 1; break;
-        case '_':
-        case ' ':
-        case '\n':
-        case '\r':
-        case '\t':
-        case '\v':
+        switch (ch) {
+        case '0':
+        case '1':
+            setbit(self, i++, ch - '0');
             continue;
-        default:
-            PyErr_Format(PyExc_ValueError, "expected '0' or '1' "
-                         "(or whitespace, or underscore), got '%c' (0x%02x)",
-                         c, c);
-            resize(self, nbits);  /* no bits added on error */
-            goto finish;
+        case '_':
+            continue;
         }
-        setbit(self, i++, vi);
+        if (Py_UNICODE_ISSPACE(ch))
+            continue;
+
+        PyErr_Format(PyExc_ValueError, "expected '0' or '1' (or whitespace "
+                     "or underscore), got '%c' (0x%02x)", ch, ch);
+        resize(self, nbits);  /* no bits added on error */
+        return -1;
     }
-    res = resize(self, i);  /* in case we ignored characters */
- finish:
-    Py_DECREF(bytes);  /* drop bytes */
-    return res;
+    return resize(self, i);  /* in case we ignored characters */
 }
 
 static int
@@ -1425,14 +1411,8 @@ bitarray_repr(bitarrayobject *self)
     if (nbits == 0)
         return PyUnicode_FromString("bitarray()");
 
-    strsize = nbits + 12;  /* 12 is the length of "bitarray('')" */
-    if (strsize > PY_SSIZE_T_MAX) {
-        PyErr_SetString(PyExc_OverflowError,
-                        "bitarray too large to represent");
-        return NULL;
-    }
-
-    str = (char *) PyMem_Malloc(strsize);
+    strsize = nbits + 12;  /* 12 is length of "bitarray('')" */
+    str = PyMem_New(char, strsize);
     if (str == NULL)
         return PyErr_NoMemory();
 
@@ -1440,8 +1420,8 @@ bitarray_repr(bitarrayobject *self)
     for (i = 0; i < nbits; i++)
         str[i + 10] = getbit(self, i) + '0';
     str[strsize - 2] = '\'';
-    str[strsize - 1] = ')';     /* no terminating '\0' */
-
+    str[strsize - 1] = ')';
+    /* we know the string length beforehand - not null-terminated */
     result = PyUnicode_FromStringAndSize(str, strsize);
     PyMem_Free((void *) str);
     return result;
@@ -1613,44 +1593,59 @@ PyDoc_STRVAR(tobytes_doc,
 Return the bitarray buffer in bytes (pad bits are set to zero).");
 
 
+/* Extend self with bytes from f.read(n).  Return number of bytes actually
+   read and extended, or -1 on failure (after setting exception). */
+static Py_ssize_t
+extend_fread(bitarrayobject *self, PyObject *f, Py_ssize_t n)
+{
+    PyObject *bytes, *ret;
+    Py_ssize_t res;             /* result (size or -1) */
+
+    bytes = PyObject_CallMethod(f, "read", "n", n);
+    if (bytes == NULL)
+        return -1;
+    if (!PyBytes_Check(bytes)) {
+        Py_DECREF(bytes);
+        PyErr_Format(PyExc_TypeError, ".read() did not return 'bytes', "
+                     "got '%s'", Py_TYPE(bytes)->tp_name);
+        return -1;
+    }
+    res = PyBytes_GET_SIZE(bytes);
+    assert(0 <= res && res <= n);
+
+    ret = bitarray_frombytes(self, bytes);
+    Py_DECREF(bytes);
+    if (ret == NULL)
+        res = -1;
+    Py_DECREF(ret);
+    return res;
+}
+
 static PyObject *
 bitarray_fromfile(bitarrayobject *self, PyObject *args)
 {
-    PyObject *bytes, *f;
-    Py_ssize_t nread = 0, nbytes = -1;
+    PyObject *f;
+    Py_ssize_t nread = 0, n = -1;
 
     RAISE_IF_READONLY(self, NULL);
-    if (!PyArg_ParseTuple(args, "O|n:fromfile", &f, &nbytes))
+    if (!PyArg_ParseTuple(args, "O|n:fromfile", &f, &n))
         return NULL;
 
-    if (nbytes < 0)  /* read till EOF */
-        nbytes = PY_SSIZE_T_MAX;
+    if (n < 0)  /* read till EOF */
+        n = PY_SSIZE_T_MAX;
 
-    while (nread < nbytes) {
-        PyObject *ret;   /* return object from bitarray_frombytes() */
-        Py_ssize_t nblock = Py_MIN(nbytes - nread, BLOCKSIZE);
-        int not_enough_bytes;
+    while (nread < n) {
+        Py_ssize_t nblock = Py_MIN(n - nread, BLOCKSIZE), size;
 
-        bytes = PyObject_CallMethod(f, "read", "n", nblock);
-        if (bytes == NULL)
+        size = extend_fread(self, f, nblock);
+        if (size < 0)
             return NULL;
-        if (!PyBytes_Check(bytes)) {
-            Py_DECREF(bytes);
-            PyErr_SetString(PyExc_TypeError, "read() didn't return bytes");
-            return NULL;
-        }
-        not_enough_bytes = PyBytes_GET_SIZE(bytes) < nblock;
-        nread += PyBytes_GET_SIZE(bytes);
-        assert(nread >= 0 && nread <= nbytes);
 
-        ret = bitarray_frombytes(self, bytes);
-        Py_DECREF(bytes);
-        if (ret == NULL)
-            return NULL;
-        Py_DECREF(ret);  /* drop bitarray_frombytes() result (None) */
+        nread += size;
+        assert(size <= nblock && nread <= n);
 
-        if (not_enough_bytes) {
-            if (nbytes == PY_SSIZE_T_MAX)  /* read till EOF */
+        if (size < nblock) {
+            if (n == PY_SSIZE_T_MAX)  /* read till EOF */
                 break;
             PyErr_SetString(PyExc_EOFError, "not enough bytes to read");
             return NULL;
@@ -1664,10 +1659,10 @@ PyDoc_STRVAR(fromfile_doc,
 \n\
 Extend bitarray with up to `n` bytes read from file object `f` (or any\n\
 other binary stream what supports a `.read()` method, e.g. `io.BytesIO`).\n\
-Each read byte will add eight bits to the bitarray.  When `n` is omitted or\n\
-negative, all bytes until EOF is reached.  When `n` is non-negative but\n\
-exceeds the data available, `EOFError` is raised (but the available data\n\
-is still read and appended).");
+Each read byte will add eight bits to the bitarray.  When `n` is omitted\n\
+or negative, reads and extends all data until EOF.\n\
+When `n` is non-negative but exceeds the available data, `EOFError` is\n\
+raised.  However, the available data is still read and extended.");
 
 
 static PyObject *
@@ -1719,13 +1714,8 @@ bitarray_to01(bitarrayobject *self, PyObject *args, PyObject *kwds)
     if (nsep)
         strsize += nsep * ((strsize - 1) / group);
 
-    if (strsize > PY_SSIZE_T_MAX) {
-        PyErr_SetString(PyExc_OverflowError,
-                        "bitarray too large to convert to 'str'");
-        return NULL;
-    }
-
-    if ((str = (char *) PyMem_Malloc(strsize)) == NULL)
+    str = PyMem_New(char, strsize);
+    if (str == NULL)
         return PyErr_NoMemory();
 
     for (i = j = 0; i < self->nbits; i++) {
@@ -1938,10 +1928,7 @@ bitarray_copy_n(bitarrayobject *self, PyObject *args)
 static PyObject *
 bitarray_overlap(bitarrayobject *self, PyObject *other)
 {
-    if (!bitarray_Check(other)) {
-        PyErr_SetString(PyExc_TypeError, "bitarray expected");
-        return NULL;
-    }
+    assert(bitarray_Check(other));
     return PyBool_FromLong(buffers_overlap(self, (bitarrayobject *) other));
 }
 
@@ -1973,7 +1960,7 @@ bitarray_get_readonly(bitarrayobject *self, void *Py_UNUSED(ignored))
     return PyBool_FromLong(self->readonly);
 }
 
-static PyGetSetDef bitarray_getsets [] = {
+static PyGetSetDef bitarray_getsets[] = {
     {"endian", (getter) bitarray_get_endian, NULL,
      PyDoc_STR("bit-endianness as Unicode string")},
     {"nbytes", (getter) bitarray_get_nbytes, NULL,
@@ -2523,7 +2510,7 @@ delsequence(bitarrayobject *self, PyObject *seq)
     Py_ssize_t i, j;
     int res = -1;
 
-    /* shortcuts for removing 0 or 1 items in order to avoid creating mask */
+    /* shortcuts for removing 0 or 1 items to avoid creating mask */
     if (nseq < 2) {
         if (nseq == 0)
             /* use resize to check for BufferError */
@@ -2535,7 +2522,7 @@ delsequence(bitarrayobject *self, PyObject *seq)
         return delete_n(self, i, 1);
     }
 
-    /* create mask bitarray - note that it's bit-endianness is irrelevant */
+    /* create mask bitarray - note that its bit-endianness is irrelevant */
     mask = newbitarrayobject(&Bitarray_Type, nbits, ENDIAN_LITTLE);
     if (mask == NULL)
         return -1;
@@ -2916,7 +2903,7 @@ binode_new(void)
 {
     binode *nd;
 
-    nd = (binode *) PyMem_Malloc(sizeof(binode));
+    nd = PyMem_New(binode, 1);
     if (nd == NULL) {
         PyErr_NoMemory();
         return NULL;
@@ -3669,7 +3656,7 @@ newbitarray_from_buffer(PyTypeObject *type, PyObject *buffer, int endian)
     obj->weakreflist = NULL;
     obj->readonly = view.readonly;
 
-    obj->buffer = (Py_buffer *) PyMem_Malloc(sizeof(Py_buffer));
+    obj->buffer = PyMem_New(Py_buffer, 1);
     if (obj->buffer == NULL) {
         PyObject_Del(obj);
         PyBuffer_Release(&view);
@@ -4236,6 +4223,7 @@ module_zlw(PyObject *module, PyObject *obj)
     bitarrayobject *a, *res;
     uint64_t w;
 
+    assert(bitarray_Check(obj));
     a = (bitarrayobject *) obj;
     w = zlw(a);
     if ((res = newbitarrayobject(&Bitarray_Type, 64, a->endian)) == NULL)

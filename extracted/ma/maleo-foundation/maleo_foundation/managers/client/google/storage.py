@@ -13,12 +13,12 @@ from .base import GoogleClientManager
 class GoogleCloudStorage(GoogleClientManager):
     def __init__(
         self,
-        log_config:SimpleConfig,
-        service_key:BaseTypes.OptionalString=None,
-        credentials:Optional[Credentials]=None,
-        credentials_path:Optional[Union[Path, str]]=None,
-        bucket_name:BaseTypes.OptionalString = None,
-        redis:Optional[Redis] = None
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None,
+        credentials: Optional[Credentials] = None,
+        credentials_path: Optional[Union[Path, str]] = None,
+        bucket_name: BaseTypes.OptionalString = None,
+        redis: Optional[Redis] = None
     ) -> None:
         key = "google-cloud-storage"
         name = "GoogleCloudStorage"
@@ -53,13 +53,13 @@ class GoogleCloudStorage(GoogleClientManager):
 
     async def upload(
         self,
-        content:bytes,
-        location:str,
-        content_type:Optional[str]=None,
-        make_public:bool=False,
-        expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
-        root_location_override:BaseTypes.OptionalString=None,
-        set_in_redis:bool=True
+        content: bytes,
+        location: str,
+        content_type: Optional[str]=None,
+        make_public: bool=False,
+        expiration: BaseEnums=BaseEnums.Expiration.EXP_15MN,
+        root_location_override: BaseTypes.OptionalString=None,
+        set_in_redis: bool=True
     ) -> str:
         """
         Upload a file to Google Cloud Storage.
@@ -101,10 +101,10 @@ class GoogleCloudStorage(GoogleClientManager):
 
     async def generate_signed_url(
         self,
-        location:str,
-        expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
-        root_location_override:BaseTypes.OptionalString=None,
-        use_redis:bool=True
+        location: str,
+        expiration: BaseEnums=BaseEnums.Expiration.EXP_15MN,
+        root_location_override: BaseTypes.OptionalString = None,
+        use_redis: bool = True
     ) -> str:
         """
         generate signed URL of a file in the bucket based on its location.

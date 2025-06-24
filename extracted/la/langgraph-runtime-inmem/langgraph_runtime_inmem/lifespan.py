@@ -51,8 +51,6 @@ async def lifespan(
             taskgroup_name="Lifespan",
         ) as tg:
             tg.create_task(metadata_loop())
-            if config.N_JOBS_PER_WORKER > 0:
-                tg.create_task(queue_with_signal())
             await api_store.collect_store_from_env()
             store_instance = await api_store.get_store()
             if not api_store.CUSTOM_STORE:
@@ -64,6 +62,8 @@ async def lifespan(
 
             # Keep after the setter above so users can access the store from within the factory function
             await graph.collect_graphs_from_env(True)
+            if config.N_JOBS_PER_WORKER > 0:
+                tg.create_task(queue_with_signal())
 
             yield
     finally:

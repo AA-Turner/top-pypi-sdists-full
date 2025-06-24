@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import pytest
 
+from snakemake_interface_common import at_least_snakemake_version
 from snakemake_interface_common.exceptions import ApiError, WorkflowError
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_common.rules import RuleInterface
@@ -70,3 +71,8 @@ def test_tagged_settings():
     ts.register_settings(object(), tag="foo")
     ts.get_settings(tag="foo")
     ts.get_settings()
+
+
+def test_snakemake_version():
+    assert at_least_snakemake_version("8.1.0")
+    assert not at_least_snakemake_version("100.0.0")

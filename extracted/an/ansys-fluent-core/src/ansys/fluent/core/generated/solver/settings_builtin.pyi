@@ -1965,3 +1965,82 @@ class DesignPoint(
     type(settings_root_222.parametric_studies.design_points.child_object_type),
 ): ...
 
+class ReadCase(
+    type(settings_root_261.file.read_case),
+    type(settings_root_252.file.read_case),
+    type(settings_root_251.file.read_case),
+    type(settings_root_242.file.read_case),
+    type(settings_root_241.file.read_case),
+    type(settings_root_232.file.read_case),
+    type(settings_root_231.file.read_case),
+    type(settings_root_222.file.read_case),
+): ...
+
+class ReadData(
+    type(settings_root_261.file.read_data),
+    type(settings_root_252.file.read_data),
+    type(settings_root_251.file.read_data),
+    type(settings_root_242.file.read_data),
+    type(settings_root_241.file.read_data),
+    type(settings_root_232.file.read_data),
+    type(settings_root_231.file.read_data),
+    type(settings_root_222.file.read_data),
+): ...
+
+class ReadCaseData(
+    type(settings_root_261.file.read_case_data),
+    type(settings_root_252.file.read_case_data),
+    type(settings_root_251.file.read_case_data),
+    type(settings_root_242.file.read_case_data),
+    type(settings_root_241.file.read_case_data),
+    type(settings_root_232.file.read_case_data),
+    type(settings_root_231.file.read_case_data),
+    type(settings_root_222.file.read_case_data),
+): ...
+
+class WriteCase(
+    type(settings_root_261.file.write_case),
+    type(settings_root_252.file.write_case),
+    type(settings_root_251.file.write_case),
+    type(settings_root_242.file.write_case),
+    type(settings_root_241.file.write_case),
+): ...
+
+class WriteData(
+    type(settings_root_261.file.write_data),
+    type(settings_root_252.file.write_data),
+    type(settings_root_251.file.write_data),
+    type(settings_root_242.file.write_data),
+    type(settings_root_241.file.write_data),
+): ...
+
+class WriteCaseData(
+    type(settings_root_261.file.write_case_data),
+    type(settings_root_252.file.write_case_data),
+    type(settings_root_251.file.write_case_data),
+    type(settings_root_242.file.write_case_data),
+    type(settings_root_241.file.write_case_data),
+): ...
+
+class Initialize(
+    type(settings_root_261.solution.initialization.initialize),
+    type(settings_root_252.solution.initialization.initialize),
+    type(settings_root_251.solution.initialization.initialize),
+    type(settings_root_242.solution.initialization.initialize),
+    type(settings_root_241.solution.initialization.initialize),
+    type(settings_root_232.solution.initialization.initialize),
+    type(settings_root_231.solution.initialization.initialize),
+    type(settings_root_222.solution.initialization.initialize),
+): ...
+
+class Calculate(
+    type(settings_root_261.solution.run_calculation.calculate),
+    type(settings_root_252.solution.run_calculation.calculate),
+    type(settings_root_251.solution.run_calculation.calculate),
+    type(settings_root_242.solution.run_calculation.calculate),
+    type(settings_root_241.solution.run_calculation.calculate),
+    type(settings_root_232.solution.run_calculation.calculate),
+    type(settings_root_231.solution.run_calculation.calculate),
+    type(settings_root_222.solution.run_calculation.calculate),
+): ...
+

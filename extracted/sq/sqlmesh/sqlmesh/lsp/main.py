@@ -52,9 +52,37 @@ from sqlmesh.lsp.reference import (
     get_references,
     get_all_references,
 )
+from sqlmesh.lsp.rename import prepare_rename, rename_symbol, get_document_highlights
 from sqlmesh.lsp.uri import URI
 from web.server.api.endpoints.lineage import column_lineage, model_lineage
 from web.server.api.endpoints.models import get_models
+from typing import Union
+from dataclasses import dataclass
+
+
+@dataclass
+class NoContext:
+    """State when no context has been attempted to load."""
+
+    pass
+
+
+@dataclass
+class ContextLoaded:
+    """State when context has been successfully loaded."""
+
+    lsp_context: LSPContext
+
+
+@dataclass
+class ContextFailed:
+    """State when context failed to load with an error message."""
+
+    error_message: str
+    context: t.Optional[Context] = None
+
+
+ContextState = Union[NoContext, ContextLoaded, ContextFailed]
 
 
 class SQLMeshLanguageServer:
@@ -71,7 +99,7 @@ class SQLMeshLanguageServer:
         """
         self.server = LanguageServer(server_name, version)
         self.context_class = context_class
-        self.lsp_context: t.Optional[LSPContext] = None
+        self.context_state: ContextState = NoContext()
         self.workspace_folders: t.List[Path] = []
 
         self.has_raised_loading_error: bool = False
@@ -256,16 +284,53 @@ class SQLMeshLanguageServer:
         @self.server.feature(types.TEXT_DOCUMENT_DID_SAVE)
         def did_save(ls: LanguageServer, params: types.DidSaveTextDocumentParams) -> None:
             uri = URI(params.text_document.uri)
-            if self.lsp_context is None:
+            if isinstance(self.context_state, NoContext):
                 return
 
-            context = self.lsp_context.context
-            context.load()
-            self.lsp_context = LSPContext(context)
+            if isinstance(self.context_state, ContextFailed):
+                if self.context_state.context:
+                    try:
+                        self.context_state.context.load()
+                        self.context_state = ContextLoaded(
+                            lsp_context=LSPContext(self.context_state.context)
+                        )
+                    except Exception as e:
+                        ls.log_trace(f"Error loading context: {e}")
+                        if not isinstance(self.context_state, ContextFailed):
+                            raise Exception("Context state should be failed")
+                        self.context_state = ContextFailed(
+                            error_message=str(e), context=self.context_state.context
+                        )
+                        return
+                else:
+                    # If there's no context, try to create one from scratch
+                    try:
+                        self._ensure_context_for_document(uri)
+                        # If successful, context_state will be ContextLoaded
+                        if isinstance(self.context_state, ContextLoaded):
+                            ls.show_message(
+                                "Successfully loaded SQLMesh context",
+                                types.MessageType.Info,
+                            )
+                    except Exception as e:
+                        ls.log_trace(f"Still cannot load context: {e}")
+                    return
+
+            # Reload the context if was successfully
+            try:
+                context = self.context_state.lsp_context.context
+                context.load()
+                self.context_state = ContextLoaded(lsp_context=LSPContext(context))
+            except Exception as e:
+                ls.log_trace(f"Error loading context: {e}")
+                self.context_state = ContextFailed(
+                    error_message=str(e), context=self.context_state.lsp_context.context
+                )
+                return
 
             # Only publish diagnostics if client doesn't support pull diagnostics
             if not self.client_supports_pull_diagnostics:
-                diagnostics = self.lsp_context.lint_model(uri)
+                diagnostics = self.context_state.lsp_context.lint_model(uri)
                 ls.publish_diagnostics(
                     params.text_document.uri,
                     SQLMeshLanguageServer._diagnostics_to_lsp_diagnostics(diagnostics),
@@ -433,6 +498,48 @@ class SQLMeshLanguageServer:
                 return locations if locations else None
             except Exception as e:
                 ls.show_message(f"Error getting locations: {e}", types.MessageType.Error)
+                return None
+
+        @self.server.feature(types.TEXT_DOCUMENT_PREPARE_RENAME)
+        def prepare_rename_handler(
+            ls: LanguageServer, params: types.PrepareRenameParams
+        ) -> t.Optional[types.PrepareRenameResult]:
+            """Prepare for rename operation by checking if the symbol can be renamed."""
+            try:
+                uri = URI(params.text_document.uri)
+                context = self._context_get_or_load(uri)
+                result = prepare_rename(context, uri, params.position)
+                return result
+            except Exception as e:
+                ls.log_trace(f"Error preparing rename: {e}")
+                return None
+
+        @self.server.feature(types.TEXT_DOCUMENT_RENAME)
+        def rename_handler(
+            ls: LanguageServer, params: types.RenameParams
+        ) -> t.Optional[types.WorkspaceEdit]:
+            """Perform rename operation on the symbol at the given position."""
+            try:
+                uri = URI(params.text_document.uri)
+                context = self._context_get_or_load(uri)
+                workspace_edit = rename_symbol(context, uri, params.position, params.new_name)
+                return workspace_edit
+            except Exception as e:
+                ls.show_message(f"Error performing rename: {e}", types.MessageType.Error)
+                return None
+
+        @self.server.feature(types.TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT)
+        def document_highlight_handler(
+            ls: LanguageServer, params: types.DocumentHighlightParams
+        ) -> t.Optional[t.List[types.DocumentHighlight]]:
+            """Highlight all occurrences of the symbol at the given position."""
+            try:
+                uri = URI(params.text_document.uri)
+                context = self._context_get_or_load(uri)
+                highlights = get_document_highlights(context, uri, params.position)
+                return highlights
+            except Exception as e:
+                ls.log_trace(f"Error getting document highlights: {e}")
                 return None
 
         @self.server.feature(types.TEXT_DOCUMENT_DIAGNOSTIC)
@@ -616,11 +723,13 @@ class SQLMeshLanguageServer:
             return [], 0
 
     def _context_get_or_load(self, document_uri: t.Optional[URI] = None) -> LSPContext:
-        if self.lsp_context is None:
+        if isinstance(self.context_state, ContextFailed):
+            raise RuntimeError(self.context_state.error_message)
+        if isinstance(self.context_state, NoContext):
             self._ensure_context_for_document(document_uri)
-        if self.lsp_context is None:
-            raise RuntimeError("No context found able to get or load")
-        return self.lsp_context
+        if not isinstance(self.context_state, ContextLoaded):
+            raise RuntimeError("Context is not loaded")
+        return self.context_state.lsp_context
 
     def _ensure_context_for_document(
         self,
@@ -638,10 +747,10 @@ class SQLMeshLanguageServer:
                     self._ensure_context_in_folder(document_folder)
                     return
 
-        return self._ensure_context_in_folder()
+        self._ensure_context_in_folder()
 
     def _ensure_context_in_folder(self, folder_path: t.Optional[Path] = None) -> None:
-        if self.lsp_context is not None:
+        if not isinstance(self.context_state, NoContext):
             return
 
         # If not found in the provided folder, search through all workspace folders
@@ -675,7 +784,7 @@ class SQLMeshLanguageServer:
     def _create_lsp_context(self, paths: t.List[Path]) -> t.Optional[LSPContext]:
         """Create a new LSPContext instance using the configured context class.
 
-        On success, sets self.lsp_context and returns the created context.
+        On success, sets self.context_state to ContextLoaded and returns the created context.
 
         Args:
             paths: List of paths to pass to the context constructor
@@ -684,14 +793,22 @@ class SQLMeshLanguageServer:
             A new LSPContext instance wrapping the created context, or None if creation fails
         """
         try:
-            if self.lsp_context is None:
+            if isinstance(self.context_state, NoContext):
                 context = self.context_class(paths=paths)
                 loaded_sqlmesh_message(self.server, paths[0])
+            elif isinstance(self.context_state, ContextFailed):
+                if self.context_state.context:
+                    context = self.context_state.context
+                    context.load()
+                else:
+                    # If there's no context (initial creation failed), try creating again
+                    context = self.context_class(paths=paths)
+                    loaded_sqlmesh_message(self.server, paths[0])
             else:
-                self.lsp_context.context.load()
-                context = self.lsp_context.context
-            self.lsp_context = LSPContext(context)
-            return self.lsp_context
+                context = self.context_state.lsp_context.context
+                context.load()
+            self.context_state = ContextLoaded(lsp_context=LSPContext(context))
+            return self.context_state.lsp_context
         except Exception as e:
             # Only show the error message once
             if not self.has_raised_loading_error:
@@ -702,6 +819,14 @@ class SQLMeshLanguageServer:
                 self.has_raised_loading_error = True
 
             self.server.log_trace(f"Error creating context: {e}")
+            # Store the error in context state so subsequent requests show the actual error
+            # Try to preserve any partially loaded context if it exists
+            context = None
+            if isinstance(self.context_state, ContextLoaded):
+                context = self.context_state.lsp_context.context
+            elif isinstance(self.context_state, ContextFailed) and self.context_state.context:
+                context = self.context_state.context
+            self.context_state = ContextFailed(error_message=str(e), context=context)
             return None
 
     @staticmethod

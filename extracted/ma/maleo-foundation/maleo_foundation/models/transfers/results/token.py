@@ -6,7 +6,7 @@ class MaleoFoundationTokenResultsTransfers:
     class Fail(BaseServiceGeneralResultsTransfers.Fail): pass
 
     class Encode(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationTokenSchemas.Token
+        data: MaleoFoundationTokenSchemas.Token
 
     class Decode(BaseServiceGeneralResultsTransfers.SingleData):
-        data:MaleoFoundationTokenGeneralTransfers.DecodePayload
+        data: MaleoFoundationTokenGeneralTransfers.DecodePayload

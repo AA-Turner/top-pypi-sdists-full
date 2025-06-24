@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: zenml
-Version: 0.83.0
+Version: 0.83.1
 Summary: ZenML: Write production-ready ML code.
 License: Apache-2.0
 Keywords: machine learning,production,pipeline,mlops,devops
@@ -532,7 +532,7 @@ the Apache License Version 2.0.
     <a href="https://github.com/zenml-io/zenml-projects">Projects Showcase</a>
     <br />
     <br />
-    🎉 Version 0.83.0 is out. Check out the release notes
+    🎉 Version 0.83.1 is out. Check out the release notes
     <a href="https://github.com/zenml-io/zenml/releases">here</a>.
     <br />
     🖥️ Download our VS Code Extension <a href="https://marketplace.visualstudio.com/items?itemName=ZenML.zenml-vscode">here</a>.

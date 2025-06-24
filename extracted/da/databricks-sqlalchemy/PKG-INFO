@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: databricks-sqlalchemy
-Version: 2.0.6
+Version: 2.0.7
 Summary: Databricks SQLAlchemy plugin for Python
 License: Apache-2.0
 Author: Databricks
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: databricks_sql_connector (>=4.0.0)
 Requires-Dist: pyarrow (>=14.0.1)
 Requires-Dist: sqlalchemy (>=2.0.21)

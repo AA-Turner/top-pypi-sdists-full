@@ -1,10 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ordered_enum
-Version: 0.0.9
+Version: 0.0.10
 Summary: A small library for adding total orderings to enums
 Author-email: William Woodruff <william@yossarian.net>
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: flake8 ; extra == "dev"
 Requires-Dist: black ; extra == "dev"
 Requires-Dist: isort[pyproject] ; extra == "dev"
@@ -32,7 +33,7 @@ It provides two ordering behaviors:
 
 ## Installation
 
-**ordered_enum** requires Python 3.7 or newer.
+**ordered_enum** requires Python 3.9 or newer.
 
 ```bash
 pip3 install ordered_enum

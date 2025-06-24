@@ -3,8 +3,10 @@ from sempy_labs._helper_functions import (
     _base_api,
     _create_dataframe,
 )
+from sempy._utils._log import log
 
 
+@log
 def list_widely_shared_artifacts(
     api_name: str = "LinksSharedToWholeOrganization",
 ) -> pd.DataFrame:
@@ -55,6 +57,7 @@ def list_widely_shared_artifacts(
         uses_pagination=True,
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("ArtifactAccessEntities", []):
             sharer = v.get("sharer", {})
@@ -71,6 +74,9 @@ def list_widely_shared_artifacts(
                 "Sharer Principal Type": sharer.get("principalType"),
             }
 
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df

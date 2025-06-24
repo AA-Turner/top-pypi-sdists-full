@@ -8,9 +8,12 @@ Tests that do not require communication with a working caldav server
 belong in test_caldav_unit.py
 """
 import codecs
+import json
 import logging
+import os
 import random
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -19,17 +22,17 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from unittest import mock
 from urllib.parse import urlparse
 
 import icalendar
+import proxy
 import pytest
 import vobject
-from requests.packages import urllib3
+from proxy.http.proxy import HttpProxyBasePlugin
 
 from .conf import caldav_servers
 from .conf import client
-from .conf import proxy
-from .conf import proxy_noport
 from .conf import radicale_host
 from .conf import radicale_port
 from .conf import rfc6638_users
@@ -37,11 +40,10 @@ from .conf import test_radicale
 from .conf import test_xandikos
 from .conf import xandikos_host
 from .conf import xandikos_port
-from .proxy import NonThreadingHTTPServer
-from .proxy import ProxyHandler
 from caldav import compatibility_hints
 from caldav.davclient import DAVClient
 from caldav.davclient import DAVResponse
+from caldav.davclient import get_davclient
 from caldav.elements import cdav
 from caldav.elements import dav
 from caldav.elements import ical
@@ -60,7 +62,6 @@ from caldav.objects import Todo
 
 log = logging.getLogger("caldav")
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ev1 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -435,6 +436,82 @@ sched = sched_template % (
 
 
 @pytest.mark.skipif(
+    not caldav_servers,
+    reason="Requirement: at least one working server in conf.py. The tail object of the server list will be chosen, that is typically the LocalRadicale or LocalXandikos server.",
+)
+class TestGetDAVClient:
+    """
+    Tests for get_davclient and auto_calendars.
+
+    """
+
+    def testTestConfig(self):
+        with get_davclient(
+            testconfig=True, environment=False, name=-1, check_config_file=False
+        ) as conn:
+            assert conn.principal()
+
+    def testEnvironment(self):
+        os.environ["PYTHON_CALDAV_USE_TEST_SERVER"] = "1"
+        with get_davclient(
+            environment=True, check_config_file=False, name="-1"
+        ) as conn:
+            assert conn.principal()
+            del os.environ["PYTHON_CALDAV_USE_TEST_SERVER"]
+            for key in ("url", "username", "password", "proxy"):
+                if key in caldav_servers[-1]:
+                    os.environ[f"CALDAV_{key.upper()}"] = caldav_servers[-1][key]
+            with get_davclient(
+                testconfig=False, environment=True, check_config_file=False
+            ) as conn2:
+                assert conn2.principal()
+
+    def testConfigfile(self):
+        ## start up a server
+        with get_davclient(
+            testconfig=True, environment=False, name=-1, check_config_file=False
+        ) as conn:
+            config = {}
+            for key in ("url", "username", "password", "proxy"):
+                if key in caldav_servers[-1]:
+                    config[f"caldav_{key}"] = caldav_servers[-1][key]
+
+            with tempfile.NamedTemporaryFile(
+                delete=True, encoding="utf-8", mode="w"
+            ) as tmp:
+                json.dump({"default": config}, tmp)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                with get_davclient(
+                    config_file=tmp.name, testconfig=False, environment=False
+                ) as conn2:
+                    assert conn2.principal()
+
+    def testNoConfigfile(self, fs):
+        """This is actually a unit test, not a functional test.
+        Should move it to another file probably, and make more unit
+        tests covering the config file parsing
+        """
+        assert get_davclient(testconfig=False, environment=False) is None
+        HOME = os.environ["HOME"]
+        fs.create_dir(f"{HOME}/.config/caldav")
+        fs.create_file(
+            f"{HOME}/.config/caldav/calendar.conf",
+            contents=json.dumps(
+                {
+                    "default": {
+                        "caldav_url": "https://caldav.example.com/dav",
+                        "caldav_username": "karl",
+                        "caldav_password": "hunter2",
+                    }
+                }
+            ),
+        )
+        client = get_davclient(testconfig=False, environment=False)
+        assert client.url == "https://caldav.example.com/dav"
+
+
+@pytest.mark.skipif(
     not rfc6638_users, reason="need rfc6638_users to be set in order to run this test"
 )
 @pytest.mark.skipif(
@@ -492,7 +569,7 @@ class TestScheduling:
             except error.NotFoundError:
                 pass
         for c in self.clients:
-            c.teardown(c)
+            c.__exit__()
 
     ## TODO
     # def testFreeBusy(self):
@@ -611,6 +688,7 @@ class RepeatedFunctionalTestsBaseClass:
             self.testcal_id2 = "pythoncaldav-test2"
 
         self.caldav = client(**self.server_params)
+        self.caldav.__enter__()
 
         if self.check_compatibility_flag("rate_limited"):
             self.caldav.request = _delay_decorator(self.caldav.request)
@@ -765,6 +843,51 @@ class RepeatedFunctionalTestsBaseClass:
         inbox = self.principal.schedule_inbox()
         outbox = self.principal.schedule_outbox()
 
+    def testIssue397(self):
+        cal = self._fixCalendar()
+        cal.save_event(
+            """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PeterB//caldav//en_DK
+BEGIN:VEVENT
+SUMMARY:recurrence with attendee one single item
+DTSTART;TZID=Europe/Zurich:20240101T090000
+DTEND;TZID=Europe/Zurich:20240101T180000
+UID:test1
+DESCRIPTION:this is the recurrent series
+TRANSP:OPAQUE
+RRULE:FREQ=WEEKLY;BYDAY=TU,WE,TH
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:single item
+DTSTART;TZID=Europe/Zurich:20240605T090000
+DTEND;TZID=Europe/Zurich:20240605T170000
+UID:test1
+DESCRIPTION:this is the single item assigning a attendee to just one event
+ATTENDEE:foo.bar@corge.baz
+RECURRENCE-ID:20240605T070000Z
+END:VEVENT
+END:VCALENDAR
+"""
+        )
+
+        object_by_id = cal.object_by_uid("test1", comp_class=Event)
+        instance = object_by_id.icalendar_instance
+        events = [
+            event
+            for event in instance.subcomponents
+            if isinstance(event, icalendar.Event)
+        ]
+        assert len(events) == 2
+        object_by_id = cal.object_by_uid("test1", comp_class=None)
+        instance = object_by_id.icalendar_instance
+        events = [
+            event
+            for event in instance.subcomponents
+            if isinstance(event, icalendar.Event)
+        ]
+        assert len(events) == 2
+
     def testPropfind(self):
         """
         Test of the propfind methods. (This is sort of redundant, since
@@ -838,57 +961,6 @@ class RepeatedFunctionalTestsBaseClass:
         assert "Calendar" in repr(c)
         assert str(c.url) in repr(c)
 
-    def testProxy(self):
-        if self.caldav.url.scheme == "https":
-            pytest.skip(
-                "Skipping %s.testProxy as the TinyHTTPProxy "
-                "implementation doesn't support https"
-            )
-        self.skip_on_compatibility_flag("no_default_calendar")
-
-        server_address = ("127.0.0.1", 8080)
-        try:
-            proxy_httpd = NonThreadingHTTPServer(
-                server_address, ProxyHandler, logging.getLogger("TinyHTTPProxy")
-            )
-        except:
-            pytest.skip("Unable to set up proxy server")
-
-        threadobj = threading.Thread(target=proxy_httpd.serve_forever)
-        conn_params = self.server_params.copy()
-        for special in ("setup", "teardown", "name"):
-            if special in conn_params:
-                conn_params.pop(special)
-        try:
-            threadobj.start()
-            assert threadobj.is_alive()
-            conn_params["proxy"] = proxy
-            c = client(**conn_params)
-            p = c.principal()
-            assert len(p.calendars()) != 0
-        finally:
-            proxy_httpd.shutdown()
-            # this should not be necessary, but I've observed some failures
-            if threadobj.is_alive():
-                time.sleep(0.15)
-            assert not threadobj.is_alive()
-
-        threadobj = threading.Thread(target=proxy_httpd.serve_forever)
-        try:
-            threadobj.start()
-            assert threadobj.is_alive()
-            conn_params["proxy"] = proxy_noport
-            c = client(**conn_params)
-            p = c.principal()
-            assert len(p.calendars()) != 0
-            assert threadobj.is_alive()
-        finally:
-            proxy_httpd.shutdown()
-            # this should not be necessary
-            if threadobj.is_alive():
-                time.sleep(0.05)
-            assert not threadobj.is_alive()
-
     def _notFound(self):
         if self.check_compatibility_flag("non_existing_raises_other"):
             return error.DAVError
@@ -901,6 +973,21 @@ class RepeatedFunctionalTestsBaseClass:
             assert self.principal.url == self.server_params["principal_url"]
         for c in collections:
             assert c.__class__.__name__ == "Calendar"
+
+    def testPrincipals(self):
+        self.skip_on_compatibility_flag("no-principal-search")
+        if not self.check_compatibility_flag("no-principal-search-self"):
+            my_name = self.principal.get_display_name()
+            my_principals = self.caldav.principals(name=my_name)
+            assert isinstance(my_principals, list)
+            assert len(my_principals) == 1
+            assert my_principals[0].url == self.principal.url
+
+        self.skip_on_compatibility_flag("no-principal-search-all")
+        all_principals = self.caldav.principals()
+        assert isinstance(all_principals, list)
+        if all_principals:
+            assert all((isinstance(x, Principal) for x in all_principals))
 
     def testCreateDeleteCalendar(self):
         self.skip_on_compatibility_flag("no_mkcalendar")
@@ -966,6 +1053,7 @@ class RepeatedFunctionalTestsBaseClass:
             "test1",
             "test2",
         }
+        event1.load_by_multiget()
 
     def testCreateEvent(self):
         self.skip_on_compatibility_flag("read_only")
@@ -1358,15 +1446,18 @@ class RepeatedFunctionalTestsBaseClass:
 
                 ## what will happen with the event in c1 if we modify the event in c2,
                 ## which shares the id with the event in c1?
-                e1_in_c2.instance.vevent.summary.value = "asdf"
+                e1_in_c2.vobject_instance.vevent.summary.value = "asdf"
                 e1_in_c2.save()
                 e1.load()
                 ## should e1.summary be 'asdf' or 'Bastille Day Party'?  I do
                 ## not know, but all implementations I've tested will treat
                 ## the copy in the other calendar as a distinct entity, even
                 ## if the uid is the same.
-                assert e1.instance.vevent.summary.value == "Bastille Day Party"
-                assert c2.events()[0].instance.vevent.uid == e1.instance.vevent.uid
+                assert e1.vobject_instance.vevent.summary.value == "Bastille Day Party"
+                assert (
+                    c2.events()[0].vobject_instance.vevent.uid
+                    == e1.vobject_instance.vevent.uid
+                )
 
         ## Duplicate the event in the same calendar, with same uid -
         ## this makes no sense, there won't be any duplication
@@ -1548,17 +1639,26 @@ class RepeatedFunctionalTestsBaseClass:
         ## Even sorting should work out
         all_events = c.search(sort_keys=("summary", "dtstamp"))
         assert len(all_events) == 3
-        assert all_events[0].instance.vevent.summary.value == "Bastille Day Jitsi Party"
+        assert (
+            all_events[0].vobject_instance.vevent.summary.value
+            == "Bastille Day Jitsi Party"
+        )
 
         ## Sorting by upper case should also wor
         all_events = c.search(sort_keys=("SUMMARY", "DTSTAMP"))
         assert len(all_events) == 3
-        assert all_events[0].instance.vevent.summary.value == "Bastille Day Jitsi Party"
+        assert (
+            all_events[0].vobject_instance.vevent.summary.value
+            == "Bastille Day Jitsi Party"
+        )
 
         ## Sorting in reverse order should work also
         all_events = c.search(sort_keys=("SUMMARY", "DTSTAMP"), sort_reverse=True)
         assert len(all_events) == 3
-        assert all_events[0].instance.vevent.summary.value == "Our Blissful Anniversary"
+        assert (
+            all_events[0].vobject_instance.vevent.summary.value
+            == "Our Blissful Anniversary"
+        )
 
         ## A more robust check for the sort key
         all_events = c.search(sort_keys=("DTSTART",))
@@ -1610,6 +1710,7 @@ class RepeatedFunctionalTestsBaseClass:
             dtstart=date(2022, 10, 11),
             uid="test1",
         )
+        assert t1.is_pending()
         t2 = c.save_todo(
             summary="2 task future",
             due=datetime.now() + timedelta(hours=15),
@@ -1632,6 +1733,7 @@ class RepeatedFunctionalTestsBaseClass:
             status="COMPLETED",
             uid="test5",
         )
+        assert not t5.is_pending()
         t6 = c.save_todo(
             summary="6 task has categories",
             categories="home,garden,sunshine",
@@ -1751,9 +1853,11 @@ class RepeatedFunctionalTestsBaseClass:
             assert len(some_todos) - pre_cnt == 6
 
         ## completing events, and it should not show up anymore
+        assert t3.is_pending()
         t3.complete()
         t5.complete()
         t6.complete()
+        assert not t3.is_pending()
 
         some_todos = c.search(todo=True)
         assert len(some_todos) == 3 + pre_cnt
@@ -1761,6 +1865,43 @@ class RepeatedFunctionalTestsBaseClass:
         ## unless we specifically ask for completed tasks
         all_todos = c.search(todo=True, include_completed=True)
         assert len(all_todos) == 6 + pre_cnt
+
+        ## Just for increasing code coverage
+        t3.component.pop("COMPLETED")
+        assert not t3.is_pending()
+
+        ## Test that uncomplete works
+        ## (except for GMX ... their server is weird)
+        self.skip_on_compatibility_flag("vtodo-cannot-be-uncompleted")
+        t5.uncomplete()
+        some_todos = c.search(todo=True)
+        assert len(some_todos) == 4 + pre_cnt
+
+    def testWrongAuthType(self):
+        if (
+            not "password" in self.server_params
+            or not self.server_params["password"]
+            or self.server_params["password"] == "any-password-seems-to-work"
+        ):
+            pytest.skip(
+                "Testing with wrong password skipped as calendar server does not require a password"
+            )
+
+        connect_params1 = self.server_params.copy()
+        for delme in ("setup", "teardown", "name"):
+            if delme in connect_params1:
+                connect_params1.pop(delme)
+
+        connect_params2 = connect_params1.copy()
+
+        ## At least one of those two ought to fail
+        ## as they are (or should be) incompatible
+        connect_params1["auth_type"] = "digest"
+        connect_params2["auth_type"] = "bearer"
+
+        with pytest.raises(error.AuthorizationError):
+            client(**connect_params1).principal()
+            client(**connect_params2).principal()
 
     def testWrongPassword(self):
         if (
@@ -1805,6 +1946,18 @@ class RepeatedFunctionalTestsBaseClass:
             summary="this is a grandparent event test",
             child=[parent.id],
             uid="ctuid3",
+        )
+        another_child = c.save_event(
+            dtstart=datetime(2022, 12, 27, 19, 00),
+            dtend=datetime(2022, 12, 27, 20, 00),
+            summary="this is yet another child test event",
+            uid="ctuid4",
+        )
+        another_parent = c.save_event(
+            dtstart=datetime(2022, 12, 27, 19, 00),
+            dtend=datetime(2022, 12, 27, 20, 00),
+            summary="this is yet another parent test event",
+            uid="ctuid5",
         )
 
         parent_ = c.event_by_uid(parent.id)
@@ -1871,6 +2024,31 @@ class RepeatedFunctionalTestsBaseClass:
         ## the calendar is not flagged - but perhaps it shouldn't be flagged?
         # child.delete()
         # assert parent_.check_reverse_relations()
+
+        ## Verify the `set_relation` with default `set_reverse=True`
+        foo = another_parent.get_relatives(reltypes={"CHILD", "PARENT"})
+        bar = another_child.get_relatives(reltypes={"CHILD", "PARENT"})
+        assert len(foo) == 0
+        assert len(bar) == 0
+
+        another_parent.set_relation("ctuid4", reltype="CHILD")
+        another_parent.load()
+        another_child.load()
+        assert another_child.check_reverse_relations() == []
+        assert another_parent.check_reverse_relations() == []
+        foo = another_parent.get_relatives(reltypes={"CHILD", "PARENT"})
+        bar = another_child.get_relatives(reltypes={"CHILD", "PARENT"})
+        assert (
+            sum(
+                [
+                    len(x.get("CHILD", set())) + len(x.get("PARENT", set()))
+                    for x in [foo, bar]
+                ]
+            )
+            == 2
+        )
+        assert [str(obj.component["UID"]) for obj in foo["CHILD"]] == ["ctuid4"]
+        assert [str(obj.component["UID"]) for obj in bar["PARENT"]] == ["ctuid5"]
 
     def testSetDue(self):
         self.skip_on_compatibility_flag("read_only")
@@ -1960,6 +2138,17 @@ class RepeatedFunctionalTestsBaseClass:
                 move_dtstart=True,
                 check_dependent=True,
             )
+
+        ## `todo.set_due` with `check_dependent='return'`
+        ## should return the parent
+        assert (
+            parent.component["uid"]
+            == some_todo.set_due(
+                datetime(2022, 12, 26, 21, 30, tzinfo=utc),
+                move_dtstart=True,
+                check_dependent="return",
+            ).component["uid"]
+        )
 
         child = c.save_todo(
             dtstart=datetime(2022, 12, 26, 19, 45),
@@ -2092,7 +2281,7 @@ class RepeatedFunctionalTestsBaseClass:
         assert len(todos) == 3
 
         def uids(lst):
-            return [x.instance.vtodo.uid for x in lst]
+            return [x.vobject_instance.vtodo.uid for x in lst]
 
         ## Default sort order is (due, priority).
         assert uids(todos) == uids([t2, t1, t4])
@@ -2104,9 +2293,9 @@ class RepeatedFunctionalTestsBaseClass:
 
         def pri(lst):
             return [
-                x.instance.vtodo.priority.value
+                x.vobject_instance.vtodo.priority.value
                 for x in lst
-                if hasattr(x.instance.vtodo, "priority")
+                if hasattr(x.vobject_instance.vtodo, "priority")
             ]
 
         assert pri(todos) == pri([t4, t2])
@@ -2318,9 +2507,13 @@ class RepeatedFunctionalTestsBaseClass:
         assert len(todos) == 3
         if not self.check_compatibility_flag("object_by_uid_is_broken"):
             t3_ = c.todo_by_uid(t3.id)
-            assert t3_.instance.vtodo.summary == t3.instance.vtodo.summary
-            assert t3_.instance.vtodo.uid == t3.instance.vtodo.uid
-            assert t3_.instance.vtodo.dtstart == t3.instance.vtodo.dtstart
+            assert (
+                t3_.vobject_instance.vtodo.summary == t3.vobject_instance.vtodo.summary
+            )
+            assert t3_.vobject_instance.vtodo.uid == t3.vobject_instance.vtodo.uid
+            assert (
+                t3_.vobject_instance.vtodo.dtstart == t3.vobject_instance.vtodo.dtstart
+            )
 
         t2.delete()
 
@@ -2549,11 +2742,11 @@ class RepeatedFunctionalTestsBaseClass:
         # Verify that we can look it up, both by URL and by ID
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             e2 = c.event_by_url(e1.url)
-            assert e2.instance.vevent.uid == e1.instance.vevent.uid
+            assert e2.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
             assert e2.url == e1.url
         if not self.check_compatibility_flag("object_by_uid_is_broken"):
             e3 = c.event_by_uid("20010712T182145Z-123401@example.com")
-            assert e3.instance.vevent.uid == e1.instance.vevent.uid
+            assert e3.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
             assert e3.url == e1.url
 
         # Knowing the URL of an event, we should be able to get to it
@@ -2561,7 +2754,7 @@ class RepeatedFunctionalTestsBaseClass:
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             e4 = Event(client=self.caldav, url=e1.url)
             e4.load()
-            assert e4.instance.vevent.uid == e1.instance.vevent.uid
+            assert e4.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
 
         with pytest.raises(error.NotFoundError):
             c.event_by_uid("0")
@@ -2620,16 +2813,20 @@ class RepeatedFunctionalTestsBaseClass:
                 t2 = c.save_todo(todo, no_create=no_create)
 
             ## this should also work.
-            e2.instance.vevent.summary.value = e2.instance.vevent.summary.value + "!"
+            e2.vobject_instance.vevent.summary.value = (
+                e2.vobject_instance.vevent.summary.value + "!"
+            )
             e2.save(no_create=no_create)
 
             if todo_ok:
-                t2.instance.vtodo.summary.value = t2.instance.vtodo.summary.value + "!"
+                t2.vobject_instance.vtodo.summary.value = (
+                    t2.vobject_instance.vtodo.summary.value + "!"
+                )
                 t2.save(no_create=no_create)
 
             if not self.check_compatibility_flag("event_by_url_is_broken"):
                 e3 = c.event_by_url(e1.url)
-                assert e3.instance.vevent.summary.value == "Bastille Day Party!"
+                assert e3.vobject_instance.vevent.summary.value == "Bastille Day Party!"
 
         ## "no_overwrite" should throw a ConsistencyError.  But it depends on object_by_uid.
         if not self.check_compatibility_flag("object_by_uid_is_broken"):
@@ -2691,8 +2888,8 @@ class RepeatedFunctionalTestsBaseClass:
             expand=False,
         )
 
-        assert e.instance.vevent.uid == r1[0].instance.vevent.uid
-        assert e.instance.vevent.uid == r2[0].instance.vevent.uid
+        assert e.vobject_instance.vevent.uid == r1[0].vobject_instance.vevent.uid
+        assert e.vobject_instance.vevent.uid == r2[0].vobject_instance.vevent.uid
         assert len(r1) == 1
         assert len(r2) == 1
 
@@ -2740,7 +2937,11 @@ class RepeatedFunctionalTestsBaseClass:
         )
         # TODO: assert something more complex on the return object
         assert isinstance(freebusy, FreeBusy)
-        assert freebusy.instance.vfreebusy
+        assert freebusy.vobject_instance.vfreebusy
+
+        ## Just to improve the code coverage.  This shouldn't raise any errors.
+        ## (TODO: move it to some other test)
+        e.data = icalendar.Calendar.from_ical(ev2)
 
     def testRecurringDateSearch(self):
         """
@@ -2939,7 +3140,7 @@ class RepeatedFunctionalTestsBaseClass:
                 event=True,
                 start=datetime(2015, month, 1),
                 end=datetime(2015, month, 2),
-                expand="client",  ## client will be default from 2.0
+                expand=True,
             )
             assert len(recurrence) == 1
             return recurrence[0]
@@ -3029,6 +3230,75 @@ class RepeatedFunctionalTestsBaseClass:
             o.save()
 
 
+class MyProxyPlugin(HttpProxyBasePlugin):
+    """
+    1) injects an extra header into the response from the server, so we can verify the data came trough the browser.
+    2) keeps a count of all requests
+    """
+
+    proxy_access_logs = []
+
+    def handle_upstream_chunk(self, chunk):
+        """
+        Injects a new header line (this may break if the content itself contains the trigger string)
+        """
+        return chunk.__class__(
+            chunk.tobytes().replace(
+                b"\r\nContent-Type: ",
+                b"\r\nX-Data-Came-Through-Proxy: True\r\nContent-Type: ",
+            )
+        )
+
+    def on_access_log(self, context):
+        """
+        Keep a count of requests done through the proxy
+        """
+        ## TODO ... howto?  This may run in a separate process even ... only way is to write things to  a file?
+        return context
+
+
+class AssertProxyDAVResponse(DAVResponse):
+    def __init__(self, response, davclient=None):
+        assert response.headers.get("X-Data-Came-Through-Proxy") == "True"
+        return DAVResponse.__init__(self, response, davclient)
+
+
+@mock.patch("caldav.davclient.DAVResponse", new=AssertProxyDAVResponse)
+class TestProxy(proxy.TestCase):
+    PROXY_PY_STARTUP_FLAGS = ["--plugins", "tests.test_caldav.MyProxyPlugin"]
+
+    def setup_method(self, *largs, **kwargs):
+        self.proxy = f"http://localhost:{self.PROXY.flags.port}"
+        self.server_params = caldav_servers[-1]
+
+    def testNoProxyRaisesError(self):
+        with client(**self.server_params) as conn:
+            with pytest.raises(AssertionError):
+                principal = conn.principal()
+
+    def testWithProxyParams(self):
+        with client(proxy=self.proxy, **self.server_params) as conn:
+            principal = conn.principal()
+
+    def testWithProxyParamsWithoutScheme(self):
+        with client(
+            proxy=f"localhost:{self.PROXY.flags.port}", **self.server_params
+        ) as conn:
+            principal = conn.principal()
+
+    ## TODO: figure out how to test this properly.
+    @pytest.mark.skipif(True, reason="work in progress ... this doesn't seem to work")
+    def testWithEnvironment(self):
+        os.environ["HTTP_PROXY"] = self.proxy
+        os.environ["HTTPS_PROXY"] = self.proxy
+        with client(**self.server_params) as conn:
+            principal = conn.principal()
+
+    ## TODO: test socks proxy as well.
+    ## TODO: test https proxying as well
+    ## TODO: test username/password in the proxy URL
+
+
 # We want to run all tests in the above class through all caldav_servers;
 # and I don't really want to create a custom nose test loader.  The
 # solution here seems to be to generate one child class for each
@@ -3039,6 +3309,13 @@ class RepeatedFunctionalTestsBaseClass:
 
 ## TODO: The better way is probably to use @pytest.mark.parametrize
 ## -- Tobias Brox <t-caldav@tobixen.no>, 2024-11-15
+
+## if doing something like
+## `pytestmark = pytest.mark.parametrize("conn", [client[**x] for x in caldav_servers])`
+## then all tests would get a conn parameter.  The functional tests that should not be
+## run on all servers needs to be split into a separate file.  Things like `pytest -k GMX`
+## will stop working.  Hm.
+## -- Tobias Brox <t-caldav@tobixen.no>, 2025-06-17
 
 _servernames = set()
 for _caldav_server in caldav_servers:

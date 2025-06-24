@@ -164,5 +164,4 @@ class Adapter:
     def adapt_list(self, actions: list[Any]) -> list[CLA]:
         if not isinstance(actions, list):
             raise ValueError("Please provide a list of actions")
-
         return [self.adapt(action) for action in actions]

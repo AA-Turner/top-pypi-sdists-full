@@ -1,5 +1,5 @@
 """
-I'm trying to be consistent with the terminology in the RFCs
+I'm trying to be consistent with the terminology in the RFCs:
 
 CalendarSet is a collection of Calendars
 Calendar is a collection of CalendarObjectResources
@@ -12,6 +12,7 @@ A SynchronizableCalendarObjectCollection contains a local copy of objects from a
 import logging
 import sys
 import uuid
+import warnings
 from datetime import datetime
 from typing import Any
 from typing import List
@@ -109,16 +110,16 @@ class CalendarSet(DAVObject):
         """
         Utility method for creating a new calendar.
 
-        Parameters:
-         * name: the display name of the new calendar
-         * cal_id: the uuid of the new calendar
-         * supported_calendar_component_set: what kind of objects
+        Args:
+          name: the display name of the new calendar
+          cal_id: the uuid of the new calendar
+          supported_calendar_component_set: what kind of objects
            (EVENT, VTODO, VFREEBUSY, VJOURNAL) the calendar should handle.
            Should be set to ['VTODO'] when creating a task list in Zimbra -
            in most other cases the default will be OK.
 
         Returns:
-         * Calendar(...)-object
+          Calendar(...)-object
         """
         return Calendar(
             self.client,
@@ -135,12 +136,12 @@ class CalendarSet(DAVObject):
         The calendar method will return a calendar object.  If it gets a cal_id
         but no name, it will not initiate any communication with the server
 
-        Parameters:
-         * name: return the calendar with this display name
-         * cal_id: return the calendar with this calendar id or URL
+        Args:
+          name: return the calendar with this display name
+          cal_id: return the calendar with this calendar id or URL
 
         Returns:
-         * Calendar(...)-object
+          Calendar(...)-object
         """
         if name and not cal_id:
             for calendar in self.calendars():
@@ -152,7 +153,10 @@ class CalendarSet(DAVObject):
                 "No calendar with name %s found under %s" % (name, self.url)
             )
         if not cal_id and not name:
-            return self.calendars()[0]
+            cals = self.calendars()
+            if not cals:
+                raise error.NotFoundError("no calendars found")
+            return cals[0]
 
         if self.client is None:
             raise ValueError("Unexpected value None for self.client")
@@ -203,20 +207,25 @@ class Principal(DAVObject):
         self,
         client: Optional["DAVClient"] = None,
         url: Union[str, ParseResult, SplitResult, URL, None] = None,
+        calendar_home_set: URL = None,
+        **kwargs,  ## to be passed to super.__init__
     ) -> None:
         """
         Returns a Principal.
 
-        Parameters:
-         * client: a DAVClient() object
-         * url: Deprecated - for backwards compatibility purposes only.
+        End-users usually shouldn't need to construct Principal-objects directly.  Use davclient.principal() to get the principal object of the logged-in user  and davclient.principals() to get other principals.
+
+        Args:
+          client: a DAVClient() object
+          url: The URL, if known.
+          calendar_home_set: the calendar home set, if known
 
         If url is not given, deduct principal path as well as calendar home set
         path from doing propfinds.
         """
-        super(Principal, self).__init__(client=client, url=url)
-        self._calendar_home_set = None
+        self._calendar_home_set = calendar_home_set
 
+        super(Principal, self).__init__(client=client, url=url, **kwargs)
         if url is None:
             if self.client is None:
                 raise ValueError("Unexpected value None for self.client")
@@ -329,6 +338,10 @@ class Principal(DAVObject):
         return self.calendar_home_set.calendars()
 
     def freebusy_request(self, dtstart, dtend, attendees):
+        """Sends a freebusy-request for some attendee to the server
+        as per RFC6638
+        """
+
         freebusy_ical = icalendar.Calendar()
         freebusy_ical.add("prodid", "-//tobixen/python-caldav//EN")
         freebusy_ical.add("version", "2.0")
@@ -372,9 +385,15 @@ class Principal(DAVObject):
         return [x.text for x in addresses]
 
     def schedule_inbox(self) -> "ScheduleInbox":
+        """
+        Returns the schedule inbox, as defined in RFC6638
+        """
         return ScheduleInbox(principal=self)
 
     def schedule_outbox(self) -> "ScheduleOutbox":
+        """
+        Returns the schedule outbox, as defined in RFC6638
+        """
         return ScheduleOutbox(principal=self)
 
 
@@ -484,24 +503,33 @@ class Calendar(DAVObject):
 
     def save_object(
         self,
+        ## TODO: this should be made optional.  The class may be given in the ical object.
+        ## TODO: also, accept a string.
         objclass: Type[DAVObject],
+        ## TODO: ical may also be a vobject or icalendar instance
         ical: Optional[str] = None,
         no_overwrite: bool = False,
         no_create: bool = False,
         **ical_data,
     ) -> "CalendarResourceObject":
+        """Add a new event to the calendar, with the given ical.
+
+        Args:
+          objclass: Event, Journal or Todo
+          ical: ical object (text, icalendar or vobject instance)
+          no_overwrite: existing calendar objects should not be overwritten
+          no_create: don't create a new object, existing calendar objects should be updated
+          dt_start: properties to be inserted into the icalendar object
+        , dt_end: properties to be inserted into the icalendar object
+          summary: properties to be inserted into the icalendar object
+          alarm_trigger: when given, one alarm will be added
+          alarm_action: when given, one alarm will be added
+          alarm_attach: when given, one alarm will be added
+
+        Note that the list of parameters going into the icalendar
+        object and alamrs is not complete.  Refer to the RFC or the
+        icalendar library for a full list of properties.
         """
-                Add a new event to the calendar, with the given ical.
-
-                Parameters:
-                 * ical - ical object (text)
-                 * no_overwrite - existing calendar objects should not be overwritten
-                 * no_create - don't create a new object, existing calendar objects should be updated
-                 * dt_start, dt_end, summary, etc - properties to be inserted into the icalendar object
-                 * alarm_trigger, alarm_action, alarm_attach, etc - when given, one alarm will be added
-                 * ical_data - passed to lib.vcal.create_ical
-
-        Event"""
         o = objclass(
             self.client,
             data=self._use_or_create_ics(
@@ -517,23 +545,22 @@ class Calendar(DAVObject):
             o._handle_reverse_relations(fix=True)
         return o
 
-    ## It could still be possible to refactor even more, but
-    ## readability would be harder
+    ## TODO: maybe we should deprecate those three
     def save_event(self, *largs, **kwargs) -> "Event":
         """
-        See save_object
+        Returns ``self.save_object(Event, ...)`` - see :class:`save_object`
         """
         return self.save_object(Event, *largs, **kwargs)
 
     def save_todo(self, *largs, **kwargs) -> "Todo":
         """
-        See save_object
+        Returns ``self.save_object(Todo, ...)`` - so see :class:`save_object`
         """
         return self.save_object(Todo, *largs, **kwargs)
 
     def save_journal(self, *largs, **kwargs) -> "Journal":
         """
-        See save_object
+        Returns ``self.save_object(Journal, ...)`` - so see :class:`save_object`
         """
         return self.save_object(Journal, *largs, **kwargs)
 
@@ -616,42 +643,6 @@ class Calendar(DAVObject):
         """
         return list(self.multiget(*largs, **kwargs))
 
-    ## TODO: Upgrade the warning to an error (and perhaps critical) in future
-    ## releases, and then finally remove this method completely.
-    def build_date_search_query(
-        self,
-        start,
-        end: Optional[datetime] = None,
-        compfilter: Optional[Literal["VEVENT"]] = "VEVENT",
-        expand: Union[bool, Literal["maybe"]] = "maybe",
-    ):
-        """
-        WARNING: DEPRECATED
-        """
-        ## This is dead code.  It has no tests.  It was made for usage
-        ## by the date_search method, but I've decided not to use it
-        ## there anymore.  Most likely nobody is using this, as it's
-        ## sort of an internal method - but for the sake of backward
-        ## compatibility I will keep it for a while.  I regret naming
-        ## it build_date_search_query rather than
-        ## _build_date_search_query...
-        logging.warning(
-            "DEPRECATION WARNING: The calendar.build_date_search_query method will be removed in caldav library from version 1.0 or perhaps earlier.  Use calendar.build_search_xml_query instead."
-        )
-        if expand == "maybe":
-            expand = end
-
-        if compfilter == "VEVENT":
-            comp_class = Event
-        elif compfilter == "VTODO":
-            comp_class = Todo
-        else:
-            comp_class = None
-
-        return self.build_search_xml_query(
-            comp_class=comp_class, expand=expand, start=start, end=end
-        )
-
     def date_search(
         self,
         start: datetime,
@@ -663,27 +654,32 @@ class Calendar(DAVObject):
         # type (TimeStamp, TimeStamp, str, str) -> CalendarObjectResource
         """Deprecated.  Use self.search() instead.
 
-        Search events by date in the calendar. Recurring events are
-        expanded if they are occurring during the specified time frame
-        and if an end timestamp is given.
+        Search events by date in the calendar.
 
-        Parameters:
-         * start = datetime.today().
-         * end = same as above.
-         * compfilter = defaults to events only.  Set to None to fetch all
-           calendar components.
-         * expand - should recurrent events be expanded?  (to preserve
-           backward-compatibility the default "maybe" will be changed into True
-           unless the date_search is open-ended)
-         * verify_expand - not in use anymore, but kept for backward compatibility
+        Args
+         start : defaults to datetime.today().
+         end : same as above.
+         compfilter : defaults to events only.  Set to None to fetch all calendar components.
+         expand : should recurrent events be expanded?  (to preserve backward-compatibility the default "maybe" will be changed into True unless the date_search is open-ended)
+         verify_expand : not in use anymore, but kept for backward compatibility
 
         Returns:
          * [CalendarObjectResource(), ...]
 
+        Recurring events are expanded if they are occurring during the
+        specified time frame and if an end timestamp is given.
+
+        Note that this is a deprecated method.  The `search` method is
+        nearly equivalent.  Differences: default for ``compfilter`` is
+        to search for all objects, default for ``expand`` is
+        ``False``, and it has a different default
+        ``split_expanded=True``.
         """
-        ## TODO: upgrade to warning and error before removing this method
-        logging.info(
-            "DEPRECATION NOTICE: The calendar.date_search method may be removed in release 2.0 of the caldav library.  Use calendar.search instead"
+        ## date_search will probably disappear in 3.0
+        warnings.warn(
+            "use `calendar.search rather than `calendar.date_search`",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
         if verify_expand:
@@ -703,12 +699,6 @@ class Calendar(DAVObject):
         else:
             comp_class = None
 
-        ## xandikos now yields a 5xx-error when trying to pass
-        ## expand=True, after I prodded the developer that it doesn't
-        ## work.  By now there is some workaround in the test code to
-        ## avoid sending expand=True to xandikos, but perhaps we
-        ## should run a try-except-retry here with expand=False in the
-        ## retry, and warnings logged ... or perhaps not.
         objects = self.search(
             start=start,
             end=end,
@@ -773,52 +763,96 @@ class Calendar(DAVObject):
         include_completed: bool = False,
         sort_keys: Sequence[str] = (),
         sort_reverse: bool = False,
-        expand: Union[bool, Literal["server"], Literal["client"]] = False,
+        expand: bool = False,
+        server_expand: bool = False,
         split_expanded: bool = True,
         props: Optional[List[cdav.CalendarData]] = None,
         **kwargs,
     ) -> List[_CC]:
-        """Creates an XML query, does a REPORT request towards the
-        server and returns objects found, eventually sorting them
-        before delivery.
+        """Sends a search request towards the server, processes the
+        results if needed and returns the objects found.
 
-        This method contains some special logics to ensure that it can
-        consistently return a list of pending tasks on any server
-        implementation.  In the future it may also include workarounds
-        and client side filtering to make sure other search results
-        are consistent on different server implementations.
+        Caveat: The searching is done on the server side, the RFC is
+        not very crystal clear on many of the corner cases, and
+        servers often behave differently when presented with a search
+        request.  There is planned work to work around server
+        incompatibilities on the client side, but as for now
+        complicated searches will give different results on different
+        servers.
 
-        LEGACY WARNING: the expand attribute currently takes four
-        possible values - True, False, server and client.  The two
-        latter value were hastily added just prior to launching
-        version 1.4, the API may be reconsidered and changed without
-        notice when launching version 2.0
+        ``todo`` - searches explicitly for todo.  Unless
+        ``include_completed`` is specified, there is some special
+        logic ensuring only pending tasks is returned.
 
-        Parameters supported:
+        There is corresponding ``event`` and ``journal`` bools to
+        specify that the search should be only for events or journals.
+        When neither are set, one should expect to get all objects
+        returned - but quite some calendar servers will return
+        nothing.  This will be solved client-side in the future, as
+        for 2.0 it's recommended to search separately for tasks,
+        events and journals to ensure consistent behaviour across
+        different calendar servers and providers.
 
-        * xml - use this search query, and ignore other filter parameters
-        * comp_class - set to event, todo or journal to restrict search to this
-          resource type.  Some server implementations require this to be set.
-        * todo - sets comp_class to Todo, and restricts search to pending tasks,
-          unless the next parameter is set ...
-        * include_completed - include completed tasks
-        * event - sets comp_class to event
-        * journal - sets comp_class to journal
-        * text attribute search parameters: category, uid, summary, comment,
-          description, location, status
-        * no-category, no-summary, etc ... search for objects that does not
-          have those attributes.  TODO: WRITE TEST CODE!
-        * expand - expand recurring objects
-        * start, end: do a time range search
-        * filters - other kind of filters (in lxml tree format)
-        * sort_keys - list of attributes to use when sorting
-        * sort_reverse - reverse the sorting order
+        ``sort_keys`` refers to (case-insensitive) properties in the
+        icalendar object, ``sort_reverse`` can also be given.  The
+        sorting will be done client-side.
 
-        not supported yet:
-        * negated text match
-        * attribute not set
+        Use ``start`` and ``end`` for time-range searches.  Open-ended
+        searches are supported (i.e. "everything in the future"), but
+        it's recommended to use closed ranges (i.e. have an "event
+        horizon" of a year and ask for "everything from now and one
+        year ahead") and get the data expanded.
 
+        With the boolean ``expand`` set, you don't have to think too
+        much about recurrences - they will be expanded, and with the
+        (default) ``split_expanded`` set, each recurrence will be
+        returned as a separate list object (otherwise all recurrences
+        will be put into one ``VCALENDAR`` and returned as one
+        ``Event``).  This makes it safe to use the ``event.component``
+        property.  The non-expanded resultset may include events where
+        the timespan doesn't match the date interval you searched for,
+        as well as items with multiple components ("special"
+        recurrences), meaning you may need logic on the client side to
+        handle the recurrences.  *Only time range searches over closed
+        time intervals may be expanded*.
+
+        As for 2.0, the expand-logic is by default done on the
+        client-side, for consistent results across various server
+        incompabilities.  However, you may force server-side expansion
+        by setting ``server_expand=True``
+
+        Text attribute search parameters can be given to query the
+        "properties" in the calendar data: category, uid, summary,
+        comment, description, location, status.  According to the RFC,
+        a substring search should be done.
+
+        You may use no_category, no_summary, etc to search for objects
+        that are missing those attributes.
+
+        Negated text matches are not supported yet.
+
+        For power-users, those parameters are also supported:
+
+         * ``xml`` - use this search query, and ignore other filter parameters
+         * ``comp_class`` - alternative to the ``event``, ``todo`` or ``journal`` booleans described above.
+         * ``filters`` - other kind of filters (in lxml tree format)
         """
+        if expand not in (True, False):
+            warnings.warn(
+                "in cal.search(), expand should be a bool",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if expand == "client":
+                expand = True
+            if expand == "server":
+                server_expand = True
+                expand = False
+
+        if expand or server_expand:
+            if not kwargs.get("start") or not kwargs.get("end"):
+                raise error.ReportError("can't expand without a date range")
+
         ## special compatibility-case when searching for pending todos
         if todo and not include_completed:
             matches1 = self.search(
@@ -857,7 +891,7 @@ class Calendar(DAVObject):
                         objects.append(item)
         else:
             if not xml:
-                if expand and expand != "client":
+                if server_expand:
                     kwargs["expand"] = True
                 (xml, comp_class) = self.build_search_xml_query(
                     comp_class=comp_class, todo=todo, props=props, **kwargs
@@ -885,6 +919,9 @@ class Calendar(DAVObject):
                         event=True,
                         include_completed=include_completed,
                         sort_keys=sort_keys,
+                        sort_reverse=sort_reverse,
+                        expand=expand,
+                        server_expand=server_expand,
                         split_expanded=split_expanded,
                         props=props,
                         **kwargs,
@@ -910,7 +947,7 @@ class Calendar(DAVObject):
         ## Google sometimes returns empty objects
         objects = [o for o in objects if o.has_component()]
 
-        if expand and expand != "server":
+        if expand:
             ## expand can only be used together with start and end (and not
             ## with xml).  Error checking has already been done in
             ## build_search_xml_query above.
@@ -930,7 +967,7 @@ class Calendar(DAVObject):
             ## icalendar data containing multiple objects.  The caller may
             ## expect multiple Event()s.  This code splits events into
             ## separate objects:
-        if expand and split_expanded:
+        if (expand or server_expand) and split_expanded:
             objects_ = objects
             objects = []
             for o in objects_:
@@ -1167,13 +1204,12 @@ class Calendar(DAVObject):
         """
         Search the calendar, but return only the free/busy information.
 
-        Parameters:
-         * start = datetime.today().
-         * end = same as above.
+        Args:
+          start : defaults to datetime.today().
+          end : same as above.
 
         Returns:
-         * [FreeBusy(), ...]
-
+          [FreeBusy(), ...]
         """
 
         root = cdav.FreeBusyQuery() + [cdav.TimeRange(start, end)]
@@ -1187,14 +1223,12 @@ class Calendar(DAVObject):
         sort_key: Optional[str] = None,
     ) -> List["Todo"]:
         """
-        fetches a list of todo events (refactored to a wrapper around search)
+        Fetches a list of todo events (this is a wrapper around search)
 
-        Parameters:
-         * sort_keys: use this field in the VTODO for sorting (iterable of
-           lower case string, i.e. ('priority','due')).
-         * include_completed: boolean -
-           by default, only pending tasks are listed
-         * sort_key: DEPRECATED, for backwards compatibility with version 0.4.
+        Args:
+          sort_keys: use this field in the VTODO for sorting (iterable of lower case string, i.e. ('priority','due')).
+          include_completed: boolean - by default, only pending tasks are listed
+          sort_key: DEPRECATED, for backwards compatibility with version 0.4.
         """
         if sort_key:
             sort_keys = (sort_key,)
@@ -1254,13 +1288,13 @@ class Calendar(DAVObject):
         """
         Get one event from the calendar.
 
-        Parameters:
-         * uid: the event uid
-         * comp_class: filter by component type (Event, Todo, Journal)
-         * comp_filter: for backward compatibility
+        Args:
+         uid: the event uid
+         comp_class: filter by component type (Event, Todo, Journal)
+         comp_filter: for backward compatibility
 
         Returns:
-         * Event() or None
+         Event() or None
         """
         if comp_filter:
             assert not comp_class
@@ -1332,12 +1366,21 @@ class Calendar(DAVObject):
         return items_found2[0]
 
     def todo_by_uid(self, uid: str) -> "CalendarObjectResource":
+        """
+        Returns the task with the given uid (wraps around :class:`object_by_uid`)
+        """
         return self.object_by_uid(uid, comp_filter=cdav.CompFilter("VTODO"))
 
     def event_by_uid(self, uid: str) -> "CalendarObjectResource":
+        """
+        Returns the event with the given uid (wraps around :class:`object_by_uid`)
+        """
         return self.object_by_uid(uid, comp_filter=cdav.CompFilter("VEVENT"))
 
     def journal_by_uid(self, uid: str) -> "CalendarObjectResource":
+        """
+        Returns the journal with the given uid (wraps around :class:`object_by_uid`)
+        """
         return self.object_by_uid(uid, comp_filter=cdav.CompFilter("VJOURNAL"))
 
     # alias for backward compatibility

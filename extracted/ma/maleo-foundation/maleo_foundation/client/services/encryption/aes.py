@@ -16,7 +16,7 @@ from maleo_foundation.utils.exceptions import BaseExceptions
 class MaleoFoundationAESEncryptionClientService(ClientService):
     def encrypt(
         self,
-        parameters:MaleoFoundationAESEncryptionParametersTransfers.Encrypt
+        parameters: MaleoFoundationAESEncryptionParametersTransfers.Encrypt
     ) -> MaleoFoundationAESEncryptionResultsTypes.Encrypt:
         """Encrypt a plaintext using AES algorithm."""
         @BaseExceptions.service_exception_handler(
@@ -55,7 +55,7 @@ class MaleoFoundationAESEncryptionClientService(ClientService):
 
     def decrypt(
         self,
-        parameters:MaleoFoundationAESEncryptionParametersTransfers.Decrypt
+        parameters: MaleoFoundationAESEncryptionParametersTransfers.Decrypt
     ) -> MaleoFoundationAESEncryptionResultsTypes.Decrypt:
         """Decrypt a ciphertext using AES algorithm."""
         @BaseExceptions.service_exception_handler(

@@ -1,20 +1,20 @@
 import pandas as pd
 from typing import Optional
 from sempy_labs._helper_functions import (
-    resolve_workspace_name_and_id,
     _base_api,
-    resolve_item_id,
     _create_dataframe,
     _conv_b64,
-    _decode_b64,
     delete_item,
     create_item,
     get_item_definition,
+    resolve_workspace_id,
 )
 from uuid import UUID
 import sempy_labs._icons as icons
+from sempy._utils._log import log
 
 
+@log
 def create_eventhouse(
     name: str,
     definition: Optional[dict],
@@ -66,6 +66,7 @@ def create_eventhouse(
     )
 
 
+@log
 def list_eventhouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the eventhouses within a workspace.
@@ -94,7 +95,7 @@ def list_eventhouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/eventhouses",
@@ -102,6 +103,7 @@ def list_eventhouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         client="fabric_sp",
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             new_data = {
@@ -109,11 +111,15 @@ def list_eventhouses(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 "Eventhouse Id": v.get("id"),
                 "Description": v.get("description"),
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def delete_eventhouse(name: str, workspace: Optional[str | UUID] = None):
     """
     Deletes a Fabric eventhouse.
@@ -133,6 +139,7 @@ def delete_eventhouse(name: str, workspace: Optional[str | UUID] = None):
     delete_item(item=name, type="Eventhouse", workspace=workspace)
 
 
+@log
 def get_eventhouse_definition(
     eventhouse: str | UUID,
     workspace: Optional[str | UUID] = None,

@@ -17,7 +17,7 @@ from maleo_foundation.utils.loaders.key.rsa import RSAKeyLoader
 class MaleoFoundationTokenClientService(ClientService):
     def encode(
         self,
-        parameters:MaleoFoundationTokenParametersTransfers.Encode
+        parameters: MaleoFoundationTokenParametersTransfers.Encode
     ) -> MaleoFoundationTokenResultsTypes.Encode:
         @BaseExceptions.service_exception_handler(
             operation="encoding a payload into a token",
@@ -72,7 +72,7 @@ class MaleoFoundationTokenClientService(ClientService):
 
     def decode(
         self,
-        parameters:MaleoFoundationTokenParametersTransfers.Decode
+        parameters: MaleoFoundationTokenParametersTransfers.Decode
     ) -> MaleoFoundationTokenResultsTypes.Decode:
         @BaseExceptions.service_exception_handler(
             operation="decoding a token into a payload",

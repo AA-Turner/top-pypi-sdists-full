@@ -1,15 +1,17 @@
 import pandas as pd
 from typing import Optional
 from sempy_labs._helper_functions import (
-    resolve_workspace_name_and_id,
+    resolve_workspace_id,
     _base_api,
     delete_item,
     _create_dataframe,
     create_item,
 )
 from uuid import UUID
+from sempy._utils._log import log
 
 
+@log
 def list_ml_models(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     """
     Shows the ML models within a workspace.
@@ -36,7 +38,7 @@ def list_ml_models(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_id = resolve_workspace_id(workspace)
 
     responses = _base_api(
         request=f"/v1/workspaces/{workspace_id}/mlModels",
@@ -44,6 +46,7 @@ def list_ml_models(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
         uses_pagination=True,
     )
 
+    dfs = []
     for r in responses:
         for v in r.get("value", []):
             model_id = v.get("id")
@@ -55,11 +58,15 @@ def list_ml_models(workspace: Optional[str | UUID] = None) -> pd.DataFrame:
                 "ML Model Id": model_id,
                 "Description": desc,
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def create_ml_model(
     name: str, description: Optional[str] = None, workspace: Optional[str | UUID] = None
 ):
@@ -83,6 +90,7 @@ def create_ml_model(
     create_item(name=name, description=description, type="MLModel", workspace=workspace)
 
 
+@log
 def delete_ml_model(name: str | UUID, workspace: Optional[str | UUID] = None):
     """
     Deletes a Fabric ML model.

@@ -24,9 +24,9 @@ def test_example_errors_early():
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `errors`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `errors`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 
 ERROR: Failed loading component file
            File: .../examples/errors/components/component5/component.py
@@ -69,9 +69,9 @@ def test_example_errors_gpg_cannot_decrypt(monkeypatch):
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `errors`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `errors`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 
 ERROR: Error while calling GPG
         command: gpg --decrypt ...environments/errors/secrets.cfg.gpg
@@ -112,11 +112,18 @@ def test_example_errors_late():
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `errors`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `errors`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
-localhost: Connecting via local (1/1)
+🌐 localhost: Connecting via local (1/1)
+
+
+ERROR: Component usage error
+        Message: SyncDirectory requires a source to sync from.
+Traceback (most recent call last):
+  File ".../examples/errors2/components/component1/component.py", line 37, in configure
+    self += SyncDirectory("foo")
 
 
 ERROR: Trying to access address family IPv6 which is not configured for localhost:22.
@@ -164,8 +171,8 @@ cycle1 depends on
 cycle2 depends on
         cycle1
 
-ERROR: 10 remaining unconfigured component(s): component1, component2, component4, component5, crontab, cycle1, cycle2, dnsproblem, dnsproblem2, filemode
-======================= 11 ERRORS - CONFIGURATION FAILED =======================
+ERROR: 11 remaining unconfigured component(s): component1, component2, component4, component5, component6, crontab, cycle1, cycle2, dnsproblem, dnsproblem2, filemode
+======================= 12 ERRORS - CONFIGURATION FAILED =======================
 ====================== DEPLOYMENT FAILED (during connect) ======================
 """
     )  # noqa: E501 line too long
@@ -178,7 +185,7 @@ def test_example_errors_missing_environment():
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `production`...
+📦 main: Loading environment `production`...
 
 ERROR: Missing environment
     Environment: production
@@ -194,16 +201,16 @@ def test_example_ignores():
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `ignores`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `ignores`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
-localhost: Connecting via local (1/2)
-otherhost: Connection ignored (2/2)
+🌐 localhost: Connecting via local (1/2)
+⏭️ otherhost: Connection ignored (2/2)
 ================================== Deploying ===================================
-localhost: Scheduling component component1 ...
-localhost: Skipping component fail ... (Component ignored)
-otherhost: Skipping component fail2 ... (Host ignored)
+⚪ localhost: Scheduling component component1 ...
+⏭️ localhost: Skipping component fail ... (Component ignored)
+⏭️ otherhost: Skipping component fail2 ... (Host ignored)
 =================================== Summary ====================================
 Deployment took total=...s, connect=...s, deploy=...s
 ============================= DEPLOYMENT FINISHED ==============================
@@ -269,19 +276,19 @@ def test_diff_is_not_shown_for_keys_in_secrets(tmp_path, monkeypatch, capsys):
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `tutorial`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `tutorial`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
-localhost: Connecting via local (1/1)
+🌐 localhost: Connecting via local (1/1)
 ================================== Deploying ===================================
-localhost: Scheduling component hello ...
-localhost > Hello > File('work/hello/hello') > Presence('hello')
-localhost > Hello > File('work/hello/hello') > Content('hello')
+⚪ localhost: Scheduling component hello ...
+🚀 localhost: Hello > File('work/hello/hello') > Presence('hello')
+🚀 localhost: Hello > File('work/hello/hello') > Content('hello')
 Not showing diff as it contains sensitive data,
 see ...diff for the diff.
-localhost > Hello > File('work/hello/other-secrets.yaml') > Presence('other-secrets.yaml')
-localhost > Hello > File('work/hello/other-secrets.yaml') > Content('other-secrets.yaml')
+🚀 localhost: Hello > File('work/hello/other-secrets.yaml') > Presence('other-secrets.yaml')
+🚀 localhost: Hello > File('work/hello/other-secrets.yaml') > Content('other-secrets.yaml')
 Not showing diff as it contains sensitive data,
 see ...diff for the diff.
 =================================== Summary ====================================
@@ -311,36 +318,36 @@ def test_diff_for_keys_in_secrets_overridable(tmp_path, monkeypatch, capsys):
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `local`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `local`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
-localhost: Connecting via local (1/1)
+🌐 localhost: Connecting via local (1/1)
 ================================== Deploying ===================================
-localhost: Scheduling component sensitivevalues ...
-localhost > SensitiveValues > File('work/sensitivevalues/client_ed25519.key') > Presence('client_ed25519.key')
-localhost > SensitiveValues > File('work/sensitivevalues/client_ed25519.key') > Content('client_ed25519.key')
+⚪ localhost: Scheduling component sensitivevalues ...
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/client_ed25519.key') > Presence('client_ed25519.key')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/client_ed25519.key') > Content('client_ed25519.key')
 Not showing diff as it contains sensitive data,
 see ...diff for the diff.
-localhost > SensitiveValues > File('work/sensitivevalues/client_ed25519.pub') > Presence('client_ed25519.pub')
-localhost > SensitiveValues > File('work/sensitivevalues/client_ed25519.pub') > Content('client_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/client_ed25519.pub') > Presence('client_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/client_ed25519.pub') > Content('client_ed25519.pub')
 Not showing diff as it contains sensitive data,
 see ...diff for the diff.
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_rsa.pub') > Presence('hostkey_sensitive_auto_rsa.pub')
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_rsa.pub') > Content('hostkey_sensitive_auto_rsa.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_rsa.pub') > Presence('hostkey_sensitive_auto_rsa.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_rsa.pub') > Content('hostkey_sensitive_auto_rsa.pub')
   hostkey_sensitive_auto_rsa.pub ---
   hostkey_sensitive_auto_rsa.pub +++
   hostkey_sensitive_auto_rsa.pub @@ -0,0 +1 @@
   hostkey_sensitive_auto_rsa.pub +ssh-rsa ... batou-example-host
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_ed25519.pub') > Presence('hostkey_sensitive_auto_ed25519.pub')
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_ed25519.pub') > Content('hostkey_sensitive_auto_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_ed25519.pub') > Presence('hostkey_sensitive_auto_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_auto_ed25519.pub') > Content('hostkey_sensitive_auto_ed25519.pub')
 Not showing diff as it contains sensitive data,
-see ...diff for the diff.
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_masked_rsa.pub') > Presence('hostkey_sensitive_masked_rsa.pub')
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_masked_rsa.pub') > Content('hostkey_sensitive_masked_rsa.pub')
+see ... for the diff.
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_masked_rsa.pub') > Presence('hostkey_sensitive_masked_rsa.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_masked_rsa.pub') > Content('hostkey_sensitive_masked_rsa.pub')
 Not showing diff as it contains sensitive data.
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_clear_ed25519.pub') > Presence('hostkey_sensitive_clear_ed25519.pub')
-localhost > SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_clear_ed25519.pub') > Content('hostkey_sensitive_clear_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_clear_ed25519.pub') > Presence('hostkey_sensitive_clear_ed25519.pub')
+🚀 localhost: SensitiveValues > File('work/sensitivevalues/hostkey_sensitive_clear_ed25519.pub') > Content('hostkey_sensitive_clear_ed25519.pub')
   hostkey_sensitive_clear_ed25519.pub ---
   hostkey_sensitive_clear_ed25519.pub +++
   hostkey_sensitive_clear_ed25519.pub @@ -0,0 +1 @@
@@ -359,16 +366,129 @@ def test_durations_are_shown_for_components():
         """\
 batou/2... (cpython 3...)
 ================================== Preparing ===================================
-main: Loading environment `default`...
-main: Verifying repository ...
-main: Loading secrets ...
+📦 main: Loading environment `default`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
 ================== Connecting hosts and configuring model ... ==================
-localhost: Connecting via local (1/1)
+🌐 localhost: Connecting via local (1/1)
 ================================== Deploying ===================================
-localhost: Scheduling component takeslongtime ...
-localhost > Takeslongtime [total=...s, verify=...s, update=NaN, sub=NaN]
+⚪ localhost: Scheduling component takeslongtime ...
+💤 localhost: Takeslongtime [total=...s, verify=...s, update=∅, sub=∅]
 =================================== Summary ====================================
 Deployment took total=...s, connect=...s, deploy=...s
 ============================= DEPLOYMENT FINISHED ==============================
+"""
+    )
+
+
+def test_check_consistency_works():
+    os.chdir("examples/tutorial-secrets")
+    out, _ = cmd("./batou deploy tutorial --consistency-only")
+    assert out == Ellipsis(
+        """\
+batou/2... (cpython 3...)
+================================== Preparing ===================================
+📦 main: Loading environment `tutorial`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
+================== Connecting hosts and configuring model ... ==================
+🌐 localhost: Connecting via local (1/1)
+=================================== Summary ====================================
+Deployment took total=...s, connect=...s, deploy=∅
+========================== CONSISTENCY CHECK FINISHED ==========================
+"""
+    )
+
+
+def test_predicting_deployment_works():
+    os.chdir("examples/tutorial-secrets")
+    out, _ = cmd("./batou deploy tutorial --predict-only")
+    assert out == Ellipsis(
+        """\
+batou/2... (cpython 3...)
+================================== Preparing ===================================
+📦 main: Loading environment `tutorial`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
+================== Connecting hosts and configuring model ... ==================
+🌐 localhost: Connecting via local (1/1)
+======================== Predicting deployment actions =========================
+⚪ localhost: Scheduling component hello ...
+🚀 localhost: Hello > File('work/hello/hello') > Presence('hello')
+🚀 localhost: Hello > File('work/hello/hello') > Content('hello')
+Not showing diff as it contains sensitive data,
+see .../examples/tutorial-secrets/work/.batou-diffs/...diff for the diff.
+🚀 localhost: Hello > File('work/hello/other-secrets.yaml') > Presence('other-secrets.yaml')
+🚀 localhost: Hello > File('work/hello/other-secrets.yaml') > Content('other-secrets.yaml')
+Not showing diff as it contains sensitive data,
+see .../examples/tutorial-secrets/work/.batou-diffs/...diff for the diff.
+=================================== Summary ====================================
+Deployment took total=...s, connect=...s, deploy=...s
+======================== DEPLOYMENT PREDICTION FINISHED ========================
+"""
+    )
+
+
+def test_check_consistency_works_with_local():
+    os.chdir("examples/tutorial-secrets")
+    out, _ = cmd("./batou deploy gocept --consistency-only --local")
+    assert out == Ellipsis(
+        """\
+batou/2... (cpython 3...)
+================================== Preparing ===================================
+📦 main: Loading environment `gocept`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
+================== Connecting hosts and configuring model ... ==================
+🌐 test01: Connecting via local (1/2)
+🌐 test02: Connecting via local (2/2)
+=================================== Summary ====================================
+Deployment took total=...s, connect=...s, deploy=∅
+====================== CONSISTENCY CHECK (local) FINISHED ======================
+"""
+    )
+
+
+def test_predicting_deployment_works_with_local():
+    os.chdir("examples/tutorial-secrets")
+    out, _ = cmd("./batou deploy gocept --predict-only --local")
+    assert out == Ellipsis(
+        """\
+batou/2... (cpython 3...)
+================================== Preparing ===================================
+📦 main: Loading environment `gocept`...
+🔍 main: Verifying repository ...
+🔑 main: Loading secrets ...
+================== Connecting hosts and configuring model ... ==================
+🌐 test01: Connecting via local (1/2)
+🌐 test02: Connecting via local (2/2)
+======================== Predicting deployment actions =========================
+⚪ test01: Scheduling component hello ...
+⚪ test02: Scheduling component hello ...
+🚀 test01: Hello > File('work/hello/hello') > Presence('hello')
+🚀 test01: Hello > File('work/hello/hello') > Content('hello')
+  hello ---
+  hello +++
+  hello @@ -0,0 +1,2 @@
+  hello +The magic word is None.
+  hello +The other word is None.
+🚀 test01: Hello > File('work/hello/other-secrets.yaml') > Presence('other-secrets.yaml')
+🚀 test01: Hello > File('work/hello/other-secrets.yaml') > Content('other-secrets.yaml')
+Not showing diff as it contains sensitive data,
+see .../batou/examples/tutorial-secrets/work/.batou-diffs/...diff for the diff.
+🚀 test02: Hello > File('work/hello/hello') > Presence('hello')
+🚀 test02: Hello > File('work/hello/hello') > Content('hello')
+  hello ---
+  hello +++
+  hello @@ -0,0 +1,2 @@
+  hello +The magic word is None.
+  hello +The other word is None.
+🚀 test02: Hello > File('work/hello/other-secrets.yaml') > Presence('other-secrets.yaml')
+🚀 test02: Hello > File('work/hello/other-secrets.yaml') > Content('other-secrets.yaml')
+Not showing diff as it contains sensitive data,
+see .../batou/examples/tutorial-secrets/work/.batou-diffs/...diff for the diff.
+=================================== Summary ====================================
+Deployment took total=...s, connect=...s, deploy=...s
+==================== DEPLOYMENT PREDICTION (local) FINISHED ====================
 """
     )

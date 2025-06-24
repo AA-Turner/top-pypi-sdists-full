@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import concurrent.futures
 import dataclasses
 import inspect
 import typing
@@ -14,7 +13,6 @@ from inngest._internal import (
     execution_lib,
     middleware_lib,
     server_lib,
-    step_lib,
     types,
 )
 
@@ -35,7 +33,6 @@ class FunctionOpts(types.BaseModel):
     cancel: typing.Optional[list[server_lib.Cancel]]
     concurrency: typing.Optional[list[server_lib.Concurrency]]
     debounce: typing.Optional[server_lib.Debounce]
-    experimental_execution: bool
 
     # Unique within an environment
     fully_qualified_id: str
@@ -47,14 +44,16 @@ class FunctionOpts(types.BaseModel):
 
     name: str
     on_failure: typing.Union[
-        execution_lib.FunctionHandlerAsync,
-        execution_lib.FunctionHandlerSync,
+        execution_lib.FunctionHandlerAsync[typing.Any],
+        execution_lib.FunctionHandlerSync[typing.Any],
         None,
     ]
     priority: typing.Optional[server_lib.Priority]
     rate_limit: typing.Optional[server_lib.RateLimit]
     retries: typing.Optional[int]
     throttle: typing.Optional[server_lib.Throttle]
+    timeouts: typing.Optional[server_lib.Timeouts]
+    singleton: typing.Optional[server_lib.Singleton]
 
     def convert_validation_error(
         self,
@@ -63,9 +62,10 @@ class FunctionOpts(types.BaseModel):
         return errors.FunctionConfigInvalidError.from_validation_error(err)
 
 
-class Function:
+class Function(typing.Generic[types.T]):
     _handler: typing.Union[
-        execution_lib.FunctionHandlerAsync, execution_lib.FunctionHandlerSync
+        execution_lib.FunctionHandlerAsync[types.T],
+        execution_lib.FunctionHandlerSync[types.T],
     ]
     _on_failure_fn_id: typing.Optional[str] = None
     _opts: FunctionOpts
@@ -113,20 +113,36 @@ class Function:
             list[typing.Union[server_lib.TriggerCron, server_lib.TriggerEvent]],
         ],
         handler: typing.Union[
-            execution_lib.FunctionHandlerAsync,
-            execution_lib.FunctionHandlerSync,
+            execution_lib.FunctionHandlerAsync[types.T],
+            execution_lib.FunctionHandlerSync[types.T],
         ],
+        output_type: object = types.EmptySentinel,
         middleware: typing.Optional[
             list[middleware_lib.UninitializedMiddleware]
         ] = None,
     ) -> None:
-        self._experimental_execution = opts.experimental_execution
         self._handler = handler
         self._middleware = middleware or []
         self._opts = opts
+        self._output_type = output_type
         self._triggers = trigger if isinstance(trigger, list) else [trigger]
 
         if opts.on_failure is not None:
+            if (
+                self.is_handler_async
+                and self.is_on_failure_handler_async is False
+            ):
+                raise errors.Error(
+                    f"an async function cannot have a non-async on_failure handler (function {opts.local_id})"
+                )
+            if (
+                self.is_handler_async is False
+                and self.is_on_failure_handler_async is True
+            ):
+                raise errors.Error(
+                    f"a non-async function cannot have an async on_failure handler (function {opts.local_id})"
+                )
+
             self._on_failure_fn_id = f"{opts.fully_qualified_id}-failure"
 
     async def call(
@@ -135,56 +151,38 @@ class Function:
         ctx: execution_lib.Context,
         fn_id: str,
         middleware: middleware_lib.MiddlewareManager,
-        request: server_lib.ServerRequest,
-        steps: step_lib.StepMemos,
-        target_hashed_id: typing.Optional[str],
-        thread_pool: typing.Optional[
-            concurrent.futures.ThreadPoolExecutor
-        ] = None,
     ) -> execution_lib.CallResult:
-        middleware = middleware_lib.MiddlewareManager.from_manager(middleware)
         for m in self._middleware:
             middleware.add(m)
 
-        handler: typing.Union[
-            execution_lib.FunctionHandlerAsync,
-            execution_lib.FunctionHandlerSync,
-        ]
         if self.id == fn_id:
             handler = self._handler
+            output_type = self._output_type
         elif self.on_failure_fn_id == fn_id:
             if self._opts.on_failure is None:
                 return execution_lib.CallResult(
                     errors.FunctionNotFoundError("on_failure not defined")
                 )
             handler = self._opts.on_failure
+
+            # We only need to serialize to JSON so any type is fine.
+            # Deserialization isn't necessary since on_failure handlers aren't
+            # invoked via `step.invoke`.
+            output_type = object
         else:
             return execution_lib.CallResult(
                 errors.FunctionNotFoundError("function ID mismatch")
             )
 
-        execution: execution_lib.BaseExecution
-        if self._experimental_execution:
-            execution = execution_lib.ExecutionExperimental(
-                steps,
-                middleware,
-                request,
-                target_hashed_id,
-            )
-        else:
-            execution = execution_lib.ExecutionV0(
-                steps,
-                middleware,
-                request,
-                target_hashed_id,
-                thread_pool,
-            )
+        if not execution_lib.is_function_handler_async(handler):
+            raise errors.UnreachableError("handler is not async")
 
-        call_res = await execution.run(
+        call_res = await ctx.step._execution.run(
             client,
             ctx,
             handler,
             self,
+            output_type,
         )
 
         err = await middleware.transform_output(call_res)
@@ -200,46 +198,43 @@ class Function:
     def call_sync(
         self,
         client: client_lib.Inngest,
-        ctx: execution_lib.Context,
+        ctx: execution_lib.ContextSync,
         fn_id: str,
         middleware: middleware_lib.MiddlewareManager,
-        request: server_lib.ServerRequest,
-        steps: step_lib.StepMemos,
-        target_hashed_id: typing.Optional[str],
     ) -> execution_lib.CallResult:
-        middleware = middleware_lib.MiddlewareManager.from_manager(middleware)
         for m in self._middleware:
             middleware.add(m)
 
-        handler: typing.Union[
-            execution_lib.FunctionHandlerAsync,
-            execution_lib.FunctionHandlerSync,
-        ]
         if self.id == fn_id:
             handler = self._handler
+            output_type = self._output_type
         elif self.on_failure_fn_id == fn_id:
             if self._opts.on_failure is None:
                 return execution_lib.CallResult(
                     errors.FunctionNotFoundError("on_failure not defined")
                 )
             handler = self._opts.on_failure
+
+            # We only need to serialize to JSON so any type is fine.
+            # Deserialization isn't necessary since on_failure handlers aren't
+            # invoked via `step.invoke`.
+            output_type = object
         else:
             return execution_lib.CallResult(
                 errors.FunctionNotFoundError("function ID mismatch")
             )
 
+        if not execution_lib.is_function_handler_sync(handler):
+            raise errors.UnreachableError("handler is not sync")
+
         # We don't need to pass a thread pool here because the sync handler is
         # not used by Connect.
-        call_res = execution_lib.ExecutionV0Sync(
-            steps,
-            middleware,
-            request,
-            target_hashed_id,
-        ).run(
+        call_res = ctx.step._execution.run(
             client,
             ctx,
             handler,
             self,
+            output_type,
         )
 
         err = middleware.transform_output_sync(call_res)
@@ -298,7 +293,9 @@ class Function:
                 ),
             },
             throttle=self._opts.throttle,
+            timeouts=self._opts.timeouts,
             triggers=self._triggers,
+            singleton=self._opts.singleton,
         )
 
         on_failure = None
@@ -336,12 +333,14 @@ class Function:
                     )
                 },
                 throttle=None,
+                timeouts=None,
                 triggers=[
                     server_lib.TriggerEvent(
                         event=server_lib.InternalEvents.FUNCTION_FAILED.value,
                         expression=f"event.data.function_id == '{self.id}'",
                     )
                 ],
+                singleton=None,
             )
 
         return _Config(main=main, on_failure=on_failure)

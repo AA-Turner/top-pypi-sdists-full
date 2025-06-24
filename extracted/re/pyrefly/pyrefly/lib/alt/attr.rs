@@ -136,12 +136,16 @@ impl AttrSubsetError {
                     ", the type of "
                 };
                 format!(
-                    "{got_desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable to `{want}`{want_desc}`{parent_class}.{attr_name}`"
+                    "{got_desc}`{child_class}.{attr_name}` has type `{}`, which is not assignable to `{}`{want_desc}`{parent_class}.{attr_name}`",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
             AttrSubsetError::Invariant { got, want } => {
                 format!(
-                    "`{child_class}.{attr_name}` has type `{got}`, which is not consistent with `{want}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)"
+                    "`{child_class}.{attr_name}` has type `{}`, which is not consistent with `{}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
             AttrSubsetError::Contravariant {
@@ -155,7 +159,9 @@ impl AttrSubsetError {
                     ""
                 };
                 format!(
-                    "{desc}`{child_class}.{attr_name}` has type `{got}`, which is not assignable from `{want}`, the property getter for `{parent_class}.{attr_name}`"
+                    "{desc}`{child_class}.{attr_name}` has type `{}`, which is not assignable from `{}`, the property getter for `{parent_class}.{attr_name}`",
+                    got.deterministic_printing(),
+                    want.deterministic_printing()
                 )
             }
         }
@@ -1297,9 +1303,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// on the metaclass instead of class `A` (i.e. we are looking for `type.__magic_dunder_attr__`
     /// instead of `A.__magic_dunder_attr__`).
     fn lookup_magic_dunder_attr(&self, base: AttributeBase, dunder_name: &Name) -> LookupResult {
-        match base {
+        match &base {
             AttributeBase::ClassObject(class) => {
-                let metadata = self.get_metadata_for_class(&class);
+                let metadata = self.get_metadata_for_class(class);
                 let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
                 match self.get_instance_attribute(metaclass, dunder_name) {
                     Some(attr) => LookupResult::Found(attr),
@@ -1308,7 +1314,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )),
                 }
             }
-            base => self.lookup_attr_from_attribute_base(base, dunder_name),
+            AttributeBase::ClassInstance(cls)
+            | AttributeBase::EnumLiteral(cls, _, _)
+            | AttributeBase::TypeVar(_, Some(cls))
+                if (*dunder_name == dunder::SETATTR || *dunder_name == dunder::DELATTR)
+                    && self.method_is_inherited_from_object(cls, dunder_name) =>
+            {
+                LookupResult::NotFound(NotFound::Attribute(cls.class_object().clone()))
+            }
+
+            _ => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
     }
 
@@ -1494,7 +1509,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }
             Type::Type(box Type::Quantified(q)) if q.is_type_var() => match q.restriction() {
-                // TODO(#119): this is wrong, because we lose the information that this is a type var
+                // TODO(https://github.com/facebook/pyrefly/issues/514)
+                // this is wrong, because we lose the information that this is a type var
                 Restriction::Bound(bound) => {
                     self.as_attribute_base_no_union(Type::type_form(bound.clone()))
                 }
@@ -1553,15 +1569,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Type::SuperInstance(box (cls, obj)) => Some(AttributeBase::SuperInstance(cls, obj)),
-            Type::Quantified(q) if q.is_type_var() => match q.restriction() {
-                // TODO(#119): this is wrong, because we lose the information that this is a type var
-                Restriction::Bound(bound) => self.as_attribute_base_no_union(bound.clone()),
-                // TODO: handle constraints
-                Restriction::Constraints(_) => None,
-                Restriction::Unrestricted => {
-                    Some(AttributeBase::ClassInstance(self.stdlib.object().clone()))
-                }
-            },
             // TODO: check to see which ones should have class representations
             Type::Union(_)
             | Type::SpecialForm(_)

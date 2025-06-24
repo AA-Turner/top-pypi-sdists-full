@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: frappe-bench
-Version: 5.25.5
+Version: 5.25.6
 Summary: CLI to manage Multi-tenant deployments for Frappe apps
 Project-URL: Changelog, https://github.com/frappe/bench/releases
 Project-URL: Documentation, https://frappeframework.com/docs/user/en/bench

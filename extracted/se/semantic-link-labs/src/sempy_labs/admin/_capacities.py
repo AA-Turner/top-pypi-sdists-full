@@ -13,6 +13,7 @@ from sempy_labs._helper_functions import (
 )
 
 
+@log
 def patch_capacity(capacity: str | UUID, tenant_key_id: UUID):
     """
     Changes specific capacity information. Currently, this API call only supports changing the capacity's encryption key.
@@ -44,6 +45,7 @@ def patch_capacity(capacity: str | UUID, tenant_key_id: UUID):
     )
 
 
+@log
 def _resolve_capacity_name_and_id(
     capacity: str | UUID,
 ) -> Tuple[str, UUID]:
@@ -58,6 +60,7 @@ def _resolve_capacity_name_and_id(
     return capacity_name, capacity_id
 
 
+@log
 def _resolve_capacity_id(
     capacity: str | UUID,
 ) -> UUID:
@@ -76,6 +79,7 @@ def _resolve_capacity_id(
     return capacity_id
 
 
+@log
 def _list_capacities_meta() -> pd.DataFrame:
     """
     Shows the a list of capacities and their properties. This function is the admin version.
@@ -102,6 +106,7 @@ def _list_capacities_meta() -> pd.DataFrame:
         request="/v1.0/myorg/admin/capacities", client="fabric_sp", uses_pagination=True
     )
 
+    dfs = []
     for r in responses:
         for i in r.get("value", []):
             new_data = {
@@ -112,11 +117,15 @@ def _list_capacities_meta() -> pd.DataFrame:
                 "State": i.get("state"),
                 "Admins": [i.get("admins", [])],
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def get_capacity_assignment_status(
     workspace: Optional[str | UUID] = None,
 ) -> pd.DataFrame:
@@ -178,6 +187,7 @@ def get_capacity_assignment_status(
     return df
 
 
+@log
 def get_capacity_state(capacity: Optional[str | UUID] = None):
     """
     Gets the state of a capacity.
@@ -248,6 +258,7 @@ def list_capacities(
         request="/v1.0/myorg/admin/capacities", client="fabric_sp", uses_pagination=True
     )
 
+    dfs = []
     for r in responses:
         for i in r.get("value", []):
             new_data = {
@@ -258,7 +269,10 @@ def list_capacities(
                 "State": i.get("state"),
                 "Admins": [i.get("admins", [])],
             }
-            df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+            dfs.append(pd.DataFrame(new_data, index=[0]))
+
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     if capacity is not None:
         if _is_valid_uuid(capacity):
@@ -269,6 +283,7 @@ def list_capacities(
     return df
 
 
+@log
 def list_capacity_users(capacity: str | UUID) -> pd.DataFrame:
     """
     Shows a list of users that have access to the specified workspace.
@@ -288,7 +303,7 @@ def list_capacity_users(capacity: str | UUID) -> pd.DataFrame:
         A pandas dataframe showing a list of users that have access to the specified workspace.
     """
 
-    (capacity_name, capacity_id) = _resolve_capacity_name_and_id(capacity)
+    (_, capacity_id) = _resolve_capacity_name_and_id(capacity)
 
     columns = {
         "User Name": "string",
@@ -307,25 +322,23 @@ def list_capacity_users(capacity: str | UUID) -> pd.DataFrame:
         request=f"/v1.0/myorg/admin/capacities/{capacity_id}/users", client="fabric_sp"
     )
 
-    rows = []
+    dfs = []
     for v in response.json().get("value", []):
-        rows.append(
-            {
-                "User Name": v.get("displayName"),
-                "Email Address": v.get("emailAddress"),
-                "Capacity User Access Right": v.get("capacityUserAccessRight"),
-                "Identifier": v.get("identifier"),
-                "Graph Id": v.get("graphId"),
-                "Principal Type": v.get("principalType"),
-                "User Type": v.get("userType"),
-                "Profile": v.get("profile"),
-            }
-        )
+        new_data = {
+            "User Name": v.get("displayName"),
+            "Email Address": v.get("emailAddress"),
+            "Capacity User Access Right": v.get("capacityUserAccessRight"),
+            "Identifier": v.get("identifier"),
+            "Graph Id": v.get("graphId"),
+            "Principal Type": v.get("principalType"),
+            "User Type": v.get("userType"),
+            "Profile": v.get("profile"),
+        }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    if rows:
-        df = pd.DataFrame(rows, columns=list(columns.keys()))
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 

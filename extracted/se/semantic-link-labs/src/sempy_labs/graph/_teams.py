@@ -42,6 +42,7 @@ def list_teams() -> pd.DataFrame:
 
     df = _create_dataframe(columns=columns)
 
+    dfs = []
     for v in result.get("value"):
         new_data = {
             "Team Id": v.get("id"),
@@ -58,13 +59,16 @@ def list_teams() -> pd.DataFrame:
             "Member Count": v.get("memberCount"),
         }
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def list_chats(user: str | UUID) -> pd.DataFrame:
     """
     In progress...
@@ -95,6 +99,7 @@ def list_chats(user: str | UUID) -> pd.DataFrame:
     return df
 
 
+@log
 def send_teams_message(chat_id: str, message: str):
     """
     In progress...

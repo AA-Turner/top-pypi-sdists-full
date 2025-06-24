@@ -94,6 +94,14 @@ class OrionPyClient:
                         values.fp64_values.extend(
                             [np.float64(row[feature]) for feature in features]
                         )
+                    elif curr_datatype == "DataTypeInt8":
+                        values.int32_values.extend(
+                            [np.int32(row[feature]) for feature in features]
+                        )
+                    elif curr_datatype == "DataTypeInt16":
+                        values.int32_values.extend(
+                            [np.int32(row[feature]) for feature in features]
+                        )
                     elif curr_datatype == "DataTypeInt32":
                         values.int32_values.extend(
                             [np.int32(row[feature]) for feature in features]
@@ -102,11 +110,19 @@ class OrionPyClient:
                         values.int64_values.extend(
                             [np.int64(row[feature]) for feature in features]
                         )
-                    elif curr_datatype == "DataTypeUInt32":
+                    elif curr_datatype == "DataTypeUint8":
                         values.uint32_values.extend(
                             [np.uint32(row[feature]) for feature in features]
                         )
-                    elif curr_datatype == "DataTypeUInt64":
+                    elif curr_datatype == "DataTypeUint16":
+                        values.uint32_values.extend(
+                            [np.uint32(row[feature]) for feature in features]
+                        )
+                    elif curr_datatype == "DataTypeUint32":
+                        values.uint32_values.extend(
+                            [np.uint32(row[feature]) for feature in features]
+                        )
+                    elif curr_datatype == "DataTypeUint64":
                         values.uint64_values.extend(
                             [np.uint64(row[feature]) for feature in features]
                         )
@@ -150,6 +166,18 @@ class OrionPyClient:
                                 fp64_values=[np.float64(x) for x in row[feature]]
                             )
                             values.vector.append(Vector(values=vector_values))
+                    elif curr_datatype == "DataTypeInt8Vector":
+                        for feature in features:
+                            vector_values = Values(
+                                int32_values=[np.int32(x) for x in row[feature]]
+                            )
+                            values.vector.append(Vector(values=vector_values))
+                    elif curr_datatype == "DataTypeInt16Vector":
+                        for feature in features:
+                            vector_values = Values(
+                                int32_values=[np.int32(x) for x in row[feature]]
+                            )
+                            values.vector.append(Vector(values=vector_values))                            
                     elif curr_datatype == "DataTypeInt32Vector":
                         for feature in features:
                             vector_values = Values(
@@ -162,13 +190,25 @@ class OrionPyClient:
                                 int64_values=[np.int64(x) for x in row[feature]]
                             )
                             values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUInt32Vector":
+                    elif curr_datatype == "DataTypeUint8Vector":
                         for feature in features:
                             vector_values = Values(
                                 uint32_values=[np.uint32(x) for x in row[feature]]
                             )
                             values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUInt64Vector":
+                    elif curr_datatype == "DataTypeUint16Vector":
+                        for feature in features:
+                            vector_values = Values(
+                                uint32_values=[np.uint32(x) for x in row[feature]]
+                            )
+                            values.vector.append(Vector(values=vector_values))
+                    elif curr_datatype == "DataTypeUint32Vector":
+                        for feature in features:
+                            vector_values = Values(
+                                uint32_values=[np.uint32(x) for x in row[feature]]
+                            )
+                            values.vector.append(Vector(values=vector_values))
+                    elif curr_datatype == "DataTypeUint64Vector":
                         for feature in features:
                             vector_values = Values(
                                 uint64_values=[np.uint64(x) for x in row[feature]]

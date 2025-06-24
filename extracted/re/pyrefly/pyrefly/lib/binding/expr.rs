@@ -51,6 +51,7 @@ use crate::graph::index::Idx;
 use crate::module::short_identifier::ShortIdentifier;
 use crate::ruff::ast::Ast;
 use crate::types::callable::unexpected_keyword;
+use crate::types::globals::Global;
 use crate::types::types::Type;
 
 /// Looking up names in an expression requires knowing the identity of the binding
@@ -241,18 +242,12 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 self.insert_binding(key, value)
             }
-            Err(_) if name.id == dunder::FILE || name.id == dunder::NAME => {
-                self.insert_binding(key, Binding::StrType)
+            Err(_) if name.id == dunder::DOC => {
+                self.insert_binding(key, Binding::Global(Global::doc(self.has_docstring)))
             }
-            Err(_) if name.id == dunder::DEBUG => self.insert_binding(key, Binding::BoolType),
-            Err(_) if name.id == dunder::DOC => self.insert_binding(
-                key,
-                if self.has_docstring {
-                    Binding::StrType
-                } else {
-                    Binding::Type(Type::None)
-                },
-            ),
+            Err(_) if let Some(global) = Global::from_name(&name.id) => {
+                self.insert_binding(key, Binding::Global(global))
+            }
             Err(error) => {
                 // Record a type error and fall back to `Any`.
                 self.error(
@@ -685,25 +680,24 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(e, static_type_usage);
                 }
             }
-            Expr::StringLiteral(literal) => match Ast::parse_type_literal(literal) {
-                Ok(expr) => {
-                    *x = expr;
-                    // TODO: Remember if we have already done a parse_type_literal, so we could properly
-                    // reject annotations of the form `"'T'"`.
-                    self.ensure_type(x, tparams_builder);
+            Expr::StringLiteral(literal) if let Some(literal) = literal.as_single_part_string() => {
+                match Ast::parse_type_literal(literal) {
+                    Ok(expr) => {
+                        *x = expr;
+                        // TODO: Remember if we have already done a parse_type_literal, so we could properly
+                        // reject annotations of the form `"'T'"`.
+                        self.ensure_type(x, tparams_builder);
+                    }
+                    Err(e) => {
+                        self.error(
+                            literal.range,
+                            ErrorKind::ParseError,
+                            None,
+                            format!("Could not parse type string: {}, got {e}", literal.value),
+                        );
+                    }
                 }
-                Err(e) => {
-                    self.error(
-                        literal.range,
-                        ErrorKind::ParseError,
-                        None,
-                        format!(
-                            "Could not parse type string: {}, got {e}",
-                            literal.value.to_str()
-                        ),
-                    );
-                }
-            },
+            }
             // Bind the lambda so we don't crash on undefined parameter names.
             Expr::Lambda(_) => self.ensure_expr(x, static_type_usage),
             // Bind the call so we generate all expected bindings. See

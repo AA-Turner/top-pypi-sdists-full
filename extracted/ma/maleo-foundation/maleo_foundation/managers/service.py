@@ -44,96 +44,96 @@ from maleo_foundation.utils.logging import (
 from maleo_foundation.utils.merger import deep_merge
 
 class Settings(BaseSettings):
-    ENVIRONMENT:BaseEnums.EnvironmentType = Field(..., description="Environment")
-    SERVICE_KEY:str = Field(..., description="Service's key")
-    GOOGLE_CREDENTIALS_PATH:str = Field("credentials/maleo-google-service-account.json", description="Internal credential's file path")
-    STATIC_CONFIGURATIONS_PATH:str = Field("configs/static.yaml", description="Maleo's static configurations path")
-    RUNTIME_CONFIGURATIONS_PATH:str = Field("configs/runtime.yaml", description="Service's runtime configurations path")
+    ENVIRONMENT: BaseEnums.EnvironmentType = Field(..., description="Environment")
+    SERVICE_KEY: str = Field(..., description="Service's key")
+    GOOGLE_CREDENTIALS_PATH: str = Field("credentials/maleo-google-service-account.json", description="Internal credential's file path")
+    STATIC_CONFIGURATIONS_PATH: str = Field("configs/static.yaml", description="Maleo's static configurations path")
+    RUNTIME_CONFIGURATIONS_PATH: str = Field("configs/runtime.yaml", description="Service's runtime configurations path")
 
 class MaleoCredentials(BaseModel):
-    id:int = Field(..., description="ID")
-    uuid:UUID = Field(..., description="UUID")
-    username:str = Field(..., description="Username")
-    email:str = Field(..., description="Email")
-    password:str = Field(..., description="Password")
+    id: int = Field(..., description="ID")
+    uuid: UUID = Field(..., description="UUID")
+    username: str = Field(..., description="Username")
+    email: str = Field(..., description="Email")
+    password: str = Field(..., description="Password")
 
 class MiddlewareRuntimeConfigurations(BaseModel):
-    base:BaseMiddlewareConfigurations = Field(..., description="Base middleware's configurations")
+    base: BaseMiddlewareConfigurations = Field(..., description="Base middleware's configurations")
 
     class Config:
         arbitrary_types_allowed=True
 
 class ServiceConfigurations(BaseModel):
-    key:str = Field(..., description="Service's key")
-    name:str = Field(..., description="Service's name")
-    host:str = Field(..., description="Service's host")
-    port:int = Field(..., description="Service's port")
+    key: str = Field(..., description="Service's key")
+    name: str = Field(..., description="Service's name")
+    host: str = Field(..., description="Service's host")
+    port: int = Field(..., description="Service's port")
 
 class RuntimeConfigurations(BaseModel):
-    service:ServiceConfigurations = Field(..., description="Service's configurations")
-    middleware:MiddlewareRuntimeConfigurations = Field(..., description="Middleware's runtime configurations")
-    database:str = Field(..., description="Database's name")
+    service: ServiceConfigurations = Field(..., description="Service's configurations")
+    middleware: MiddlewareRuntimeConfigurations = Field(..., description="Middleware's runtime configurations")
+    database: str = Field(..., description="Database's name")
 
     class Config:
         arbitrary_types_allowed=True
 
 class MiddlewareStaticConfigurations(BaseModel):
-    general:GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")
-    cors:CORSMiddlewareConfigurations = Field(..., description="CORS middleware's configurations")
+    general: GeneralMiddlewareConfigurations = Field(..., description="Middleware's general configurations")
+    cors: CORSMiddlewareConfigurations = Field(..., description="CORS middleware's configurations")
 
     class Config:
         arbitrary_types_allowed=True
 
 class MaleoClientConfiguration(BaseModel):
-    key:str = Field(..., description="Client's key")
-    name:str = Field(..., description="Client's name")
-    url:str = Field(..., description="Client's URL")
+    key: str = Field(..., description="Client's key")
+    name: str = Field(..., description="Client's name")
+    url: str = Field(..., description="Client's URL")
 
 class MaleoClientConfigurations(BaseModel):
-    telemetry:MaleoClientConfiguration = Field(..., description="MaleoTelemetry client's configuration")
-    metadata:MaleoClientConfiguration = Field(..., description="MaleoMetadata client's configuration")
-    identity:MaleoClientConfiguration = Field(..., description="MaleoIdentity client's configuration")
-    access:MaleoClientConfiguration = Field(..., description="MaleoAccess client's configuration")
-    workshop:MaleoClientConfiguration = Field(..., description="MaleoWorkshop client's configuration")
-    medix:MaleoClientConfiguration = Field(..., description="MaleoMedix client's configuration")
-    fhir:MaleoClientConfiguration = Field(..., description="MaleoFHIR client's configuration")
-    dicom:MaleoClientConfiguration = Field(..., description="MaleoDICOM client's configuration")
-    scribe:MaleoClientConfiguration = Field(..., description="MaleoScribe client's configuration")
-    cds:MaleoClientConfiguration = Field(..., description="MaleoCDS client's configuration")
-    imaging:MaleoClientConfiguration = Field(..., description="MaleoImaging client's configuration")
-    mcu:MaleoClientConfiguration = Field(..., description="MaleoMCU client's configuration")
+    telemetry: MaleoClientConfiguration = Field(..., description="MaleoTelemetry client's configuration")
+    metadata: MaleoClientConfiguration = Field(..., description="MaleoMetadata client's configuration")
+    identity: MaleoClientConfiguration = Field(..., description="MaleoIdentity client's configuration")
+    access: MaleoClientConfiguration = Field(..., description="MaleoAccess client's configuration")
+    workshop: MaleoClientConfiguration = Field(..., description="MaleoWorkshop client's configuration")
+    medix: MaleoClientConfiguration = Field(..., description="MaleoMedix client's configuration")
+    fhir: MaleoClientConfiguration = Field(..., description="MaleoFHIR client's configuration")
+    dicom: MaleoClientConfiguration = Field(..., description="MaleoDICOM client's configuration")
+    scribe: MaleoClientConfiguration = Field(..., description="MaleoScribe client's configuration")
+    cds: MaleoClientConfiguration = Field(..., description="MaleoCDS client's configuration")
+    imaging: MaleoClientConfiguration = Field(..., description="MaleoImaging client's configuration")
+    mcu: MaleoClientConfiguration = Field(..., description="MaleoMCU client's configuration")
 
     class Config:
         arbitrary_types_allowed=True
 
 class ClientConfigurations(BaseModel):
-    maleo:MaleoClientConfigurations = Field(..., description="Maleo client's configurations")
+    maleo: MaleoClientConfigurations = Field(..., description="Maleo client's configurations")
 
     class Config:
         arbitrary_types_allowed=True
 
 class StaticConfigurations(BaseModel):
-    middleware:MiddlewareStaticConfigurations = Field(..., description="Middleware's static configurations")
-    client:ClientConfigurations = Field(..., description="Client's configurations")
+    middleware: MiddlewareStaticConfigurations = Field(..., description="Middleware's static configurations")
+    client: ClientConfigurations = Field(..., description="Client's configurations")
 
     class Config:
         arbitrary_types_allowed=True
 
 class Configurations(BaseModel):
-    service:ServiceConfigurations = Field(..., description="Service's configurations")
-    middleware:MiddlewareConfigurations = Field(..., description="Middleware's configurations")
-    cache:CacheConfigurations = Field(..., description="Cache's configurations")
-    database:DatabaseConfigurations = Field(..., description="Database's configurations")
-    client:ClientConfigurations = Field(..., description="Client's configurations")
+    service: ServiceConfigurations = Field(..., description="Service's configurations")
+    middleware: MiddlewareConfigurations = Field(..., description="Middleware's configurations")
+    cache: CacheConfigurations = Field(..., description="Cache's configurations")
+    database: DatabaseConfigurations = Field(..., description="Database's configurations")
+    client: ClientConfigurations = Field(..., description="Client's configurations")
 
     class Config:
         arbitrary_types_allowed=True
 
 class Loggers(BaseModel):
-    application:ServiceLogger = Field(..., description="Application logger")
-    repository:ServiceLogger = Field(..., description="Repository logger")
-    database:ServiceLogger = Field(..., description="Database logger")
-    middleware:MiddlewareLoggers = Field(..., description="Middleware logger")
+    application: ServiceLogger = Field(..., description="Application logger")
+    repository: ServiceLogger = Field(..., description="Repository logger")
+    database: ServiceLogger = Field(..., description="Database logger")
+    middleware: MiddlewareLoggers = Field(..., description="Middleware logger")
 
     class Config:
         arbitrary_types_allowed=True
@@ -141,9 +141,9 @@ class Loggers(BaseModel):
 class ServiceManager:
     def __init__(
         self,
-        db_metadata:MetaData,
-        log_config:SimpleConfig,
-        settings:Optional[Settings] = None
+        db_metadata: MetaData,
+        log_config: SimpleConfig,
+        settings: Optional[Settings] = None
     ):
         self._db_metadata = db_metadata #* Declare DB Metadata
         self._log_config = log_config #* Declare log config
@@ -394,8 +394,8 @@ class ServiceManager:
 
     def create_app(
         self,
-        router:APIRouter,
-        lifespan:Optional[Lifespan[AppType]]=None
+        router: APIRouter,
+        lifespan: Optional[Lifespan[AppType]]=None
     ) -> FastAPI:
         self._loggers.application.info("Creating FastAPI application")
         root_path = "" if self._settings.ENVIRONMENT == "local" else f"/{self._configs.service.key.removeprefix("maleo-")}"

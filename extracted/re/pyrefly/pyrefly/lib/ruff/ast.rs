@@ -15,7 +15,6 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBooleanLiteral;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprNoneLiteral;
-use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Parameter;
@@ -29,6 +28,7 @@ use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtIf;
 use ruff_python_ast::StringFlags;
+use ruff_python_ast::StringLiteral;
 use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
 use ruff_python_ast::visitor::source_order::TraversalSignal;
 use ruff_python_parser::ParseError;
@@ -99,15 +99,20 @@ impl Ast {
             .body)
     }
 
-    pub fn parse_type_literal(x: &ExprStringLiteral) -> anyhow::Result<Expr> {
-        let mut s = x.value.to_str().to_owned();
-        if x.value.iter().any(|x| x.flags.is_triple_quoted()) {
+    pub fn parse_type_literal(x: &StringLiteral) -> anyhow::Result<Expr> {
+        let mut s = &*x.value;
+        let buffer;
+        let mut add = x.flags.prefix().text_len() + TextSize::new(1);
+
+        if x.flags.is_triple_quoted() {
             // Implicitly bracketed, so add them explicitly
-            s = format!("({s})");
+            buffer = format!("({s})");
+            s = &buffer;
+            add += TextSize::new(1); // 3 for the quotes, minus 1 for the bracket, minus 1 for the raw quote
         }
-        // These positions are adequate (they are at least inside the literal) but might not be precise
-        // given string gaps.
-        Ast::parse_expr(&s, x.range.start())
+        // Make sure the range is precise, so that we get the right UTF8 indicies.
+        // We might have a problem with \ escapes moving indicies, but if necessary we can ban those.
+        Ast::parse_expr(s, x.range.start() + add)
     }
 
     pub fn unpack_slice(x: &Expr) -> &[Expr] {

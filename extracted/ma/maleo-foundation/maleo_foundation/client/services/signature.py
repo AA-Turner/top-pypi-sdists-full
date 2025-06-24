@@ -17,7 +17,7 @@ from maleo_foundation.utils.loaders.key.rsa import RSAKeyLoader
 class MaleoFoundationSignatureClientService(ClientService):
     def sign(
         self,
-        parameters:MaleoFoundationSignatureParametersTransfers.Sign
+        parameters: MaleoFoundationSignatureParametersTransfers.Sign
     ) -> MaleoFoundationSignatureResultsTypes.Sign:
         @BaseExceptions.service_exception_handler(
             operation="signing single message",
@@ -59,7 +59,7 @@ class MaleoFoundationSignatureClientService(ClientService):
 
     def verify(
         self,
-        parameters:MaleoFoundationSignatureParametersTransfers.Verify
+        parameters: MaleoFoundationSignatureParametersTransfers.Verify
     ) -> MaleoFoundationSignatureResultsTypes.Verify:
         @BaseExceptions.service_exception_handler(
             operation="verify single signature",

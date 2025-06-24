@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safe-eth-py
-Version: 7.5.1
+Version: 7.6.1
 Summary: Safe Ecosystem Foundation utilities for Ethereum projects
 Project-URL: Documentation, https://safe-eth-py.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/safe-global/safe-eth-py
@@ -157,6 +157,32 @@ It includes:
 - **safe_eth.eth.django.validators**: Ethereum related validators.
 - **safe_eth.safe.serializers**: Serializers for Safe (signature, transaction...).
 - All the tests are written using Django Test suite.
+
+
+Safe APIs
+--------------
+safe_eth.safe.api
+~~~~~~~~~~~~~~~~~
+Interaction with the Safe Transaction Service API to manage Safes, transactions, delegates, and messages.
+
+To use the default Transaction Service, you need an API key. You can set this API key either as an environment variable
+or pass it directly to the constructor using the `api_key` parameter. To obtain your API key, create an account on the
+Safe Developer Portal at https://developer.safe.global. Additionally, you can choose to use a custom service by setting
+the `base_url` parameter, the API key may not be required.
+
+.. code-block:: bash
+
+ export SAFE_TRANSACTION_SERVICE_API_KEY=[api-key-jwt-token-value]
+
+Example:
+
+.. code-block:: python
+
+    from safe_eth.eth import EthereumNetwork
+    from safe_eth.safe.api import TransactionServiceApi
+
+    transaction_service_api = TransactionServiceApi(EthereumNetwork.GNOSIS)
+    transactions = transaction_service_api.get_transactions("0xAedF684C1c41B51CbD228116e11484425d2FACB9")
 
 Contributors
 ------------

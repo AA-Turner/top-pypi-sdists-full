@@ -12,7 +12,7 @@ use crate::module::module_name::ModuleName;
 use crate::sys_info::PythonVersion;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::class::TArgs;
+use crate::types::types::TArgs;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone)]
@@ -104,6 +104,7 @@ impl Stdlib {
         let typing = ModuleName::typing();
         let typing_extensions = ModuleName::typing_extensions();
         let enum_ = ModuleName::enum_();
+        let type_checker_internals = ModuleName::type_checker_internals();
 
         let lookup_generic =
             |module: ModuleName, name: &'static str, args: usize| match lookup_class(
@@ -176,8 +177,8 @@ impl Stdlib {
             mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
-            named_tuple_fallback: lookup_concrete(typing, "NamedTuple"),
-            typed_dict_fallback: lookup_concrete(typing, "_TypedDict"),
+            named_tuple_fallback: lookup_concrete(type_checker_internals, "NamedTupleFallback"),
+            typed_dict_fallback: lookup_concrete(type_checker_internals, "TypedDictFallback"),
             property: lookup_concrete(builtins, "property"),
             object: lookup_concrete(builtins, "object"),
         }
@@ -281,7 +282,9 @@ impl Stdlib {
 
     fn apply(cls: &StdlibResult<Class>, targs: Vec<Type>) -> ClassType {
         // Note: this construction will panic if we use `apply` with the wrong arity.
-        ClassType::new(Self::unwrap(cls).dupe(), TArgs::new(targs))
+        let cls = Self::unwrap(cls);
+        let targs = TArgs::new(cls.arc_tparams().dupe(), targs);
+        ClassType::new(cls.dupe(), targs)
     }
 
     pub fn base_exception_group(&self, x: Type) -> Option<ClassType> {

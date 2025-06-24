@@ -15,16 +15,19 @@ from maleo_foundation.utils.logging import MiddlewareLogger
 class Backend(AuthenticationBackend):
     def __init__(
         self,
-        keys:BaseGeneralSchemas.RSAKeys,
-        logger:MiddlewareLogger,
-        maleo_foundation:MaleoFoundationClientManager
+        keys: BaseGeneralSchemas.RSAKeys,
+        logger: MiddlewareLogger,
+        maleo_foundation: MaleoFoundationClientManager
     ):
         super().__init__()
         self._keys = keys
         self._logger = logger
         self._maleo_foundation = maleo_foundation
 
-    async def authenticate(self, conn:HTTPConnection) -> Tuple[Credentials, User]:
+    async def authenticate(
+        self,
+        conn: HTTPConnection
+    ) -> Tuple[Credentials, User]:
         if "Authorization" in conn.headers:
             auth = conn.headers["Authorization"]
             parts = auth.split()
@@ -95,10 +98,10 @@ class Backend(AuthenticationBackend):
         return Credentials(), User(authenticated=False)
 
 def add_authentication_middleware(
-    app:FastAPI,
-    keys:BaseGeneralSchemas.RSAKeys,
-    logger:MiddlewareLogger,
-    maleo_foundation:MaleoFoundationClientManager
+    app: FastAPI,
+    keys: BaseGeneralSchemas.RSAKeys,
+    logger: MiddlewareLogger,
+    maleo_foundation: MaleoFoundationClientManager
 ) -> None:
     """
     Adds Authentication middleware to the FastAPI application.

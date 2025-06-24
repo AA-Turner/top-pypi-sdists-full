@@ -53,48 +53,13 @@ async def timeout_server_process():
     print("Timeout test server cleanup complete")
 
 
-@pytest.fixture
-async def long_timeout_server_process():
-    """Start a server that closes connections after 30+ seconds to match issue reproduction steps"""
-    server_path = Path(__file__).parent.parent.parent / "servers_for_testing" / "long_timeout_test_server.py"
-
-    print(f"Starting long timeout test server: python {server_path}")
-
-    # Start the server process
-    process = subprocess.Popen(
-        ["python", str(server_path)],
-        cwd=str(server_path.parent),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-
-    # Give the server time to start
-    await asyncio.sleep(2)
-    server_url = "http://127.0.0.1:8082"
-    yield server_url
-
-    # Cleanup
-    print("Cleaning up long timeout test server process")
-    if process.poll() is None:
-        process.terminate()
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            print("Process didn't terminate gracefully, killing it")
-            process.kill()
-            process.wait()
-
-    print("Long timeout test server cleanup complete")
-
-
 @pytest.mark.asyncio
-async def test_github_issue_120_fixed_behavior(long_timeout_server_process):
+async def test_github_issue_120_fixed_behavior(timeout_server_process):
     """Test that GitHub issue #120 is fixed: connection state properly tracked and auto-reconnection works"""
-    server_url = long_timeout_server_process
+    server_url = timeout_server_process
 
-    # Step 1: Create an HttpConnector with SSE endpoint configuration with auto_connect enabled
-    config = {"mcpServers": {"fixTest": {"url": f"{server_url}/sse", "auto_connect": True}}}
+    # Step 1: Create an HttpConnector with SSE endpoint configuration
+    config = {"mcpServers": {"fixTest": {"url": f"{server_url}/sse"}}}
 
     client = MCPClient(config=config)
     try:
@@ -121,11 +86,11 @@ async def test_github_issue_120_fixed_behavior(long_timeout_server_process):
         print("✓ Tool call succeeded while connected")
 
         # Step 3: Wait for 30+ seconds for the server to close the SSE connection due to inactivity
-        print("Waiting for server timeout (35 seconds)...")
-        await asyncio.sleep(35)
+        print("Waiting for server timeout (10 seconds)...")
+        await asyncio.sleep(10)
 
         # Step 4: Check connection state - should now properly detect disconnection
-        print(f"Connection state after 35 second timeout: {session.is_connected}")
+        print(f"Connection state after 10 second timeout: {session.is_connected}")
 
         # With the fix, is_connected should properly detect the disconnection
         # But since auto_connect is enabled, it might auto-reconnect on the next call
@@ -147,7 +112,9 @@ async def test_github_issue_120_fixed_behavior(long_timeout_server_process):
 
             # With the fix, we should get a clear error message (not empty)
             assert error_msg != "", "Error message should not be empty (GitHub Issue #120 fixed)"
-            assert "reconnect" in error_msg.lower() or "connection" in error_msg.lower(), "Error message should mention connection/reconnection issues"
+            assert (
+                "reconnect" in error_msg.lower() or "connection" in error_msg.lower()
+            ), "Error message should mention connection/reconnection issues"
             print("✓ Clear error message provided instead of empty error")
         except Exception as e:
             # Any other exception should also have a clear message
@@ -162,12 +129,12 @@ async def test_github_issue_120_fixed_behavior(long_timeout_server_process):
 
 
 @pytest.mark.asyncio
-async def test_github_issue_120_auto_connect_disabled(long_timeout_server_process):
-    """Test GitHub issue #120 fix with auto_connect disabled - should provide clear error messages"""
-    server_url = long_timeout_server_process
+async def test_github_issue_120_manual_connection(timeout_server_process):
+    """Test GitHub issue #120 fix with manual connection - should provide clear error messages"""
+    server_url = timeout_server_process
 
-    # Create connector with auto_connect disabled
-    config = {"mcpServers": {"noAutoTest": {"url": f"{server_url}/sse", "auto_connect": False}}}
+    # Create connector and test manual connection behavior
+    config = {"mcpServers": {"noAutoTest": {"url": f"{server_url}/sse"}}}
 
     client = MCPClient(config=config)
     try:
@@ -186,7 +153,7 @@ async def test_github_issue_120_auto_connect_disabled(long_timeout_server_proces
         assert len(tools) > 0, "Should have at least one tool"
         test_tool = tools[0]
 
-        print(f"Initial connection established (auto_connect=False), testing tool: {test_tool.name}")
+        print(f"Initial connection established (manual connection), testing tool: {test_tool.name}")
         print(f"is_connected: {session.is_connected}")
 
         # Verify tool works initially
@@ -195,14 +162,14 @@ async def test_github_issue_120_auto_connect_disabled(long_timeout_server_proces
         print("✓ Tool call succeeded while connected")
 
         # Wait for server timeout
-        print("Waiting for server timeout (35 seconds) with auto_connect=False...")
-        await asyncio.sleep(35)
+        print("Waiting for server timeout (10 seconds)...")
+        await asyncio.sleep(10)
 
         # Check connection state after timeout
-        print(f"Connection state after 35 second timeout (auto_connect=False): {session.is_connected}")
+        print(f"Connection state after 10 second timeout: {session.is_connected}")
 
-        # Attempt to call a tool - should fail with clear error message since auto_connect is disabled
-        print("Attempting tool call after timeout (auto_connect=False)...")
+        # Attempt to call a tool - should either auto-reconnect or fail with clear error message
+        print("Attempting tool call after timeout...")
         try:
             result2 = await session.connector.call_tool(test_tool.name, {})
             # If this succeeds, the connection may still be active or there's an issue
@@ -217,77 +184,15 @@ async def test_github_issue_120_auto_connect_disabled(long_timeout_server_proces
 
             # With the fix, we should get a clear error message about connection loss
             assert error_msg != "", "Error message should not be empty (GitHub Issue #120 fixed)"
-            assert "connection" in error_msg.lower() and (
-                "lost" in error_msg.lower() or "manual" in error_msg.lower()
-            ), "Error message should clearly indicate connection loss and need for manual reconnection"
-            print("✓ Clear error message provided for connection loss with auto_connect disabled")
+            assert "connection" in error_msg.lower(), "Error message should mention connection issues"
+            print("✓ Clear error message provided for connection loss")
         except Exception as e:
             error_msg = str(e)
             print(f"Tool call failed with exception: {type(e).__name__}: '{error_msg}'")
             # Any error should have a clear message
             assert error_msg != "", "Error message should not be empty"
 
-        print("✓ GitHub Issue #120 fix verified with auto_connect=False - clear error messages")
-
-    finally:
-        await client.close_all_sessions()
-
-
-@pytest.mark.asyncio
-async def test_connection_state_after_server_timeout(timeout_server_process):
-    """Test that connection state is properly tracked when server closes connection due to timeout"""
-    server_url = timeout_server_process
-    config = {"mcpServers": {"timeoutTest": {"url": f"{server_url}/sse", "auto_connect": True}}}
-
-    client = MCPClient(config=config)
-    try:
-        # Establish initial connection
-        await client.create_all_sessions()
-        session = client.get_session("timeoutTest")
-
-        assert session is not None, "Session should be created"
-        await session.initialize()
-        assert session.is_connected, "Session should be connected after initialize"
-
-        # Get a tool to call later
-        tools = session.connector.tools
-        assert len(tools) > 0, "Should have at least one tool"
-        test_tool = tools[0]
-
-        print(f"Initial connection established, testing tool: {test_tool.name}")
-
-        # Call tool successfully while connected
-        result1 = await session.connector.call_tool(test_tool.name, {})
-        assert result1 is not None, "Tool call should succeed while connected"
-        print("✓ Tool call succeeded while connected")
-
-        # Wait for server timeout (server should close connection after 5 seconds)
-        print("Waiting for server timeout...")
-        await asyncio.sleep(8)
-
-        # After the fix, check connection state behavior
-        print(f"Connection state after timeout: {session.is_connected}")
-
-        # Try to call tool after timeout
-        try:
-            result2 = await session.connector.call_tool(test_tool.name, {})
-            if result2 is not None:
-                print("✓ Tool call succeeded - auto-reconnection worked")
-            else:
-                print("⚠ Tool call returned None")
-        except RuntimeError as e:
-            error_msg = str(e)
-            print(f"Tool call failed with clear error: {error_msg}")
-
-            # Check that we get a clear error message (not empty)
-            assert error_msg != "", "Error message should not be empty (GitHub Issue #120 fixed)"
-            print("✓ Clear error message provided instead of empty error")
-        except Exception as e:
-            error_msg = str(e)
-            print(f"Tool call failed with exception: {type(e).__name__}: {error_msg}")
-            assert error_msg != "", "Error message should not be empty"
-
-        print("✓ Connection state properly tracked after server timeout")
+        print("✓ GitHub Issue #120 fix verified - clear error messages")
 
     finally:
         await client.close_all_sessions()
@@ -297,14 +202,7 @@ async def test_connection_state_after_server_timeout(timeout_server_process):
 async def test_connection_manager_task_detection(timeout_server_process):
     """Test that connection manager task completion is properly detected"""
     server_url = timeout_server_process
-    config = {
-        "mcpServers": {
-            "timeoutTest": {
-                "url": f"{server_url}/sse",
-                "auto_connect": False,  # Disable auto_connect to test state detection
-            }
-        }
-    }
+    config = {"mcpServers": {"timeoutTest": {"url": f"{server_url}/sse"}}}
 
     client = MCPClient(config=config)
     try:
@@ -349,7 +247,7 @@ async def test_connection_manager_task_detection(timeout_server_process):
 async def test_multiple_reconnection_attempts(timeout_server_process):
     """Test that auto-reconnection works multiple times"""
     server_url = timeout_server_process
-    config = {"mcpServers": {"timeoutTest": {"url": f"{server_url}/sse", "auto_connect": True}}}
+    config = {"mcpServers": {"timeoutTest": {"url": f"{server_url}/sse"}}}
 
     client = MCPClient(config=config)
     try:

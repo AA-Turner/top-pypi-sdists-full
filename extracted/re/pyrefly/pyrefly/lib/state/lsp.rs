@@ -17,6 +17,7 @@ use lsp_types::ParameterLabel;
 use lsp_types::SemanticToken;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
+use lsp_types::TextEdit;
 use pyrefly_util::gas::Gas;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
@@ -31,6 +32,7 @@ use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
@@ -49,6 +51,7 @@ use crate::error::kind::ErrorKind;
 use crate::export::definitions::DocString;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
+use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::SourceRange;
 use crate::module::module_info::TextRangeWithModuleInfo;
@@ -75,6 +78,7 @@ use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
 const INITIAL_GAS: Gas = Gas::new(100);
+const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
 #[derive(Clone)]
 pub enum DefinitionMetadata {
@@ -199,6 +203,14 @@ pub enum AnnotationKind {
     Parameter,
     Return,
 }
+
+#[derive(Debug)]
+pub struct ParameterAnnotation {
+    pub text_size: TextSize,
+    pub has_annotation: bool,
+    pub ty: Option<Type>,
+}
+
 impl IdentifierWithContext {
     fn from_stmt_import(id: &Identifier, alias: &Alias) -> Self {
         let identifier = id.clone();
@@ -1095,7 +1107,7 @@ impl<'a> Transaction<'a> {
                     let error_range = module_info.to_text_range(error.source_range());
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
-                        for handle_to_import_from in self.search_exports(unknown_name) {
+                        for handle_to_import_from in self.search_exports_exact(unknown_name) {
                             let (position, insert_text) =
                                 insert_import_edit(&ast, handle_to_import_from, unknown_name);
                             let range = TextRange::at(position, TextSize::new(0));
@@ -1274,27 +1286,21 @@ impl<'a> Transaction<'a> {
     /// This function helps to filter out such bindings and only leave bindings that eventually
     /// jumps to a name in the source.
     fn named_bindings(&self, handle: &Handle, bindings: &Bindings) -> Vec<NamedBinding> {
-        let self_module_info = self.get_module_info(handle);
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
             let key = bindings.idx_to_key(idx);
+            if let Key::Phi(..) = key {
+                // Phi keys are always synthetic and never serves as a name definition.
+                continue;
+            }
             if let Some((definition_handle, definition_export)) =
                 self.key_to_export(handle, key, INITIAL_GAS)
-                && let Some(self_module_info) = &self_module_info
-                && let Some(definition_module_info) = self.get_module_info(&definition_handle)
-                && definition_handle.path() == definition_module_info.path()
             {
-                // Sanity check: the reference should have the same text as the definition.
-                // This check helps to filter out from synthetic bindings.
-                if self_module_info.code_at(key.range())
-                    == definition_module_info.code_at(definition_export.location)
-                {
-                    named_bindings.push(NamedBinding {
-                        definition_handle,
-                        definition_export,
-                        key: key.clone(),
-                    });
-                }
+                named_bindings.push(NamedBinding {
+                    definition_handle,
+                    definition_export,
+                    key: key.clone(),
+                });
             }
         }
         named_bindings
@@ -1344,12 +1350,21 @@ impl<'a> Transaction<'a> {
                 Some(completions)
             }
             Some(IdentifierWithContext {
-                identifier: _,
+                identifier,
                 context: IdentifierContext::ImportedModule { .. },
-            }) => {
-                // TODO(kylei): completion for module names
-                None
-            }
+            }) => Some(
+                self.import_prefixes(handle, ModuleName::from_name(identifier.id()))
+                    .map(|module_name| CompletionItem {
+                        label: module_name
+                            .components()
+                            .last()
+                            .unwrap_or(&Name::empty())
+                            .to_string(),
+                        detail: Some(module_name.to_string()),
+                        kind: Some(CompletionItemKind::MODULE),
+                        ..Default::default()
+                    }),
+            ),
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::Attribute { base_range, .. },
@@ -1366,10 +1381,10 @@ impl<'a> Transaction<'a> {
                         })
                 })
             }
-            Some(IdentifierWithContext { .. }) => {
+            Some(IdentifierWithContext { identifier, .. }) => {
                 let bindings = self.get_bindings(handle)?;
                 let module_info = self.get_module_info(handle)?;
-                let names = bindings
+                let mut names = bindings
                     .available_definitions(position)
                     .into_iter()
                     .filter_map(|idx| {
@@ -1392,9 +1407,184 @@ impl<'a> Transaction<'a> {
                         }
                     })
                     .collect::<Vec<_>>();
+                // We should not try to generate autoimport when the user has typed very few
+                // characters. It's unhelpful to narrow down suggestions.
+                if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                    && let Some(ast) = self.get_ast(handle)
+                {
+                    for (handle_to_import_from, name, export) in
+                        self.search_exports_fuzzy(identifier.as_str())
+                    {
+                        let (position, insert_text) =
+                            insert_import_edit(&ast, handle_to_import_from, &name);
+                        let import_text_edit = TextEdit {
+                            range: source_range_to_range(
+                                &module_info
+                                    .source_range(TextRange::at(position, TextSize::new(0))),
+                            ),
+                            new_text: insert_text.clone(),
+                        };
+                        names.push(CompletionItem {
+                            label: name,
+                            detail: Some(insert_text),
+                            kind: export
+                                .symbol_kind
+                                .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                    Some(k.to_lsp_completion_item_kind())
+                                }),
+                            additional_text_edits: Some(vec![import_text_edit]),
+                            ..Default::default()
+                        });
+                    }
+                }
                 Some(names)
             }
             None => None,
+        }
+    }
+
+    fn collect_types_from_callees(&self, range: TextRange, handle: &Handle) -> Vec<Type> {
+        fn callee_at(mod_module: Arc<ModModule>, position: TextSize) -> Option<ExprCall> {
+            fn f(x: &Expr, find: TextSize, res: &mut Option<ExprCall>) {
+                if let Expr::Call(call) = x
+                    && call.func.range().contains_inclusive(find)
+                {
+                    f(call.func.as_ref(), find, res);
+                    if res.is_some() {
+                        return;
+                    }
+                    *res = Some(call.clone());
+                } else {
+                    x.recurse(&mut |x| f(x, find, res));
+                }
+            }
+            let mut res = None;
+            mod_module.visit(&mut |x| f(x, position, &mut res));
+            res
+        }
+        match self.get_ast(handle) {
+            Some(mod_module) => {
+                let callee = callee_at(mod_module, range.start());
+                match callee {
+                    Some(ExprCall {
+                        range: _,
+                        func: _,
+                        arguments: args,
+                    }) => args
+                        .args
+                        .iter()
+                        .filter_map(|arg| self.get_type_trace(handle, arg.range()))
+                        .collect(),
+                    None => Vec::new(),
+                }
+            }
+            None => Vec::new(),
+        }
+    }
+
+    fn collect_references(
+        &self,
+        handle: &Handle,
+        idx: Idx<Key>,
+        bindings: Bindings,
+        transaction: &mut CancellableTransaction,
+    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
+        if let Key::Definition(id) = bindings.idx_to_key(idx) {
+            if let Some(module_info) = self.get_module_info(handle) {
+                let definition_kind = DefinitionMetadata::VariableOrAttribute(
+                    Name::from(module_info.code_at(id.range())),
+                    None,
+                );
+                if let Ok(references) = transaction.find_global_references_from_definition(
+                    handle.sys_info(),
+                    definition_kind,
+                    TextRangeWithModuleInfo::new(module_info, id.range()),
+                ) {
+                    return references;
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    pub fn infer_parameter_annotations(
+        &self,
+        handle: &Handle,
+        cancellable_transaction: &mut CancellableTransaction,
+    ) -> Vec<ParameterAnnotation> {
+        if let Some(bindings) = self.get_bindings(handle) {
+            let transaction = cancellable_transaction;
+            fn transpose<T: Clone>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
+                if v.is_empty() {
+                    return Vec::new();
+                }
+                let max_len = v.iter().map(|row| row.len()).max().unwrap();
+                let mut result = vec![Vec::new(); max_len];
+
+                for row in v {
+                    for (i, elem) in row.into_iter().enumerate() {
+                        result[i].push(elem);
+                    }
+                }
+                result
+            }
+            fn filter_parameters(
+                param_with_default: ParameterWithDefault,
+            ) -> Option<ParameterAnnotation> {
+                if param_with_default.name() == "self" || param_with_default.name() == "cls" {
+                    return None;
+                }
+                Some(ParameterAnnotation {
+                    text_size: param_with_default.range().end(),
+                    ty: None,
+                    has_annotation: param_with_default.annotation().is_some(),
+                })
+            }
+            fn zip_types(
+                inferred_types: Vec<Vec<Type>>,
+                function_arguments: Vec<ParameterAnnotation>,
+            ) -> Vec<ParameterAnnotation> {
+                let zipped_inferred_types: Vec<Vec<Type>> = transpose(inferred_types);
+                function_arguments
+                    .into_iter()
+                    .zip(zipped_inferred_types)
+                    .map(|(arg, ty)| {
+                        let mut arg = arg;
+                        if ty.len() == 1 {
+                            arg.ty = Some(ty[0].clone());
+                        } else {
+                            let ty = ty.into_iter().filter(|x| !x.is_any()).collect();
+                            arg.ty = Some(Type::Union(ty));
+                        }
+                        arg
+                    })
+                    .collect()
+            }
+
+            bindings
+                .keys::<Key>()
+                .flat_map(|idx| {
+                    let binding = bindings.get(idx);
+                    // Check if this binding is a function
+                    if let Binding::Function(key_function, _, _) = binding {
+                        let binding_func = bindings.get(*key_function);
+                        let args = binding_func.def.parameters.args.clone();
+                        let func_args: Vec<ParameterAnnotation> =
+                            args.into_iter().filter_map(filter_parameters).collect();
+                        let references =
+                            self.collect_references(handle, idx, bindings.clone(), transaction);
+                        let ranges: Vec<&TextRange> =
+                            references.iter().flat_map(|(_, range)| range).collect();
+                        let inferred_types =
+                            ranges.map(|range| self.collect_types_from_callees(**range, handle));
+                        zip_types(inferred_types, func_args)
+                    } else {
+                        vec![]
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
         }
     }
 

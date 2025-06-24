@@ -558,9 +558,18 @@ class LLMBlueprint(APIObject):
         prompt_column_name: Optional[str] = None,
         target_column_name: Optional[str] = None,
         llm_test_configuration_ids: Optional[List[str]] = None,
+        vector_database_default_prediction_server_id: Optional[str] = None,
+        vector_database_prediction_environment_id: Optional[str] = None,
+        vector_database_maximum_memory: Optional[int] = None,
+        vector_database_resource_bundle_id: Optional[str] = None,
+        vector_database_replicas: Optional[int] = None,
+        vector_database_network_egress_policy: Optional[str] = None,
     ) -> CustomModelVersion:
         """
         Create a new CustomModelVersion. This registers a custom model from the LLM blueprint.
+
+        If this LLM Blueprint uses a vector database and that vector database is not yet deployed,
+        this will also deploy that vector database.
 
         Parameters
         ----------
@@ -570,18 +579,56 @@ class LLMBlueprint(APIObject):
             The column name of the response text.
         llm_test_configuration_ids : List[str], optional
             The IDs of the LLM test configurations to execute.
-
+        vector_database_default_prediction_server_id : Optional[str]
+            Only used if a new vector database is deployed. An identifier of a prediction server
+            to be used as the default prediction server by the vector database. When working with
+            prediction environments, `default_prediction_server_id` should not be provided.
+        vector_database_prediction_environment_id : Optional[str]
+            Only used if a new vector database is deployed. The identifier of the prediction
+            environment to be used by the vector database.
+        vector_database_maximum_memory: Optional[int]
+            Only used if a new vector database is deployed. The maximum memory that will be
+            allocated to the vector database.
+        vector_database_resource_bundle_id: Optional[str]
+            Only used if a new vector database is deployed. The ID of a
+            `datarobot.models.resource_bundle.ResourceBundle` that will be used by the vector
+            database.
+        vector_database_replicas: Optional[int]
+            Only used if a new vector database is deployed. The number of replicas to be deployed
+            for the vector database.
+        vector_database_network_egress_policy: Optional[str]
+            Only used if a new vector database is deployed. Determines whether the new vector
+            database deployment is isolated or can access the public network.
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`,
+            `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
         Returns
         -------
         custom_model : CustomModelVersion
             The registered custom model.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "llm_blueprint_id": self.id,
             "prompt_column_name": prompt_column_name,
             "target_column_name": target_column_name,
             "llm_test_configuration_ids": llm_test_configuration_ids,
         }
+        if vector_database_default_prediction_server_id is not None:
+            payload["default_prediction_server_id"] = vector_database_default_prediction_server_id
+        if vector_database_prediction_environment_id is not None:
+            payload["prediction_environment_id"] = vector_database_prediction_environment_id
+
+        requested_resources: dict[str, Any] = {}
+        if vector_database_maximum_memory is not None:
+            requested_resources["maximum_memory"] = vector_database_maximum_memory
+        if vector_database_resource_bundle_id is not None:
+            requested_resources["resource_bundle_id"] = vector_database_resource_bundle_id
+        if vector_database_replicas is not None:
+            requested_resources["replicas"] = vector_database_replicas
+        if vector_database_network_egress_policy is not None:
+            requested_resources["network_egress_policy"] = vector_database_network_egress_policy
+
+        if requested_resources:
+            payload["vector_database_resources"] = requested_resources
 
         url = f"{self._client.domain}/api/v2/genai/customModelVersions/"
         r_data = self._client.post(url, data=payload)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-auth-backends
-Version: 4.5.0
+Version: 4.6.0
 Summary: Custom edX authentication backends and pipeline steps
 Home-page: https://github.com/openedx/auth-backends
 Author: edX
@@ -22,6 +22,8 @@ Classifier: Topic :: Internet
 License-File: LICENSE.txt
 License-File: AUTHORS
 Requires-Dist: Django
+Requires-Dist: edx-django-utils
+Requires-Dist: edx-toggles
 Requires-Dist: pyjwt[crypto]>=2.1.0
 Requires-Dist: six
 Requires-Dist: social-auth-app-django

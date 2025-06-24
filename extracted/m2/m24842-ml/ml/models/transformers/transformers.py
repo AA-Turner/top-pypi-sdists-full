@@ -465,8 +465,7 @@ class FastTransformer(nn.Module):
 class DiffusionTransformer(nn.Module):
     def __init__(self, emb_dim, input_dim, output_dim,
                  n_layers=1, n_heads=1, mlp_dim=None, attn_sink=False,
-                 dropout=0.0, weight_tying=False,
-                 mlp_bias=True, attn_bias=True,
+                 dropout=0.0, mlp_bias=True, attn_bias=True,
                  pos_encoding=None, pos_encoding_max_len=None,
                  device="cpu"):
         super().__init__()
@@ -478,7 +477,6 @@ class DiffusionTransformer(nn.Module):
         self.mlp_dim = mlp_dim if mlp_dim is not None else 2*emb_dim
         
         self.embedding = nn.Linear(input_dim, emb_dim, bias=False, device=device)
-        
         self.out_proj = nn.Linear(emb_dim, output_dim, bias=False, device=device)
         
         self.pos_encoding = pos_encoding
@@ -511,12 +509,9 @@ class DiffusionTransformer(nn.Module):
         ])
         self.norm_f = nn.RMSNorm(emb_dim, device=device)
         
-        nn.init.xavier_uniform_(self.embedding.weight)
-        if weight_tying: self.out_proj.weight = self.embedding.weight
-        else: nn.init.xavier_uniform_(self.out_proj.weight)
-        
         self.to(device)
     
+    @torch.no_grad()
     def get_noise(self, x, profile_fn=None, t_offset=0, t_range=(-1.0, 0.0), beta_range=(0.0001, 0.02)):
         """
         Args:
@@ -530,7 +525,7 @@ class DiffusionTransformer(nn.Module):
         t_min, t_max = t_range
         beta_min, beta_max = beta_range
         bsz, seq_len = x.shape[:2]
-        t_axis = torch.linspace(t_min-t_offset, t_max-t_offset, seq_len, dtype=torch.float32, device=x.device).reshape(1, -1, 1).expand(bsz, -1, 1)
+        t_axis = torch.linspace(t_min-t_offset, t_max-t_offset, seq_len, dtype=torch.float32, device=x.device).reshape(1, -1, 1)
         profile = profile_fn(t_axis)
         betas = profile * (beta_max - beta_min) + beta_min
         alphas = 1.0 - betas
@@ -538,8 +533,9 @@ class DiffusionTransformer(nn.Module):
         return betas, alphas, alphas_cumprod
     
     def forward(self, x):
-        seq_len = x.size(1)
+        bsz, seq_len, d_model = x.shape
         x = self.embedding(x)
+        # x = self.embedding(x.reshape(bsz*seq_len, 1, -1)).reshape(bsz, seq_len, -1)
         for layer in self.layers:
             x = layer.norm1(x)
             if layer.abs_pos_encoding is not None:
@@ -552,3 +548,6 @@ class DiffusionTransformer(nn.Module):
         x = self.norm_f(x)
         x = self.out_proj(x)
         return x
+        # x = self.out_proj(x.reshape(bsz*seq_len, 1, -1)).reshape(bsz, seq_len, -1)
+        # diff = x.size(-1) - self.output_dim
+        # return x[..., diff//2:-(diff-diff//2)]

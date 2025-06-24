@@ -150,6 +150,7 @@ class CreateClusterRequest(google.protobuf.message.Message):
     DELETION_PROTECTION_FIELD_NUMBER: builtins.int
     MAINTENANCE_WINDOW_FIELD_NUMBER: builtins.int
     SHARD_SPECS_FIELD_NUMBER: builtins.int
+    DISK_ENCRYPTION_KEY_ID_FIELD_NUMBER: builtins.int
     folder_id: builtins.str
     """ID of the folder to create the ClickHouse cluster in."""
     name: builtins.str
@@ -200,6 +201,10 @@ class CreateClusterRequest(google.protobuf.message.Message):
     def shard_specs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ShardSpec]:
         """Configuration(s) of the shard(s) to be created."""
 
+    @property
+    def disk_encryption_key_id(self) -> google.protobuf.wrappers_pb2.StringValue:
+        """ID of the key to encrypt cluster disks."""
+
     def __init__(
         self,
         *,
@@ -219,9 +224,10 @@ class CreateClusterRequest(google.protobuf.message.Message):
         deletion_protection: builtins.bool = ...,
         maintenance_window: yandex.cloud.mdb.clickhouse.v1.maintenance_pb2.MaintenanceWindow | None = ...,
         shard_specs: collections.abc.Iterable[global___ShardSpec] | None = ...,
+        disk_encryption_key_id: google.protobuf.wrappers_pb2.StringValue | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["config_spec", b"config_spec", "maintenance_window", b"maintenance_window"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["config_spec", b"config_spec", "database_specs", b"database_specs", "deletion_protection", b"deletion_protection", "description", b"description", "environment", b"environment", "folder_id", b"folder_id", "host_specs", b"host_specs", "labels", b"labels", "maintenance_window", b"maintenance_window", "name", b"name", "network_id", b"network_id", "security_group_ids", b"security_group_ids", "service_account_id", b"service_account_id", "shard_name", b"shard_name", "shard_specs", b"shard_specs", "user_specs", b"user_specs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["config_spec", b"config_spec", "disk_encryption_key_id", b"disk_encryption_key_id", "maintenance_window", b"maintenance_window"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["config_spec", b"config_spec", "database_specs", b"database_specs", "deletion_protection", b"deletion_protection", "description", b"description", "disk_encryption_key_id", b"disk_encryption_key_id", "environment", b"environment", "folder_id", b"folder_id", "host_specs", b"host_specs", "labels", b"labels", "maintenance_window", b"maintenance_window", "name", b"name", "network_id", b"network_id", "security_group_ids", b"security_group_ids", "service_account_id", b"service_account_id", "shard_name", b"shard_name", "shard_specs", b"shard_specs", "user_specs", b"user_specs"]) -> None: ...
 
 global___CreateClusterRequest = CreateClusterRequest
 
@@ -608,6 +614,7 @@ class RestoreClusterRequest(google.protobuf.message.Message):
     SECURITY_GROUP_IDS_FIELD_NUMBER: builtins.int
     DELETION_PROTECTION_FIELD_NUMBER: builtins.int
     SHARD_SPECS_FIELD_NUMBER: builtins.int
+    DISK_ENCRYPTION_KEY_ID_FIELD_NUMBER: builtins.int
     backup_id: builtins.str
     """ID of the backup to restore from. This backup will be used to create one cluster shard.
     To get the backup ID, use a [ClusterService.ListBackups] request.
@@ -658,6 +665,10 @@ class RestoreClusterRequest(google.protobuf.message.Message):
     def shard_specs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ShardSpec]:
         """Configuration(s) of the shard(s) in the restored cluster."""
 
+    @property
+    def disk_encryption_key_id(self) -> google.protobuf.wrappers_pb2.StringValue:
+        """ID of the key to encrypt cluster disks."""
+
     def __init__(
         self,
         *,
@@ -675,9 +686,10 @@ class RestoreClusterRequest(google.protobuf.message.Message):
         security_group_ids: collections.abc.Iterable[builtins.str] | None = ...,
         deletion_protection: builtins.bool = ...,
         shard_specs: collections.abc.Iterable[global___ShardSpec] | None = ...,
+        disk_encryption_key_id: google.protobuf.wrappers_pb2.StringValue | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["config_spec", b"config_spec"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["additional_backup_ids", b"additional_backup_ids", "backup_id", b"backup_id", "config_spec", b"config_spec", "deletion_protection", b"deletion_protection", "description", b"description", "environment", b"environment", "folder_id", b"folder_id", "host_specs", b"host_specs", "labels", b"labels", "name", b"name", "network_id", b"network_id", "security_group_ids", b"security_group_ids", "service_account_id", b"service_account_id", "shard_specs", b"shard_specs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["config_spec", b"config_spec", "disk_encryption_key_id", b"disk_encryption_key_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["additional_backup_ids", b"additional_backup_ids", "backup_id", b"backup_id", "config_spec", b"config_spec", "deletion_protection", b"deletion_protection", "description", b"description", "disk_encryption_key_id", b"disk_encryption_key_id", "environment", b"environment", "folder_id", b"folder_id", "host_specs", b"host_specs", "labels", b"labels", "name", b"name", "network_id", b"network_id", "security_group_ids", b"security_group_ids", "service_account_id", b"service_account_id", "shard_specs", b"shard_specs"]) -> None: ...
 
 global___RestoreClusterRequest = RestoreClusterRequest
 
@@ -830,11 +842,15 @@ class ListClusterLogsRequest(google.protobuf.message.Message):
         SERVICE_TYPE_UNSPECIFIED: ListClusterLogsRequest._ServiceType.ValueType  # 0
         CLICKHOUSE: ListClusterLogsRequest._ServiceType.ValueType  # 1
         """Logs of ClickHouse activity."""
+        CLICKHOUSE_KEEPER: ListClusterLogsRequest._ServiceType.ValueType  # 2
+        """Logs of ClickHouse Keeper activity."""
 
     class ServiceType(_ServiceType, metaclass=_ServiceTypeEnumTypeWrapper): ...
     SERVICE_TYPE_UNSPECIFIED: ListClusterLogsRequest.ServiceType.ValueType  # 0
     CLICKHOUSE: ListClusterLogsRequest.ServiceType.ValueType  # 1
     """Logs of ClickHouse activity."""
+    CLICKHOUSE_KEEPER: ListClusterLogsRequest.ServiceType.ValueType  # 2
+    """Logs of ClickHouse Keeper activity."""
 
     CLUSTER_ID_FIELD_NUMBER: builtins.int
     COLUMN_FILTER_FIELD_NUMBER: builtins.int
@@ -955,11 +971,15 @@ class StreamClusterLogsRequest(google.protobuf.message.Message):
         SERVICE_TYPE_UNSPECIFIED: StreamClusterLogsRequest._ServiceType.ValueType  # 0
         CLICKHOUSE: StreamClusterLogsRequest._ServiceType.ValueType  # 1
         """Logs of ClickHouse activity."""
+        CLICKHOUSE_KEEPER: StreamClusterLogsRequest._ServiceType.ValueType  # 2
+        """Logs of ClickHouse Keeper activity."""
 
     class ServiceType(_ServiceType, metaclass=_ServiceTypeEnumTypeWrapper): ...
     SERVICE_TYPE_UNSPECIFIED: StreamClusterLogsRequest.ServiceType.ValueType  # 0
     CLICKHOUSE: StreamClusterLogsRequest.ServiceType.ValueType  # 1
     """Logs of ClickHouse activity."""
+    CLICKHOUSE_KEEPER: StreamClusterLogsRequest.ServiceType.ValueType  # 2
+    """Logs of ClickHouse Keeper activity."""
 
     CLUSTER_ID_FIELD_NUMBER: builtins.int
     COLUMN_FILTER_FIELD_NUMBER: builtins.int
@@ -2252,6 +2272,7 @@ class ConfigSpec(google.protobuf.message.Message):
 
         CONFIG_FIELD_NUMBER: builtins.int
         RESOURCES_FIELD_NUMBER: builtins.int
+        DISK_SIZE_AUTOSCALING_FIELD_NUMBER: builtins.int
         @property
         def config(self) -> yandex.cloud.mdb.clickhouse.v1.config.clickhouse_pb2.ClickhouseConfig:
             """Configuration for a ClickHouse server."""
@@ -2260,33 +2281,44 @@ class ConfigSpec(google.protobuf.message.Message):
         def resources(self) -> yandex.cloud.mdb.clickhouse.v1.cluster_pb2.Resources:
             """Resources allocated to ClickHouse hosts."""
 
+        @property
+        def disk_size_autoscaling(self) -> yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling:
+            """Disk size autoscaling settings."""
+
         def __init__(
             self,
             *,
             config: yandex.cloud.mdb.clickhouse.v1.config.clickhouse_pb2.ClickhouseConfig | None = ...,
             resources: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.Resources | None = ...,
+            disk_size_autoscaling: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["config", b"config", "resources", b"resources"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["config", b"config", "resources", b"resources"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["config", b"config", "disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["config", b"config", "disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources"]) -> None: ...
 
     @typing.final
     class Zookeeper(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         RESOURCES_FIELD_NUMBER: builtins.int
+        DISK_SIZE_AUTOSCALING_FIELD_NUMBER: builtins.int
         @property
         def resources(self) -> yandex.cloud.mdb.clickhouse.v1.cluster_pb2.Resources:
             """Resources allocated to ZooKeeper hosts. If not set, minimal available resources will be used.
             All available resource presets can be retrieved with a [ResourcePresetService.List] request.
             """
 
+        @property
+        def disk_size_autoscaling(self) -> yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling:
+            """Disk size autoscaling settings."""
+
         def __init__(
             self,
             *,
             resources: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.Resources | None = ...,
+            disk_size_autoscaling: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["resources", b"resources"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["resources", b"resources"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources"]) -> None: ...
 
     VERSION_FIELD_NUMBER: builtins.int
     CLICKHOUSE_FIELD_NUMBER: builtins.int
@@ -2371,6 +2403,7 @@ class ShardConfigSpec(google.protobuf.message.Message):
         CONFIG_FIELD_NUMBER: builtins.int
         RESOURCES_FIELD_NUMBER: builtins.int
         WEIGHT_FIELD_NUMBER: builtins.int
+        DISK_SIZE_AUTOSCALING_FIELD_NUMBER: builtins.int
         @property
         def config(self) -> yandex.cloud.mdb.clickhouse.v1.config.clickhouse_pb2.ClickhouseConfig:
             """ClickHouse settings for the shard."""
@@ -2385,15 +2418,20 @@ class ShardConfigSpec(google.protobuf.message.Message):
             For details, see [ClickHouse documentation](https://clickhouse.com/docs/en/operations/table_engines/distributed/).
             """
 
+        @property
+        def disk_size_autoscaling(self) -> yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling:
+            """Disk size autoscaling settings."""
+
         def __init__(
             self,
             *,
             config: yandex.cloud.mdb.clickhouse.v1.config.clickhouse_pb2.ClickhouseConfig | None = ...,
             resources: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.Resources | None = ...,
             weight: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+            disk_size_autoscaling: yandex.cloud.mdb.clickhouse.v1.cluster_pb2.DiskSizeAutoscaling | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["config", b"config", "resources", b"resources", "weight", b"weight"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["config", b"config", "resources", b"resources", "weight", b"weight"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["config", b"config", "disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources", "weight", b"weight"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["config", b"config", "disk_size_autoscaling", b"disk_size_autoscaling", "resources", b"resources", "weight", b"weight"]) -> None: ...
 
     CLICKHOUSE_FIELD_NUMBER: builtins.int
     @property

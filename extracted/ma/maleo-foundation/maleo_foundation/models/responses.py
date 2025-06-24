@@ -7,62 +7,62 @@ from maleo_foundation.types import BaseTypes
 
 class BaseResponses:
     class Fail(BaseResultSchemas.Fail):
-        other:BaseTypes.OptionalAny = Field("Please try again later or contact administrator.", description="Response's other information")
+        other: BaseTypes.OptionalAny = Field("Please try again later or contact administrator.", description="Response's other information")
 
     class BadRequest(Fail):
-        code:str = "MAL-BDR-001"
-        message:str = "Bad Request"
-        description:str = "Bad/Unexpected parameters given in the request"
+        code: str = "MAL-BDR-001"
+        message: str = "Bad Request"
+        description: str = "Bad/Unexpected parameters given in the request"
 
     class InvalidExpand(BadRequest):
-        code:str = "MAL-INE-001"
-        message:str = "Invalid expand"
-        description:str = "Invalid expand field(s) configuration are given. Check 'other' for more information."
+        code: str = "MAL-INE-001"
+        message: str = "Invalid expand"
+        description: str = "Invalid expand field(s) configuration are given. Check 'other' for more information."
 
     class InvalidParameter(BadRequest):
-        code:str = "MAL-IPR-001"
-        message:str = "Invalid parameters"
-        description:str = "Invalid parameters and/or parameters combinations is given. Check 'other' for more information."
+        code: str = "MAL-IPR-001"
+        message: str = "Invalid parameters"
+        description: str = "Invalid parameters and/or parameters combinations is given. Check 'other' for more information."
 
     class InvalidSystemRole(BadRequest):
-        code:str = "MAL-ISR-001"
-        message:str = "Invalid system role"
-        description:str = "Invalid system role is detected in authorization token. Check 'other' for more information."
+        code: str = "MAL-ISR-001"
+        message: str = "Invalid system role"
+        description: str = "Invalid system role is detected in authorization token. Check 'other' for more information."
 
     class Unauthorized(Fail):
-        code:str = "MAL-ATH-001"
-        message:str = "Unauthorized Request"
-        description:str = "You are unauthorized to request this resource"
+        code: str = "MAL-ATH-001"
+        message: str = "Unauthorized Request"
+        description: str = "You are unauthorized to request this resource"
 
     class Forbidden(Fail):
-        code:str = "MAL-ATH-002"
-        message:str = "Forbidden Request"
-        description:str = "You are forbidden from requesting this resource"
+        code: str = "MAL-ATH-002"
+        message: str = "Forbidden Request"
+        description: str = "You are forbidden from requesting this resource"
 
     class MethodNotAllowed(Fail):
-        code:str = "MAL-MTA-002"
-        message:str = "Method Not Allowed"
-        description:str = "Method not allowed for requesting this resource"
+        code: str = "MAL-MTA-002"
+        message: str = "Method Not Allowed"
+        description: str = "Method not allowed for requesting this resource"
 
     class ValidationError(Fail):
-        code:str = "MAL-VLD-001"
-        message:str = "Validation Error"
-        description:str = "Request validation failed due to missing or invalid fields. Check other for more info."
+        code: str = "MAL-VLD-001"
+        message: str = "Validation Error"
+        description: str = "Request validation failed due to missing or invalid fields. Check other for more info."
 
     class RateLimitExceeded(Fail):
-        code:str = "MAL-RTL-001"
-        message:str = "Rate Limit Exceeded"
-        description:str = "This resource is requested too many times. Please try again later."
+        code: str = "MAL-RTL-001"
+        message: str = "Rate Limit Exceeded"
+        description: str = "This resource is requested too many times. Please try again later."
 
     class ServerError(Fail):
-        code:str = "MAL-EXC-001"
-        message:str = "Unexpected Server Error"
-        description:str = "An unexpected error occurred while processing your request."
+        code: str = "MAL-EXC-001"
+        message: str = "Unexpected Server Error"
+        description: str = "An unexpected error occurred while processing your request."
 
     class NotImplemented(Fail):
-        code:str = "MAL-NIM-001"
-        message:str = "Not Implemented"
-        description:str = "This request is not yet implemented by the system."
+        code: str = "MAL-NIM-001"
+        message: str = "Not Implemented"
+        description: str = "This request is not yet implemented by the system."
 
     class NotFound(BaseResultSchemas.NotFound): pass
 
@@ -73,9 +73,9 @@ class BaseResponses:
     class UnpaginatedMultipleData(BaseResultSchemas.UnpaginatedMultipleData): pass
 
     class PaginatedMultipleData(BaseResultSchemas.PaginatedMultipleData):
-        page:int = Field(1, ge=1, description="Page number, must be >= 1.", exclude=True)
-        limit:int = Field(10, ge=1, le=100, description="Page size, must be 1 <= limit <= 100.", exclude=True)
-        total_data:int = Field(..., ge=0, description="Total data count", exclude=True)
+        page: int = Field(1, ge=1, description="Page number, must be >= 1.", exclude=True)
+        limit: int = Field(10, ge=1, le=100, description="Page size, must be 1 <= limit <= 100.", exclude=True)
+        total_data: int = Field(..., ge=0, description="Total data count", exclude=True)
 
         @model_validator(mode="before")
         @classmethod

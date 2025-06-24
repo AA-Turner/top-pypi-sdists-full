@@ -82,11 +82,11 @@ enum OutputFormat {
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Output")]
     output: OutputArgs,
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Behavior")]
     behavior: BehaviorArgs,
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Config Overrides")]
     config_override: ConfigOverrideArgs,
 }
 
@@ -532,7 +532,7 @@ impl Args {
     }
 
     pub fn validate(&self) -> anyhow::Result<()> {
-        fn validate_arg(arg_name: &str, paths: Option<&Vec<PathBuf>>) -> anyhow::Result<()> {
+        fn validate_arg(arg_name: &str, paths: Option<&[PathBuf]>) -> anyhow::Result<()> {
             if let Some(paths) = paths {
                 for path in paths {
                     validate_path(path).with_context(|| format!("Invalid {}", arg_name))?;
@@ -542,9 +542,9 @@ impl Args {
         }
         validate_arg(
             "--site-package-path",
-            self.config_override.site_package_path.as_ref(),
+            self.config_override.site_package_path.as_deref(),
         )?;
-        validate_arg("--search-path", self.config_override.search_path.as_ref())?;
+        validate_arg("--search-path", self.config_override.search_path.as_deref())?;
         Ok(())
     }
 
@@ -655,7 +655,12 @@ impl Args {
         if let Some(path_index) = self.output.summarize_errors {
             print_error_summary(&errors.shown, path_index);
         }
-        let shown_errors_count = config_errors_count + errors.shown.len();
+        let mut shown_errors_count = config_errors_count;
+        for error in &errors.shown {
+            if error.error_kind().severity() >= Severity::Warn {
+                shown_errors_count += 1;
+            }
+        }
         timings.report_errors = report_errors_start.elapsed();
 
         if !self.output.no_summary {
@@ -708,9 +713,10 @@ impl Args {
         }
         if self.behavior.suppress_errors {
             let mut errors_to_suppress: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
-
             for e in errors.shown {
-                if let ModulePathDetails::FileSystem(path) = e.path().details() {
+                if e.error_kind().severity() >= Severity::Warn
+                    && let ModulePathDetails::FileSystem(path) = e.path().details()
+                {
                     errors_to_suppress.entry(path.clone()).or_default().push(e);
                 }
             }

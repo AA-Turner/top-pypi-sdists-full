@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyfakefs
-Version: 5.9.0
+Version: 5.9.1
 Summary: Implements a fake file system that mocks the Python file system modules.
 Author-email: Google <google-pyfakefs@google.com>, John McGehee <pyfakefs@johnnado.com>
 Maintainer-email: mrbean-bremen <hansemrbean@googlemail.com>

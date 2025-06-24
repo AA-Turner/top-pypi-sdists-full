@@ -58,6 +58,16 @@ class InsightsConfigurationDict(TypedDict):
     guard_template_id: Optional[str]
     guard_configuration_id: Optional[str]
     model_package_registered_model_id: Optional[str]
+    custom_model_guard: Optional[CustomModelGuardDict]
+
+
+class CustomModelGuardDict(TypedDict):
+    """Dictionary representation of the custom model guard."""
+
+    name: str
+    type: str
+    ootb_type: Optional[str]
+    stage: Optional[str]
 
 
 guard_conditions = t.Dict(
@@ -74,6 +84,15 @@ sidecar_model_metric_metadata = t.Dict(
         t.Key("target_column_name", optional=True): t.Or(t.String, t.Null),
         t.Key("expected_response_column_name", optional=True): t.Or(t.String, t.Null),
         t.Key("guard_type", optional=True): t.Or(t.Enum(*enum_to_list(GuardType)), t.Null),
+    }
+).ignore_extra("*")
+
+custom_model_guard_trafaret = t.Dict(
+    {
+        t.Key("name"): t.String,
+        t.Key("type"): t.String,
+        t.Key("ootb_type", optional=True): t.Or(t.String, t.Null),
+        t.Key("stage", optional=True): t.Or(t.String, t.Null),
     }
 ).ignore_extra("*")
 
@@ -111,6 +130,7 @@ insight_configuration_trafaret = t.Dict(
         t.Key("guard_template_id", optional=True): t.Or(t.String, t.Null),
         t.Key("guard_configuration_id", optional=True): t.Or(t.String, t.Null),
         t.Key("model_package_registered_model_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("custom_model_guard", optional=True): t.Or(custom_model_guard_trafaret, t.Null),
     }
 ).ignore_extra("*")
 
@@ -182,6 +202,10 @@ class InsightsConfiguration(APIObject):
         The ID for the guard template that applies to the insight.
     guard_configuration_id : Optional[str]
         The ID for the guard configuration that applies to the insight.
+    model_package_registered_model_id : Optional[str]
+        The ID of the registered model package associated with `deploymentId`.
+    custom_model_guard : Optional[CustomModelGuard]
+        The custom model guard configuration, if applicable.
     """
 
     _converter = insight_configuration_trafaret
@@ -213,6 +237,7 @@ class InsightsConfiguration(APIObject):
         guard_template_id: Optional[str] = None,
         guard_configuration_id: Optional[str] = None,
         model_package_registered_model_id: Optional[str] = None,
+        custom_model_guard: Optional[GuardConfiguration] = None,
     ):
         self.insight_name = insight_name
         self.insight_type = insight_type
@@ -239,6 +264,7 @@ class InsightsConfiguration(APIObject):
         self.guard_template_id = guard_template_id
         self.guard_configuration_id = guard_configuration_id
         self.model_package_registered_model_id = model_package_registered_model_id
+        self.custom_model_guard = custom_model_guard
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.insight_name}, model_id={self.model_id})"
@@ -270,4 +296,46 @@ class InsightsConfiguration(APIObject):
             guard_template_id=self.guard_template_id,
             guard_configuration_id=self.guard_configuration_id,
             model_package_registered_model_id=self.model_package_registered_model_id,
+            custom_model_guard=(
+                self.custom_model_guard.to_dict() if self.custom_model_guard else None
+            ),
+        )
+
+
+class GuardConfiguration(APIObject):
+    """
+    Configuration information for a guard.
+
+    Attributes
+    ----------
+    name : str
+        Name of the guard.
+    type : str
+        Type of the guard.
+    ootb_type : Optional[str]
+        Out of the box type of the guard, if applicable.
+    stage : Optional[str]
+        Stage at which the guard is applied (e.g., prompt, response).
+    """
+
+    _converter = custom_model_guard_trafaret
+
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        ootb_type: Optional[str] = None,
+        stage: Optional[str] = None,
+    ):
+        self.name = name
+        self.type = type
+        self.ootb_type = ootb_type
+        self.stage = stage
+
+    def to_dict(self) -> CustomModelGuardDict:
+        return CustomModelGuardDict(
+            name=self.name,
+            type=self.type,
+            ootb_type=self.ootb_type,
+            stage=self.stage,
         )

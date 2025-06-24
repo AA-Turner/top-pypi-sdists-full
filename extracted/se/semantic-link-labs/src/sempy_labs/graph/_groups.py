@@ -11,6 +11,7 @@ import sempy_labs._icons as icons
 from typing import List, Literal
 
 
+@log
 def resolve_group_id(group: str | UUID) -> UUID:
     """
     Resolves the group ID from the group name or ID.
@@ -74,6 +75,7 @@ def list_groups() -> pd.DataFrame:
 
     df = _create_dataframe(columns=columns)
 
+    dfs = []
     for v in result.get("value"):
         new_data = {
             "Group Id": v.get("id"),
@@ -90,14 +92,16 @@ def list_groups() -> pd.DataFrame:
             "Visibility": v.get("visibility"),
             "Security Identifier": v.get("securityIdentifier"),
         }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
-
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
 
+@log
 def _get_group(group_id: UUID) -> pd.DataFrame:
     """
     Shows a list of groups and their properties.
@@ -136,6 +140,7 @@ def _get_group(group_id: UUID) -> pd.DataFrame:
     }
     df = _create_dataframe(columns=columns)
 
+    dfs = []
     for v in result.get("value"):
         new_data = {
             "Group Id": v.get("id"),
@@ -153,9 +158,11 @@ def _get_group(group_id: UUID) -> pd.DataFrame:
             "Security Identifier": v.get("securityIdentifier"),
         }
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-    _update_dataframe_datatypes(dataframe=df, column_map=columns)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
+        _update_dataframe_datatypes(dataframe=df, column_map=columns)
 
     return df
 
@@ -200,6 +207,7 @@ def list_group_members(group: str | UUID) -> pd.DataFrame:
 
     df = _create_dataframe(columns=columns)
 
+    dfs = []
     for v in result.get("value"):
         new_data = {
             "Member Id": v.get("id"),
@@ -214,8 +222,10 @@ def list_group_members(group: str | UUID) -> pd.DataFrame:
             "Given Name": v.get("givenName"),
             "Surname": v.get("surname"),
         }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
@@ -260,6 +270,7 @@ def list_group_owners(group: str | UUID) -> pd.DataFrame:
 
     df = _create_dataframe(columns=columns)
 
+    dfs = []
     for v in result.get("value"):
         new_data = {
             "Owner Id": v.get("id"),
@@ -274,12 +285,15 @@ def list_group_owners(group: str | UUID) -> pd.DataFrame:
             "Given Name": v.get("givenName"),
             "Surname": v.get("surname"),
         }
+        dfs.append(pd.DataFrame(new_data, index=[0]))
 
-        df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
+    if dfs:
+        df = pd.concat(dfs, ignore_index=True)
 
     return df
 
 
+@log
 def _base_add_to_group(
     group: str | UUID,
     object: str | UUID,
@@ -359,6 +373,7 @@ def add_group_members(
     _base_add_to_group(group=group, object=user, object_type="members")
 
 
+@log
 def add_group_owners(
     group: str | UUID,
     user: str | UUID | List[str | UUID],

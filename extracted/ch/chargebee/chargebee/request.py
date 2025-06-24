@@ -7,7 +7,10 @@ from chargebee import util, http_request
 
 def lowercase_keys(data):
     if isinstance(data, dict):
-        return {k.lower(): lowercase_keys(v) for k, v in data.items()}
+        return {
+            (k if k.startswith("cf_") else k.lower()): lowercase_keys(v)
+            for k, v in data.items()
+        }
     elif isinstance(data, list):
         return [lowercase_keys(item) for item in data]
     else:
@@ -24,6 +27,7 @@ def send_list_request(
     subDomain=None,
     isJsonRequest=False,
     jsonKeys=None,
+    options=None,
 ):
     serialized = {}
 
@@ -44,6 +48,7 @@ def send_list_request(
         subDomain,
         isJsonRequest,
         jsonKeys,
+        options
     )
 
 
@@ -57,6 +62,7 @@ def send(
     subDomain=None,
     isJsonRequest=False,
     jsonKeys=None,
+    options=None,
 ):
     params = lowercase_keys(params)
 
@@ -70,7 +76,7 @@ def send(
     )
 
     response, response_headers, http_code = http_request.request(
-        method, url, env, ser_params, headers, subDomain, isJsonRequest
+        method, url, env, ser_params, headers, subDomain, isJsonRequest, options
     )
 
     from chargebee.responses import Response

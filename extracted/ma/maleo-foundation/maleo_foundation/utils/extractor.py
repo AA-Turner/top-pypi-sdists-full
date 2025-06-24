@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from fastapi import Request
 from starlette.requests import HTTPConnection
 from uuid import uuid4
-from maleo_foundation.models.transfers.general import RequestContextTransfers
+from maleo_foundation.models.transfers.general.request import RequestContext
 
-def extract_client_ip(conn:HTTPConnection) -> str:
+def extract_client_ip(conn: HTTPConnection) -> str:
     """Extract client IP with more robust handling of proxies"""
     #* Check for X-Forwarded-For header (common when behind proxy/load balancer)
     x_forwarded_for = conn.headers.get("X-Forwarded-For")
@@ -21,7 +21,7 @@ def extract_client_ip(conn:HTTPConnection) -> str:
     #* Fall back to direct client connection
     return conn.client.host if conn.client else "unknown"
 
-def extract_request_context(request:Request) -> RequestContextTransfers:
+def extract_request_context(request: Request) -> RequestContext:
     headers = request.headers
 
     request_id = headers.get("x-request-id")
@@ -34,7 +34,7 @@ def extract_request_context(request:Request) -> RequestContextTransfers:
     if ua_browser:
         ua_browser = ua_browser.replace('"', "").split(",")[0].strip()
 
-    return RequestContextTransfers(
+    return RequestContext(
         request_id=request_id,
         requested_at=datetime.now(tz=timezone.utc),
         method=request.method,

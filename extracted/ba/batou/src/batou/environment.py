@@ -130,6 +130,7 @@ class Environment(object):
         platform=None,
         basedir=".",
         provision_rebuild=False,
+        check_and_predict_local=False,
     ):
         self.name: str = name
         self.hosts: Dict[str, Host] = {}
@@ -140,6 +141,7 @@ class Environment(object):
         self.timeout = timeout
         self.platform = platform
         self.provision_rebuild = provision_rebuild
+        self.check_and_predict_local = check_and_predict_local
 
         self.hostname_mapping: Dict[str, str] = {}
 
@@ -291,6 +293,9 @@ class Environment(object):
 
         self._set_defaults()
 
+        if self.check_and_predict_local:
+            self.connect_method = "local"
+
         if "vfs" in config:
             sandbox = config["vfs"]["sandbox"]
             sandbox = getattr(batou.vfs, sandbox)(self, config["vfs"])
@@ -338,6 +343,8 @@ class Environment(object):
 
     def load_provisioners(self, config):
         self.provisioners = {}
+        if self.check_and_predict_local:
+            return
         for section in config:
             if not section.startswith("provisioner:"):
                 continue

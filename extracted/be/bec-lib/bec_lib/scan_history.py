@@ -50,7 +50,9 @@ class ScanHistory:
         )
 
     def _load_data(self) -> None:
-        data = self._connector.xread(MessageEndpoints.scan_history(), from_start=True)
+        data = self._connector.xread(
+            MessageEndpoints.scan_history(), from_start=True, user_id="ScanHistoryLoader"
+        )
         if not data:
             return
         with self._scan_data_lock:
@@ -114,3 +116,8 @@ class ScanHistory:
             if isinstance(index, slice):
                 return [self.get_by_scan_id(scan_id) for scan_id in self._scan_ids[index]]
             raise TypeError("Index must be an integer or slice.")
+
+    def _shutdown(self) -> None:
+        """Shutdown the ScanHistory."""
+        if self._loading_thread and self._loading_thread.is_alive():
+            self._loading_thread.join()

@@ -1163,6 +1163,11 @@ class FilteredIdentity(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.I
         """Gets a flag indicating when this indicator is ready and fully initialized"""
         ...
 
+    @overload
+    def __init__(self, name: str, filter: typing.Any) -> None:
+        ...
+
+    @overload
     def __init__(self, name: str, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool]) -> None:
         """
         Initializes a new instance of the FilteredIdentity indicator with the specified name
@@ -2045,9 +2050,9 @@ class VolumeWeightedMovingAverage(QuantConnect.Indicators.TradeBarIndicator, Qua
         ...
 
 
-class ParabolicStopAndReverse(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+class ParabolicStopAndReverseExtended(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
-    Parabolic SAR Indicator
+    Parabolic SAR Extended Indicator
     Based on TA-Lib implementation
     """
 
@@ -2062,15 +2067,62 @@ class ParabolicStopAndReverse(QuantConnect.Indicators.BarIndicator, QuantConnect
         ...
 
     @overload
-    def __init__(self, name: str, af_start: float = 0.02, af_increment: float = 0.02, af_max: float = 0.2) -> None:
+    def __init__(self, name: str, sar_start: float = 0.0, offset_on_reverse: float = 0.0, af_start_short: float = 0.02, af_increment_short: float = 0.02, af_max_short: float = 0.2, af_start_long: float = 0.02, af_increment_long: float = 0.02, af_max_long: float = 0.2) -> None:
         """
-        Create new Parabolic SAR
+        Create a new Parabolic SAR Extended
         
-        :param name: The name of this indicator
-        :param af_start: Acceleration factor start value
-        :param af_increment: Acceleration factor increment value
-        :param af_max: Acceleration factor max value
+        :param name: The name of the Parabolic Stop and Reverse Extended indicator
+        :param sar_start: The starting value for the Parabolic Stop and Reverse indicator
+        :param offset_on_reverse: The offset value to be applied on reverse
+        :param af_start_short: The starting acceleration factor for short positions
+        :param af_increment_short: The increment value for the acceleration factor for short positions
+        :param af_max_short: The maximum value for the acceleration factor for short positions
+        :param af_start_long: The starting acceleration factor for long positions
+        :param af_increment_long: The increment value for the acceleration factor for long positions
+        :param af_max_long: The maximum value for the acceleration factor for long positions
         """
+        ...
+
+    @overload
+    def __init__(self, sar_start: float = 0.0, offset_on_reverse: float = 0.0, af_start_short: float = 0.02, af_increment_short: float = 0.02, af_max_short: float = 0.2, af_start_long: float = 0.02, af_increment_long: float = 0.02, af_max_long: float = 0.2) -> None:
+        """
+        Create a new Parabolic SAR Extended
+        
+        :param sar_start: The starting value for the Parabolic Stop and Reverse indicator
+        :param offset_on_reverse: The offset value to be applied on reverse
+        :param af_start_short: The starting acceleration factor for short positions
+        :param af_increment_short: The increment value for the acceleration factor for short positions
+        :param af_max_short: The maximum value for the acceleration factor for short positions
+        :param af_start_long: The starting acceleration factor for long positions
+        :param af_increment_long: The increment value for the acceleration factor for long positions
+        :param af_max_long: The maximum value for the acceleration factor for long positions
+        """
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param input: The trade bar input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class ParabolicStopAndReverse(QuantConnect.Indicators.ParabolicStopAndReverseExtended, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+    """
+    Parabolic SAR Indicator
+    Based on TA-Lib implementation
+    """
+
+    @overload
+    def __init__(self, name: str, af_start: float = 0.02, af_increment: float = 0.02, af_max: float = 0.2) -> None:
         ...
 
     @overload
@@ -2093,10 +2145,6 @@ class ParabolicStopAndReverse(QuantConnect.Indicators.BarIndicator, QuantConnect
         :param input: The trade bar input given to the indicator
         :returns: A new value for this indicator.
         """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
         ...
 
 
@@ -10963,9 +11011,9 @@ class RollingWindow(typing.Generic[QuantConnect_Indicators_RollingWindow_T], Sys
 
     def __init__(self, size: int) -> None:
         """
-        Initializes a new instance of the RollwingWindow class with the specified window size.
+        Initializes a new RollingWindow with the specified size.
         
-        :param size: The number of items to hold in the window
+        :param size: The number of elements to store in the window
         """
         ...
 

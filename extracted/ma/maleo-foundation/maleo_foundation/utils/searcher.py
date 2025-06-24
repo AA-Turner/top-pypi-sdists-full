@@ -1,6 +1,9 @@
 from typing import Dict, List
 
-def deep_search(d:Dict, key:str) -> List:
+def deep_search(
+    d: Dict,
+    key: str
+) -> List:
     """Recursively search for all values of a key in a nested Dict/List."""
     results = []
     if isinstance(d, Dict):

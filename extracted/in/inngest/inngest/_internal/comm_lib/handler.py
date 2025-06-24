@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import functools
 import http
 import os
 import typing
@@ -31,7 +32,7 @@ from .utils import parse_query_params, wrap_handler, wrap_handler_sync
 class CommHandler:
     _base_url: str
     _client: client_lib.Inngest
-    _fns: dict[str, function.Function]
+    _fns: dict[str, function.Function[typing.Any]]
     _framework: server_lib.Framework
     _mode: server_lib.ServerKind
     _signing_key: typing.Optional[str]
@@ -42,7 +43,8 @@ class CommHandler:
         *,
         client: client_lib.Inngest,
         framework: server_lib.Framework,
-        functions: list[function.Function],
+        functions: list[function.Function[typing.Any]],
+        streaming: typing.Optional[const.Streaming],
     ) -> None:
         # In-band syncing is opt-out.
         self._allow_in_band_sync = not env_lib.is_false(
@@ -54,6 +56,10 @@ class CommHandler:
         self._api_origin = client.api_origin
         self._fns = {fn.get_id(): fn for fn in functions}
         self._framework = framework
+
+        if streaming is None:
+            streaming = env_lib.get_streaming(const.EnvKey.STREAMING)
+        self._streaming = streaming or const.Streaming.DISABLE
 
         # TODO: Graduate this to a config option, rather than an env var.
         thread_pool_max_workers = env_lib.get_int(
@@ -151,23 +157,83 @@ class CommHandler:
             # batch or tell the SDK to fetch the batch
 
             return Exception("events not in request")
-        call_res = await fn.call(
-            self._client,
-            execution_lib.Context(
-                attempt=request.ctx.attempt,
-                event=request.event,
-                events=events,
-                group=step_lib.Group(),
-                logger=self._client.logger,
-                run_id=request.ctx.run_id,
-            ),
-            params.fn_id,
-            middleware,
-            request,
-            step_lib.StepMemos.from_raw(steps),
-            params.step_id,
-            self._thread_pool,
-        )
+
+        memos = step_lib.StepMemos.from_raw(steps)
+
+        if fn.is_handler_async:
+            # Don't await because we might need to stream the response.
+            call_res_coro = fn.call(
+                self._client,
+                execution_lib.Context(
+                    attempt=request.ctx.attempt,
+                    event=request.event,
+                    events=events,
+                    group=step_lib.Group(),
+                    logger=self._client.logger,
+                    run_id=request.ctx.run_id,
+                    step=step_lib.Step(
+                        self._client,
+                        execution_lib.ExecutionV0(
+                            memos,
+                            middleware,
+                            request,
+                            params.step_id,
+                        ),
+                        middleware,
+                        step_lib.StepIDCounter(),
+                        params.step_id,
+                    ),
+                ),
+                params.fn_id,
+                middleware,
+            )
+
+            if self._streaming is const.Streaming.FORCE:
+                return CommResponse.create_streaming(
+                    self._client.logger,
+                    call_res_coro,
+                    self._client.env,
+                    self._framework,
+                    server_kind,
+                )
+
+            call_res = await call_res_coro
+        else:
+            fn_call = functools.partial(
+                fn.call_sync,
+                self._client,
+                execution_lib.ContextSync(
+                    attempt=request.ctx.attempt,
+                    event=request.event,
+                    events=events,
+                    group=step_lib.GroupSync(),
+                    logger=self._client.logger,
+                    run_id=request.ctx.run_id,
+                    step=step_lib.StepSync(
+                        self._client,
+                        execution_lib.ExecutionV0Sync(
+                            memos,
+                            middleware,
+                            request,
+                            params.step_id,
+                        ),
+                        middleware,
+                        step_lib.StepIDCounter(),
+                        params.step_id,
+                    ),
+                ),
+                params.fn_id,
+                middleware,
+            )
+
+            if self._thread_pool is not None:
+                loop = asyncio.get_running_loop()
+                call_res = await loop.run_in_executor(
+                    self._thread_pool,
+                    fn_call,
+                )
+            else:
+                call_res = fn_call()
 
         return CommResponse.from_call_result(
             self._client.logger,
@@ -236,21 +302,32 @@ class CommHandler:
 
             return Exception("events not in request")
 
+        memos = step_lib.StepMemos.from_raw(steps)
+
         call_res = fn.call_sync(
             self._client,
-            execution_lib.Context(
+            execution_lib.ContextSync(
                 attempt=request.ctx.attempt,
                 event=request.event,
                 events=events,
-                group=step_lib.Group(),
+                group=step_lib.GroupSync(),
                 logger=self._client.logger,
                 run_id=request.ctx.run_id,
+                step=step_lib.StepSync(
+                    self._client,
+                    execution_lib.ExecutionV0Sync(
+                        memos,
+                        middleware,
+                        request,
+                        params.step_id,
+                    ),
+                    middleware,
+                    step_lib.StepIDCounter(),
+                    params.step_id,
+                ),
             ),
             params.fn_id,
             middleware,
-            request,
-            step_lib.StepMemos.from_raw(steps),
-            params.step_id,
         )
 
         return CommResponse.from_call_result(
@@ -261,7 +338,9 @@ class CommHandler:
             server_kind,
         )
 
-    def _get_function(self, fn_id: str) -> types.MaybeError[function.Function]:
+    def _get_function(
+        self, fn_id: str
+    ) -> types.MaybeError[function.Function[typing.Any]]:
         # Look for the function ID in the list of user functions, but also
         # look for it in the list of on_failure functions.
         for _fn in self._fns.values():
@@ -683,7 +762,7 @@ class Syncer:
 
 def get_function_configs(
     app_url: str,
-    fns: dict[str, function.Function],
+    fns: dict[str, function.Function[typing.Any]],
 ) -> types.MaybeError[list[server_lib.FunctionConfig]]:
     configs: list[server_lib.FunctionConfig] = []
     for fn in fns.values():

@@ -8,6 +8,7 @@ use tracing::debug;
 
 use uv_cache::Cache;
 use uv_client::BaseClientBuilder;
+use uv_configuration::{DependencyGroupsWithDefaults, PreviewMode};
 use uv_dirs::user_uv_config_dir;
 use uv_fs::Simplified;
 use uv_python::{
@@ -39,6 +40,7 @@ pub(crate) async fn pin(
     network_settings: NetworkSettings,
     cache: &Cache,
     printer: Printer,
+    preview: PreviewMode,
 ) -> Result<ExitStatus> {
     let workspace_cache = WorkspaceCache::default();
     let virtual_project = if no_project {
@@ -55,16 +57,13 @@ pub(crate) async fn pin(
         }
     };
 
-    let version_file = if global {
-        if let Some(path) = user_uv_config_dir() {
-            PythonVersionFile::discover_user_config(path, &VersionFileDiscoveryOptions::default())
-                .await
-        } else {
-            Ok(None)
-        }
-    } else {
-        PythonVersionFile::discover(project_dir, &VersionFileDiscoveryOptions::default()).await
-    };
+    // Search for an existing file, we won't necessarily write to this, we'll construct a target
+    // path if there's a request later on.
+    let version_file = PythonVersionFile::discover(
+        project_dir,
+        &VersionFileDiscoveryOptions::default().with_no_local(global),
+    )
+    .await;
 
     if rm {
         let Some(file) = version_file? else {
@@ -93,6 +92,7 @@ pub(crate) async fn pin(
                         virtual_project,
                         python_preference,
                         cache,
+                        preview,
                     );
                 }
             }
@@ -123,6 +123,7 @@ pub(crate) async fn pin(
         install_mirrors.python_install_mirror.as_deref(),
         install_mirrors.pypy_install_mirror.as_deref(),
         install_mirrors.python_downloads_json_url.as_deref(),
+        preview,
     )
     .await
     {
@@ -259,6 +260,7 @@ fn warn_if_existing_pin_incompatible_with_project(
     virtual_project: &VirtualProject,
     python_preference: PythonPreference,
     cache: &Cache,
+    preview: PreviewMode,
 ) {
     // Check if the pinned version is compatible with the project.
     if let Some(pin_version) = pep440_version_from_request(pin) {
@@ -283,6 +285,7 @@ fn warn_if_existing_pin_incompatible_with_project(
         EnvironmentPreference::OnlySystem,
         python_preference,
         cache,
+        preview,
     ) {
         Ok(python) => {
             let python_version = python.python_version();
@@ -322,6 +325,9 @@ struct Pin<'a> {
 
 /// Checks if the pinned Python version is compatible with the workspace/project's `Requires-Python`.
 fn assert_pin_compatible_with_project(pin: &Pin, virtual_project: &VirtualProject) -> Result<()> {
+    // Don't factor in requires-python settings on dependency-groups
+    let groups = DependencyGroupsWithDefaults::none();
+
     let (requires_python, project_type) = match virtual_project {
         VirtualProject::Project(project_workspace) => {
             debug!(
@@ -329,7 +335,8 @@ fn assert_pin_compatible_with_project(pin: &Pin, virtual_project: &VirtualProjec
                 project_workspace.project_name(),
                 project_workspace.workspace().install_path().display()
             );
-            let requires_python = find_requires_python(project_workspace.workspace())?;
+
+            let requires_python = find_requires_python(project_workspace.workspace(), &groups)?;
             (requires_python, "project")
         }
         VirtualProject::NonProject(workspace) => {
@@ -337,7 +344,7 @@ fn assert_pin_compatible_with_project(pin: &Pin, virtual_project: &VirtualProjec
                 "Discovered virtual workspace at: {}",
                 workspace.install_path().display()
             );
-            let requires_python = find_requires_python(workspace)?;
+            let requires_python = find_requires_python(workspace, &groups)?;
             (requires_python, "workspace")
         }
     };

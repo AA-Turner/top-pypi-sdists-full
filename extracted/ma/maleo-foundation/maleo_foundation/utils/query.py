@@ -11,11 +11,11 @@ from maleo_foundation.extended_types import ExtendedTypes
 class BaseQueryUtils:
     @staticmethod
     def filter_column(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        column:str,
-        value:BaseTypes.OptionalAny = None,
-        include_null:bool = False
+        query: Query,
+        table: Type[DeclarativeMeta],
+        column: str,
+        value: BaseTypes.OptionalAny = None,
+        include_null: bool = False
     ) -> Query:
         column_attr = getattr(table, column, None)
         if column_attr is None or not isinstance(column_attr, InstrumentedAttribute):
@@ -34,11 +34,11 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_ids(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        column:str,
-        ids:BaseTypes.OptionalListOfIntegers = None,
-        include_null:bool = False
+        query: Query,
+        table: Type[DeclarativeMeta],
+        column: str,
+        ids: BaseTypes.OptionalListOfIntegers = None,
+        include_null: bool = False
     ) -> Query:
         column_attr = getattr(table, column, None)
         if column_attr is None or not isinstance(column_attr, InstrumentedAttribute):
@@ -57,9 +57,9 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_timestamps(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        date_filters:ExtendedTypes.ListOfDateFilters
+        query: Query,
+        table: Type[DeclarativeMeta],
+        date_filters: ExtendedTypes.ListOfDateFilters
     ) -> Query:
         if date_filters and len(date_filters) > 0:
             for date_filter in date_filters:
@@ -85,9 +85,9 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_statuses(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        statuses:BaseTypes.OptionalListOfStatuses
+        query: Query,
+        table: Type[DeclarativeMeta],
+        statuses: BaseTypes.OptionalListOfStatuses
     ) -> Query:
         if statuses is not None:
             status_filters = [table.status == status for status in statuses]
@@ -96,10 +96,10 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_is_root(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        parent_column:str="parent_id",
-        is_root:BaseTypes.OptionalBoolean=None
+        query: Query,
+        table: Type[DeclarativeMeta],
+        parent_column: str = "parent_id",
+        is_root: BaseTypes.OptionalBoolean=None
     ) -> Query:
         parent_attr = getattr(table, parent_column, None)
         if parent_attr is None or not isinstance(parent_attr, InstrumentedAttribute):
@@ -110,12 +110,12 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_is_parent(
-        session:Session,
-        query:Query,
-        table:Type[DeclarativeMeta],
-        id_column:str="id",
-        parent_column:str="parent_id",
-        is_parent:BaseTypes.OptionalBoolean=None
+        session: Session,
+        query: Query,
+        table: Type[DeclarativeMeta],
+        id_column: str = "id",
+        parent_column: str = "parent_id",
+        is_parent: BaseTypes.OptionalBoolean = None
     ) -> Query:
         id_attr = getattr(table, id_column, None)
         if id_attr is None or not isinstance(id_attr, InstrumentedAttribute):
@@ -132,10 +132,10 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_is_child(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        parent_column:str = "parent_id",
-        is_child:BaseTypes.OptionalBoolean = None
+        query: Query,
+        table: Type[DeclarativeMeta],
+        parent_column: str = "parent_id",
+        is_child: BaseTypes.OptionalBoolean = None
     ) -> Query:
         parent_attr = getattr(table, parent_column, None)
         if parent_attr is None or not isinstance(parent_attr, InstrumentedAttribute):
@@ -146,12 +146,12 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_is_leaf(
-        session:Session,
-        query:Query,
-        table:Type[DeclarativeMeta],
-        id_column:str="id",
-        parent_column:str="parent_id",
-        is_leaf:BaseTypes.OptionalBoolean=None
+        session: Session,
+        query: Query,
+        table: Type[DeclarativeMeta],
+        id_column: str = "id",
+        parent_column: str = "parent_id",
+        is_leaf: BaseTypes.OptionalBoolean = None
     ) -> Query:
         id_attr = getattr(table, id_column, None)
         if id_attr is None or not isinstance(id_attr, InstrumentedAttribute):
@@ -168,9 +168,9 @@ class BaseQueryUtils:
 
     @staticmethod
     def filter_search(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        search:BaseTypes.OptionalString
+        query: Query,
+        table: Type[DeclarativeMeta],
+        search: BaseTypes.OptionalString
     ) -> Query:
         if search:
             search_term = f"%{search}%" #* Use wildcard for partial matching
@@ -192,9 +192,9 @@ class BaseQueryUtils:
 
     @staticmethod
     def sort(
-        query:Query,
-        table:Type[DeclarativeMeta],
-        sort_columns:ExtendedTypes.ListOfSortColumns
+        query: Query,
+        table: Type[DeclarativeMeta],
+        sort_columns: ExtendedTypes.ListOfSortColumns
     ) -> Query:
         for sort_column in sort_columns:
             try:
@@ -206,7 +206,11 @@ class BaseQueryUtils:
         return query
 
     @staticmethod
-    def paginate(query:Query, page:int, limit:int) -> Query:
-        offset:int = (page - 1) * limit #* Calculate offset based on page
+    def paginate(
+        query: Query,
+        page: int,
+        limit: int
+    ) -> Query:
+        offset: int = int((page - 1) * limit) #* Calculate offset based on page
         query = query.limit(limit=limit).offset(offset=offset)
         return query

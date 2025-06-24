@@ -24,6 +24,7 @@ from hud.adapters.common.types import (
     WaitAction,
     ResponseAction,
     CustomAction,
+    LogType,
     # Exclude ScreenshotFetch, PositionFetch as they are internal
 )
 
@@ -74,6 +75,7 @@ class LangchainAgent(Agent[LangchainModelOrRunnable, Any], Generic[LangchainMode
         langchain_model: LangchainModelOrRunnable,
         adapter: Optional[Adapter] = None,
         system_prompt: str | None = None,
+        name: str | None = None,
     ):
         """
         Initialize the LangchainAgent.
@@ -88,7 +90,9 @@ class LangchainAgent(Agent[LangchainModelOrRunnable, Any], Generic[LangchainMode
             system_prompt: An optional system prompt to guide the Langchain model.
                            If None, a default prompt encouraging single CLA output is used.
         """
-        super().__init__(client=langchain_model, adapter=adapter)  # Store model as 'client'
+        super().__init__(
+            client=langchain_model, adapter=adapter, name=name
+        )  # Store model as 'client'
         self.langchain_model = langchain_model  # Also store with specific name
 
         self.system_prompt_str = system_prompt or self._get_default_system_prompt()
@@ -137,7 +141,7 @@ class LangchainAgent(Agent[LangchainModelOrRunnable, Any], Generic[LangchainMode
         if not human_content:
             logger.warning("LangchainAgent received an observation with no text or screenshot.")
             # Decide how to handle empty observation - perhaps return no action?
-            return [], False  # Or raise an error?
+            return [], False
 
         current_human_message = HumanMessage(content=human_content)
 
@@ -202,7 +206,9 @@ class LangchainAgent(Agent[LangchainModelOrRunnable, Any], Generic[LangchainMode
         # TODO: Consider history truncation/summarization if it grows too long
 
         if actual_action:
+            actual_action = actual_action.model_dump()
             # Return the single action dictionary within a list
+            actual_action["logs"] = ai_message_content_for_history
             return [actual_action], is_done
         else:
             # Should ideally not happen if structure validation worked, but as a fallback

@@ -13,7 +13,6 @@ class SystemToolConfigOutput(UncheckedBaseModel):
     A system tool is a tool that is used to call a system method in the server
     """
 
-    id: typing.Optional[str] = None
     name: str
     description: str
     response_timeout_secs: typing.Optional[int] = pydantic.Field(default=None)

@@ -4,7 +4,7 @@ import os
 from abc import ABCMeta, abstractmethod
 from functools import cached_property
 from logging import getLogger
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import eth_abi
 from eth_abi.exceptions import DecodingError
@@ -527,14 +527,12 @@ class Safe(SafeCreator, ContractBase, metaclass=ABCMeta):
                 + WEB3_ESTIMATION_OFFSET
             )
 
-    def get_message_hash_and_preimage(
-        self, message: Union[str, Hash32]
-    ) -> Tuple[Hash32, bytes]:
+    def get_message_preimage(self, message: Union[str, bytes]) -> bytes:
         """
-        Return hash of a message and its preimage that can be signed by owners.
+        Return preimage for a message that can be signed by owners.
 
         :param message: Message that should be hashed. A ``Hash32`` must be provided for EIP191 or EIP712 messages
-        :return: Hex encoded message data
+        :return: Preimage for the provided message
         """
         if isinstance(message, str):
             message_to_hash = message.encode()  # str -> bytes
@@ -548,7 +546,7 @@ class Safe(SafeCreator, ContractBase, metaclass=ABCMeta):
                 ["bytes32", "bytes32"], [self.SAFE_MESSAGE_TYPEHASH, message_hash]
             )
         )
-        message_preimage = encode_packed(
+        return encode_packed(
             ["bytes1", "bytes1", "bytes32", "bytes32"],
             [
                 bytes.fromhex("19"),
@@ -557,9 +555,20 @@ class Safe(SafeCreator, ContractBase, metaclass=ABCMeta):
                 safe_message_hash,
             ],
         )
+
+    def get_message_hash_and_preimage(
+        self, message: Union[str, bytes]
+    ) -> tuple[Hash32, bytes]:
+        """
+        Return hash of a message and its preimage that can be signed by owners.
+
+        :param message: Message that should be hashed. A ``Hash32`` must be provided for EIP191 or EIP712 messages
+        :return: Tuple of message hash and preimage for the provided message
+        """
+        message_preimage = self.get_message_preimage(message)
         return fast_keccak(message_preimage), message_preimage
 
-    def get_message_hash(self, message: Union[str, Hash32]) -> Hash32:
+    def get_message_hash(self, message: Union[str, bytes]) -> Hash32:
         """
         Return hash of a message that can be signed by owners.
 
@@ -885,7 +894,7 @@ class Safe(SafeCreator, ContractBase, metaclass=ABCMeta):
         :param tx_gas: Gas for the external tx. If not, `(safe_tx_gas + data_gas) * 2` will be used
         :param tx_gas_price: Gas price of the external tx. If not, `gas_price` will be used
         :param block_identifier:
-        :return: Tuple(tx_hash, tx)
+        :return: EthereumTxSent
         :raises: InvalidMultisigTx: If user tx cannot go through the Safe
         """
 

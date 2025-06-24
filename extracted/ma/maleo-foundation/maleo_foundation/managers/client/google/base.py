@@ -9,12 +9,12 @@ from maleo_foundation.utils.logging import SimpleConfig
 class GoogleClientManager(ClientManager):
     def __init__(
         self,
-        key:str,
-        name:str,
-        log_config:SimpleConfig,
-        service_key:BaseTypes.OptionalString=None,
-        credentials:Optional[Credentials]=None,
-        credentials_path:Optional[Union[Path, str]]=None
+        key: str,
+        name: str,
+        log_config: SimpleConfig,
+        service_key: BaseTypes.OptionalString = None,
+        credentials: Optional[Credentials] = None,
+        credentials_path: Optional[Union[Path, str]] = None
     ) -> None:
         super().__init__(key, name, log_config, service_key)
         if (credentials is not None and credentials_path is not None) or (credentials is None and credentials_path is None):

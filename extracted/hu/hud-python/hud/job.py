@@ -18,12 +18,12 @@ from hud.settings import settings
 from hud.task import Task
 from hud.taskset import TaskSet
 from hud.trajectory import Trajectory
-from hud.utils.common import Observation
 from hud.utils.progress import StepProgressTracker
 
 if TYPE_CHECKING:
     from hud.adapters.common import Adapter
     from hud.agent.base import Agent
+    from hud.utils.common import Observation
 
 logger = logging.getLogger("hud.job")
 
@@ -275,7 +275,7 @@ async def _maybe_resample_action(
                 decision = await response_agent.determine_response(response_text)
                 if decision == "CONTINUE":
                     logger.info("ResponseAgent indicated CONTINUE. Retrying...")
-                    obs = Observation(text="Please continue.")
+                    obs.text = "Please continue."
                     return obs, False
                 elif decision == "CONTINUE":
                     logger.warning("Max continue retries reached. Stopping despite CONTINUE.")
@@ -321,12 +321,21 @@ async def _execute_task(
         if agent_instance is None:
             raise RuntimeError("Agent could not be instantiated")
 
+        agent_name = agent_instance.name
+        logger.info("Using agent: %s", agent_name)
+        if task.metadata is None or not isinstance(task.metadata, dict):
+            task.metadata = {}
+        task.metadata["agent_name"] = agent_name
+
         # Environment creation with semaphore
         if env_creation_semaphore:
             async with env_creation_semaphore:
                 env = await gym.make(task, job=job)
         else:
             env = await gym.make(task, job=job)
+
+        if not env:
+            raise ValueError(f"Environment creation failed for task {task_id}")
 
         obs_tuple = await env.reset()
         if obs_tuple is None:
@@ -335,24 +344,45 @@ async def _execute_task(
 
         step_error = None
 
+        resampled_actions = 0
+
         for step in range(max_steps_per_task):
             action, done = (None, False)
             try:
                 # Agent prediction with semaphore
-                if agent_predict_semaphore:
-                    async with agent_predict_semaphore:
+                try:
+                    if agent_predict_semaphore:
+                        async with agent_predict_semaphore:
+                            action, done = await agent_instance.predict(obs)
+                    else:
                         action, done = await agent_instance.predict(obs)
-                else:
-                    action, done = await agent_instance.predict(obs)
+                except Exception as e:
+                    # if agent prediction fails, pass back the error to the agent
+                    logger.exception("[TR: %s] Agent prediction failed: %s", task_id, e)
+                    resampled_actions += 1
+                    if resampled_actions > 5:
+                        logger.warning(
+                            "[TR: %s] Resampled action %d times. Stopping.",
+                            task_id,
+                            resampled_actions,
+                        )
+                        break
+                    continue
 
                 if tracker:
                     tracker.increment_step(task_id)
 
-                if action is None and not done:
-                    done = True
-
-                if done and response_agent:
+                finish = False
+                if done and response_agent and action and len(action) > 0:
                     obs, finish = await _maybe_resample_action(obs, action[-1], response_agent)
+                    resampled_actions += 1
+                    if resampled_actions > 5:
+                        logger.warning(
+                            "[TR: %s] Resampled action %d times. Stopping.",
+                            task_id,
+                            resampled_actions,
+                        )
+                        break
                     if not finish:
                         continue
 
@@ -361,14 +391,12 @@ async def _execute_task(
                     terminated = True
                 else:
                     obs, _, terminated, _ = step_result
-                if terminated or done:
+                if terminated or done or finish:
                     break
 
             except Exception as agent_step_err:
                 logger.exception(
-                    "[Job: %s/%s, Task: %s] Step %d Error: %s",
-                    job.name,
-                    job.id,
+                    "[TR: %s] Step %d Error: %s",
                     task_id,
                     step + 1,
                     agent_step_err,
@@ -386,7 +414,7 @@ async def _execute_task(
                 )
                 continue
         else:
-            logger.warning("[Job: %s/%s, Task: %s] Max steps reached.", job.name, job.id, task_id)
+            logger.warning("[TR: %s] Max steps reached.", task_id)
 
         # --- Evaluate Task ---
         evaluation_result = None
@@ -401,9 +429,7 @@ async def _execute_task(
                 # logger.info("Evaluation result: %s", evaluation_result)
             except Exception as eval_err:
                 logger.exception(
-                    "[Job: %s/%s, Task: %s] Evaluation Error: %s",
-                    job.name,
-                    job.id,
+                    "[TR: %s] Evaluation Error: %s",
                     task_id,
                     eval_err,
                 )
@@ -420,7 +446,7 @@ async def _execute_task(
                 )
 
     except Exception as e:
-        logger.exception("[Job: %s/%s, Task: %s] Setup/Run Error: %s", job.name, job.id, task_id, e)
+        logger.exception("[TR: %s] Setup/Run Error: %s", task_id, e)
         status = "error"
         error_msg = str(e)
         # Store setup/initialization error in job
@@ -440,9 +466,7 @@ async def _execute_task(
             try:
                 await env.close()
             except Exception as close_err:
-                logger.exception(
-                    "[Job: %s/%s, Task: %s] Close Error: %s", job.name, job.id, task_id, close_err
-                )
+                logger.exception("[TR: %s] Close Error: %s", task_id, close_err)
                 # Store environment close error in job
                 job.errors.append(
                     {
@@ -455,9 +479,7 @@ async def _execute_task(
 
     log_suffix = f" Error: {error_msg}" if status == "error" else f" Eval: {evaluation_result}"
     logger.info(
-        "[Job: %s/%s, Task: %s] Finished local execution. Status: %s.%s",
-        job.name,
-        job.id,
+        "[TR: %s] Finished local execution. Status: %s.%s",
         task_id,
         status,
         log_suffix,
@@ -499,6 +521,7 @@ async def run_job(
     run_parallel: bool = True,
     job_metadata: dict[str, Any] | None = None,
     show_progress: bool = True,
+    verbose: bool = False,
     # Concurrency control with semaphores
     max_concurrent_env_creations: int | None = 30,  # Limits gym.make calls
     max_concurrent_agent_predictions: int | None = None,  # No limit on LLM calls
@@ -538,10 +561,16 @@ async def run_job(
     tasks_to_run: list[Task] = []
     created_job: Job | None = None
 
+    # Get hud logger
+    if not verbose:
+        logger = logging.getLogger("hud")
+        logger.setLevel(logging.CRITICAL)
+    logger = logging.getLogger("hud.job")
+
     evalset_id = None
     if isinstance(task_or_taskset, TaskSet):
         evalset_id = task_or_taskset.id
-        await task_or_taskset.fit(agent_cls)
+        task_or_taskset.fit(agent_cls)
 
     gym_id = None
     if isinstance(task_or_taskset, Task):
@@ -706,3 +735,39 @@ async def run_job(
         num_tasks,
     )
     return created_job
+
+
+"""
+c7f85f7d-3730-4c9a-85a3-a1dc436c3bd2
+
+
+de12c3cc-9d9c-4e90-82cc-1d71d30ede54
+59104743-0a63-4569-a8b5-1eda1a1b55ac
+ff759429-056c-4cde-8851-11e26729ff03
+
+
+7b98ea22-e243-4eeb-a6db-79f4a76da2b3
+
+7aad3f7b-d74f-470d-826d-d817f95fdd67
+
+e356ede6-074a-49ef-9fcd-69e5bcfbdec9
+
+26cd1192-3991-4d1b-b599-b2bed1bcb606
+
+31ece277-970f-4763-b0c8-bf19a56f56c7
+
+
+f9b722a0-5f33-466b-bce0-8ece101f2bc6
+33d1af33-8952-4945-b901-229bcfd88354
+
+6c3d6557-e745-44ab-bc10-300180a81c79
+6c3d6557-e745-44ab-bc10-300180a81c79
+502e02b5-9939-4e57-91af-4fcbcb90a979
+
+7aad3f7b-d74f-470d-826d-d817f95fdd67
+
+
+31ece277-970f-4763-b0c8-bf19a56f56c7
+
+
+e356ede6-074a-49ef-9fcd-69e5bcfbdec9"""

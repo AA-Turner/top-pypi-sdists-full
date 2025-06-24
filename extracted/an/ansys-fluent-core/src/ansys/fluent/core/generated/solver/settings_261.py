@@ -12,7 +12,7 @@ from ansys.fluent.core.solver.flobject import (
     _InOutFile,
 )
 
-SHASH = "f4d0a27df803a8bab94db5f9aff4c63bd11433c2523889d14ceb012391bc67a0"
+SHASH = "f3785f53a9fbaef9d74461055102ed5397c6fbebbdc0cef7666b7105b6366129"
 
 class single_precision_coordinates(Boolean):
     """
@@ -9522,7 +9522,7 @@ class sbes(Group):
         les_subgrid_dynamic_fvar=les_subgrid_dynamic_fvar,
     )
 
-class f_length(String):
+class f_length(String, AllowedValuesMixin):
     """
     User-defined transition correlations.
     """
@@ -9530,7 +9530,7 @@ class f_length(String):
     fluent_name = 'f_length'
     _python_name = 'f_length'
 
-class re_theta_c(String):
+class re_theta_c(String, AllowedValuesMixin):
     """
     User-defined transition correlations.
     """
@@ -9538,7 +9538,7 @@ class re_theta_c(String):
     fluent_name = 're_theta_c'
     _python_name = 're_theta_c'
 
-class re_theta_t(String):
+class re_theta_t(String, AllowedValuesMixin):
     """
     User-defined transition correlations.
     """
@@ -9559,6 +9559,14 @@ class user_defined_transition(Group):
         re_theta_c=re_theta_c,
         re_theta_t=re_theta_t,
     )
+
+class turb_buoyancy_effects(String, AllowedValuesMixin):
+    """
+    Buoyancy effects on turbulence.
+    """
+    _version = '261'
+    fluent_name = 'turb-buoyancy-effects'
+    _python_name = 'turb_buoyancy_effects'
 
 class viscous_heating(Boolean):
     """
@@ -9757,14 +9765,6 @@ class production_limiter(Group):
         clip_factor=clip_factor,
     )
 
-class turb_buoyancy_effects(String, AllowedValuesMixin):
-    """
-    Buoyancy effects on turbulence.
-    """
-    _version = '261'
-    fluent_name = 'turb-buoyancy-effects'
-    _python_name = 'turb_buoyancy_effects'
-
 class kw_buoyancy_effects(Boolean):
     """
     Enable/disable effects of buoyancy on k-omega turbulence model.
@@ -9788,8 +9788,9 @@ class options_1(Group):
     _version = '261'
     fluent_name = 'options'
     _python_name = 'options'
-    child_names = ['viscous_heating', 'low_pressure_boundary_slip', 'curvature_correction', 'corner_flow_correction', 'compressibility_effects', 'production_kato_launder_enabled', 'production_limiter', 'turb_buoyancy_effects', 'kw_buoyancy_effects', 'enable_geko']
+    child_names = ['turb_buoyancy_effects', 'viscous_heating', 'low_pressure_boundary_slip', 'curvature_correction', 'corner_flow_correction', 'compressibility_effects', 'production_kato_launder_enabled', 'production_limiter', 'kw_buoyancy_effects', 'enable_geko']
     _child_classes = dict(
+        turb_buoyancy_effects=turb_buoyancy_effects,
         viscous_heating=viscous_heating,
         low_pressure_boundary_slip=low_pressure_boundary_slip,
         curvature_correction=curvature_correction,
@@ -9797,7 +9798,6 @@ class options_1(Group):
         compressibility_effects=compressibility_effects,
         production_kato_launder_enabled=production_kato_launder_enabled,
         production_limiter=production_limiter,
-        turb_buoyancy_effects=turb_buoyancy_effects,
         kw_buoyancy_effects=kw_buoyancy_effects,
         enable_geko=enable_geko,
     )
@@ -10226,7 +10226,7 @@ class roughness_correlation_fcn(String, AllowedValuesMixin):
     Roughness Correlation Function.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'roughness-correlation-fcn'
     _python_name = 'roughness_correlation_fcn'
 
@@ -10917,6 +10917,14 @@ class non_participating_boundary_zones(StringList, AllowedValuesMixin):
     fluent_name = 'non-participating-boundary-zones'
     _python_name = 'non_participating_boundary_zones'
 
+class non_participating_physics_boundaries(StringList, AllowedValuesMixin):
+    """
+    Boundary that will not participate in S2S computation.
+    """
+    _version = '261'
+    fluent_name = 'non-participating-physics-boundaries'
+    _python_name = 'non_participating_physics_boundaries'
+
 class non_participating_zone_temperature(Real):
     """
     Temperature for the non-participating boundary zones.
@@ -10932,7 +10940,7 @@ class viewfactor_settings(Group):
     _version = '261'
     fluent_name = 'viewfactor-settings'
     _python_name = 'viewfactor_settings'
-    child_names = ['basis', 'method', 'surfaces', 'smoothing', 'resolution', 'separation', 'subdivide', 'non_participating_boundary_zones', 'non_participating_zone_temperature']
+    child_names = ['basis', 'method', 'surfaces', 'smoothing', 'resolution', 'separation', 'subdivide', 'non_participating_boundary_zones', 'non_participating_physics_boundaries', 'non_participating_zone_temperature']
     _child_classes = dict(
         basis=basis,
         method=method_1,
@@ -10942,6 +10950,7 @@ class viewfactor_settings(Group):
         separation=separation,
         subdivide=subdivide,
         non_participating_boundary_zones=non_participating_boundary_zones,
+        non_participating_physics_boundaries=non_participating_physics_boundaries,
         non_participating_zone_temperature=non_participating_zone_temperature,
     )
 
@@ -14307,7 +14316,7 @@ class pressure_gradient_force(Group):
     Deprecated, only for backward compatibility -- objects have been moved one level up.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'pressure-gradient-force'
     _python_name = 'pressure_gradient_force'
     _child_aliases = dict(
@@ -14497,7 +14506,7 @@ class include_convective_heat_transfer(Boolean):
     Enable/disable convection/conduction in the film-to-wall heat transfer model.
     """
     _version = '261'
-    _deprecated_version = '2023R2'
+    _deprecated_version = '23.2'
     fluent_name = 'include-convective-heat-transfer'
     _python_name = 'include_convective_heat_transfer'
 
@@ -15011,7 +15020,7 @@ class kernel(Group):
     Deprecated, only for backward compatibility -- objects have been moved one level up.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'kernel'
     _python_name = 'kernel'
     _child_aliases = dict(
@@ -18687,6 +18696,22 @@ class real_to_simulated_particle_ratio(Real):
     fluent_name = 'real-to-simulated-particle-ratio'
     _python_name = 'real_to_simulated_particle_ratio'
 
+class collision_pair_selection(String, AllowedValuesMixin):
+    """
+    Collision pair selection type.
+    """
+    _version = '261'
+    fluent_name = 'collision-pair-selection'
+    _python_name = 'collision_pair_selection'
+
+class target_number_of_particle_per_subcell(Integer):
+    """
+    Target number of particle per subcell for transient adaptive subcell method.
+    """
+    _version = '261'
+    fluent_name = 'target-number-of-particle-per-subcell'
+    _python_name = 'target_number_of_particle_per_subcell'
+
 class dsmc(Group):
     """
     Enable/disable dsmc model.
@@ -18694,12 +18719,14 @@ class dsmc(Group):
     _version = '261'
     fluent_name = 'dsmc'
     _python_name = 'dsmc'
-    child_names = ['enabled', 'time_step', 'sampling_begin_iteration', 'real_to_simulated_particle_ratio']
+    child_names = ['enabled', 'time_step', 'sampling_begin_iteration', 'real_to_simulated_particle_ratio', 'collision_pair_selection', 'target_number_of_particle_per_subcell']
     _child_classes = dict(
         enabled=enabled_24,
         time_step=time_step,
         sampling_begin_iteration=sampling_begin_iteration,
         real_to_simulated_particle_ratio=real_to_simulated_particle_ratio,
+        collision_pair_selection=collision_pair_selection,
+        target_number_of_particle_per_subcell=target_number_of_particle_per_subcell,
     )
 
 class enabled_25(Boolean):
@@ -19519,6 +19546,14 @@ class options_5(Group):
         tot_current=tot_current,
     )
 
+class anode_mech(String):
+    """
+    Anode Electrochemistry Mechanism.
+    """
+    _version = '261'
+    fluent_name = 'anode-mech'
+    _python_name = 'anode_mech'
+
 class anode_jref(Real):
     """
     Anode Reference Current Density (A/m2).
@@ -19574,6 +19609,14 @@ class anode_ex_c(Real):
     _version = '261'
     fluent_name = 'anode-ex-c'
     _python_name = 'anode_ex_c'
+
+class cathode_mech(String):
+    """
+    Cathode Electrochemistry Mechanism.
+    """
+    _version = '261'
+    fluent_name = 'cathode-mech'
+    _python_name = 'cathode_mech'
 
 class cathode_jref(Real):
     """
@@ -19718,8 +19761,9 @@ class parameters_3(Group):
     _version = '261'
     fluent_name = 'parameters'
     _python_name = 'parameters'
-    child_names = ['anode_jref', 'anode_jea', 'anode_tref', 'anode_cref', 'anode_exp', 'anode_ex_a', 'anode_ex_c', 'cathode_jref', 'cathode_jea', 'cathode_tref', 'cathode_cref', 'cathode_exp', 'cathode_ex_a', 'cathode_ex_c', 'anode_stde', 'cathode_stde', 'std_tem', 'std_pre', 'open_voltage', 'anode_entro', 'cathode_entro', 'evaporation_rate', 'condensation_rate', 'osmoticdrag_coeff']
+    child_names = ['anode_mech', 'anode_jref', 'anode_jea', 'anode_tref', 'anode_cref', 'anode_exp', 'anode_ex_a', 'anode_ex_c', 'cathode_mech', 'cathode_jref', 'cathode_jea', 'cathode_tref', 'cathode_cref', 'cathode_exp', 'cathode_ex_a', 'cathode_ex_c', 'anode_stde', 'cathode_stde', 'std_tem', 'std_pre', 'open_voltage', 'anode_entro', 'cathode_entro', 'evaporation_rate', 'condensation_rate', 'osmoticdrag_coeff']
     _child_classes = dict(
+        anode_mech=anode_mech,
         anode_jref=anode_jref,
         anode_jea=anode_jea,
         anode_tref=anode_tref,
@@ -19727,6 +19771,7 @@ class parameters_3(Group):
         anode_exp=anode_exp,
         anode_ex_a=anode_ex_a,
         anode_ex_c=anode_ex_c,
+        cathode_mech=cathode_mech,
         cathode_jref=cathode_jref,
         cathode_jea=cathode_jea,
         cathode_tref=cathode_tref,
@@ -20734,7 +20779,7 @@ class advanced(Group):
 
 class electrolysis(Group):
     """
-    The Electrolysis and H2 Pump model settings.
+    The Electrochemical Devices settings.
     """
     _version = '261'
     fluent_name = 'electrolysis'
@@ -22111,6 +22156,14 @@ class anode_p_diameter(Real):
     fluent_name = 'anode-p-diameter'
     _python_name = 'anode_p_diameter'
 
+class anode_specific_area(Real):
+    """
+    Specific area in negative Electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'anode-specific-area'
+    _python_name = 'anode_specific_area'
+
 class anode_n_sphere(Integer):
     """
     Number of grids across radius of particle at anode in the P2D model.
@@ -22218,6 +22271,14 @@ class anode_brugg(Real):
     fluent_name = 'anode-brugg'
     _python_name = 'anode_brugg'
 
+class anode_trans_efficiency(Real):
+    """
+    Transport efficiency of negative electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'anode-trans-efficiency'
+    _python_name = 'anode_trans_efficiency'
+
 class anode_sigma(Group):
     """
     Solid electric conductivity in anode in the P2D model.
@@ -22288,6 +22349,25 @@ class anode_ocv_1(Group):
         method=('option', 'method'),
     )
 
+class anode_entropic_coef(Group):
+    """
+    DUdT in negative electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'anode-entropic-coef'
+    _python_name = 'anode_entropic_coef'
+    child_names = ['option', 'value', 'piecewise_linear', 'polynomial', 'user_defined']
+    _child_classes = dict(
+        option=option_33,
+        value=value_8,
+        piecewise_linear=piecewise_linear,
+        polynomial=polynomial_1,
+        user_defined=user_defined_15,
+    )
+    _child_aliases = dict(
+        method=('option', 'method'),
+    )
+
 class cathode_thickness(Real):
     """
     Positive electrode thickness in the P2D model.
@@ -22319,6 +22399,14 @@ class cathode_p_diameter(Real):
     _version = '261'
     fluent_name = 'cathode-p-diameter'
     _python_name = 'cathode_p_diameter'
+
+class cathode_specific_area(Real):
+    """
+    Specific area in positive Electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'cathode-specific-area'
+    _python_name = 'cathode_specific_area'
 
 class cathode_n_sphere(Integer):
     """
@@ -22419,6 +22507,14 @@ class cathode_brugg(Real):
     fluent_name = 'cathode-brugg'
     _python_name = 'cathode_brugg'
 
+class cathode_trans_efficiency(Real):
+    """
+    Transport efficiency of positive electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'cathode-trans-efficiency'
+    _python_name = 'cathode_trans_efficiency'
+
 class cathode_sigma(Group):
     """
     Solid electric conductivity in cathode in the P2D model.
@@ -22489,6 +22585,25 @@ class cathode_ocv_1(Group):
         method=('option', 'method'),
     )
 
+class cathode_entropic_coef(Group):
+    """
+    DUdT in positive electrode in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'cathode-entropic-coef'
+    _python_name = 'cathode_entropic_coef'
+    child_names = ['option', 'value', 'piecewise_linear', 'polynomial', 'user_defined']
+    _child_classes = dict(
+        option=option_33,
+        value=value_8,
+        piecewise_linear=piecewise_linear,
+        polynomial=polynomial_1,
+        user_defined=user_defined_15,
+    )
+    _child_aliases = dict(
+        method=('option', 'method'),
+    )
+
 class electrolyte_thickness(Real):
     """
     Separator thickness in the P2D model.
@@ -22529,6 +22644,14 @@ class electrolyte_brugg(Real):
     fluent_name = 'electrolyte-brugg'
     _python_name = 'electrolyte_brugg'
 
+class electrolyte_trans_efficiency(Real):
+    """
+    Transport efficiency of separator in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'electrolyte-trans-efficiency'
+    _python_name = 'electrolyte_trans_efficiency'
+
 class electrolyte_de(Group):
     """
     Mass diffusivity of electrolyte in the P2D model.
@@ -22547,6 +22670,14 @@ class electrolyte_de(Group):
     _child_aliases = dict(
         method=('option', 'method'),
     )
+
+class electrolyte_de_act(Real):
+    """
+    Activation energy for electrolyte diffusivity in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'electrolyte-de-act'
+    _python_name = 'electrolyte_de_act'
 
 class electrolyte_t_plus(Group):
     """
@@ -22585,6 +22716,14 @@ class electrolyte_sigma(Group):
     _child_aliases = dict(
         method=('option', 'method'),
     )
+
+class electrolyte_sigma_act(Real):
+    """
+    Activation energy for ionic conductivity in the P2D model.
+    """
+    _version = '261'
+    fluent_name = 'electrolyte-sigma-act'
+    _python_name = 'electrolyte_sigma_act'
 
 class electrolyte_activity(Group):
     """
@@ -22645,6 +22784,31 @@ class aging_profile(String, AllowedValuesMixin):
     fluent_name = 'aging-profile'
     _python_name = 'aging_profile'
 
+class file_name_1_13(Filename, _InputFile):
+    """
+    BPX file name with its full path.
+    """
+    _version = '261'
+    fluent_name = 'file-name'
+    _python_name = 'file_name'
+
+class import_properties_from_bpx_file(Command):
+    """
+    Command object to read BPX file.
+    
+    Parameters
+    ----------
+        file_name_1 : str
+            BPX file name with its full path.
+    """
+    _version = '261'
+    fluent_name = 'import-properties-from-bpx-file'
+    _python_name = 'import_properties_from_bpx_file'
+    argument_names = ['file_name']
+    _child_classes = dict(
+        file_name=file_name_1_13,
+    )
+
 class p2d_model_settings(Group):
     """
     Newman's P2D model settings.
@@ -22652,7 +22816,8 @@ class p2d_model_settings(Group):
     _version = '261'
     fluent_name = 'p2d-model-settings'
     _python_name = 'p2d_model_settings'
-    child_names = ['initial_soc', 'ref_capacity', 'anode_thickness', 'anode_n_grid', 'anode_size_ratio', 'anode_p_diameter', 'anode_n_sphere', 'anode_size_ratio_r', 'anode_cs_max', 'anode_stio_0', 'anode_stio_100', 'anode_ce_0', 'anode_vof', 'anode_filler_f', 'anode_ds', 'anode_ed', 'anode_brugg', 'anode_sigma', 'anode_i0', 'anode_er', 'anode_alpha_a', 'anode_alpha_c', 'anode_ocv', 'cathode_thickness', 'cathode_n_grid', 'cathode_size_ratio', 'cathode_p_diameter', 'cathode_n_sphere', 'cathode_size_ratio_r', 'cathode_cs_max', 'cathode_stio_0', 'cathode_stio_100', 'cathode_ce_0', 'cathode_vof', 'cathode_filler_f', 'cathode_ds', 'cathode_ed', 'cathode_brugg', 'cathode_sigma', 'cathode_i0', 'cathode_er', 'cathode_alpha_a', 'cathode_alpha_c', 'cathode_ocv', 'electrolyte_thickness', 'electrolyte_n_grid', 'electrolyte_ce_0', 'electrolyte_vof', 'electrolyte_brugg', 'electrolyte_de', 'electrolyte_t_plus', 'electrolyte_sigma', 'electrolyte_activity', 'analytical_cs', 'analytical_cs_order', 'aging_model_enabled', 'aging_file', 'aging_profile']
+    child_names = ['initial_soc', 'ref_capacity', 'anode_thickness', 'anode_n_grid', 'anode_size_ratio', 'anode_p_diameter', 'anode_specific_area', 'anode_n_sphere', 'anode_size_ratio_r', 'anode_cs_max', 'anode_stio_0', 'anode_stio_100', 'anode_ce_0', 'anode_vof', 'anode_filler_f', 'anode_ds', 'anode_ed', 'anode_brugg', 'anode_trans_efficiency', 'anode_sigma', 'anode_i0', 'anode_er', 'anode_alpha_a', 'anode_alpha_c', 'anode_ocv', 'anode_entropic_coef', 'cathode_thickness', 'cathode_n_grid', 'cathode_size_ratio', 'cathode_p_diameter', 'cathode_specific_area', 'cathode_n_sphere', 'cathode_size_ratio_r', 'cathode_cs_max', 'cathode_stio_0', 'cathode_stio_100', 'cathode_ce_0', 'cathode_vof', 'cathode_filler_f', 'cathode_ds', 'cathode_ed', 'cathode_brugg', 'cathode_trans_efficiency', 'cathode_sigma', 'cathode_i0', 'cathode_er', 'cathode_alpha_a', 'cathode_alpha_c', 'cathode_ocv', 'cathode_entropic_coef', 'electrolyte_thickness', 'electrolyte_n_grid', 'electrolyte_ce_0', 'electrolyte_vof', 'electrolyte_brugg', 'electrolyte_trans_efficiency', 'electrolyte_de', 'electrolyte_de_act', 'electrolyte_t_plus', 'electrolyte_sigma', 'electrolyte_sigma_act', 'electrolyte_activity', 'analytical_cs', 'analytical_cs_order', 'aging_model_enabled', 'aging_file', 'aging_profile']
+    command_names = ['import_properties_from_bpx_file']
     _child_classes = dict(
         initial_soc=initial_soc_1,
         ref_capacity=ref_capacity_2,
@@ -22660,6 +22825,7 @@ class p2d_model_settings(Group):
         anode_n_grid=anode_n_grid,
         anode_size_ratio=anode_size_ratio,
         anode_p_diameter=anode_p_diameter,
+        anode_specific_area=anode_specific_area,
         anode_n_sphere=anode_n_sphere,
         anode_size_ratio_r=anode_size_ratio_r,
         anode_cs_max=anode_cs_max,
@@ -22671,16 +22837,19 @@ class p2d_model_settings(Group):
         anode_ds=anode_ds,
         anode_ed=anode_ed,
         anode_brugg=anode_brugg,
+        anode_trans_efficiency=anode_trans_efficiency,
         anode_sigma=anode_sigma,
         anode_i0=anode_i0_1,
         anode_er=anode_er,
         anode_alpha_a=anode_alpha_a_1,
         anode_alpha_c=anode_alpha_c_1,
         anode_ocv=anode_ocv_1,
+        anode_entropic_coef=anode_entropic_coef,
         cathode_thickness=cathode_thickness,
         cathode_n_grid=cathode_n_grid,
         cathode_size_ratio=cathode_size_ratio,
         cathode_p_diameter=cathode_p_diameter,
+        cathode_specific_area=cathode_specific_area,
         cathode_n_sphere=cathode_n_sphere,
         cathode_size_ratio_r=cathode_size_ratio_r,
         cathode_cs_max=cathode_cs_max,
@@ -22692,26 +22861,32 @@ class p2d_model_settings(Group):
         cathode_ds=cathode_ds,
         cathode_ed=cathode_ed,
         cathode_brugg=cathode_brugg,
+        cathode_trans_efficiency=cathode_trans_efficiency,
         cathode_sigma=cathode_sigma,
         cathode_i0=cathode_i0_1,
         cathode_er=cathode_er,
         cathode_alpha_a=cathode_alpha_a_1,
         cathode_alpha_c=cathode_alpha_c_1,
         cathode_ocv=cathode_ocv_1,
+        cathode_entropic_coef=cathode_entropic_coef,
         electrolyte_thickness=electrolyte_thickness,
         electrolyte_n_grid=electrolyte_n_grid,
         electrolyte_ce_0=electrolyte_ce_0,
         electrolyte_vof=electrolyte_vof,
         electrolyte_brugg=electrolyte_brugg,
+        electrolyte_trans_efficiency=electrolyte_trans_efficiency,
         electrolyte_de=electrolyte_de,
+        electrolyte_de_act=electrolyte_de_act,
         electrolyte_t_plus=electrolyte_t_plus,
         electrolyte_sigma=electrolyte_sigma,
+        electrolyte_sigma_act=electrolyte_sigma_act,
         electrolyte_activity=electrolyte_activity,
         analytical_cs=analytical_cs,
         analytical_cs_order=analytical_cs_order,
         aging_model_enabled=aging_model_enabled_1,
         aging_file=aging_file,
         aging_profile=aging_profile,
+        import_properties_from_bpx_file=import_properties_from_bpx_file,
     )
 
 class memory_num_per_cell(Integer):
@@ -24070,7 +24245,7 @@ class abuse_rate_matrix(ListObject[abuse_rate_matrix_child]):
     )
     child_object_type = abuse_rate_matrix_child
 
-class file_name_1_13(Filename, _InputFile):
+class file_name_1_14(Filename, _InputFile):
     """
     N-eqn abuse kinetics file name with its full path.
     """
@@ -24092,7 +24267,7 @@ class read_abuse_rate_file(Command):
     _python_name = 'read_abuse_rate_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_13,
+        file_name=file_name_1_14,
     )
 
 class file_name_10(Filename, _OutputFile):
@@ -25079,7 +25254,7 @@ class echem_model_1(String, AllowedValuesMixin):
     fluent_name = 'echem-model'
     _python_name = 'echem_model'
 
-class file_name_1_15(Filename, _InputFile):
+class file_name_1_16(Filename, _InputFile):
     """
     Test filenames used in thermal abuse model fitting.
     """
@@ -25152,7 +25327,7 @@ class test_data_sets_child(Group):
     _python_name = 'test_data_sets_child'
     child_names = ['file_name', 'initial_alpha', 'initial_temp', 'ambient_temp', 'external_ht_coeff', 'enclosure_temp', 'include_max_temp_enabled', 'range_temp']
     _child_classes = dict(
-        file_name=file_name_1_15,
+        file_name=file_name_1_16,
         initial_alpha=initial_alpha,
         initial_temp=initial_temp,
         ambient_temp=ambient_temp_1,
@@ -25243,7 +25418,7 @@ class nvalue(Real):
     fluent_name = 'nvalue'
     _python_name = 'nvalue'
 
-class file_name_1_14(Filename, _InputFile):
+class file_name_1_15(Filename, _InputFile):
     """
     File name for temperature testing data in the thermal abuse model fitting.
     """
@@ -25369,7 +25544,7 @@ class thermal_abuse_fitting(Group):
         mvalue=mvalue,
         fixn_enabled=fixn_enabled,
         nvalue=nvalue,
-        file_name=file_name_1_14,
+        file_name=file_name_1_15,
         initial_temp=initial_temp,
         ambient_temp=ambient_temp,
         external_ht_coeff=external_ht_coeff,
@@ -25661,7 +25836,7 @@ class max_n_per_time_step(Integer):
     fluent_name = 'max-n-per-time-step'
     _python_name = 'max_n_per_time_step'
 
-class file_name_1_16(Filename, _InputFile):
+class file_name_1_17(Filename, _InputFile):
     """
     Time-stepping file in the ROM simulation.
     """
@@ -25693,7 +25868,7 @@ class transient_setup(Group):
         increment_factor=increment_factor,
         n_time_step_per_setting=n_time_step_per_setting,
         max_n_per_time_step=max_n_per_time_step,
-        file_name=file_name_1_16,
+        file_name=file_name_1_17,
         stop_range_fraction=stop_range_fraction,
     )
 
@@ -26103,7 +26278,7 @@ class translation_rotation_matrix(ListObject[translation_rotation_matrix_child])
     )
     child_object_type = translation_rotation_matrix_child
 
-class file_name_1_17(Filename, _InputFile):
+class file_name_1_18(Filename, _InputFile):
     """
     Module Location file name with its full path.
     """
@@ -26125,7 +26300,7 @@ class read_location_file(Command):
     _python_name = 'read_location_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_17,
+        file_name=file_name_1_18,
     )
 
 class file_name_13(Filename, _OutputFile):
@@ -32473,7 +32648,7 @@ class volumetric_species(NamedObject[volumetric_species_child], CreatableNamedOb
     'volumetric_species' child.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'volumetric-species'
     _python_name = 'volumetric_species'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -34475,7 +34650,7 @@ class particle_species(NamedObject[particle_species_child], CreatableNamedObject
     'particle_species' child.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'particle-species'
     _python_name = 'particle_species'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -35596,7 +35771,7 @@ class function_of_2(String, AllowedValuesMixin):
     What variable this object is a function of.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'function-of'
     _python_name = 'function_of'
 
@@ -36334,6 +36509,14 @@ class fan_tip_rad(Real):
     fluent_name = 'fan-tip-rad'
     _python_name = 'fan_tip_rad'
 
+class fan_inflection_point(Real):
+    """
+    Fan Inflection Point.
+    """
+    _version = '261'
+    fluent_name = 'fan-inflection-point'
+    _python_name = 'fan_inflection_point'
+
 class fan_origin_child(Real):
     """
     'child_object_type' of fan_origin.
@@ -36371,14 +36554,6 @@ class fan_opert_angvel(Real):
     _version = '261'
     fluent_name = 'fan-opert-angvel'
     _python_name = 'fan_opert_angvel'
-
-class fan_inflection_point(Real):
-    """
-    Fan Inflection Point.
-    """
-    _version = '261'
-    fluent_name = 'fan-inflection-point'
-    _python_name = 'fan_inflection_point'
 
 class limit_flow_fan(Boolean):
     """
@@ -36507,17 +36682,17 @@ class fan_zone(Group):
     _version = '261'
     fluent_name = 'fan-zone'
     _python_name = 'fan_zone'
-    child_names = ['fan_zone', 'inlet_fan_zone', 'fan_thickness', 'fan_hub_rad', 'fan_tip_rad', 'fan_origin', 'fan_rot_dir', 'fan_opert_angvel', 'fan_inflection_point', 'limit_flow_fan', 'max_flow_rate', 'min_flow_rate', 'tan_source_term', 'rad_source_term', 'axial_source_term', 'fan_axial_source_method', 'fan_pre_jump', 'fan_curve_fit', 'fan_poly_order', 'fan_ini_flow', 'fan_test_angvel', 'fan_test_temp', 'fan_curve_filename', 'read_fan_curve']
+    child_names = ['fan_zone', 'inlet_fan_zone', 'fan_thickness', 'fan_hub_rad', 'fan_tip_rad', 'fan_inflection_point', 'fan_origin', 'fan_rot_dir', 'fan_opert_angvel', 'limit_flow_fan', 'max_flow_rate', 'min_flow_rate', 'tan_source_term', 'rad_source_term', 'axial_source_term', 'fan_axial_source_method', 'fan_pre_jump', 'fan_curve_fit', 'fan_poly_order', 'fan_ini_flow', 'fan_test_angvel', 'fan_test_temp', 'fan_curve_filename', 'read_fan_curve']
     _child_classes = dict(
         fan_zone=fan_zone_1,
         inlet_fan_zone=inlet_fan_zone,
         fan_thickness=fan_thickness,
         fan_hub_rad=fan_hub_rad,
         fan_tip_rad=fan_tip_rad,
+        fan_inflection_point=fan_inflection_point,
         fan_origin=fan_origin,
         fan_rot_dir=fan_rot_dir,
         fan_opert_angvel=fan_opert_angvel,
-        fan_inflection_point=fan_inflection_point,
         limit_flow_fan=limit_flow_fan,
         max_flow_rate=max_flow_rate,
         min_flow_rate=min_flow_rate,
@@ -38305,6 +38480,399 @@ class locations_2(StringList, AllowedValuesMixin):
     fluent_name = 'locations'
     _python_name = 'locations'
 
+class phase_2_child(Group):
+    """
+    'child_object_type' of phase.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'phase_child'
+    child_names = ['general', 'conical', 'reference_frame', 'mesh_motion', 'zonal_models', 'porous_zone', 'fan_zone', 'embedded_les', 'reaction', 'sources', 'fixed_values', 'multiphase', 'disabled']
+    _child_classes = dict(
+        general=general_2,
+        conical=conical,
+        reference_frame=reference_frame_2,
+        mesh_motion=mesh_motion,
+        zonal_models=zonal_models,
+        porous_zone=porous_zone,
+        fan_zone=fan_zone,
+        embedded_les=embedded_les,
+        reaction=reaction,
+        sources=sources_1,
+        fixed_values=fixed_values,
+        multiphase=multiphase_1,
+        disabled=disabled,
+    )
+
+class phase_2(NamedObject[phase_2_child], CreatableNamedObjectMixin[phase_2_child]):
+    """
+    'phase' child.
+    """
+    _version = '261'
+    fluent_name = 'phase'
+    _python_name = 'phase'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = phase_2_child
+
+class display_4(Command):
+    """
+    Display physics object.
+    """
+    _version = '261'
+    fluent_name = 'display'
+    _python_name = 'display'
+
+class name_13(String):
+    """
+    Input new volume name.
+    """
+    _version = '261'
+    fluent_name = 'name'
+    _python_name = 'name'
+
+class locations_3(StringList, AllowedValuesMixin):
+    """
+    Input location name which should be part of new volume.
+    """
+    _version = '261'
+    fluent_name = 'locations'
+    _python_name = 'locations'
+
+class split(Command):
+    """
+    Input volume and location names to split.
+    
+    Parameters
+    ----------
+        name : str
+            Input new volume name.
+        locations : List
+            Input location name which should be part of new volume.
+    """
+    _version = '261'
+    fluent_name = 'split'
+    _python_name = 'split'
+    argument_names = ['name', 'locations']
+    _child_classes = dict(
+        name=name_13,
+        locations=locations_3,
+    )
+
+class set_location(Command):
+    """
+    Input location name.
+    
+    Parameters
+    ----------
+        locations : List
+            Input location name.
+    """
+    _version = '261'
+    fluent_name = 'set-location'
+    _python_name = 'set_location'
+    argument_names = ['locations']
+    _child_classes = dict(
+        locations=locations_2,
+    )
+
+class type_5(String, AllowedValuesMixin):
+    """
+    Input new type.
+    """
+    _version = '261'
+    fluent_name = 'type'
+    _python_name = 'type'
+
+class set_type_1(Command):
+    """
+    Change the type for this volume.
+    
+    Parameters
+    ----------
+        type : str
+            Input new type.
+    """
+    _version = '261'
+    fluent_name = 'set-type'
+    _python_name = 'set_type'
+    argument_names = ['type']
+    _child_classes = dict(
+        type=type_5,
+    )
+
+class fluid_2_child(Group):
+    """
+    'child_object_type' of fluid.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'fluid_child'
+    child_names = ['name', 'locations', 'general', 'conical', 'reference_frame', 'mesh_motion', 'zonal_models', 'porous_zone', 'fan_zone', 'embedded_les', 'reaction', 'sources', 'fixed_values', 'multiphase', 'disabled', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
+    _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
+        general=general_2,
+        conical=conical,
+        reference_frame=reference_frame_2,
+        mesh_motion=mesh_motion,
+        zonal_models=zonal_models,
+        porous_zone=porous_zone,
+        fan_zone=fan_zone,
+        embedded_les=embedded_les,
+        reaction=reaction,
+        sources=sources_1,
+        fixed_values=fixed_values,
+        multiphase=multiphase_1,
+        disabled=disabled,
+        phase=phase_2,
+        display=display_4,
+        split=split,
+        set_location=set_location,
+        set_type=set_type_1,
+    )
+    _child_aliases = dict(
+        location=('locations', 'location'),
+    )
+
+class fluid_2(NamedObject[fluid_2_child], CreatableNamedObjectMixin[fluid_2_child]):
+    """
+    Thread-type.
+    """
+    _version = '261'
+    fluent_name = 'fluid'
+    _python_name = 'fluid'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = fluid_2_child
+
+class phase_3_child(Group):
+    """
+    'child_object_type' of phase.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'phase_child'
+    child_names = ['general', 'reference_frame', 'mesh_motion', 'solid_motion', 'sources', 'fixed_values', 'material_orientation', 'disabled', 'internal']
+    _child_classes = dict(
+        general=general_3,
+        reference_frame=reference_frame_3,
+        mesh_motion=mesh_motion_1,
+        solid_motion=solid_motion,
+        sources=sources_1,
+        fixed_values=fixed_values,
+        material_orientation=material_orientation,
+        disabled=disabled_1,
+        internal=internal,
+    )
+
+class phase_3(NamedObject[phase_3_child], CreatableNamedObjectMixin[phase_3_child]):
+    """
+    'phase' child.
+    """
+    _version = '261'
+    fluent_name = 'phase'
+    _python_name = 'phase'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = phase_3_child
+
+class solid_3_child(Group):
+    """
+    'child_object_type' of solid.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'solid_child'
+    child_names = ['name', 'locations', 'general', 'reference_frame', 'mesh_motion', 'solid_motion', 'sources', 'fixed_values', 'material_orientation', 'disabled', 'internal', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
+    _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
+        general=general_3,
+        reference_frame=reference_frame_3,
+        mesh_motion=mesh_motion_1,
+        solid_motion=solid_motion,
+        sources=sources_1,
+        fixed_values=fixed_values,
+        material_orientation=material_orientation,
+        disabled=disabled_1,
+        internal=internal,
+        phase=phase_3,
+        display=display_4,
+        split=split,
+        set_location=set_location,
+        set_type=set_type_1,
+    )
+    _child_aliases = dict(
+        location=('locations', 'location'),
+    )
+
+class solid_3(NamedObject[solid_3_child], CreatableNamedObjectMixin[solid_3_child]):
+    """
+    Thread-type.
+    """
+    _version = '261'
+    fluent_name = 'solid'
+    _python_name = 'solid'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = solid_3_child
+
+class list_physics(Command):
+    """
+    List volume information.
+    """
+    _version = '261'
+    fluent_name = 'list-physics'
+    _python_name = 'list_physics'
+
+class name_14(String):
+    """
+    Input new volume name .
+    """
+    _version = '261'
+    fluent_name = 'name'
+    _python_name = 'name'
+
+class type_6(String, AllowedValuesMixin):
+    """
+    Input volume type.
+    """
+    _version = '261'
+    fluent_name = 'type'
+    _python_name = 'type'
+
+class create_3(CommandWithPositionalArgs):
+    """
+    Crate new volume.
+    
+    Parameters
+    ----------
+        name : str
+            Input new volume name .
+        type : str
+            Input volume type.
+    """
+    _version = '261'
+    fluent_name = 'create'
+    _python_name = 'create'
+    argument_names = ['name', 'type']
+    _child_classes = dict(
+        name=name_14,
+        type=type_6,
+    )
+
+class volume_names(StringList, AllowedValuesMixin):
+    """
+    Input volume names .
+    """
+    _version = '261'
+    fluent_name = 'volume-names'
+    _python_name = 'volume_names'
+
+class set_type(Command):
+    """
+    Input volume name(s) to change its type.
+    
+    Parameters
+    ----------
+        volume_names : List
+            Input volume names .
+        type : str
+            Input volume type.
+    """
+    _version = '261'
+    fluent_name = 'set-type'
+    _python_name = 'set_type'
+    argument_names = ['volume_names', 'type']
+    _child_classes = dict(
+        volume_names=volume_names,
+        type=type_6,
+    )
+
+class volumes(Group, _ChildNamedObjectAccessorMixin):
+    """
+    Volumes definitions.
+    """
+    _version = '261'
+    fluent_name = 'volumes'
+    _python_name = 'volumes'
+    child_names = ['fluid', 'solid']
+    command_names = ['list_physics', 'create', 'set_type']
+    _child_classes = dict(
+        fluid=fluid_2,
+        solid=solid_3,
+        list_physics=list_physics,
+        create=create_3,
+        set_type=set_type,
+    )
+
+class name_15(String):
+    """
+    Input boundary name .
+    """
+    _version = '261'
+    fluent_name = 'name'
+    _python_name = 'name'
+
+class volume(String, AllowedValuesMixin):
+    """
+    Input volume name for which the new boundary.
+    """
+    _version = '261'
+    fluent_name = 'volume'
+    _python_name = 'volume'
+
+class create_5(CommandWithPositionalArgs):
+    """
+    Crate new boundary.
+    
+    Parameters
+    ----------
+        name : str
+            Input boundary name .
+        volume : str
+            Input volume name for which the new boundary.
+    """
+    _version = '261'
+    fluent_name = 'create'
+    _python_name = 'create'
+    argument_names = ['name', 'volume']
+    _child_classes = dict(
+        name=name_15,
+        volume=volume,
+    )
+
 class geom_disable(Boolean):
     """
     Disable Geometry Based Adption.
@@ -38379,7 +38947,7 @@ class geometry_6(Group):
         geom_bgthread=geom_bgthread,
     )
 
-class phase_3_child(Group):
+class phase_4_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -38391,7 +38959,7 @@ class phase_3_child(Group):
         geometry=geometry_6,
     )
 
-class phase_3(NamedObject[phase_3_child], CreatableNamedObjectMixin[phase_3_child]):
+class phase_4(NamedObject[phase_4_child], CreatableNamedObjectMixin[phase_4_child]):
     """
     Domain name to define settings on.
     """
@@ -38407,22 +38975,9 @@ class phase_3(NamedObject[phase_3_child], CreatableNamedObjectMixin[phase_3_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_3_child
+    child_object_type = phase_4_child
 
-class settings_1(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['geometry', 'phase']
-    _child_classes = dict(
-        geometry=geometry_6,
-        phase=phase_3,
-    )
-
-class name_13(String):
+class name_16(String):
     """
     Input new boundary name.
     """
@@ -38430,7 +38985,7 @@ class name_13(String):
     fluent_name = 'name'
     _python_name = 'name'
 
-class locations_3(StringList, AllowedValuesMixin):
+class locations_4(StringList, AllowedValuesMixin):
     """
     Input location name which should be part of new boundary.
     """
@@ -38454,8 +39009,25 @@ class split_1(Command):
     _python_name = 'split'
     argument_names = ['name', 'locations']
     _child_classes = dict(
-        name=name_13,
-        locations=locations_3,
+        name=name_16,
+        locations=locations_4,
+    )
+
+class set_type_3(Command):
+    """
+    Change the type for this boundary.
+    
+    Parameters
+    ----------
+        type : str
+            Input new type.
+    """
+    _version = '261'
+    fluent_name = 'set-type'
+    _python_name = 'set_type'
+    argument_names = ['type']
+    _child_classes = dict(
+        type=type_5,
     )
 
 class axis_5_child(Group):
@@ -38465,13 +39037,17 @@ class axis_5_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'axis_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -38486,7 +39062,7 @@ class axis_5(NamedObject[axis_5_child], CreatableNamedObjectMixin[axis_5_child])
     _python_name = 'axis'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -38502,13 +39078,17 @@ class degassing_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'degassing_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -38523,7 +39103,7 @@ class degassing(NamedObject[degassing_child], CreatableNamedObjectMixin[degassin
     _python_name = 'degassing'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -41678,7 +42258,7 @@ class icing(Group):
         fensapice_drop_vc=fensapice_drop_vc,
     )
 
-class phase_4_child(Group):
+class phase_5_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -41701,7 +42281,7 @@ class phase_4_child(Group):
         geometry=geometry_6,
     )
 
-class phase_4(NamedObject[phase_4_child], CreatableNamedObjectMixin[phase_4_child]):
+class phase_5(NamedObject[phase_5_child], CreatableNamedObjectMixin[phase_5_child]):
     """
     Domain name to define settings on.
     """
@@ -41717,17 +42297,20 @@ class phase_4(NamedObject[phase_4_child], CreatableNamedObjectMixin[phase_4_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_4_child
+    child_object_type = phase_5_child
 
-class settings_2(Group):
+class exhaust_fan_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of exhaust_fan.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'exhaust_fan_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum,
         turbulence=turbulence,
         thermal=thermal,
@@ -41740,23 +42323,11 @@ class settings_2(Group):
         uds=uds,
         icing=icing,
         geometry=geometry_6,
-        phase=phase_4,
-    )
-
-class exhaust_fan_child(Group):
-    """
-    'child_object_type' of exhaust_fan.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'exhaust_fan_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_2,
+        phase=phase_5,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -41771,7 +42342,7 @@ class exhaust_fan(NamedObject[exhaust_fan_child], CreatableNamedObjectMixin[exha
     _python_name = 'exhaust_fan'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -42133,7 +42704,7 @@ class discrete_phase_2(Group):
         reinj_inj=('reinject_using_injection', 'reinj-inj'),
     )
 
-class phase_5_child(Group):
+class phase_6_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -42148,7 +42719,7 @@ class phase_5_child(Group):
         geometry=geometry_6,
     )
 
-class phase_5(NamedObject[phase_5_child], CreatableNamedObjectMixin[phase_5_child]):
+class phase_6(NamedObject[phase_6_child], CreatableNamedObjectMixin[phase_6_child]):
     """
     Domain name to define settings on.
     """
@@ -42164,23 +42735,7 @@ class phase_5(NamedObject[phase_5_child], CreatableNamedObjectMixin[phase_5_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_5_child
-
-class settings_3(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['pressure_jump_specification', 'swirl_velocity_specification', 'discrete_phase', 'geometry', 'phase']
-    _child_classes = dict(
-        pressure_jump_specification=pressure_jump_specification,
-        swirl_velocity_specification=swirl_velocity_specification,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_5,
-    )
+    child_object_type = phase_6_child
 
 class fan_child(Group):
     """
@@ -42189,13 +42744,20 @@ class fan_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'fan_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'pressure_jump_specification', 'swirl_velocity_specification', 'discrete_phase', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_3,
+        pressure_jump_specification=pressure_jump_specification,
+        swirl_velocity_specification=swirl_velocity_specification,
+        discrete_phase=discrete_phase_2,
+        geometry=geometry_6,
+        phase=phase_6,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -42210,7 +42772,7 @@ class fan(NamedObject[fan_child], CreatableNamedObjectMixin[fan_child]):
     _python_name = 'fan'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -42226,13 +42788,17 @@ class geometry_5_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'geometry_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -42247,7 +42813,7 @@ class geometry_5(NamedObject[geometry_5_child], CreatableNamedObjectMixin[geomet
     _python_name = 'geometry'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -44136,7 +44702,7 @@ class icing_1(Group):
         fensapice_drop_vc=fensapice_drop_vc,
     )
 
-class phase_6_child(Group):
+class phase_7_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -44159,7 +44725,7 @@ class phase_6_child(Group):
         geometry=geometry_6,
     )
 
-class phase_6(NamedObject[phase_6_child], CreatableNamedObjectMixin[phase_6_child]):
+class phase_7(NamedObject[phase_7_child], CreatableNamedObjectMixin[phase_7_child]):
     """
     Domain name to define settings on.
     """
@@ -44175,17 +44741,20 @@ class phase_6(NamedObject[phase_6_child], CreatableNamedObjectMixin[phase_6_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_6_child
+    child_object_type = phase_7_child
 
-class settings_4(Group):
+class inlet_vent_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of inlet_vent.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'inlet_vent_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_1,
         turbulence=turbulence_1,
         thermal=thermal_1,
@@ -44198,23 +44767,11 @@ class settings_4(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_6,
-    )
-
-class inlet_vent_child(Group):
-    """
-    'child_object_type' of inlet_vent.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'inlet_vent_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_4,
+        phase=phase_7,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -44229,7 +44786,7 @@ class inlet_vent(NamedObject[inlet_vent_child], CreatableNamedObjectMixin[inlet_
     _python_name = 'inlet_vent'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -44306,7 +44863,7 @@ class momentum_2(Group):
         swirl_model=('swirl_velocity_specification', 'swirl-model?'),
     )
 
-class phase_7_child(Group):
+class phase_8_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -44329,7 +44886,7 @@ class phase_7_child(Group):
         geometry=geometry_6,
     )
 
-class phase_7(NamedObject[phase_7_child], CreatableNamedObjectMixin[phase_7_child]):
+class phase_8(NamedObject[phase_8_child], CreatableNamedObjectMixin[phase_8_child]):
     """
     Domain name to define settings on.
     """
@@ -44345,17 +44902,20 @@ class phase_7(NamedObject[phase_7_child], CreatableNamedObjectMixin[phase_7_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_7_child
+    child_object_type = phase_8_child
 
-class settings_5(Group):
+class intake_fan_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of intake_fan.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'intake_fan_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_2,
         turbulence=turbulence_1,
         thermal=thermal_1,
@@ -44368,23 +44928,11 @@ class settings_5(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_7,
-    )
-
-class intake_fan_child(Group):
-    """
-    'child_object_type' of intake_fan.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'intake_fan_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_5,
+        phase=phase_8,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -44399,7 +44947,7 @@ class intake_fan(NamedObject[intake_fan_child], CreatableNamedObjectMixin[intake
     _python_name = 'intake_fan'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -44428,7 +44976,7 @@ class interface_1(Group):
         non_overlap_zone_name=non_overlap_zone_name,
     )
 
-class phase_8_child(Group):
+class phase_9_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -44441,7 +44989,7 @@ class phase_8_child(Group):
         geometry=geometry_6,
     )
 
-class phase_8(NamedObject[phase_8_child], CreatableNamedObjectMixin[phase_8_child]):
+class phase_9(NamedObject[phase_9_child], CreatableNamedObjectMixin[phase_9_child]):
     """
     Domain name to define settings on.
     """
@@ -44457,21 +45005,7 @@ class phase_8(NamedObject[phase_8_child], CreatableNamedObjectMixin[phase_8_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_8_child
-
-class settings_6(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['interface', 'geometry', 'phase']
-    _child_classes = dict(
-        interface=interface_1,
-        geometry=geometry_6,
-        phase=phase_8,
-    )
+    child_object_type = phase_9_child
 
 class interface_child(Group):
     """
@@ -44480,13 +45014,18 @@ class interface_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'interface_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'interface', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_6,
+        interface=interface_1,
+        geometry=geometry_6,
+        phase=phase_9,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -44501,7 +45040,7 @@ class interface(NamedObject[interface_child], CreatableNamedObjectMixin[interfac
     _python_name = 'interface'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -44530,7 +45069,7 @@ class interior_1(Group):
         is_not_a_rans_les_interface=is_not_a_rans_les_interface,
     )
 
-class phase_9_child(Group):
+class phase_10_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -44542,7 +45081,7 @@ class phase_9_child(Group):
         interior=interior_1,
     )
 
-class phase_9(NamedObject[phase_9_child], CreatableNamedObjectMixin[phase_9_child]):
+class phase_10(NamedObject[phase_10_child], CreatableNamedObjectMixin[phase_10_child]):
     """
     Domain name to define settings on.
     """
@@ -44558,20 +45097,7 @@ class phase_9(NamedObject[phase_9_child], CreatableNamedObjectMixin[phase_9_chil
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_9_child
-
-class settings_7(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['interior', 'phase']
-    _child_classes = dict(
-        interior=interior_1,
-        phase=phase_9,
-    )
+    child_object_type = phase_10_child
 
 class interior_child(Group):
     """
@@ -44580,13 +45106,17 @@ class interior_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'interior_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'interior', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_7,
+        interior=interior_1,
+        phase=phase_10,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -44601,7 +45131,7 @@ class interior(NamedObject[interior_child], CreatableNamedObjectMixin[interior_c
     _python_name = 'interior'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45126,7 +45656,7 @@ class multiphase_4(Group):
         wsn=('log10_droplets_per_unit_volume', 'wsn'),
     )
 
-class phase_10_child(Group):
+class phase_11_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -45149,7 +45679,7 @@ class phase_10_child(Group):
         geometry=geometry_6,
     )
 
-class phase_10(NamedObject[phase_10_child], CreatableNamedObjectMixin[phase_10_child]):
+class phase_11(NamedObject[phase_11_child], CreatableNamedObjectMixin[phase_11_child]):
     """
     Domain name to define settings on.
     """
@@ -45165,17 +45695,20 @@ class phase_10(NamedObject[phase_10_child], CreatableNamedObjectMixin[phase_10_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_10_child
+    child_object_type = phase_11_child
 
-class settings_8(Group):
+class mass_flow_inlet_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of mass_flow_inlet.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'mass_flow_inlet_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_3,
         turbulence=turbulence_2,
         thermal=thermal_2,
@@ -45188,23 +45721,11 @@ class settings_8(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_10,
-    )
-
-class mass_flow_inlet_child(Group):
-    """
-    'child_object_type' of mass_flow_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'mass_flow_inlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_8,
+        phase=phase_11,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -45219,7 +45740,7 @@ class mass_flow_inlet(NamedObject[mass_flow_inlet_child], CreatableNamedObjectMi
     _python_name = 'mass_flow_inlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45343,7 +45864,7 @@ class potential_1(Group):
     fluent_name = 'potential'
     _python_name = 'potential'
 
-class phase_11_child(Group):
+class phase_12_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -45366,93 +45887,6 @@ class phase_11_child(Group):
         geometry=geometry_6,
     )
 
-class phase_11(NamedObject[phase_11_child], CreatableNamedObjectMixin[phase_11_child]):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'phase'
-    _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = phase_11_child
-
-class settings_9(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    _child_classes = dict(
-        momentum=momentum_4,
-        turbulence=turbulence_3,
-        thermal=thermal_3,
-        radiation=radiation_4,
-        species=species_8,
-        discrete_phase=discrete_phase_3,
-        multiphase=multiphase_5,
-        potential=potential_1,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_11,
-    )
-
-class mass_flow_outlet_child(Group):
-    """
-    'child_object_type' of mass_flow_outlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'mass_flow_outlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_9,
-        split=split_1,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class mass_flow_outlet(NamedObject[mass_flow_outlet_child], CreatableNamedObjectMixin[mass_flow_outlet_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'mass-flow-outlet'
-    _python_name = 'mass_flow_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = mass_flow_outlet_child
-
-class phase_12_child(Group):
-    """
-    'child_object_type' of phase.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'phase_child'
-
 class phase_12(NamedObject[phase_12_child], CreatableNamedObjectMixin[phase_12_child]):
     """
     Domain name to define settings on.
@@ -45471,17 +45905,83 @@ class phase_12(NamedObject[phase_12_child], CreatableNamedObjectMixin[phase_12_c
     )
     child_object_type = phase_12_child
 
-class settings_10(Group):
+class mass_flow_outlet_child(Group):
+    """
+    'child_object_type' of mass_flow_outlet.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'mass_flow_outlet_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
+    _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
+        momentum=momentum_4,
+        turbulence=turbulence_3,
+        thermal=thermal_3,
+        radiation=radiation_4,
+        species=species_8,
+        discrete_phase=discrete_phase_3,
+        multiphase=multiphase_5,
+        potential=potential_1,
+        structure=structure_1,
+        uds=uds,
+        icing=icing_1,
+        geometry=geometry_6,
+        phase=phase_12,
+        display=display_4,
+        split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
+    )
+    _child_aliases = dict(
+        location=('locations', 'location'),
+    )
+
+class mass_flow_outlet(NamedObject[mass_flow_outlet_child], CreatableNamedObjectMixin[mass_flow_outlet_child]):
+    """
+    Thread-type.
+    """
+    _version = '261'
+    fluent_name = 'mass-flow-outlet'
+    _python_name = 'mass_flow_outlet'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
+    _child_classes = dict(
+        create=create_5,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+    )
+    child_object_type = mass_flow_outlet_child
+
+class phase_13_child(Group):
+    """
+    'child_object_type' of phase.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'phase_child'
+
+class phase_13(NamedObject[phase_13_child], CreatableNamedObjectMixin[phase_13_child]):
     """
     Domain name to define settings on.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['phase']
+    fluent_name = 'phase'
+    _python_name = 'phase'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        phase=phase_12,
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
     )
+    child_object_type = phase_13_child
 
 class network_child(Group):
     """
@@ -45490,13 +45990,16 @@ class network_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'network_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_10,
+        phase=phase_13,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -45511,7 +46014,7 @@ class network(NamedObject[network_child], CreatableNamedObjectMixin[network_chil
     _python_name = 'network'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45580,7 +46083,7 @@ class network_end_1(Group):
         q=q,
     )
 
-class phase_13_child(Group):
+class phase_14_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -45592,7 +46095,7 @@ class phase_13_child(Group):
         network_end=network_end_1,
     )
 
-class phase_13(NamedObject[phase_13_child], CreatableNamedObjectMixin[phase_13_child]):
+class phase_14(NamedObject[phase_14_child], CreatableNamedObjectMixin[phase_14_child]):
     """
     Domain name to define settings on.
     """
@@ -45608,20 +46111,7 @@ class phase_13(NamedObject[phase_13_child], CreatableNamedObjectMixin[phase_13_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_13_child
-
-class settings_11(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['network_end', 'phase']
-    _child_classes = dict(
-        network_end=network_end_1,
-        phase=phase_13,
-    )
+    child_object_type = phase_14_child
 
 class network_end_child(Group):
     """
@@ -45630,13 +46120,17 @@ class network_end_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'network_end_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'network_end', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_11,
+        network_end=network_end_1,
+        phase=phase_14,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -45651,7 +46145,7 @@ class network_end(NamedObject[network_end_child], CreatableNamedObjectMixin[netw
     _python_name = 'network_end'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45716,7 +46210,7 @@ class discrete_phase_4(Group):
         reinj_inj=('reinject_using_injection', 'reinj-inj'),
     )
 
-class phase_14_child(Group):
+class phase_15_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -45734,7 +46228,7 @@ class phase_14_child(Group):
         geometry=geometry_6,
     )
 
-class phase_14(NamedObject[phase_14_child], CreatableNamedObjectMixin[phase_14_child]):
+class phase_15(NamedObject[phase_15_child], CreatableNamedObjectMixin[phase_15_child]):
     """
     Domain name to define settings on.
     """
@@ -45750,26 +46244,7 @@ class phase_14(NamedObject[phase_14_child], CreatableNamedObjectMixin[phase_14_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_14_child
-
-class settings_12(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'potential', 'structure', 'uds', 'radiation', 'discrete_phase', 'geometry', 'phase']
-    _child_classes = dict(
-        momentum=momentum_5,
-        potential=potential,
-        structure=structure_1,
-        uds=uds_2,
-        radiation=radiation_2,
-        discrete_phase=discrete_phase_4,
-        geometry=geometry_6,
-        phase=phase_14,
-    )
+    child_object_type = phase_15_child
 
 class outflow_child(Group):
     """
@@ -45778,13 +46253,23 @@ class outflow_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'outflow_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'momentum', 'potential', 'structure', 'uds', 'radiation', 'discrete_phase', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_12,
+        momentum=momentum_5,
+        potential=potential,
+        structure=structure_1,
+        uds=uds_2,
+        radiation=radiation_2,
+        discrete_phase=discrete_phase_4,
+        geometry=geometry_6,
+        phase=phase_15,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -45799,7 +46284,7 @@ class outflow(NamedObject[outflow_child], CreatableNamedObjectMixin[outflow_chil
     _python_name = 'outflow'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45881,7 +46366,7 @@ class momentum_6(Group):
         targeted_mf_pmin=('lower_limit_of_abs_pressure', 'targeted-mf-pmin'),
     )
 
-class phase_15_child(Group):
+class phase_16_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -45904,7 +46389,7 @@ class phase_15_child(Group):
         geometry=geometry_6,
     )
 
-class phase_15(NamedObject[phase_15_child], CreatableNamedObjectMixin[phase_15_child]):
+class phase_16(NamedObject[phase_16_child], CreatableNamedObjectMixin[phase_16_child]):
     """
     Domain name to define settings on.
     """
@@ -45920,17 +46405,20 @@ class phase_15(NamedObject[phase_15_child], CreatableNamedObjectMixin[phase_15_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_15_child
+    child_object_type = phase_16_child
 
-class settings_13(Group):
+class outlet_vent_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of outlet_vent.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'outlet_vent_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_6,
         turbulence=turbulence,
         thermal=thermal,
@@ -45943,23 +46431,11 @@ class settings_13(Group):
         uds=uds,
         icing=icing,
         geometry=geometry_6,
-        phase=phase_15,
-    )
-
-class outlet_vent_child(Group):
-    """
-    'child_object_type' of outlet_vent.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'outlet_vent_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_13,
+        phase=phase_16,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -45974,7 +46450,7 @@ class outlet_vent(NamedObject[outlet_vent_child], CreatableNamedObjectMixin[outl
     _python_name = 'outlet_vent'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -45990,13 +46466,17 @@ class overset_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'overset_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -46011,7 +46491,7 @@ class overset(NamedObject[overset_child], CreatableNamedObjectMixin[overset_chil
     _python_name = 'overset'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -46151,7 +46631,7 @@ class geometry_7(Group):
         geom_bgthread=geom_bgthread,
     )
 
-class phase_16_child(Group):
+class phase_17_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -46164,7 +46644,7 @@ class phase_16_child(Group):
         geometry=geometry_7,
     )
 
-class phase_16(NamedObject[phase_16_child], CreatableNamedObjectMixin[phase_16_child]):
+class phase_17(NamedObject[phase_17_child], CreatableNamedObjectMixin[phase_17_child]):
     """
     Domain name to define settings on.
     """
@@ -46180,21 +46660,7 @@ class phase_16(NamedObject[phase_16_child], CreatableNamedObjectMixin[phase_16_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_16_child
-
-class settings_14(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['periodic', 'geometry', 'phase']
-    _child_classes = dict(
-        periodic=periodic_1,
-        geometry=geometry_7,
-        phase=phase_16,
-    )
+    child_object_type = phase_17_child
 
 class periodic_child(Group):
     """
@@ -46203,13 +46669,18 @@ class periodic_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'periodic_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'periodic', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_14,
+        periodic=periodic_1,
+        geometry=geometry_7,
+        phase=phase_17,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -46224,7 +46695,7 @@ class periodic(NamedObject[periodic_child], CreatableNamedObjectMixin[periodic_c
     _python_name = 'periodic'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -46442,7 +46913,7 @@ class porous_jump_1(Group):
         z_displacement_value=('z_disp_boundary_value', 'z-displacement-value'),
     )
 
-class phase_17_child(Group):
+class phase_18_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -46456,7 +46927,7 @@ class phase_17_child(Group):
         geometry=geometry_6,
     )
 
-class phase_17(NamedObject[phase_17_child], CreatableNamedObjectMixin[phase_17_child]):
+class phase_18(NamedObject[phase_18_child], CreatableNamedObjectMixin[phase_18_child]):
     """
     Domain name to define settings on.
     """
@@ -46472,22 +46943,7 @@ class phase_17(NamedObject[phase_17_child], CreatableNamedObjectMixin[phase_17_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_17_child
-
-class settings_15(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['porous_jump', 'discrete_phase', 'geometry', 'phase']
-    _child_classes = dict(
-        porous_jump=porous_jump_1,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_17,
-    )
+    child_object_type = phase_18_child
 
 class porous_jump_child(Group):
     """
@@ -46496,13 +46952,19 @@ class porous_jump_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'porous_jump_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'porous_jump', 'discrete_phase', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_15,
+        porous_jump=porous_jump_1,
+        discrete_phase=discrete_phase_2,
+        geometry=geometry_6,
+        phase=phase_18,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -46517,7 +46979,7 @@ class porous_jump(NamedObject[porous_jump_child], CreatableNamedObjectMixin[poro
     _python_name = 'porous_jump'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -46725,7 +47187,7 @@ class species_9(Group):
         species_in_mole_fractions=('specify_species_in_mole_fractions', 'species-in-mole-fractions?'),
     )
 
-class phase_18_child(Group):
+class phase_19_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -46747,7 +47209,7 @@ class phase_18_child(Group):
         geometry=geometry_6,
     )
 
-class phase_18(NamedObject[phase_18_child], CreatableNamedObjectMixin[phase_18_child]):
+class phase_19(NamedObject[phase_19_child], CreatableNamedObjectMixin[phase_19_child]):
     """
     Domain name to define settings on.
     """
@@ -46763,17 +47225,20 @@ class phase_18(NamedObject[phase_18_child], CreatableNamedObjectMixin[phase_18_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_18_child
+    child_object_type = phase_19_child
 
-class settings_16(Group):
+class pressure_far_field_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of pressure_far_field.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'pressure_far_field_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_7,
         turbulence=turbulence_2,
         thermal=thermal_4,
@@ -46785,23 +47250,11 @@ class settings_16(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_18,
-    )
-
-class pressure_far_field_child(Group):
-    """
-    'child_object_type' of pressure_far_field.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_far_field_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_16,
+        phase=phase_19,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -46816,7 +47269,7 @@ class pressure_far_field(NamedObject[pressure_far_field_child], CreatableNamedOb
     _python_name = 'pressure_far_field'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -46865,7 +47318,7 @@ class momentum_8(Group):
         p0=('gauge_total_pressure', 'p0'),
     )
 
-class phase_19_child(Group):
+class phase_20_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -46888,7 +47341,7 @@ class phase_19_child(Group):
         geometry=geometry_6,
     )
 
-class phase_19(NamedObject[phase_19_child], CreatableNamedObjectMixin[phase_19_child]):
+class phase_20(NamedObject[phase_20_child], CreatableNamedObjectMixin[phase_20_child]):
     """
     Domain name to define settings on.
     """
@@ -46904,17 +47357,20 @@ class phase_19(NamedObject[phase_19_child], CreatableNamedObjectMixin[phase_19_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_19_child
+    child_object_type = phase_20_child
 
-class settings_17(Group):
+class pressure_inlet_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of pressure_inlet.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'pressure_inlet_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_8,
         turbulence=turbulence_1,
         thermal=thermal_1,
@@ -46927,23 +47383,11 @@ class settings_17(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_19,
-    )
-
-class pressure_inlet_child(Group):
-    """
-    'child_object_type' of pressure_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_inlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_17,
+        phase=phase_20,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -46958,7 +47402,7 @@ class pressure_inlet(NamedObject[pressure_inlet_child], CreatableNamedObjectMixi
     _python_name = 'pressure_inlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47037,7 +47481,7 @@ class momentum_9(Group):
         targeted_mf_pmin=('lower_limit_of_abs_pressure', 'targeted-mf-pmin'),
     )
 
-class phase_20_child(Group):
+class phase_21_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -47060,7 +47504,7 @@ class phase_20_child(Group):
         geometry=geometry_6,
     )
 
-class phase_20(NamedObject[phase_20_child], CreatableNamedObjectMixin[phase_20_child]):
+class phase_21(NamedObject[phase_21_child], CreatableNamedObjectMixin[phase_21_child]):
     """
     Domain name to define settings on.
     """
@@ -47076,17 +47520,20 @@ class phase_20(NamedObject[phase_20_child], CreatableNamedObjectMixin[phase_20_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_20_child
+    child_object_type = phase_21_child
 
-class settings_18(Group):
+class pressure_outlet_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of pressure_outlet.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'pressure_outlet_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_9,
         turbulence=turbulence,
         thermal=thermal,
@@ -47099,23 +47546,11 @@ class settings_18(Group):
         uds=uds,
         icing=icing,
         geometry=geometry_6,
-        phase=phase_20,
-    )
-
-class pressure_outlet_child(Group):
-    """
-    'child_object_type' of pressure_outlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_outlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_18,
+        phase=phase_21,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47130,7 +47565,7 @@ class pressure_outlet(NamedObject[pressure_outlet_child], CreatableNamedObjectMi
     _python_name = 'pressure_outlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47194,7 +47629,7 @@ class radiator_1(Group):
         q=('heat_flux', 'q'),
     )
 
-class phase_21_child(Group):
+class phase_22_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -47208,7 +47643,7 @@ class phase_21_child(Group):
         geometry=geometry_6,
     )
 
-class phase_21(NamedObject[phase_21_child], CreatableNamedObjectMixin[phase_21_child]):
+class phase_22(NamedObject[phase_22_child], CreatableNamedObjectMixin[phase_22_child]):
     """
     Domain name to define settings on.
     """
@@ -47224,22 +47659,7 @@ class phase_21(NamedObject[phase_21_child], CreatableNamedObjectMixin[phase_21_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_21_child
-
-class settings_19(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['radiator', 'discrete_phase', 'geometry', 'phase']
-    _child_classes = dict(
-        radiator=radiator_1,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_21,
-    )
+    child_object_type = phase_22_child
 
 class radiator_child(Group):
     """
@@ -47248,13 +47668,19 @@ class radiator_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'radiator_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'radiator', 'discrete_phase', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_19,
+        radiator=radiator_1,
+        discrete_phase=discrete_phase_2,
+        geometry=geometry_6,
+        phase=phase_22,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47269,7 +47695,7 @@ class radiator(NamedObject[radiator_child], CreatableNamedObjectMixin[radiator_c
     _python_name = 'radiator'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47325,7 +47751,7 @@ class turbulence_4(Group):
         les_embedded_fluctuations=les_embedded_fluctuations,
     )
 
-class phase_22_child(Group):
+class phase_23_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -47338,7 +47764,7 @@ class phase_22_child(Group):
         geometry=geometry_6,
     )
 
-class phase_22(NamedObject[phase_22_child], CreatableNamedObjectMixin[phase_22_child]):
+class phase_23(NamedObject[phase_23_child], CreatableNamedObjectMixin[phase_23_child]):
     """
     Domain name to define settings on.
     """
@@ -47354,21 +47780,7 @@ class phase_22(NamedObject[phase_22_child], CreatableNamedObjectMixin[phase_22_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_22_child
-
-class settings_20(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['turbulence', 'geometry', 'phase']
-    _child_classes = dict(
-        turbulence=turbulence_4,
-        geometry=geometry_6,
-        phase=phase_22,
-    )
+    child_object_type = phase_23_child
 
 class rans_les_interface_child(Group):
     """
@@ -47377,13 +47789,18 @@ class rans_les_interface_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'rans_les_interface_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'turbulence', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_20,
+        turbulence=turbulence_4,
+        geometry=geometry_6,
+        phase=phase_23,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47398,7 +47815,7 @@ class rans_les_interface(NamedObject[rans_les_interface_child], CreatableNamedOb
     _python_name = 'rans_les_interface'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47615,7 +48032,7 @@ class recirculation_inlet_1(Group):
         ww=('ww_reynolds_stresses', 'ww'),
     )
 
-class phase_23_child(Group):
+class phase_24_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -47628,7 +48045,7 @@ class phase_23_child(Group):
         geometry=geometry_6,
     )
 
-class phase_23(NamedObject[phase_23_child], CreatableNamedObjectMixin[phase_23_child]):
+class phase_24(NamedObject[phase_24_child], CreatableNamedObjectMixin[phase_24_child]):
     """
     Domain name to define settings on.
     """
@@ -47644,21 +48061,7 @@ class phase_23(NamedObject[phase_23_child], CreatableNamedObjectMixin[phase_23_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_23_child
-
-class settings_21(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['recirculation_inlet', 'geometry', 'phase']
-    _child_classes = dict(
-        recirculation_inlet=recirculation_inlet_1,
-        geometry=geometry_6,
-        phase=phase_23,
-    )
+    child_object_type = phase_24_child
 
 class recirculation_inlet_child(Group):
     """
@@ -47667,13 +48070,18 @@ class recirculation_inlet_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'recirculation_inlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'recirculation_inlet', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_21,
+        recirculation_inlet=recirculation_inlet_1,
+        geometry=geometry_6,
+        phase=phase_24,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47688,7 +48096,7 @@ class recirculation_inlet(NamedObject[recirculation_inlet_child], CreatableNamed
     _python_name = 'recirculation_inlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47719,7 +48127,7 @@ class recirculation_outlet_1(Group):
         solar_shining_factor=('solar_transmissivity_factor', 'solar-shining-factor'),
     )
 
-class phase_24_child(Group):
+class phase_25_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -47732,7 +48140,7 @@ class phase_24_child(Group):
         geometry=geometry_6,
     )
 
-class phase_24(NamedObject[phase_24_child], CreatableNamedObjectMixin[phase_24_child]):
+class phase_25(NamedObject[phase_25_child], CreatableNamedObjectMixin[phase_25_child]):
     """
     Domain name to define settings on.
     """
@@ -47748,21 +48156,7 @@ class phase_24(NamedObject[phase_24_child], CreatableNamedObjectMixin[phase_24_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_24_child
-
-class settings_22(Group):
-    """
-    Domain name to define settings on.
-    """
-    _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['recirculation_outlet', 'geometry', 'phase']
-    _child_classes = dict(
-        recirculation_outlet=recirculation_outlet_1,
-        geometry=geometry_6,
-        phase=phase_24,
-    )
+    child_object_type = phase_25_child
 
 class recirculation_outlet_child(Group):
     """
@@ -47771,13 +48165,18 @@ class recirculation_outlet_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'recirculation_outlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'recirculation_outlet', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_22,
+        recirculation_outlet=recirculation_outlet_1,
+        geometry=geometry_6,
+        phase=phase_25,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47792,7 +48191,7 @@ class recirculation_outlet(NamedObject[recirculation_outlet_child], CreatableNam
     _python_name = 'recirculation_outlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47808,13 +48207,17 @@ class shadow_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'shadow_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47829,7 +48232,7 @@ class shadow(NamedObject[shadow_child], CreatableNamedObjectMixin[shadow_child])
     _python_name = 'shadow'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47845,13 +48248,17 @@ class symmetry_child(Group):
     _version = '261'
     fluent_name = 'child-object-type'
     _python_name = 'symmetry_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
+    child_names = ['name', 'locations', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
         name=name_4,
         locations=locations_2,
-        settings=settings_1,
+        geometry=geometry_6,
+        phase=phase_4,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -47866,7 +48273,7 @@ class symmetry(NamedObject[symmetry_child], CreatableNamedObjectMixin[symmetry_c
     _python_name = 'symmetry'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -47906,6 +48313,33 @@ class reference_frame_5(String, AllowedValuesMixin):
     _version = '261'
     fluent_name = 'reference-frame'
     _python_name = 'reference_frame'
+
+class averaged_flow_specification_method(String, AllowedValuesMixin):
+    """
+    Averaged Flow Specification Method.
+    """
+    _version = '261'
+    fluent_name = 'averaged-flow-specification-method'
+    _python_name = 'averaged_flow_specification_method'
+
+class avg_flow_velocity(Group):
+    """
+    Averaged Flow Velocity Magnitude.
+    """
+    _version = '261'
+    fluent_name = 'avg-flow-velocity'
+    _python_name = 'avg_flow_velocity'
+    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
+    _child_classes = dict(
+        option=option_44,
+        value=value_17,
+        profile_name=profile_name,
+        field_name=field_name,
+        udf=udf,
+    )
+    _child_aliases = dict(
+        constant=('value', 'constant'),
+    )
 
 class velocity_magnitude(Group):
     """
@@ -48013,6 +48447,39 @@ class moving_object_velocity(Group):
         constant=('value', 'constant'),
     )
 
+class moving_object_direction_child(Group):
+    """
+    'child_object_type' of moving_object_direction.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'moving_object_direction_child'
+    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
+    _child_classes = dict(
+        option=option_44,
+        value=value_17,
+        profile_name=profile_name,
+        field_name=field_name,
+        udf=udf,
+    )
+    _child_aliases = dict(
+        constant=('value', 'constant'),
+    )
+
+class moving_object_direction(ListObject[moving_object_direction_child]):
+    """
+    Moving object direction components.
+    """
+    _version = '261'
+    fluent_name = 'moving-object-direction'
+    _python_name = 'moving_object_direction'
+    command_names = ['list_properties', 'resize']
+    _child_classes = dict(
+        list_properties=list_properties_1,
+        resize=resize,
+    )
+    child_object_type = moving_object_direction_child
+
 class moving_object_velocity_inputs(Group):
     """
     Moving object velocity settings.
@@ -48020,12 +48487,14 @@ class moving_object_velocity_inputs(Group):
     _version = '261'
     fluent_name = 'moving-object-velocity-inputs'
     _python_name = 'moving_object_velocity_inputs'
-    child_names = ['moving_object_velocity_specification_method', 'moving_object_velocity']
+    child_names = ['moving_object_velocity_specification_method', 'moving_object_velocity', 'moving_object_direction']
     _child_classes = dict(
         moving_object_velocity_specification_method=moving_object_velocity_specification_method,
         moving_object_velocity=moving_object_velocity,
+        moving_object_direction=moving_object_direction,
     )
     _child_aliases = dict(
+        moving_object_direction_components=('moving_object_direction', 'moving-object-direction-components'),
         ocw_ship_vel_spec=('moving_object_velocity_specification_method', 'ocw-ship-vel-spec'),
         ocw_ship_vmag=('moving_object_velocity', 'ocw-ship-vmag'),
     )
@@ -48057,6 +48526,39 @@ class primary_phase_velocity(Group):
         constant=('value', 'constant'),
     )
 
+class primary_phase_direction_child(Group):
+    """
+    'child_object_type' of primary_phase_direction.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'primary_phase_direction_child'
+    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
+    _child_classes = dict(
+        option=option_44,
+        value=value_17,
+        profile_name=profile_name,
+        field_name=field_name,
+        udf=udf,
+    )
+    _child_aliases = dict(
+        constant=('value', 'constant'),
+    )
+
+class primary_phase_direction(ListObject[primary_phase_direction_child]):
+    """
+    Primary phase direction components.
+    """
+    _version = '261'
+    fluent_name = 'primary-phase-direction'
+    _python_name = 'primary_phase_direction'
+    command_names = ['list_properties', 'resize']
+    _child_classes = dict(
+        list_properties=list_properties_1,
+        resize=resize,
+    )
+    child_object_type = primary_phase_direction_child
+
 class primary_phase_velocity_inputs(Group):
     """
     Primary phase velocity settings.
@@ -48064,14 +48566,16 @@ class primary_phase_velocity_inputs(Group):
     _version = '261'
     fluent_name = 'primary-phase-velocity-inputs'
     _python_name = 'primary_phase_velocity_inputs'
-    child_names = ['primary_phase_velocity_specification_method', 'primary_phase_velocity']
+    child_names = ['primary_phase_velocity_specification_method', 'primary_phase_velocity', 'primary_phase_direction']
     _child_classes = dict(
         primary_phase_velocity_specification_method=primary_phase_velocity_specification_method,
         primary_phase_velocity=primary_phase_velocity,
+        primary_phase_direction=primary_phase_direction,
     )
     _child_aliases = dict(
         ocw_pp_vel_spec=('primary_phase_velocity_specification_method', 'ocw-pp-vel-spec'),
         ocw_pp_vmag=('primary_phase_velocity', 'ocw-pp-vmag'),
+        primary_phase_direction_components=('primary_phase_direction', 'primary-phase-direction-components'),
     )
 
 class secondary_phase_velocity_specification_method(String, AllowedValuesMixin):
@@ -48101,6 +48605,39 @@ class secondary_phase_velocity(Group):
         constant=('value', 'constant'),
     )
 
+class secondary_phase_direction_child(Group):
+    """
+    'child_object_type' of secondary_phase_direction.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'secondary_phase_direction_child'
+    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
+    _child_classes = dict(
+        option=option_44,
+        value=value_17,
+        profile_name=profile_name,
+        field_name=field_name,
+        udf=udf,
+    )
+    _child_aliases = dict(
+        constant=('value', 'constant'),
+    )
+
+class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
+    """
+    Secondary phase direction components.
+    """
+    _version = '261'
+    fluent_name = 'secondary-phase-direction'
+    _python_name = 'secondary_phase_direction'
+    command_names = ['list_properties', 'resize']
+    _child_classes = dict(
+        list_properties=list_properties_1,
+        resize=resize,
+    )
+    child_object_type = secondary_phase_direction_child
+
 class secondary_phase_velocity_inputs(Group):
     """
     Secondary phase velocity settings.
@@ -48108,14 +48645,16 @@ class secondary_phase_velocity_inputs(Group):
     _version = '261'
     fluent_name = 'secondary-phase-velocity-inputs'
     _python_name = 'secondary_phase_velocity_inputs'
-    child_names = ['secondary_phase_velocity_specification_method', 'secondary_phase_velocity']
+    child_names = ['secondary_phase_velocity_specification_method', 'secondary_phase_velocity', 'secondary_phase_direction']
     _child_classes = dict(
         secondary_phase_velocity_specification_method=secondary_phase_velocity_specification_method,
         secondary_phase_velocity=secondary_phase_velocity,
+        secondary_phase_direction=secondary_phase_direction,
     )
     _child_aliases = dict(
         ocw_sp_vel_spec=('secondary_phase_velocity_specification_method', 'ocw-sp-vel-spec'),
         ocw_sp_vmag=('secondary_phase_velocity', 'ocw-sp-vmag'),
+        secondary_phase_direction_components=('secondary_phase_direction', 'secondary-phase-direction-components'),
     )
 
 class momentum_10(Group):
@@ -48125,21 +48664,23 @@ class momentum_10(Group):
     _version = '261'
     fluent_name = 'momentum'
     _python_name = 'momentum'
-    child_names = ['open_channel_wave_bc', 'segregated_velocity_inputs', 'system_coupling', 'velocity_specification_method', 'reference_frame', 'velocity_magnitude', 'initial_gauge_pressure', 'coordinate_system', 'velocity_components', 'flow_direction', 'axis_direction', 'axis_origin', 'swirl_angular_velocity', 'gauge_pressure', 'acoustic_wave_model', 'impedance_zero_order_term', 'real_pole_series', 'complex_pole_series', 'incoming_wave', 'moving_object_velocity_inputs', 'primary_phase_velocity_inputs', 'secondary_phase_velocity_inputs']
+    child_names = ['open_channel_wave_bc', 'segregated_velocity_inputs', 'system_coupling', 'velocity_specification_method', 'reference_frame', 'averaged_flow_specification_method', 'avg_flow_velocity', 'velocity_magnitude', 'initial_gauge_pressure', 'coordinate_system', 'velocity_components', 'swirl_angular_velocity', 'flow_direction', 'axis_direction', 'axis_origin', 'gauge_pressure', 'acoustic_wave_model', 'impedance_zero_order_term', 'real_pole_series', 'complex_pole_series', 'incoming_wave', 'moving_object_velocity_inputs', 'primary_phase_velocity_inputs', 'secondary_phase_velocity_inputs']
     _child_classes = dict(
         open_channel_wave_bc=open_channel_wave_bc,
         segregated_velocity_inputs=segregated_velocity_inputs,
         system_coupling=system_coupling_1,
         velocity_specification_method=velocity_specification_method,
         reference_frame=reference_frame_5,
+        averaged_flow_specification_method=averaged_flow_specification_method,
+        avg_flow_velocity=avg_flow_velocity,
         velocity_magnitude=velocity_magnitude,
         initial_gauge_pressure=initial_gauge_pressure,
         coordinate_system=coordinate_system,
         velocity_components=velocity_components,
+        swirl_angular_velocity=swirl_angular_velocity,
         flow_direction=flow_direction,
         axis_direction=axis_direction_2,
         axis_origin=axis_origin_2,
-        swirl_angular_velocity=swirl_angular_velocity,
         gauge_pressure=gauge_pressure,
         acoustic_wave_model=acoustic_wave_model,
         impedance_zero_order_term=impedance_zero_order_term,
@@ -48169,6 +48710,8 @@ class momentum_10(Group):
         velocity_component=('velocity_components', 'velocity-component'),
         velocity_spec=('velocity_specification_method', 'velocity-spec'),
         vmag=('velocity_magnitude', 'vmag'),
+        wave_velocity_spec=('averaged_flow_specification_method', 'wave-velocity-spec'),
+        wave_vmag=('avg_flow_velocity', 'wave-vmag'),
     )
 
 class turbulence_5(Group):
@@ -48341,33 +48884,6 @@ class radiation_6(Group):
         t_b_b_spec=('external_black_body_temperature_method', 't-b-b-spec'),
     )
 
-class averaged_flow_specification_method(String, AllowedValuesMixin):
-    """
-    Averaged Flow Specification Method.
-    """
-    _version = '261'
-    fluent_name = 'averaged-flow-specification-method'
-    _python_name = 'averaged_flow_specification_method'
-
-class avg_flow_velocity(Group):
-    """
-    Averaged Flow Velocity Magnitude.
-    """
-    _version = '261'
-    fluent_name = 'avg-flow-velocity'
-    _python_name = 'avg_flow_velocity'
-    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
-    _child_classes = dict(
-        option=option_44,
-        value=value_17,
-        profile_name=profile_name,
-        field_name=field_name,
-        udf=udf,
-    )
-    _child_aliases = dict(
-        constant=('value', 'constant'),
-    )
-
 class flow_velocity_child(Group):
     """
     'child_object_type' of flow_velocity.
@@ -48400,72 +48916,6 @@ class flow_velocity(ListObject[flow_velocity_child]):
         resize=resize,
     )
     child_object_type = flow_velocity_child
-
-class moving_object_direction_child(Group):
-    """
-    'child_object_type' of moving_object_direction.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'moving_object_direction_child'
-    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
-    _child_classes = dict(
-        option=option_44,
-        value=value_17,
-        profile_name=profile_name,
-        field_name=field_name,
-        udf=udf,
-    )
-    _child_aliases = dict(
-        constant=('value', 'constant'),
-    )
-
-class moving_object_direction(ListObject[moving_object_direction_child]):
-    """
-    Moving object direction components.
-    """
-    _version = '261'
-    fluent_name = 'moving-object-direction'
-    _python_name = 'moving_object_direction'
-    command_names = ['list_properties', 'resize']
-    _child_classes = dict(
-        list_properties=list_properties_1,
-        resize=resize,
-    )
-    child_object_type = moving_object_direction_child
-
-class secondary_phase_direction_child(Group):
-    """
-    'child_object_type' of secondary_phase_direction.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'secondary_phase_direction_child'
-    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
-    _child_classes = dict(
-        option=option_44,
-        value=value_17,
-        profile_name=profile_name,
-        field_name=field_name,
-        udf=udf,
-    )
-    _child_aliases = dict(
-        constant=('value', 'constant'),
-    )
-
-class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
-    """
-    Secondary phase direction components.
-    """
-    _version = '261'
-    fluent_name = 'secondary-phase-direction'
-    _python_name = 'secondary_phase_direction'
-    command_names = ['list_properties', 'resize']
-    _child_classes = dict(
-        list_properties=list_properties_1,
-        resize=resize,
-    )
-    child_object_type = secondary_phase_direction_child
 
 class primary_phase_reference_height_above_free_surface(Real):
     """
@@ -48501,39 +48951,6 @@ class primary_phase_reference_velocity(Group):
     _child_aliases = dict(
         constant=('value', 'constant'),
     )
-
-class primary_phase_direction_child(Group):
-    """
-    'child_object_type' of primary_phase_direction.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'primary_phase_direction_child'
-    child_names = ['option', 'value', 'profile_name', 'field_name', 'udf']
-    _child_classes = dict(
-        option=option_44,
-        value=value_17,
-        profile_name=profile_name,
-        field_name=field_name,
-        udf=udf,
-    )
-    _child_aliases = dict(
-        constant=('value', 'constant'),
-    )
-
-class primary_phase_direction(ListObject[primary_phase_direction_child]):
-    """
-    Primary phase direction components.
-    """
-    _version = '261'
-    fluent_name = 'primary-phase-direction'
-    _python_name = 'primary_phase_direction'
-    command_names = ['list_properties', 'resize']
-    _child_classes = dict(
-        list_properties=list_properties_1,
-        resize=resize,
-    )
-    child_object_type = primary_phase_direction_child
 
 class wave_option(String, AllowedValuesMixin):
     """
@@ -48978,17 +49395,12 @@ class multiphase_6(Group):
     _version = '261'
     fluent_name = 'multiphase'
     _python_name = 'multiphase'
-    child_names = ['averaged_flow_specification_method', 'avg_flow_velocity', 'flow_velocity', 'moving_object_direction', 'secondary_phase_direction', 'primary_phase_reference_height_above_free_surface', 'primary_phase_power_law_coefficient', 'primary_phase_reference_velocity', 'primary_phase_direction', 'secondary_phase_for_inlet', 'wave_option', 'free_surface_level', 'bottom_level', 'reference_wave_direction', 'reference_direction', 'wave_modeling_option', 'wave_group_inputs', 'shallow_wave_inputs', 'frequency_spectrum_method', 'peak_shape_parameter', 'significant_wave_height', 'peak_frequency', 'minimum_frequency', 'maximum_frequency', 'number_of_frequency_components', 'directional_spreading_method', 'frequency_independent_cosine_exponent', 'mean_wave_heading_angle', 'angular_deviation', 'angular_components_count', 'granular_temperature', 'interfacial_area_concentration', 'level_set_function_flux', 'volume_fraction', 'discrete_boundary_condition', 'pb_disc', 'quadrature_moment_boundary_condition', 'quadrature_moment_boundary_value', 'qbmm_boundary_condition', 'qbmm_boundary_value', 'std_moment_boundary_condition', 'std_moment_boundary_value', 'dqmom_boundary_condition', 'dqmom_boundary_value']
+    child_names = ['flow_velocity', 'primary_phase_reference_height_above_free_surface', 'primary_phase_power_law_coefficient', 'primary_phase_reference_velocity', 'secondary_phase_for_inlet', 'wave_option', 'free_surface_level', 'bottom_level', 'reference_wave_direction', 'reference_direction', 'wave_modeling_option', 'wave_group_inputs', 'shallow_wave_inputs', 'frequency_spectrum_method', 'peak_shape_parameter', 'significant_wave_height', 'peak_frequency', 'minimum_frequency', 'maximum_frequency', 'number_of_frequency_components', 'directional_spreading_method', 'frequency_independent_cosine_exponent', 'mean_wave_heading_angle', 'angular_deviation', 'angular_components_count', 'granular_temperature', 'interfacial_area_concentration', 'level_set_function_flux', 'volume_fraction', 'discrete_boundary_condition', 'pb_disc', 'quadrature_moment_boundary_condition', 'quadrature_moment_boundary_value', 'qbmm_boundary_condition', 'qbmm_boundary_value', 'std_moment_boundary_condition', 'std_moment_boundary_value', 'dqmom_boundary_condition', 'dqmom_boundary_value']
     _child_classes = dict(
-        averaged_flow_specification_method=averaged_flow_specification_method,
-        avg_flow_velocity=avg_flow_velocity,
         flow_velocity=flow_velocity,
-        moving_object_direction=moving_object_direction,
-        secondary_phase_direction=secondary_phase_direction,
         primary_phase_reference_height_above_free_surface=primary_phase_reference_height_above_free_surface,
         primary_phase_power_law_coefficient=primary_phase_power_law_coefficient,
         primary_phase_reference_velocity=primary_phase_reference_velocity,
-        primary_phase_direction=primary_phase_direction,
         secondary_phase_for_inlet=secondary_phase_for_inlet,
         wave_option=wave_option,
         free_surface_level=free_surface_level,
@@ -49026,11 +49438,13 @@ class multiphase_6(Group):
         dqmom_boundary_value=dqmom_boundary_value,
     )
     _child_aliases = dict(
+        averaged_flow_specification_method=('../momentum/averaged_flow_specification_method', 'averaged-flow-specification-method'),
+        avg_flow_velocity=('../momentum/avg_flow_velocity', 'avg-flow-velocity'),
         ht_bottom=('bottom_level', 'ht-bottom'),
         ht_local=('free_surface_level', 'ht-local'),
         iac=('interfacial_area_concentration', 'iac'),
         lsfun=('level_set_function_flux', 'lsfun'),
-        moving_object_direction_components=('moving_object_direction', 'moving-object-direction-components'),
+        moving_object_direction_components=('../momentum/moving_object_velocity_inputs/moving_object_direction_components', 'moving-object-direction-components'),
         moving_object_velocity=('../momentum/moving_object_velocity_inputs/moving_object_velocity', 'moving-object-velocity'),
         moving_object_velocity_specification_method=('../momentum/moving_object_velocity_inputs/moving_object_velocity_specification_method', 'moving-object-velocity-specification-method'),
         ocw_pp_power_coeff=('primary_phase_power_law_coefficient', 'ocw-pp-power-coeff'),
@@ -49048,10 +49462,10 @@ class multiphase_6(Group):
         pb_smm=('std_moment_boundary_value', 'pb-smm'),
         pb_smm_bc=('std_moment_boundary_condition', 'pb-smm-bc'),
         phase_spec=('secondary_phase_for_inlet', 'phase-spec'),
-        primary_phase_direction_components=('primary_phase_direction', 'primary-phase-direction-components'),
+        primary_phase_direction_components=('../momentum/primary_phase_velocity_inputs/primary_phase_direction_components', 'primary-phase-direction-components'),
         primary_phase_velocity=('../momentum/primary_phase_velocity_inputs/primary_phase_velocity', 'primary-phase-velocity'),
         primary_phase_velocity_specification_method=('../momentum/primary_phase_velocity_inputs/primary_phase_velocity_specification_method', 'primary-phase-velocity-specification-method'),
-        secondary_phase_direction_components=('secondary_phase_direction', 'secondary-phase-direction-components'),
+        secondary_phase_direction_components=('../momentum/secondary_phase_velocity_inputs/secondary_phase_direction_components', 'secondary-phase-direction-components'),
         secondary_phase_velocity=('../momentum/secondary_phase_velocity_inputs/secondary_phase_velocity', 'secondary-phase-velocity'),
         secondary_phase_velocity_specification_method=('../momentum/secondary_phase_velocity_inputs/secondary_phase_velocity_specification_method', 'secondary-phase-velocity-specification-method'),
         wave_bc_type=('wave_option', 'wave-bc-type'),
@@ -49072,11 +49486,9 @@ class multiphase_6(Group):
         wave_spect_peak_freq=('peak_frequency', 'wave-spect-peak-freq'),
         wave_spect_s=('frequency_independent_cosine_exponent', 'wave-spect-s'),
         wave_spect_sig_wave_ht=('significant_wave_height', 'wave-spect-sig-wave-ht'),
-        wave_velocity_spec=('averaged_flow_specification_method', 'wave-velocity-spec'),
-        wave_vmag=('avg_flow_velocity', 'wave-vmag'),
     )
 
-class phase_25_child(Group):
+class phase_26_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -49099,7 +49511,7 @@ class phase_25_child(Group):
         geometry=geometry_6,
     )
 
-class phase_25(NamedObject[phase_25_child], CreatableNamedObjectMixin[phase_25_child]):
+class phase_26(NamedObject[phase_26_child], CreatableNamedObjectMixin[phase_26_child]):
     """
     Domain name to define settings on.
     """
@@ -49115,17 +49527,20 @@ class phase_25(NamedObject[phase_25_child], CreatableNamedObjectMixin[phase_25_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_25_child
+    child_object_type = phase_26_child
 
-class settings_23(Group):
+class velocity_inlet_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of velocity_inlet.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'velocity_inlet_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_10,
         turbulence=turbulence_5,
         thermal=thermal_5,
@@ -49138,23 +49553,11 @@ class settings_23(Group):
         uds=uds,
         icing=icing_1,
         geometry=geometry_6,
-        phase=phase_25,
-    )
-
-class velocity_inlet_child(Group):
-    """
-    'child_object_type' of velocity_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'velocity_inlet_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_23,
+        phase=phase_26,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -49169,7 +49572,7 @@ class velocity_inlet(NamedObject[velocity_inlet_child], CreatableNamedObjectMixi
     _python_name = 'velocity_inlet'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -49207,7 +49610,7 @@ class rotating(Boolean):
     Apply a rotational velocity to this wall.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rotating?'
     _python_name = 'rotating'
 
@@ -49216,7 +49619,7 @@ class components_2(Boolean):
     Define wall velocity components.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'components?'
     _python_name = 'components'
 
@@ -49771,7 +50174,7 @@ class rough_nasa(Boolean):
     NASA sand-grain roughness model for icing?.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-nasa?'
     _python_name = 'rough_nasa'
 
@@ -49780,7 +50183,7 @@ class rough_shin_et_al(Boolean):
     Shin-et-al sand-grain roughness model for icing ?.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-shin-et-al?'
     _python_name = 'rough_shin_et_al'
 
@@ -49789,7 +50192,7 @@ class rough_data(Boolean):
     Variable Roughness From ICE3D?.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'rough-data?'
     _python_name = 'rough_data'
 
@@ -50603,7 +51006,7 @@ class polar_data_pairs(ListObject[polar_data_pairs_child]):
     )
     child_object_type = polar_data_pairs_child
 
-class file_name_1_18(Filename, _InputFile):
+class file_name_1_19(Filename, _InputFile):
     """
     Name of input CSV file.
     """
@@ -50625,7 +51028,7 @@ class read_polar_dist_func_from_file(Command):
     _python_name = 'read_polar_dist_func_from_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_18,
+        file_name=file_name_1_19,
     )
 
 class file_name_14(Filename, _OutputFile):
@@ -53410,7 +53813,7 @@ class ablation_1(Group):
         ablation_species_mf=('species_mass_fraction', 'ablation/species-mf'),
     )
 
-class phase_26_child(Group):
+class phase_27_child(Group):
     """
     'child_object_type' of phase.
     """
@@ -53435,7 +53838,7 @@ class phase_26_child(Group):
         geometry=geometry_6,
     )
 
-class phase_26(NamedObject[phase_26_child], CreatableNamedObjectMixin[phase_26_child]):
+class phase_27(NamedObject[phase_27_child], CreatableNamedObjectMixin[phase_27_child]):
     """
     Domain name to define settings on.
     """
@@ -53451,17 +53854,20 @@ class phase_26(NamedObject[phase_26_child], CreatableNamedObjectMixin[phase_26_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = phase_26_child
+    child_object_type = phase_27_child
 
-class settings_24(Group):
+class wall_child(Group):
     """
-    Domain name to define settings on.
+    'child_object_type' of wall.
     """
     _version = '261'
-    fluent_name = 'settings'
-    _python_name = 'settings'
-    child_names = ['momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'wall_film', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'ablation', 'geometry', 'phase']
+    fluent_name = 'child-object-type'
+    _python_name = 'wall_child'
+    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'wall_film', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'ablation', 'geometry', 'phase']
+    command_names = ['display', 'split', 'set_location', 'set_type']
     _child_classes = dict(
+        name=name_4,
+        locations=locations_2,
         momentum=momentum_11,
         turbulence=turbulence_6,
         thermal=thermal_6,
@@ -53476,23 +53882,11 @@ class settings_24(Group):
         icing=icing_2,
         ablation=ablation_1,
         geometry=geometry_6,
-        phase=phase_26,
-    )
-
-class wall_child(Group):
-    """
-    'child_object_type' of wall.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'wall_child'
-    child_names = ['name', 'locations', 'settings']
-    command_names = ['split']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        settings=settings_24,
+        phase=phase_27,
+        display=display_4,
         split=split_1,
+        set_location=set_location,
+        set_type=set_type_3,
     )
     _child_aliases = dict(
         location=('locations', 'location'),
@@ -53507,7 +53901,7 @@ class wall(NamedObject[wall_child], CreatableNamedObjectMixin[wall_child]):
     _python_name = 'wall'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
     _child_classes = dict(
-        create=create,
+        create=create_5,
         delete=delete,
         rename=rename,
         list=list,
@@ -53524,7 +53918,7 @@ class boundary_names(StringList, AllowedValuesMixin):
     fluent_name = 'boundary-names'
     _python_name = 'boundary_names'
 
-class type_5(String, AllowedValuesMixin):
+class type_7(String, AllowedValuesMixin):
     """
     Input boundary type.
     """
@@ -53549,19 +53943,41 @@ class set_type_2(Command):
     argument_names = ['boundary_names', 'type']
     _child_classes = dict(
         boundary_names=boundary_names,
-        type=type_5,
+        type=type_7,
     )
 
-class boundaries_1(Group):
+class create_4(CommandWithPositionalArgs):
+    """
+    Crate new boundary.
+    
+    Parameters
+    ----------
+        name : str
+            Input boundary name .
+        volume : str
+            Input volume name for which the new boundary.
+        type : str
+            Input boundary type.
+    """
+    _version = '261'
+    fluent_name = 'create'
+    _python_name = 'create'
+    argument_names = ['name', 'volume', 'type']
+    _child_classes = dict(
+        name=name_15,
+        volume=volume,
+        type=type_7,
+    )
+
+class boundaries(Group):
     """
     'boundaries' child.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
     fluent_name = 'boundaries'
     _python_name = 'boundaries'
     child_names = ['axis', 'degassing', 'exhaust_fan', 'fan', 'geometry', 'inlet_vent', 'intake_fan', 'interface', 'interior', 'mass_flow_inlet', 'mass_flow_outlet', 'network', 'network_end', 'outflow', 'outlet_vent', 'overset', 'periodic', 'porous_jump', 'pressure_far_field', 'pressure_inlet', 'pressure_outlet', 'radiator', 'rans_les_interface', 'recirculation_inlet', 'recirculation_outlet', 'shadow', 'symmetry', 'velocity_inlet', 'wall']
-    command_names = ['set_type']
+    command_names = ['set_type', 'create']
     _child_classes = dict(
         axis=axis_5,
         degassing=degassing,
@@ -53592,1811 +54008,6 @@ class boundaries_1(Group):
         symmetry=symmetry,
         velocity_inlet=velocity_inlet,
         wall=wall,
-        set_type=set_type_2,
-    )
-
-class phase_2_child(Group):
-    """
-    'child_object_type' of phase.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'phase_child'
-    child_names = ['general', 'conical', 'reference_frame', 'mesh_motion', 'zonal_models', 'porous_zone', 'fan_zone', 'embedded_les', 'reaction', 'sources', 'fixed_values', 'multiphase', 'disabled']
-    _child_classes = dict(
-        general=general_2,
-        conical=conical,
-        reference_frame=reference_frame_2,
-        mesh_motion=mesh_motion,
-        zonal_models=zonal_models,
-        porous_zone=porous_zone,
-        fan_zone=fan_zone,
-        embedded_les=embedded_les,
-        reaction=reaction,
-        sources=sources_1,
-        fixed_values=fixed_values,
-        multiphase=multiphase_1,
-        disabled=disabled,
-    )
-
-class phase_2(NamedObject[phase_2_child], CreatableNamedObjectMixin[phase_2_child]):
-    """
-    'phase' child.
-    """
-    _version = '261'
-    fluent_name = 'phase'
-    _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = phase_2_child
-
-class display_4(Command):
-    """
-    Display physics object.
-    """
-    _version = '261'
-    fluent_name = 'display'
-    _python_name = 'display'
-
-class name_14(String):
-    """
-    Input new volume name.
-    """
-    _version = '261'
-    fluent_name = 'name'
-    _python_name = 'name'
-
-class locations_4(StringList, AllowedValuesMixin):
-    """
-    Input location name which should be part of new volume.
-    """
-    _version = '261'
-    fluent_name = 'locations'
-    _python_name = 'locations'
-
-class split(Command):
-    """
-    Input volume and location names to split.
-    
-    Parameters
-    ----------
-        name : str
-            Input new volume name.
-        locations : List
-            Input location name which should be part of new volume.
-    """
-    _version = '261'
-    fluent_name = 'split'
-    _python_name = 'split'
-    argument_names = ['name', 'locations']
-    _child_classes = dict(
-        name=name_14,
-        locations=locations_4,
-    )
-
-class set_location(Command):
-    """
-    Input location name.
-    
-    Parameters
-    ----------
-        locations : List
-            Input location name.
-    """
-    _version = '261'
-    fluent_name = 'set-location'
-    _python_name = 'set_location'
-    argument_names = ['locations']
-    _child_classes = dict(
-        locations=locations_2,
-    )
-
-class type_6(String, AllowedValuesMixin):
-    """
-    Input new type.
-    """
-    _version = '261'
-    fluent_name = 'type'
-    _python_name = 'type'
-
-class set_type_1(Command):
-    """
-    Change the type for this volume.
-    
-    Parameters
-    ----------
-        type : str
-            Input new type.
-    """
-    _version = '261'
-    fluent_name = 'set-type'
-    _python_name = 'set_type'
-    argument_names = ['type']
-    _child_classes = dict(
-        type=type_6,
-    )
-
-class fluid_2_child(Group):
-    """
-    'child_object_type' of fluid.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'fluid_child'
-    child_names = ['name', 'locations', 'boundaries', 'general', 'conical', 'reference_frame', 'mesh_motion', 'zonal_models', 'porous_zone', 'fan_zone', 'embedded_les', 'reaction', 'sources', 'fixed_values', 'multiphase', 'disabled', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        boundaries=boundaries_1,
-        general=general_2,
-        conical=conical,
-        reference_frame=reference_frame_2,
-        mesh_motion=mesh_motion,
-        zonal_models=zonal_models,
-        porous_zone=porous_zone,
-        fan_zone=fan_zone,
-        embedded_les=embedded_les,
-        reaction=reaction,
-        sources=sources_1,
-        fixed_values=fixed_values,
-        multiphase=multiphase_1,
-        disabled=disabled,
-        phase=phase_2,
-        display=display_4,
-        split=split,
-        set_location=set_location,
-        set_type=set_type_1,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class fluid_2(NamedObject[fluid_2_child], CreatableNamedObjectMixin[fluid_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'fluid'
-    _python_name = 'fluid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = fluid_2_child
-
-class phase_27_child(Group):
-    """
-    'child_object_type' of phase.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'phase_child'
-    child_names = ['general', 'reference_frame', 'mesh_motion', 'solid_motion', 'sources', 'fixed_values', 'material_orientation', 'disabled', 'internal']
-    _child_classes = dict(
-        general=general_3,
-        reference_frame=reference_frame_3,
-        mesh_motion=mesh_motion_1,
-        solid_motion=solid_motion,
-        sources=sources_1,
-        fixed_values=fixed_values,
-        material_orientation=material_orientation,
-        disabled=disabled_1,
-        internal=internal,
-    )
-
-class phase_27(NamedObject[phase_27_child], CreatableNamedObjectMixin[phase_27_child]):
-    """
-    'phase' child.
-    """
-    _version = '261'
-    fluent_name = 'phase'
-    _python_name = 'phase'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = phase_27_child
-
-class solid_3_child(Group):
-    """
-    'child_object_type' of solid.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'solid_child'
-    child_names = ['name', 'locations', 'boundaries', 'general', 'reference_frame', 'mesh_motion', 'solid_motion', 'sources', 'fixed_values', 'material_orientation', 'disabled', 'internal', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        boundaries=boundaries_1,
-        general=general_3,
-        reference_frame=reference_frame_3,
-        mesh_motion=mesh_motion_1,
-        solid_motion=solid_motion,
-        sources=sources_1,
-        fixed_values=fixed_values,
-        material_orientation=material_orientation,
-        disabled=disabled_1,
-        internal=internal,
-        phase=phase_27,
-        display=display_4,
-        split=split,
-        set_location=set_location,
-        set_type=set_type_1,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class solid_3(NamedObject[solid_3_child], CreatableNamedObjectMixin[solid_3_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'solid'
-    _python_name = 'solid'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = solid_3_child
-
-class list_physics(Command):
-    """
-    List volume information.
-    """
-    _version = '261'
-    fluent_name = 'list-physics'
-    _python_name = 'list_physics'
-
-class name_15(String):
-    """
-    Input new volume name .
-    """
-    _version = '261'
-    fluent_name = 'name'
-    _python_name = 'name'
-
-class type_7(String, AllowedValuesMixin):
-    """
-    Input volume type.
-    """
-    _version = '261'
-    fluent_name = 'type'
-    _python_name = 'type'
-
-class create_3(CommandWithPositionalArgs):
-    """
-    Crate new volume.
-    
-    Parameters
-    ----------
-        name : str
-            Input new volume name .
-        type : str
-            Input volume type.
-    """
-    _version = '261'
-    fluent_name = 'create'
-    _python_name = 'create'
-    argument_names = ['name', 'type']
-    _child_classes = dict(
-        name=name_15,
-        type=type_7,
-    )
-
-class volume_names(StringList, AllowedValuesMixin):
-    """
-    Input volume names .
-    """
-    _version = '261'
-    fluent_name = 'volume-names'
-    _python_name = 'volume_names'
-
-class set_type(Command):
-    """
-    Input volume name(s) to change its type.
-    
-    Parameters
-    ----------
-        volume_names : List
-            Input volume names .
-        type : str
-            Input volume type.
-    """
-    _version = '261'
-    fluent_name = 'set-type'
-    _python_name = 'set_type'
-    argument_names = ['volume_names', 'type']
-    _child_classes = dict(
-        volume_names=volume_names,
-        type=type_7,
-    )
-
-class volumes(Group, _ChildNamedObjectAccessorMixin):
-    """
-    Volumes definitions.
-    """
-    _version = '261'
-    fluent_name = 'volumes'
-    _python_name = 'volumes'
-    child_names = ['fluid', 'solid']
-    command_names = ['list_physics', 'create', 'set_type']
-    _child_classes = dict(
-        fluid=fluid_2,
-        solid=solid_3,
-        list_physics=list_physics,
-        create=create_3,
-        set_type=set_type,
-    )
-
-class name_16(String):
-    """
-    Input boundary name .
-    """
-    _version = '261'
-    fluent_name = 'name'
-    _python_name = 'name'
-
-class volume(String, AllowedValuesMixin):
-    """
-    Input volume name for which the new boundary.
-    """
-    _version = '261'
-    fluent_name = 'volume'
-    _python_name = 'volume'
-
-class create_5(CommandWithPositionalArgs):
-    """
-    Crate new boundary.
-    
-    Parameters
-    ----------
-        name : str
-            Input boundary name .
-        volume : str
-            Input volume name for which the new boundary.
-    """
-    _version = '261'
-    fluent_name = 'create'
-    _python_name = 'create'
-    argument_names = ['name', 'volume']
-    _child_classes = dict(
-        name=name_16,
-        volume=volume,
-    )
-
-class set_type_3(Command):
-    """
-    Change the type for this boundary.
-    
-    Parameters
-    ----------
-        type : str
-            Input new type.
-    """
-    _version = '261'
-    fluent_name = 'set-type'
-    _python_name = 'set_type'
-    argument_names = ['type']
-    _child_classes = dict(
-        type=type_6,
-    )
-
-class axis_6_child(Group):
-    """
-    'child_object_type' of axis.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'axis_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class axis_6(NamedObject[axis_6_child], CreatableNamedObjectMixin[axis_6_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'axis'
-    _python_name = 'axis'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = axis_6_child
-
-class degassing_1_child(Group):
-    """
-    'child_object_type' of degassing.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'degassing_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class degassing_1(NamedObject[degassing_1_child], CreatableNamedObjectMixin[degassing_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'degassing'
-    _python_name = 'degassing'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = degassing_1_child
-
-class exhaust_fan_1_child(Group):
-    """
-    'child_object_type' of exhaust_fan.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'exhaust_fan_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum,
-        turbulence=turbulence,
-        thermal=thermal,
-        radiation=radiation_1,
-        species=species_5,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_2,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing,
-        geometry=geometry_6,
-        phase=phase_4,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class exhaust_fan_1(NamedObject[exhaust_fan_1_child], CreatableNamedObjectMixin[exhaust_fan_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'exhaust-fan'
-    _python_name = 'exhaust_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = exhaust_fan_1_child
-
-class fan_1_child(Group):
-    """
-    'child_object_type' of fan.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'fan_child'
-    child_names = ['name', 'locations', 'pressure_jump_specification', 'swirl_velocity_specification', 'discrete_phase', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        pressure_jump_specification=pressure_jump_specification,
-        swirl_velocity_specification=swirl_velocity_specification,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_5,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class fan_1(NamedObject[fan_1_child], CreatableNamedObjectMixin[fan_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'fan'
-    _python_name = 'fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = fan_1_child
-
-class geometry_8_child(Group):
-    """
-    'child_object_type' of geometry.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'geometry_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class geometry_8(NamedObject[geometry_8_child], CreatableNamedObjectMixin[geometry_8_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'geometry'
-    _python_name = 'geometry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = geometry_8_child
-
-class inlet_vent_1_child(Group):
-    """
-    'child_object_type' of inlet_vent.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'inlet_vent_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_1,
-        turbulence=turbulence_1,
-        thermal=thermal_1,
-        radiation=radiation_2,
-        species=species_6,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_3,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_6,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class inlet_vent_1(NamedObject[inlet_vent_1_child], CreatableNamedObjectMixin[inlet_vent_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'inlet-vent'
-    _python_name = 'inlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = inlet_vent_1_child
-
-class intake_fan_1_child(Group):
-    """
-    'child_object_type' of intake_fan.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'intake_fan_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_2,
-        turbulence=turbulence_1,
-        thermal=thermal_1,
-        radiation=radiation_2,
-        species=species_6,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_3,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_7,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class intake_fan_1(NamedObject[intake_fan_1_child], CreatableNamedObjectMixin[intake_fan_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'intake-fan'
-    _python_name = 'intake_fan'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = intake_fan_1_child
-
-class interface_2_child(Group):
-    """
-    'child_object_type' of interface.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'interface_child'
-    child_names = ['name', 'locations', 'interface', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        interface=interface_1,
-        geometry=geometry_6,
-        phase=phase_8,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class interface_2(NamedObject[interface_2_child], CreatableNamedObjectMixin[interface_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'interface'
-    _python_name = 'interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = interface_2_child
-
-class interior_2_child(Group):
-    """
-    'child_object_type' of interior.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'interior_child'
-    child_names = ['name', 'locations', 'interior', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        interior=interior_1,
-        phase=phase_9,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class interior_2(NamedObject[interior_2_child], CreatableNamedObjectMixin[interior_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'interior'
-    _python_name = 'interior'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = interior_2_child
-
-class mass_flow_inlet_1_child(Group):
-    """
-    'child_object_type' of mass_flow_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'mass_flow_inlet_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_3,
-        turbulence=turbulence_2,
-        thermal=thermal_2,
-        radiation=radiation_3,
-        species=species_7,
-        discrete_phase=discrete_phase_3,
-        multiphase=multiphase_4,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_10,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child], CreatableNamedObjectMixin[mass_flow_inlet_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'mass-flow-inlet'
-    _python_name = 'mass_flow_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = mass_flow_inlet_1_child
-
-class mass_flow_outlet_1_child(Group):
-    """
-    'child_object_type' of mass_flow_outlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'mass_flow_outlet_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_4,
-        turbulence=turbulence_3,
-        thermal=thermal_3,
-        radiation=radiation_4,
-        species=species_8,
-        discrete_phase=discrete_phase_3,
-        multiphase=multiphase_5,
-        potential=potential_1,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_11,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child], CreatableNamedObjectMixin[mass_flow_outlet_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'mass-flow-outlet'
-    _python_name = 'mass_flow_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = mass_flow_outlet_1_child
-
-class network_1_child(Group):
-    """
-    'child_object_type' of network.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'network_child'
-    child_names = ['name', 'locations', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        phase=phase_12,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class network_1(NamedObject[network_1_child], CreatableNamedObjectMixin[network_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'network'
-    _python_name = 'network'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = network_1_child
-
-class network_end_2_child(Group):
-    """
-    'child_object_type' of network_end.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'network_end_child'
-    child_names = ['name', 'locations', 'network_end', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        network_end=network_end_1,
-        phase=phase_13,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class network_end_2(NamedObject[network_end_2_child], CreatableNamedObjectMixin[network_end_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'network-end'
-    _python_name = 'network_end'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = network_end_2_child
-
-class outflow_1_child(Group):
-    """
-    'child_object_type' of outflow.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'outflow_child'
-    child_names = ['name', 'locations', 'momentum', 'potential', 'structure', 'uds', 'radiation', 'discrete_phase', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_5,
-        potential=potential,
-        structure=structure_1,
-        uds=uds_2,
-        radiation=radiation_2,
-        discrete_phase=discrete_phase_4,
-        geometry=geometry_6,
-        phase=phase_14,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class outflow_1(NamedObject[outflow_1_child], CreatableNamedObjectMixin[outflow_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'outflow'
-    _python_name = 'outflow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = outflow_1_child
-
-class outlet_vent_1_child(Group):
-    """
-    'child_object_type' of outlet_vent.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'outlet_vent_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_6,
-        turbulence=turbulence,
-        thermal=thermal,
-        radiation=radiation_1,
-        species=species_5,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_2,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing,
-        geometry=geometry_6,
-        phase=phase_15,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class outlet_vent_1(NamedObject[outlet_vent_1_child], CreatableNamedObjectMixin[outlet_vent_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'outlet-vent'
-    _python_name = 'outlet_vent'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = outlet_vent_1_child
-
-class overset_1_child(Group):
-    """
-    'child_object_type' of overset.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'overset_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class overset_1(NamedObject[overset_1_child], CreatableNamedObjectMixin[overset_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'overset'
-    _python_name = 'overset'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = overset_1_child
-
-class periodic_2_child(Group):
-    """
-    'child_object_type' of periodic.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'periodic_child'
-    child_names = ['name', 'locations', 'periodic', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        periodic=periodic_1,
-        geometry=geometry_7,
-        phase=phase_16,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class periodic_2(NamedObject[periodic_2_child], CreatableNamedObjectMixin[periodic_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'periodic'
-    _python_name = 'periodic'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = periodic_2_child
-
-class porous_jump_2_child(Group):
-    """
-    'child_object_type' of porous_jump.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'porous_jump_child'
-    child_names = ['name', 'locations', 'porous_jump', 'discrete_phase', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        porous_jump=porous_jump_1,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_17,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class porous_jump_2(NamedObject[porous_jump_2_child], CreatableNamedObjectMixin[porous_jump_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'porous-jump'
-    _python_name = 'porous_jump'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = porous_jump_2_child
-
-class pressure_far_field_1_child(Group):
-    """
-    'child_object_type' of pressure_far_field.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_far_field_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_7,
-        turbulence=turbulence_2,
-        thermal=thermal_4,
-        radiation=radiation_5,
-        species=species_9,
-        discrete_phase=discrete_phase_4,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_18,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class pressure_far_field_1(NamedObject[pressure_far_field_1_child], CreatableNamedObjectMixin[pressure_far_field_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'pressure-far-field'
-    _python_name = 'pressure_far_field'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = pressure_far_field_1_child
-
-class pressure_inlet_1_child(Group):
-    """
-    'child_object_type' of pressure_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_inlet_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_8,
-        turbulence=turbulence_1,
-        thermal=thermal_1,
-        radiation=radiation_2,
-        species=species_6,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_3,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_19,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class pressure_inlet_1(NamedObject[pressure_inlet_1_child], CreatableNamedObjectMixin[pressure_inlet_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'pressure-inlet'
-    _python_name = 'pressure_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = pressure_inlet_1_child
-
-class pressure_outlet_1_child(Group):
-    """
-    'child_object_type' of pressure_outlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'pressure_outlet_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_9,
-        turbulence=turbulence,
-        thermal=thermal,
-        radiation=radiation_1,
-        species=species_5,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_2,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing,
-        geometry=geometry_6,
-        phase=phase_20,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class pressure_outlet_1(NamedObject[pressure_outlet_1_child], CreatableNamedObjectMixin[pressure_outlet_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'pressure-outlet'
-    _python_name = 'pressure_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = pressure_outlet_1_child
-
-class radiator_2_child(Group):
-    """
-    'child_object_type' of radiator.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'radiator_child'
-    child_names = ['name', 'locations', 'radiator', 'discrete_phase', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        radiator=radiator_1,
-        discrete_phase=discrete_phase_2,
-        geometry=geometry_6,
-        phase=phase_21,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class radiator_2(NamedObject[radiator_2_child], CreatableNamedObjectMixin[radiator_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'radiator'
-    _python_name = 'radiator'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = radiator_2_child
-
-class rans_les_interface_1_child(Group):
-    """
-    'child_object_type' of rans_les_interface.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'rans_les_interface_child'
-    child_names = ['name', 'locations', 'turbulence', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        turbulence=turbulence_4,
-        geometry=geometry_6,
-        phase=phase_22,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class rans_les_interface_1(NamedObject[rans_les_interface_1_child], CreatableNamedObjectMixin[rans_les_interface_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'rans-les-interface'
-    _python_name = 'rans_les_interface'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = rans_les_interface_1_child
-
-class recirculation_inlet_2_child(Group):
-    """
-    'child_object_type' of recirculation_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'recirculation_inlet_child'
-    child_names = ['name', 'locations', 'recirculation_inlet', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        recirculation_inlet=recirculation_inlet_1,
-        geometry=geometry_6,
-        phase=phase_23,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child], CreatableNamedObjectMixin[recirculation_inlet_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'recirculation-inlet'
-    _python_name = 'recirculation_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = recirculation_inlet_2_child
-
-class recirculation_outlet_2_child(Group):
-    """
-    'child_object_type' of recirculation_outlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'recirculation_outlet_child'
-    child_names = ['name', 'locations', 'recirculation_outlet', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        recirculation_outlet=recirculation_outlet_1,
-        geometry=geometry_6,
-        phase=phase_24,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child], CreatableNamedObjectMixin[recirculation_outlet_2_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'recirculation-outlet'
-    _python_name = 'recirculation_outlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = recirculation_outlet_2_child
-
-class shadow_1_child(Group):
-    """
-    'child_object_type' of shadow.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'shadow_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class shadow_1(NamedObject[shadow_1_child], CreatableNamedObjectMixin[shadow_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'shadow'
-    _python_name = 'shadow'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = shadow_1_child
-
-class symmetry_1_child(Group):
-    """
-    'child_object_type' of symmetry.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'symmetry_child'
-    child_names = ['name', 'locations', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        geometry=geometry_6,
-        phase=phase_3,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class symmetry_1(NamedObject[symmetry_1_child], CreatableNamedObjectMixin[symmetry_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'symmetry'
-    _python_name = 'symmetry'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = symmetry_1_child
-
-class velocity_inlet_1_child(Group):
-    """
-    'child_object_type' of velocity_inlet.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'velocity_inlet_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_10,
-        turbulence=turbulence_5,
-        thermal=thermal_5,
-        radiation=radiation_6,
-        species=species_7,
-        discrete_phase=discrete_phase_1,
-        multiphase=multiphase_6,
-        potential=potential,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_1,
-        geometry=geometry_6,
-        phase=phase_25,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class velocity_inlet_1(NamedObject[velocity_inlet_1_child], CreatableNamedObjectMixin[velocity_inlet_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'velocity-inlet'
-    _python_name = 'velocity_inlet'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = velocity_inlet_1_child
-
-class wall_1_child(Group):
-    """
-    'child_object_type' of wall.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'wall_child'
-    child_names = ['name', 'locations', 'momentum', 'turbulence', 'thermal', 'radiation', 'species', 'discrete_phase', 'wall_film', 'multiphase', 'potential', 'structure', 'uds', 'icing', 'ablation', 'geometry', 'phase']
-    command_names = ['display', 'split', 'set_location', 'set_type']
-    _child_classes = dict(
-        name=name_4,
-        locations=locations_2,
-        momentum=momentum_11,
-        turbulence=turbulence_6,
-        thermal=thermal_6,
-        radiation=radiation_7,
-        species=species_10,
-        discrete_phase=discrete_phase_5,
-        wall_film=wall_film_1,
-        multiphase=multiphase_7,
-        potential=potential_2,
-        structure=structure_1,
-        uds=uds,
-        icing=icing_2,
-        ablation=ablation_1,
-        geometry=geometry_6,
-        phase=phase_26,
-        display=display_4,
-        split=split_1,
-        set_location=set_location,
-        set_type=set_type_3,
-    )
-    _child_aliases = dict(
-        location=('locations', 'location'),
-    )
-
-class wall_1(NamedObject[wall_1_child], CreatableNamedObjectMixin[wall_1_child]):
-    """
-    Thread-type.
-    """
-    _version = '261'
-    fluent_name = 'wall'
-    _python_name = 'wall'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
-    _child_classes = dict(
-        create=create_5,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-    )
-    child_object_type = wall_1_child
-
-class create_4(CommandWithPositionalArgs):
-    """
-    Crate new boundary.
-    
-    Parameters
-    ----------
-        name : str
-            Input boundary name .
-        volume : str
-            Input volume name for which the new boundary.
-        type : str
-            Input boundary type.
-    """
-    _version = '261'
-    fluent_name = 'create'
-    _python_name = 'create'
-    argument_names = ['name', 'volume', 'type']
-    _child_classes = dict(
-        name=name_16,
-        volume=volume,
-        type=type_5,
-    )
-
-class boundaries(Group):
-    """
-    'boundaries' child.
-    """
-    _version = '261'
-    fluent_name = 'boundaries'
-    _python_name = 'boundaries'
-    child_names = ['axis', 'degassing', 'exhaust_fan', 'fan', 'geometry', 'inlet_vent', 'intake_fan', 'interface', 'interior', 'mass_flow_inlet', 'mass_flow_outlet', 'network', 'network_end', 'outflow', 'outlet_vent', 'overset', 'periodic', 'porous_jump', 'pressure_far_field', 'pressure_inlet', 'pressure_outlet', 'radiator', 'rans_les_interface', 'recirculation_inlet', 'recirculation_outlet', 'shadow', 'symmetry', 'velocity_inlet', 'wall']
-    command_names = ['set_type', 'create']
-    _child_classes = dict(
-        axis=axis_6,
-        degassing=degassing_1,
-        exhaust_fan=exhaust_fan_1,
-        fan=fan_1,
-        geometry=geometry_8,
-        inlet_vent=inlet_vent_1,
-        intake_fan=intake_fan_1,
-        interface=interface_2,
-        interior=interior_2,
-        mass_flow_inlet=mass_flow_inlet_1,
-        mass_flow_outlet=mass_flow_outlet_1,
-        network=network_1,
-        network_end=network_end_2,
-        outflow=outflow_1,
-        outlet_vent=outlet_vent_1,
-        overset=overset_1,
-        periodic=periodic_2,
-        porous_jump=porous_jump_2,
-        pressure_far_field=pressure_far_field_1,
-        pressure_inlet=pressure_inlet_1,
-        pressure_outlet=pressure_outlet_1,
-        radiator=radiator_2,
-        rans_les_interface=rans_les_interface_1,
-        recirculation_inlet=recirculation_inlet_2,
-        recirculation_outlet=recirculation_outlet_2,
-        shadow=shadow_1,
-        symmetry=symmetry_1,
-        velocity_inlet=velocity_inlet_1,
-        wall=wall_1,
         set_type=set_type_2,
         create=create_4,
     )
@@ -55596,7 +54207,7 @@ class phase_28(NamedObject[phase_28_child], CreatableNamedObjectMixin[phase_28_c
     )
     child_object_type = phase_28_child
 
-class axis_7_child(Group):
+class axis_6_child(Group):
     """
     'child_object_type' of axis.
     """
@@ -55616,7 +54227,7 @@ class axis_7_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class axis_7(NamedObject[axis_7_child], CreatableNamedObjectMixin[axis_7_child]):
+class axis_6(NamedObject[axis_6_child], CreatableNamedObjectMixin[axis_6_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55632,9 +54243,9 @@ class axis_7(NamedObject[axis_7_child], CreatableNamedObjectMixin[axis_7_child])
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = axis_7_child
+    child_object_type = axis_6_child
 
-class degassing_2_child(Group):
+class degassing_1_child(Group):
     """
     'child_object_type' of degassing.
     """
@@ -55654,7 +54265,7 @@ class degassing_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class degassing_2(NamedObject[degassing_2_child], CreatableNamedObjectMixin[degassing_2_child]):
+class degassing_1(NamedObject[degassing_1_child], CreatableNamedObjectMixin[degassing_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55670,7 +54281,7 @@ class degassing_2(NamedObject[degassing_2_child], CreatableNamedObjectMixin[dega
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = degassing_2_child
+    child_object_type = degassing_1_child
 
 class phase_29_child(Group):
     """
@@ -55719,7 +54330,7 @@ class phase_29(NamedObject[phase_29_child], CreatableNamedObjectMixin[phase_29_c
     )
     child_object_type = phase_29_child
 
-class exhaust_fan_2_child(Group):
+class exhaust_fan_1_child(Group):
     """
     'child_object_type' of exhaust_fan.
     """
@@ -55753,7 +54364,7 @@ class exhaust_fan_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class exhaust_fan_2(NamedObject[exhaust_fan_2_child], CreatableNamedObjectMixin[exhaust_fan_2_child]):
+class exhaust_fan_1(NamedObject[exhaust_fan_1_child], CreatableNamedObjectMixin[exhaust_fan_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55769,7 +54380,7 @@ class exhaust_fan_2(NamedObject[exhaust_fan_2_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = exhaust_fan_2_child
+    child_object_type = exhaust_fan_1_child
 
 class phase_30_child(Group):
     """
@@ -55810,7 +54421,7 @@ class phase_30(NamedObject[phase_30_child], CreatableNamedObjectMixin[phase_30_c
     )
     child_object_type = phase_30_child
 
-class fan_2_child(Group):
+class fan_1_child(Group):
     """
     'child_object_type' of fan.
     """
@@ -55836,7 +54447,7 @@ class fan_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class fan_2(NamedObject[fan_2_child], CreatableNamedObjectMixin[fan_2_child]):
+class fan_1(NamedObject[fan_1_child], CreatableNamedObjectMixin[fan_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55852,9 +54463,9 @@ class fan_2(NamedObject[fan_2_child], CreatableNamedObjectMixin[fan_2_child]):
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = fan_2_child
+    child_object_type = fan_1_child
 
-class geometry_9_child(Group):
+class geometry_8_child(Group):
     """
     'child_object_type' of geometry.
     """
@@ -55874,7 +54485,7 @@ class geometry_9_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class geometry_9(NamedObject[geometry_9_child], CreatableNamedObjectMixin[geometry_9_child]):
+class geometry_8(NamedObject[geometry_8_child], CreatableNamedObjectMixin[geometry_8_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55890,7 +54501,7 @@ class geometry_9(NamedObject[geometry_9_child], CreatableNamedObjectMixin[geomet
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = geometry_9_child
+    child_object_type = geometry_8_child
 
 class phase_31_child(Group):
     """
@@ -55939,7 +54550,7 @@ class phase_31(NamedObject[phase_31_child], CreatableNamedObjectMixin[phase_31_c
     )
     child_object_type = phase_31_child
 
-class inlet_vent_2_child(Group):
+class inlet_vent_1_child(Group):
     """
     'child_object_type' of inlet_vent.
     """
@@ -55973,7 +54584,7 @@ class inlet_vent_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class inlet_vent_2(NamedObject[inlet_vent_2_child], CreatableNamedObjectMixin[inlet_vent_2_child]):
+class inlet_vent_1(NamedObject[inlet_vent_1_child], CreatableNamedObjectMixin[inlet_vent_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -55989,7 +54600,7 @@ class inlet_vent_2(NamedObject[inlet_vent_2_child], CreatableNamedObjectMixin[in
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = inlet_vent_2_child
+    child_object_type = inlet_vent_1_child
 
 class phase_32_child(Group):
     """
@@ -56038,7 +54649,7 @@ class phase_32(NamedObject[phase_32_child], CreatableNamedObjectMixin[phase_32_c
     )
     child_object_type = phase_32_child
 
-class intake_fan_2_child(Group):
+class intake_fan_1_child(Group):
     """
     'child_object_type' of intake_fan.
     """
@@ -56072,7 +54683,7 @@ class intake_fan_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class intake_fan_2(NamedObject[intake_fan_2_child], CreatableNamedObjectMixin[intake_fan_2_child]):
+class intake_fan_1(NamedObject[intake_fan_1_child], CreatableNamedObjectMixin[intake_fan_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56088,7 +54699,7 @@ class intake_fan_2(NamedObject[intake_fan_2_child], CreatableNamedObjectMixin[in
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = intake_fan_2_child
+    child_object_type = intake_fan_1_child
 
 class phase_33_child(Group):
     """
@@ -56124,7 +54735,7 @@ class phase_33(NamedObject[phase_33_child], CreatableNamedObjectMixin[phase_33_c
     )
     child_object_type = phase_33_child
 
-class interface_3_child(Group):
+class interface_2_child(Group):
     """
     'child_object_type' of interface.
     """
@@ -56145,7 +54756,7 @@ class interface_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class interface_3(NamedObject[interface_3_child], CreatableNamedObjectMixin[interface_3_child]):
+class interface_2(NamedObject[interface_2_child], CreatableNamedObjectMixin[interface_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56161,7 +54772,7 @@ class interface_3(NamedObject[interface_3_child], CreatableNamedObjectMixin[inte
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = interface_3_child
+    child_object_type = interface_2_child
 
 class phase_34_child(Group):
     """
@@ -56196,7 +54807,7 @@ class phase_34(NamedObject[phase_34_child], CreatableNamedObjectMixin[phase_34_c
     )
     child_object_type = phase_34_child
 
-class interior_3_child(Group):
+class interior_2_child(Group):
     """
     'child_object_type' of interior.
     """
@@ -56216,7 +54827,7 @@ class interior_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class interior_3(NamedObject[interior_3_child], CreatableNamedObjectMixin[interior_3_child]):
+class interior_2(NamedObject[interior_2_child], CreatableNamedObjectMixin[interior_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56232,7 +54843,7 @@ class interior_3(NamedObject[interior_3_child], CreatableNamedObjectMixin[interi
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = interior_3_child
+    child_object_type = interior_2_child
 
 class phase_35_child(Group):
     """
@@ -56281,7 +54892,7 @@ class phase_35(NamedObject[phase_35_child], CreatableNamedObjectMixin[phase_35_c
     )
     child_object_type = phase_35_child
 
-class mass_flow_inlet_2_child(Group):
+class mass_flow_inlet_1_child(Group):
     """
     'child_object_type' of mass_flow_inlet.
     """
@@ -56315,7 +54926,7 @@ class mass_flow_inlet_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class mass_flow_inlet_2(NamedObject[mass_flow_inlet_2_child], CreatableNamedObjectMixin[mass_flow_inlet_2_child]):
+class mass_flow_inlet_1(NamedObject[mass_flow_inlet_1_child], CreatableNamedObjectMixin[mass_flow_inlet_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56331,7 +54942,7 @@ class mass_flow_inlet_2(NamedObject[mass_flow_inlet_2_child], CreatableNamedObje
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = mass_flow_inlet_2_child
+    child_object_type = mass_flow_inlet_1_child
 
 class phase_36_child(Group):
     """
@@ -56380,7 +54991,7 @@ class phase_36(NamedObject[phase_36_child], CreatableNamedObjectMixin[phase_36_c
     )
     child_object_type = phase_36_child
 
-class mass_flow_outlet_2_child(Group):
+class mass_flow_outlet_1_child(Group):
     """
     'child_object_type' of mass_flow_outlet.
     """
@@ -56414,7 +55025,7 @@ class mass_flow_outlet_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class mass_flow_outlet_2(NamedObject[mass_flow_outlet_2_child], CreatableNamedObjectMixin[mass_flow_outlet_2_child]):
+class mass_flow_outlet_1(NamedObject[mass_flow_outlet_1_child], CreatableNamedObjectMixin[mass_flow_outlet_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56430,7 +55041,7 @@ class mass_flow_outlet_2(NamedObject[mass_flow_outlet_2_child], CreatableNamedOb
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = mass_flow_outlet_2_child
+    child_object_type = mass_flow_outlet_1_child
 
 class phase_37_child(Group):
     """
@@ -56463,7 +55074,7 @@ class phase_37(NamedObject[phase_37_child], CreatableNamedObjectMixin[phase_37_c
     )
     child_object_type = phase_37_child
 
-class network_2_child(Group):
+class network_1_child(Group):
     """
     'child_object_type' of network.
     """
@@ -56482,7 +55093,7 @@ class network_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class network_2(NamedObject[network_2_child], CreatableNamedObjectMixin[network_2_child]):
+class network_1(NamedObject[network_1_child], CreatableNamedObjectMixin[network_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56498,7 +55109,7 @@ class network_2(NamedObject[network_2_child], CreatableNamedObjectMixin[network_
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = network_2_child
+    child_object_type = network_1_child
 
 class phase_38_child(Group):
     """
@@ -56533,7 +55144,7 @@ class phase_38(NamedObject[phase_38_child], CreatableNamedObjectMixin[phase_38_c
     )
     child_object_type = phase_38_child
 
-class network_end_3_child(Group):
+class network_end_2_child(Group):
     """
     'child_object_type' of network_end.
     """
@@ -56553,7 +55164,7 @@ class network_end_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class network_end_3(NamedObject[network_end_3_child], CreatableNamedObjectMixin[network_end_3_child]):
+class network_end_2(NamedObject[network_end_2_child], CreatableNamedObjectMixin[network_end_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56569,7 +55180,7 @@ class network_end_3(NamedObject[network_end_3_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = network_end_3_child
+    child_object_type = network_end_2_child
 
 class phase_39_child(Group):
     """
@@ -56613,7 +55224,7 @@ class phase_39(NamedObject[phase_39_child], CreatableNamedObjectMixin[phase_39_c
     )
     child_object_type = phase_39_child
 
-class outflow_2_child(Group):
+class outflow_1_child(Group):
     """
     'child_object_type' of outflow.
     """
@@ -56642,7 +55253,7 @@ class outflow_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class outflow_2(NamedObject[outflow_2_child], CreatableNamedObjectMixin[outflow_2_child]):
+class outflow_1(NamedObject[outflow_1_child], CreatableNamedObjectMixin[outflow_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56658,7 +55269,7 @@ class outflow_2(NamedObject[outflow_2_child], CreatableNamedObjectMixin[outflow_
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = outflow_2_child
+    child_object_type = outflow_1_child
 
 class phase_40_child(Group):
     """
@@ -56707,7 +55318,7 @@ class phase_40(NamedObject[phase_40_child], CreatableNamedObjectMixin[phase_40_c
     )
     child_object_type = phase_40_child
 
-class outlet_vent_2_child(Group):
+class outlet_vent_1_child(Group):
     """
     'child_object_type' of outlet_vent.
     """
@@ -56741,7 +55352,7 @@ class outlet_vent_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class outlet_vent_2(NamedObject[outlet_vent_2_child], CreatableNamedObjectMixin[outlet_vent_2_child]):
+class outlet_vent_1(NamedObject[outlet_vent_1_child], CreatableNamedObjectMixin[outlet_vent_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56757,9 +55368,9 @@ class outlet_vent_2(NamedObject[outlet_vent_2_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = outlet_vent_2_child
+    child_object_type = outlet_vent_1_child
 
-class overset_2_child(Group):
+class overset_1_child(Group):
     """
     'child_object_type' of overset.
     """
@@ -56779,7 +55390,7 @@ class overset_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class overset_2(NamedObject[overset_2_child], CreatableNamedObjectMixin[overset_2_child]):
+class overset_1(NamedObject[overset_1_child], CreatableNamedObjectMixin[overset_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56795,7 +55406,7 @@ class overset_2(NamedObject[overset_2_child], CreatableNamedObjectMixin[overset_
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = overset_2_child
+    child_object_type = overset_1_child
 
 class phase_41_child(Group):
     """
@@ -56831,7 +55442,7 @@ class phase_41(NamedObject[phase_41_child], CreatableNamedObjectMixin[phase_41_c
     )
     child_object_type = phase_41_child
 
-class periodic_3_child(Group):
+class periodic_2_child(Group):
     """
     'child_object_type' of periodic.
     """
@@ -56852,7 +55463,7 @@ class periodic_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class periodic_3(NamedObject[periodic_3_child], CreatableNamedObjectMixin[periodic_3_child]):
+class periodic_2(NamedObject[periodic_2_child], CreatableNamedObjectMixin[periodic_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56868,7 +55479,7 @@ class periodic_3(NamedObject[periodic_3_child], CreatableNamedObjectMixin[period
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = periodic_3_child
+    child_object_type = periodic_2_child
 
 class phase_42_child(Group):
     """
@@ -56908,7 +55519,7 @@ class phase_42(NamedObject[phase_42_child], CreatableNamedObjectMixin[phase_42_c
     )
     child_object_type = phase_42_child
 
-class porous_jump_3_child(Group):
+class porous_jump_2_child(Group):
     """
     'child_object_type' of porous_jump.
     """
@@ -56933,7 +55544,7 @@ class porous_jump_3_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class porous_jump_3(NamedObject[porous_jump_3_child], CreatableNamedObjectMixin[porous_jump_3_child]):
+class porous_jump_2(NamedObject[porous_jump_2_child], CreatableNamedObjectMixin[porous_jump_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -56949,7 +55560,7 @@ class porous_jump_3(NamedObject[porous_jump_3_child], CreatableNamedObjectMixin[
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = porous_jump_3_child
+    child_object_type = porous_jump_2_child
 
 class phase_43_child(Group):
     """
@@ -56997,7 +55608,7 @@ class phase_43(NamedObject[phase_43_child], CreatableNamedObjectMixin[phase_43_c
     )
     child_object_type = phase_43_child
 
-class pressure_far_field_2_child(Group):
+class pressure_far_field_1_child(Group):
     """
     'child_object_type' of pressure_far_field.
     """
@@ -57030,7 +55641,7 @@ class pressure_far_field_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_far_field_2(NamedObject[pressure_far_field_2_child], CreatableNamedObjectMixin[pressure_far_field_2_child]):
+class pressure_far_field_1(NamedObject[pressure_far_field_1_child], CreatableNamedObjectMixin[pressure_far_field_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57046,7 +55657,7 @@ class pressure_far_field_2(NamedObject[pressure_far_field_2_child], CreatableNam
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = pressure_far_field_2_child
+    child_object_type = pressure_far_field_1_child
 
 class phase_44_child(Group):
     """
@@ -57095,7 +55706,7 @@ class phase_44(NamedObject[phase_44_child], CreatableNamedObjectMixin[phase_44_c
     )
     child_object_type = phase_44_child
 
-class pressure_inlet_2_child(Group):
+class pressure_inlet_1_child(Group):
     """
     'child_object_type' of pressure_inlet.
     """
@@ -57129,7 +55740,7 @@ class pressure_inlet_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_inlet_2(NamedObject[pressure_inlet_2_child], CreatableNamedObjectMixin[pressure_inlet_2_child]):
+class pressure_inlet_1(NamedObject[pressure_inlet_1_child], CreatableNamedObjectMixin[pressure_inlet_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57145,7 +55756,7 @@ class pressure_inlet_2(NamedObject[pressure_inlet_2_child], CreatableNamedObject
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = pressure_inlet_2_child
+    child_object_type = pressure_inlet_1_child
 
 class phase_45_child(Group):
     """
@@ -57194,7 +55805,7 @@ class phase_45(NamedObject[phase_45_child], CreatableNamedObjectMixin[phase_45_c
     )
     child_object_type = phase_45_child
 
-class pressure_outlet_2_child(Group):
+class pressure_outlet_1_child(Group):
     """
     'child_object_type' of pressure_outlet.
     """
@@ -57228,7 +55839,7 @@ class pressure_outlet_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class pressure_outlet_2(NamedObject[pressure_outlet_2_child], CreatableNamedObjectMixin[pressure_outlet_2_child]):
+class pressure_outlet_1(NamedObject[pressure_outlet_1_child], CreatableNamedObjectMixin[pressure_outlet_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57244,7 +55855,7 @@ class pressure_outlet_2(NamedObject[pressure_outlet_2_child], CreatableNamedObje
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = pressure_outlet_2_child
+    child_object_type = pressure_outlet_1_child
 
 class phase_46_child(Group):
     """
@@ -57284,7 +55895,7 @@ class phase_46(NamedObject[phase_46_child], CreatableNamedObjectMixin[phase_46_c
     )
     child_object_type = phase_46_child
 
-class radiator_3_child(Group):
+class radiator_2_child(Group):
     """
     'child_object_type' of radiator.
     """
@@ -57309,7 +55920,7 @@ class radiator_3_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class radiator_3(NamedObject[radiator_3_child], CreatableNamedObjectMixin[radiator_3_child]):
+class radiator_2(NamedObject[radiator_2_child], CreatableNamedObjectMixin[radiator_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57325,7 +55936,7 @@ class radiator_3(NamedObject[radiator_3_child], CreatableNamedObjectMixin[radiat
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = radiator_3_child
+    child_object_type = radiator_2_child
 
 class phase_47_child(Group):
     """
@@ -57361,7 +55972,7 @@ class phase_47(NamedObject[phase_47_child], CreatableNamedObjectMixin[phase_47_c
     )
     child_object_type = phase_47_child
 
-class rans_les_interface_2_child(Group):
+class rans_les_interface_1_child(Group):
     """
     'child_object_type' of rans_les_interface.
     """
@@ -57382,7 +55993,7 @@ class rans_les_interface_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class rans_les_interface_2(NamedObject[rans_les_interface_2_child], CreatableNamedObjectMixin[rans_les_interface_2_child]):
+class rans_les_interface_1(NamedObject[rans_les_interface_1_child], CreatableNamedObjectMixin[rans_les_interface_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57398,7 +56009,7 @@ class rans_les_interface_2(NamedObject[rans_les_interface_2_child], CreatableNam
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = rans_les_interface_2_child
+    child_object_type = rans_les_interface_1_child
 
 class phase_48_child(Group):
     """
@@ -57434,7 +56045,7 @@ class phase_48(NamedObject[phase_48_child], CreatableNamedObjectMixin[phase_48_c
     )
     child_object_type = phase_48_child
 
-class recirculation_inlet_3_child(Group):
+class recirculation_inlet_2_child(Group):
     """
     'child_object_type' of recirculation_inlet.
     """
@@ -57455,7 +56066,7 @@ class recirculation_inlet_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class recirculation_inlet_3(NamedObject[recirculation_inlet_3_child], CreatableNamedObjectMixin[recirculation_inlet_3_child]):
+class recirculation_inlet_2(NamedObject[recirculation_inlet_2_child], CreatableNamedObjectMixin[recirculation_inlet_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57471,7 +56082,7 @@ class recirculation_inlet_3(NamedObject[recirculation_inlet_3_child], CreatableN
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = recirculation_inlet_3_child
+    child_object_type = recirculation_inlet_2_child
 
 class phase_49_child(Group):
     """
@@ -57507,7 +56118,7 @@ class phase_49(NamedObject[phase_49_child], CreatableNamedObjectMixin[phase_49_c
     )
     child_object_type = phase_49_child
 
-class recirculation_outlet_3_child(Group):
+class recirculation_outlet_2_child(Group):
     """
     'child_object_type' of recirculation_outlet.
     """
@@ -57528,7 +56139,7 @@ class recirculation_outlet_3_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class recirculation_outlet_3(NamedObject[recirculation_outlet_3_child], CreatableNamedObjectMixin[recirculation_outlet_3_child]):
+class recirculation_outlet_2(NamedObject[recirculation_outlet_2_child], CreatableNamedObjectMixin[recirculation_outlet_2_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57544,9 +56155,9 @@ class recirculation_outlet_3(NamedObject[recirculation_outlet_3_child], Creatabl
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = recirculation_outlet_3_child
+    child_object_type = recirculation_outlet_2_child
 
-class shadow_2_child(Group):
+class shadow_1_child(Group):
     """
     'child_object_type' of shadow.
     """
@@ -57566,7 +56177,7 @@ class shadow_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class shadow_2(NamedObject[shadow_2_child], CreatableNamedObjectMixin[shadow_2_child]):
+class shadow_1(NamedObject[shadow_1_child], CreatableNamedObjectMixin[shadow_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57582,9 +56193,9 @@ class shadow_2(NamedObject[shadow_2_child], CreatableNamedObjectMixin[shadow_2_c
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = shadow_2_child
+    child_object_type = shadow_1_child
 
-class symmetry_2_child(Group):
+class symmetry_1_child(Group):
     """
     'child_object_type' of symmetry.
     """
@@ -57604,7 +56215,7 @@ class symmetry_2_child(Group):
         shadow_face_zone=shadow_face_zone,
     )
 
-class symmetry_2(NamedObject[symmetry_2_child], CreatableNamedObjectMixin[symmetry_2_child]):
+class symmetry_1(NamedObject[symmetry_1_child], CreatableNamedObjectMixin[symmetry_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57620,7 +56231,7 @@ class symmetry_2(NamedObject[symmetry_2_child], CreatableNamedObjectMixin[symmet
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = symmetry_2_child
+    child_object_type = symmetry_1_child
 
 class phase_50_child(Group):
     """
@@ -57669,7 +56280,7 @@ class phase_50(NamedObject[phase_50_child], CreatableNamedObjectMixin[phase_50_c
     )
     child_object_type = phase_50_child
 
-class velocity_inlet_2_child(Group):
+class velocity_inlet_1_child(Group):
     """
     'child_object_type' of velocity_inlet.
     """
@@ -57703,7 +56314,7 @@ class velocity_inlet_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class velocity_inlet_2(NamedObject[velocity_inlet_2_child], CreatableNamedObjectMixin[velocity_inlet_2_child]):
+class velocity_inlet_1(NamedObject[velocity_inlet_1_child], CreatableNamedObjectMixin[velocity_inlet_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57719,7 +56330,7 @@ class velocity_inlet_2(NamedObject[velocity_inlet_2_child], CreatableNamedObject
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = velocity_inlet_2_child
+    child_object_type = velocity_inlet_1_child
 
 class phase_51_child(Group):
     """
@@ -57770,7 +56381,7 @@ class phase_51(NamedObject[phase_51_child], CreatableNamedObjectMixin[phase_51_c
     )
     child_object_type = phase_51_child
 
-class wall_2_child(Group):
+class wall_1_child(Group):
     """
     'child_object_type' of wall.
     """
@@ -57806,7 +56417,7 @@ class wall_2_child(Group):
         dpm=('discrete_phase', 'dpm'),
     )
 
-class wall_2(NamedObject[wall_2_child], CreatableNamedObjectMixin[wall_2_child]):
+class wall_1(NamedObject[wall_1_child], CreatableNamedObjectMixin[wall_1_child]):
     """
     Settings for boundary-condition object.
     """
@@ -57822,7 +56433,7 @@ class wall_2(NamedObject[wall_2_child], CreatableNamedObjectMixin[wall_2_child])
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = wall_2_child
+    child_object_type = wall_1_child
 
 class sigma(Real):
     """
@@ -57972,6 +56583,7 @@ class ninjections(Integer):
     The number of injection boundaries.
     """
     _version = '261'
+    _deprecated_version = '26.1'
     fluent_name = 'ninjections'
     _python_name = 'ninjections'
 
@@ -58007,7 +56619,7 @@ class extraction_thread(String, AllowedValuesMixin):
     fluent_name = 'extraction-thread'
     _python_name = 'extraction_thread'
 
-class uniform(Boolean):
+class uniform(String, AllowedValuesMixin):
     """
     Injection wall is uniform?.
     """
@@ -58020,6 +56632,7 @@ class injection_hole_count(Integer):
     The number of injection holes.
     """
     _version = '261'
+    _deprecated_version = '26.1'
     fluent_name = 'injection-hole-count'
     _python_name = 'injection_hole_count'
 
@@ -58031,7 +56644,7 @@ class discrete_ext(Boolean):
     fluent_name = 'discrete-ext?'
     _python_name = 'discrete_ext'
 
-class static(Boolean):
+class static(String, AllowedValuesMixin):
     """
     Static injection?.
     """
@@ -58039,7 +56652,7 @@ class static(Boolean):
     fluent_name = 'static?'
     _python_name = 'static'
 
-class formulation(Integer):
+class formulation(String, AllowedValuesMixin):
     """
     Mass flow rate formulation (0 [incompressible]; 1 [compressible]):.
     """
@@ -58054,6 +56667,14 @@ class cht_coupling(Boolean):
     _version = '261'
     fluent_name = 'cht-coupling'
     _python_name = 'cht_coupling'
+
+class method_7(String, AllowedValuesMixin):
+    """
+    'method' child.
+    """
+    _version = '261'
+    fluent_name = 'method'
+    _python_name = 'method'
 
 class point1(RealList):
     """
@@ -58116,11 +56737,11 @@ class holes_setup(Group):
     _python_name = 'holes_setup'
     child_names = ['method', 'injection_hole']
     _child_classes = dict(
-        method=method_4,
+        method=method_7,
         injection_hole=injection_hole,
     )
 
-class method_7(Integer):
+class method_8(String, AllowedValuesMixin):
     """
     The dynamic injection method.
     """
@@ -58198,11 +56819,11 @@ class dynamic_setup(Group):
     _python_name = 'dynamic_setup'
     child_names = ['method', 'dynamic_injection']
     _child_classes = dict(
-        method=method_7,
+        method=method_8,
         dynamic_injection=dynamic_injection,
     )
 
-class method_8(Integer):
+class method_9(String, AllowedValuesMixin):
     """
     The static injection method.
     """
@@ -58298,7 +56919,7 @@ class static_setup(Group):
     _python_name = 'static_setup'
     child_names = ['method', 'static_injection']
     _child_classes = dict(
-        method=method_8,
+        method=method_9,
         static_injection=static_injection,
     )
 
@@ -58353,9 +56974,9 @@ class model_setup(Group):
         injection=injection_1,
     )
 
-class file_name_15(String):
+class file_name_1_20(Filename, _InputFile):
     """
-    'file_name' child.
+    The name of the input file.
     """
     _version = '261'
     fluent_name = 'file-name'
@@ -58370,7 +56991,7 @@ class read_input_file(Command):
     _python_name = 'read_input_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_15,
+        file_name=file_name_1_20,
     )
 
 class perforated_wall(Group):
@@ -58429,7 +57050,7 @@ class average_pressure(Boolean):
     fluent_name = 'average-pressure'
     _python_name = 'average_pressure'
 
-class pressure_outlet_3(Group):
+class pressure_outlet_2(Group):
     """
     Pressure specification method on pressure-outlet boundaries.
     """
@@ -58459,7 +57080,7 @@ class type_9(String, AllowedValuesMixin):
     fluent_name = 'type?'
     _python_name = 'type'
 
-class pressure_far_field_3(Group):
+class pressure_far_field_2(Group):
     """
     Presure-far-field boundary-condition options.
     """
@@ -58620,7 +57241,7 @@ class detect_boundary_advection(Command):
     fluent_name = 'detect-boundary-advection'
     _python_name = 'detect_boundary_advection'
 
-class settings_25(Group):
+class settings_1(Group):
     """
     'settings' child.
     """
@@ -58632,8 +57253,8 @@ class settings_25(Group):
     _child_classes = dict(
         degassing_verbosity=degassing_verbosity,
         mass_flow=mass_flow,
-        pressure_outlet=pressure_outlet_3,
-        pressure_far_field=pressure_far_field_3,
+        pressure_outlet=pressure_outlet_2,
+        pressure_far_field=pressure_far_field_2,
         physical_velocity_porous_formulation=physical_velocity_porous_formulation,
         target_mass_flow_rate_settings=target_mass_flow_rate_settings,
         advanced=advanced_2,
@@ -58887,38 +57508,38 @@ class boundary_conditions(Group, _ChildNamedObjectAccessorMixin):
     child_names = ['axis', 'degassing', 'exhaust_fan', 'fan', 'geometry', 'inlet_vent', 'intake_fan', 'interface', 'interior', 'mass_flow_inlet', 'mass_flow_outlet', 'network', 'network_end', 'outflow', 'outlet_vent', 'overset', 'periodic', 'porous_jump', 'pressure_far_field', 'pressure_inlet', 'pressure_outlet', 'radiator', 'rans_les_interface', 'recirculation_inlet', 'recirculation_outlet', 'shadow', 'symmetry', 'velocity_inlet', 'wall', 'non_reflecting_bc', 'perforated_wall', 'settings']
     command_names = ['copy', 'set_zone_type', 'slit_face_zone', 'non_overlapping_zone_name', 'slit_interior_between_diff_materials', 'create_all_shell_threads', 'recreate_all_shells', 'delete_all_shells', 'orient_face_zone', 'knudsen_number_calculator', 'add_suffix_or_prefix', 'rename_by_adjacency', 'rename_to_default']
     _child_classes = dict(
-        axis=axis_7,
-        degassing=degassing_2,
-        exhaust_fan=exhaust_fan_2,
-        fan=fan_2,
-        geometry=geometry_9,
-        inlet_vent=inlet_vent_2,
-        intake_fan=intake_fan_2,
-        interface=interface_3,
-        interior=interior_3,
-        mass_flow_inlet=mass_flow_inlet_2,
-        mass_flow_outlet=mass_flow_outlet_2,
-        network=network_2,
-        network_end=network_end_3,
-        outflow=outflow_2,
-        outlet_vent=outlet_vent_2,
-        overset=overset_2,
-        periodic=periodic_3,
-        porous_jump=porous_jump_3,
-        pressure_far_field=pressure_far_field_2,
-        pressure_inlet=pressure_inlet_2,
-        pressure_outlet=pressure_outlet_2,
-        radiator=radiator_3,
-        rans_les_interface=rans_les_interface_2,
-        recirculation_inlet=recirculation_inlet_3,
-        recirculation_outlet=recirculation_outlet_3,
-        shadow=shadow_2,
-        symmetry=symmetry_2,
-        velocity_inlet=velocity_inlet_2,
-        wall=wall_2,
+        axis=axis_6,
+        degassing=degassing_1,
+        exhaust_fan=exhaust_fan_1,
+        fan=fan_1,
+        geometry=geometry_8,
+        inlet_vent=inlet_vent_1,
+        intake_fan=intake_fan_1,
+        interface=interface_2,
+        interior=interior_2,
+        mass_flow_inlet=mass_flow_inlet_1,
+        mass_flow_outlet=mass_flow_outlet_1,
+        network=network_1,
+        network_end=network_end_2,
+        outflow=outflow_1,
+        outlet_vent=outlet_vent_1,
+        overset=overset_1,
+        periodic=periodic_2,
+        porous_jump=porous_jump_2,
+        pressure_far_field=pressure_far_field_1,
+        pressure_inlet=pressure_inlet_1,
+        pressure_outlet=pressure_outlet_1,
+        radiator=radiator_2,
+        rans_les_interface=rans_les_interface_1,
+        recirculation_inlet=recirculation_inlet_2,
+        recirculation_outlet=recirculation_outlet_2,
+        shadow=shadow_1,
+        symmetry=symmetry_1,
+        velocity_inlet=velocity_inlet_1,
+        wall=wall_1,
         non_reflecting_bc=non_reflecting_bc,
         perforated_wall=perforated_wall,
-        settings=settings_25,
+        settings=settings_1,
         copy=copy_1,
         set_zone_type=set_zone_type,
         slit_face_zone=slit_face_zone,
@@ -59010,7 +57631,7 @@ class local_absolute_mapped_tolerance(Real):
     fluent_name = 'local-absolute-mapped-tolerance'
     _python_name = 'local_absolute_mapped_tolerance'
 
-class periodic_4(Boolean):
+class periodic_3(Boolean):
     """
     Specifies whether mesh-interface is adjacent to periodic boundaries.
     """
@@ -59102,7 +57723,7 @@ class create_8(CommandWithPositionalArgs):
         use_local_edge_length_factor=use_local_edge_length_factor,
         local_relative_mapped_tolerance=local_relative_mapped_tolerance,
         local_absolute_mapped_tolerance=local_absolute_mapped_tolerance,
-        periodic=periodic_4,
+        periodic=periodic_3,
         coupled=coupled_1,
         matching=matching,
         ignore_area_difference=ignore_area_difference,
@@ -59125,7 +57746,7 @@ class zone2_1(String):
     fluent_name = 'zone2'
     _python_name = 'zone2'
 
-class interface_4_child(Group):
+class interface_3_child(Group):
     """
     'child_object_type' of interface.
     """
@@ -59144,13 +57765,13 @@ class interface_4_child(Group):
         use_local_edge_length_factor=use_local_edge_length_factor,
         local_relative_mapped_tolerance=local_relative_mapped_tolerance,
         local_absolute_mapped_tolerance=local_absolute_mapped_tolerance,
-        periodic=periodic_4,
+        periodic=periodic_3,
         coupled=coupled_1,
         matching=matching,
         static=static_1,
     )
 
-class interface_4(NamedObject[interface_4_child], CreatableNamedObjectMixin[interface_4_child]):
+class interface_3(NamedObject[interface_3_child], CreatableNamedObjectMixin[interface_3_child]):
     """
     Create mesh interfaces.
     """
@@ -59166,7 +57787,7 @@ class interface_4(NamedObject[interface_4_child], CreatableNamedObjectMixin[inte
         list_properties=list_properties,
         make_a_copy=make_a_copy,
     )
-    child_object_type = interface_4_child
+    child_object_type = interface_3_child
 
 class proximity_tolerance(Real):
     """
@@ -59936,7 +58557,7 @@ class create_7(CommandWithPositionalArgs):
         use_local_edge_length_factor=use_local_edge_length_factor,
         local_relative_mapped_tolerance=local_relative_mapped_tolerance,
         local_absolute_mapped_tolerance=local_absolute_mapped_tolerance,
-        periodic=periodic_4,
+        periodic=periodic_3,
         coupled=coupled_1,
         matching=matching,
         static=static_1,
@@ -60518,7 +59139,7 @@ class mesh_interfaces(Group):
     child_names = ['interface', 'auto_options', 'turbo_create', 'verbosity', 'enforce_continuity_after_bc', 'coupled_interfaces_inherit_bcs', 'enable_si_with_nodes', 'enforce_coupled_wall_between_solids', 'enable_visualization_of_interfaces', 'mapped_interface_options', 'non_conformal_interface_numerics']
     command_names = ['create', 'delete', 'list', 'delete_all', 'display', 'one_to_one_pairing', 'delete_interfaces_with_small_overlap', 'turbo_interface_health_check', 'turbo_interface_delete', 'create_manually', 'auto_create', 'improve_quality', 'make_phaselag_from_boundaries', 'make_phaselag_from_periodic', 'transfer_motion_across_interfaces', 'remove_left_handed_interface_faces', 'non_overlapping_zone_name']
     _child_classes = dict(
-        interface=interface_4,
+        interface=interface_3,
         auto_options=auto_options,
         turbo_create=turbo_create,
         verbosity=verbosity_8,
@@ -60567,7 +59188,7 @@ class enabled_56(Boolean):
     fluent_name = 'enabled?'
     _python_name = 'enabled'
 
-class method_9(String, AllowedValuesMixin):
+class method_10(String, AllowedValuesMixin):
     """
     The smoothing method used by the dynamic mesh model.
     """
@@ -60913,7 +59534,7 @@ class smoothing_1(Group):
     child_names = ['enabled', 'method', 'spring_settings', 'diffusion_settings', 'linelast_settings', 'radial_settings']
     _child_classes = dict(
         enabled=enabled_56,
-        method=method_9,
+        method=method_10,
         spring_settings=spring_settings,
         diffusion_settings=diffusion_settings,
         linelast_settings=linelast_settings,
@@ -60976,7 +59597,7 @@ class length_max(Real):
     fluent_name = 'length-max'
     _python_name = 'length_max'
 
-class settings_26(Group):
+class settings_2(Group):
     """
     'settings' child.
     """
@@ -61003,7 +59624,7 @@ class remeshing(Group):
     child_names = ['enabled', 'settings']
     _child_classes = dict(
         enabled=enabled_57,
-        settings=settings_26,
+        settings=settings_2,
     )
 
 class enabled_58(Boolean):
@@ -61038,7 +59659,7 @@ class constant_height(Boolean):
     fluent_name = 'constant-height?'
     _python_name = 'constant_height'
 
-class settings_27(Group):
+class settings_3(Group):
     """
     'settings' child.
     """
@@ -61062,7 +59683,7 @@ class layering(Group):
     child_names = ['enabled', 'settings']
     _child_classes = dict(
         enabled=enabled_58,
-        settings=settings_27,
+        settings=settings_3,
     )
 
 class methods(Group):
@@ -61230,6 +59851,14 @@ class threads(StringList, AllowedValuesMixin):
     _version = '261'
     fluent_name = 'threads'
     _python_name = 'threads'
+
+class file_name_15(String):
+    """
+    'file_name' child.
+    """
+    _version = '261'
+    fluent_name = 'file-name'
+    _python_name = 'file_name'
 
 class write_in_cylinder_ouput(Group):
     """
@@ -61685,7 +60314,7 @@ class enabled_60(Boolean):
     fluent_name = 'enabled?'
     _python_name = 'enabled'
 
-class method_10(String, AllowedValuesMixin):
+class method_11(String, AllowedValuesMixin):
     """
     The method used for flow control in the contact region.
     """
@@ -61799,7 +60428,7 @@ class flow_control(Group):
     command_names = ['create_zone', 'delete_zone', 'update_contact_marks', 'render_contact_cells']
     _child_classes = dict(
         enabled=enabled_60,
-        method=method_10,
+        method=method_11,
         solution_stabilization=solution_stabilization,
         create_zone=create_zone,
         delete_zone=delete_zone_2,
@@ -62302,7 +60931,7 @@ class feature_detection(Group):
         feature_angle=feature_angle,
     )
 
-class geometry_10(Group):
+class geometry_9(Group):
     """
     'geometry' child.
     """
@@ -62326,7 +60955,7 @@ class enabled_61(Boolean):
     fluent_name = 'enabled?'
     _python_name = 'enabled'
 
-class method_11(String, AllowedValuesMixin):
+class method_12(String, AllowedValuesMixin):
     """
     Solution stabilization method.
     """
@@ -62351,7 +60980,7 @@ class parameters_6(Group):
     _python_name = 'parameters'
     child_names = ['method', 'scale']
     _child_classes = dict(
-        method=method_11,
+        method=method_12,
         scale=scale_2,
     )
 
@@ -62394,7 +61023,7 @@ class dynamic_zones_child(Group):
         type=type_11,
         motion=motion,
         meshing=meshing,
-        geometry=geometry_10,
+        geometry=geometry_9,
         solver=solver_1,
     )
 
@@ -63680,6 +62309,135 @@ class models_1(Group):
         export_boundary_mesh=export_boundary_mesh,
     )
 
+class clear_current_instances(Boolean):
+    """
+    Clear the current periodic instances.
+    """
+    _version = '261'
+    fluent_name = 'clear-current-instances?'
+    _python_name = 'clear_current_instances'
+
+class detect_surfaces(Command):
+    """
+    Detect the surfaces for the periodic instance.
+    
+    Parameters
+    ----------
+        clear_current_instances : bool
+            Clear the current periodic instances.
+    """
+    _version = '261'
+    fluent_name = 'detect-surfaces'
+    _python_name = 'detect_surfaces'
+    argument_names = ['clear_current_instances']
+    _child_classes = dict(
+        clear_current_instances=clear_current_instances,
+    )
+
+class clear_repeats(Command):
+    """
+    Clear the periodic instance repeats.
+    """
+    _version = '261'
+    fluent_name = 'clear-repeats'
+    _python_name = 'clear_repeats'
+
+class periodic_type(String, AllowedValuesMixin):
+    """
+    Either translational or rotational periodic type.
+    """
+    _version = '261'
+    fluent_name = 'periodic-type'
+    _python_name = 'periodic_type'
+
+class surfaces_7(StringList, AllowedValuesMixin):
+    """
+    The list of surfaces for the periodic instance.
+    """
+    _version = '261'
+    fluent_name = 'surfaces'
+    _python_name = 'surfaces'
+
+class translation(RealList):
+    """
+    X y z directional translation values.
+    """
+    _version = '261'
+    fluent_name = 'translation'
+    _python_name = 'translation'
+
+class axis_origin_4(RealList):
+    """
+    Rotation axis origin values.
+    """
+    _version = '261'
+    fluent_name = 'axis-origin'
+    _python_name = 'axis_origin'
+
+class axis_direction_4(RealList):
+    """
+    Rotation axis direction values.
+    """
+    _version = '261'
+    fluent_name = 'axis-direction'
+    _python_name = 'axis_direction'
+
+class repeats(Integer):
+    """
+    The number of repeats for the periodic instance.
+    """
+    _version = '261'
+    fluent_name = 'repeats'
+    _python_name = 'repeats'
+
+class repeats_in_360_degrees(Integer):
+    """
+    The number of repeats for the periodic instance.
+    """
+    _version = '261'
+    fluent_name = 'repeats-in-360-degrees'
+    _python_name = 'repeats_in_360_degrees'
+
+class periodic_instances_child(Group):
+    """
+    'child_object_type' of periodic_instances.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'periodic_instances_child'
+    child_names = ['name', 'periodic_type', 'surfaces', 'translation', 'axis_origin', 'axis_direction', 'angle', 'repeats', 'repeats_in_360_degrees']
+    _child_classes = dict(
+        name=name_4,
+        periodic_type=periodic_type,
+        surfaces=surfaces_7,
+        translation=translation,
+        axis_origin=axis_origin_4,
+        axis_direction=axis_direction_4,
+        angle=angle_3,
+        repeats=repeats,
+        repeats_in_360_degrees=repeats_in_360_degrees,
+    )
+
+class periodic_instances(NamedObject[periodic_instances_child], CreatableNamedObjectMixin[periodic_instances_child]):
+    """
+    Periodic instance objects are used to specify periodic repetition of surfaces.
+    """
+    _version = '261'
+    fluent_name = 'periodic-instances'
+    _python_name = 'periodic_instances'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'detect_surfaces', 'clear_repeats']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+        detect_surfaces=detect_surfaces,
+        clear_repeats=clear_repeats,
+    )
+    child_object_type = periodic_instances_child
+
 class turbomachinery(Group):
     """
     The turbomachinery models.
@@ -63687,9 +62445,10 @@ class turbomachinery(Group):
     _version = '261'
     fluent_name = 'turbomachinery'
     _python_name = 'turbomachinery'
-    child_names = ['models']
+    child_names = ['models', 'periodic_instances']
     _child_classes = dict(
         models=models_1,
+        periodic_instances=periodic_instances,
     )
 
 class auto_compile_compiled_functions(Boolean):
@@ -64300,7 +63059,7 @@ class unload(Command):
         udf_library_name=udf_library_name_1,
     )
 
-class file_name_1_19(Filename, _InputFile):
+class file_name_1_21(Filename, _InputFile):
     """
     The name of the UDF source file.
     """
@@ -64349,7 +63108,7 @@ class interpreted_functions(Command):
     _python_name = 'interpreted_functions'
     argument_names = ['file_name', 'cpp_cmd_name', 'stack_size', 'listing', 'use_contributed_cpp']
     _child_classes = dict(
-        file_name=file_name_1_19,
+        file_name=file_name_1_21,
         cpp_cmd_name=cpp_cmd_name,
         stack_size=stack_size,
         listing=listing,
@@ -67044,7 +65803,7 @@ class expert_7(Group):
         hybrid_mode_selection=hybrid_mode_selection,
     )
 
-class overset_3(Group):
+class overset_2(Group):
     """
     Overset solver options object.
     """
@@ -67467,7 +66226,7 @@ class methods_2(Group):
         nb_gradient_boundary_option=nb_gradient_boundary_option,
         nita=nita,
         nita_expert_controls=nita_expert_controls,
-        overset=overset_3,
+        overset=overset_2,
         phase_based_vof_discretization=phase_based_vof_discretization,
         reduced_rank_extrapolation=reduced_rank_extrapolation,
         reduced_rank_extrapolation_options=reduced_rank_extrapolation_options,
@@ -67502,7 +66261,7 @@ class skewness_correction_itr_count_1(Integer):
     Iterations for skewness correction.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'skewness-correction-itr-count'
     _python_name = 'skewness_correction_itr_count'
 
@@ -67511,7 +66270,7 @@ class neighbor_correction_itr_count_1(Integer):
     Iterations for neighbor correction.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'neighbor-correction-itr-count'
     _python_name = 'neighbor_correction_itr_count'
 
@@ -67520,7 +66279,7 @@ class skewness_neighbor_coupling_2(Boolean):
     Skewness-Neighbor Coupling?.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'skewness-neighbor-coupling'
     _python_name = 'skewness_neighbor_coupling'
 
@@ -68859,7 +67618,7 @@ class residual_reduction_tolerance(Real):
     fluent_name = 'residual-reduction-tolerance'
     _python_name = 'residual_reduction_tolerance'
 
-class method_12(String, AllowedValuesMixin):
+class method_13(String, AllowedValuesMixin):
     """
     Multigrid method.
     """
@@ -68887,7 +67646,7 @@ class mg_controls_1_child(Group):
         cycle_type=cycle_type,
         termination_criteria=termination_criteria,
         residual_reduction_tolerance=residual_reduction_tolerance,
-        method=method_12,
+        method=method_13,
         stabilization=stabilization_1,
     )
 
@@ -70009,7 +68768,7 @@ class physics_3(StringList, AllowedValuesMixin):
     fluent_name = 'physics'
     _python_name = 'physics'
 
-class geometry_11(StringList, AllowedValuesMixin):
+class geometry_10(StringList, AllowedValuesMixin):
     """
     'geometry' child.
     """
@@ -70017,7 +68776,7 @@ class geometry_11(StringList, AllowedValuesMixin):
     fluent_name = 'geometry'
     _python_name = 'geometry'
 
-class surfaces_7(StringList, AllowedValuesMixin):
+class surfaces_8(StringList, AllowedValuesMixin):
     """
     'surfaces' child.
     """
@@ -70035,8 +68794,8 @@ class locations_5(Group):
     child_names = ['physics', 'geometry', 'surfaces']
     _child_classes = dict(
         physics=physics_3,
-        geometry=geometry_11,
-        surfaces=surfaces_7,
+        geometry=geometry_10,
+        surfaces=surfaces_8,
     )
 
 class output_parameter_1(Boolean):
@@ -70068,7 +68827,7 @@ class create_output_parameter(Command):
     Option to make report definition available as an output parameter.
     """
     _version = '261'
-    _deprecated_version = '2024R2'
+    _deprecated_version = '24.2'
     fluent_name = 'create-output-parameter'
     _python_name = 'create_output_parameter'
 
@@ -70524,7 +69283,7 @@ class time_1(NamedObject[time_1_child], CreatableNamedObjectMixin[time_1_child])
     )
     child_object_type = time_1_child
 
-class boundaries_2(StringList, AllowedValuesMixin):
+class boundaries_1(StringList, AllowedValuesMixin):
     """
     'boundaries' child.
     """
@@ -70544,7 +69303,7 @@ class flux_1_child(Group):
     _child_classes = dict(
         name=name_4,
         report_type=report_type,
-        boundaries=boundaries_2,
+        boundaries=boundaries_1,
         locations=locations_5,
         per_selection=per_selection,
         average_over=average_over,
@@ -70721,7 +69480,7 @@ class injection_2_child(Group):
         name=name_4,
         report_type=report_type,
         injection_list=injection_list,
-        boundaries=boundaries_2,
+        boundaries=boundaries_1,
         locations=locations_5,
         per_injection=per_injection,
         average_over=average_over,
@@ -71013,7 +69772,7 @@ class expression_7(NamedObject[expression_7_child], CreatableNamedObjectMixin[ex
     Create a new or edit an existing report definition.
     """
     _version = '261'
-    _deprecated_version = '2021R1'
+    _deprecated_version = '21.1'
     fluent_name = 'expression'
     _python_name = 'expression'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -73585,7 +72344,7 @@ class flat_init(Boolean):
     Enable/disable flat free surface initialization.
     """
     _version = '261'
-    _deprecated_version = '2026R1'
+    _deprecated_version = '26.1'
     fluent_name = 'flat-init?'
     _python_name = 'flat_init'
 
@@ -73594,7 +72353,7 @@ class wavy_surface_init(Boolean):
     Enable/disable wavy free surface initialization.
     """
     _version = '261'
-    _deprecated_version = '2026R1'
+    _deprecated_version = '26.1'
     fluent_name = 'wavy-surface-init?'
     _python_name = 'wavy_surface_init'
 
@@ -74404,301 +73163,65 @@ class solution_animations(NamedObject[solution_animations_child], CreatableNamed
         copy=('make_a_copy', 'copy'),
     )
 
-class enabled_65(Boolean):
+class strategy_enable(Boolean):
     """
-    Enable automatic initialization and modification of case.
-    """
-    _version = '261'
-    fluent_name = 'enabled?'
-    _python_name = 'enabled'
-
-class init_from_data_file(String, AllowedValuesMixin):
-    """
-    Data File.
+    Specifies whether automatic initialization and case modification should be enabled.
     """
     _version = '261'
-    fluent_name = 'init-from-data-file'
-    _python_name = 'init_from_data_file'
+    fluent_name = 'strategy-enable?'
+    _python_name = 'strategy_enable'
 
-class option_52(String, AllowedValuesMixin):
+class mod_name(String, AllowedValuesMixin):
     """
-    How to initialize the solution for first run.
+    Name of Modification.
     """
     _version = '261'
-    fluent_name = 'option'
-    _python_name = 'option'
+    fluent_name = 'mod-name'
+    _python_name = 'mod_name'
 
-class init_from_solution(Group):
+class enable_28(Command):
     """
-    How to initialize if no solution data exists.
-    """
-    _version = '261'
-    fluent_name = 'init-from-solution'
-    _python_name = 'init_from_solution'
-    child_names = ['option', 'init_from_data_file']
-    _child_classes = dict(
-        option=option_52,
-        init_from_data_file=init_from_data_file,
-    )
-
-class initialization_method(Group):
-    """
-    'initialization_method' child.
-    """
-    _version = '261'
-    fluent_name = 'initialization-method'
-    _python_name = 'initialization_method'
-    child_names = ['init_from_data_file', 'init_from_solution']
-    _child_classes = dict(
-        init_from_data_file=init_from_data_file,
-        init_from_solution=init_from_solution,
-    )
-
-class python_cmd_1(Boolean):
-    """
-    'python_cmd' child.
-    """
-    _version = '261'
-    fluent_name = 'python-cmd?'
-    _python_name = 'python_cmd'
-
-class command(String, AllowedValuesMixin):
-    """
-    'command' child.
-    """
-    _version = '261'
-    fluent_name = 'command'
-    _python_name = 'command'
-
-class count(Integer):
-    """
-    'count' child.
-    """
-    _version = '261'
-    fluent_name = 'count'
-    _python_name = 'count'
-
-class ftselected(Boolean):
-    """
-    'ftselected' child.
-    """
-    _version = '261'
-    fluent_name = 'ftselected'
-    _python_name = 'ftselected'
-
-class flowtime(Real):
-    """
-    'flowtime' child.
-    """
-    _version = '261'
-    fluent_name = 'flowtime'
-    _python_name = 'flowtime'
-
-class before_init_modification(Group):
-    """
-    'before_init_modification' child.
-    """
-    _version = '261'
-    fluent_name = 'before-init-modification'
-    _python_name = 'before_init_modification'
-    child_names = ['active', 'name', 'python_cmd', 'command', 'count', 'ftselected', 'flowtime']
-    _child_classes = dict(
-        active=active_1,
-        name=name_24,
-        python_cmd=python_cmd_1,
-        command=command,
-        count=count,
-        ftselected=ftselected,
-        flowtime=flowtime,
-    )
-
-class original_settings(Group):
-    """
-    'original_settings' child.
-    """
-    _version = '261'
-    fluent_name = 'original-settings'
-    _python_name = 'original_settings'
-    child_names = ['active', 'name', 'python_cmd', 'command', 'count', 'ftselected', 'flowtime']
-    _child_classes = dict(
-        active=active_1,
-        name=name_24,
-        python_cmd=python_cmd_1,
-        command=command,
-        count=count,
-        ftselected=ftselected,
-        flowtime=flowtime,
-    )
-
-class modifications_child(Group):
-    """
-    'child_object_type' of modifications.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'modifications_child'
-    child_names = ['active', 'name', 'python_cmd', 'command', 'count', 'ftselected', 'flowtime']
-    _child_classes = dict(
-        active=active_1,
-        name=name_24,
-        python_cmd=python_cmd_1,
-        command=command,
-        count=count,
-        ftselected=ftselected,
-        flowtime=flowtime,
-    )
-
-class modifications(ListObject[modifications_child]):
-    """
-    'modifications' child.
-    """
-    _version = '261'
-    fluent_name = 'modifications'
-    _python_name = 'modifications'
-    command_names = ['list_properties', 'resize']
-    _child_classes = dict(
-        list_properties=list_properties_1,
-        resize=resize,
-    )
-    child_object_type = modifications_child
-
-class case_modification_1(Group):
-    """
-    'case_modification' child.
-    """
-    _version = '261'
-    fluent_name = 'case-modification'
-    _python_name = 'case_modification'
-    child_names = ['before_init_modification', 'original_settings', 'modifications']
-    _child_classes = dict(
-        before_init_modification=before_init_modification,
-        original_settings=original_settings,
-        modifications=modifications,
-    )
-
-class initialization_type_1(String, AllowedValuesMixin):
-    """
-    'initialization_type' child.
-    """
-    _version = '261'
-    fluent_name = 'initialization-type'
-    _python_name = 'initialization_type'
-
-class data_file_name(String):
-    """
-    'data_file_name' child.
-    """
-    _version = '261'
-    fluent_name = 'data-file-name'
-    _python_name = 'data_file_name'
-
-class init_from_solution_1(String, AllowedValuesMixin):
-    """
-    'init_from_solution' child.
-    """
-    _version = '261'
-    fluent_name = 'init-from-solution'
-    _python_name = 'init_from_solution'
-
-class data_file_name2(String):
-    """
-    'data_file_name2' child.
-    """
-    _version = '261'
-    fluent_name = 'data-file-name2'
-    _python_name = 'data_file_name2'
-
-class automatic_initialization(Command):
-    """
-    Define how the case is to be initialized automatically.
+    Enable a single defined case modification.
     
     Parameters
     ----------
-        initialization_type : str
-            'initialization_type' child.
-        data_file_name : str
-            'data_file_name' child.
-        init_from_solution : str
-            'init_from_solution' child.
-        data_file_name2 : str
-            'data_file_name2' child.
+        mod_name : str
+            Name of Modification.
     """
     _version = '261'
-    fluent_name = 'automatic-initialization'
-    _python_name = 'automatic_initialization'
-    argument_names = ['initialization_type', 'data_file_name', 'init_from_solution', 'data_file_name2']
+    fluent_name = 'enable'
+    _python_name = 'enable'
+    argument_names = ['mod_name']
     _child_classes = dict(
-        initialization_type=initialization_type_1,
-        data_file_name=data_file_name,
-        init_from_solution=init_from_solution_1,
-        data_file_name2=data_file_name2,
+        mod_name=mod_name,
     )
 
-class save_mode(String, AllowedValuesMixin):
+class mod_name_1(String, AllowedValuesMixin):
     """
-    'save_mode' child.
-    """
-    _version = '261'
-    fluent_name = 'save-mode'
-    _python_name = 'save_mode'
-
-class continue_with_current_mesh(Boolean):
-    """
-    Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
+    Modificatoins name to disable.
     """
     _version = '261'
-    fluent_name = 'continue-with-current-mesh?'
-    _python_name = 'continue_with_current_mesh'
+    fluent_name = 'mod-name'
+    _python_name = 'mod_name'
 
-class discard_all_data(Boolean):
+class disable_1(Command):
     """
-    'discard_all_data' child.
-    """
-    _version = '261'
-    fluent_name = 'discard-all-data?'
-    _python_name = 'discard_all_data'
-
-class execute_strategy(Command):
-    """
-    Execute the automatic initialization and case modification strategy defined at present .
+    Disable a single defined case modification.
     
     Parameters
     ----------
-        save_mode : str
-            'save_mode' child.
-        continue_with_current_mesh : bool
-            Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
-        discard_all_data : bool
-            'discard_all_data' child.
+        mod_name : str
+            Modificatoins name to disable.
     """
     _version = '261'
-    fluent_name = 'execute-strategy'
-    _python_name = 'execute_strategy'
-    argument_names = ['save_mode', 'continue_with_current_mesh', 'discard_all_data']
+    fluent_name = 'disable'
+    _python_name = 'disable'
+    argument_names = ['mod_name']
     _child_classes = dict(
-        save_mode=save_mode,
-        continue_with_current_mesh=continue_with_current_mesh,
-        discard_all_data=discard_all_data,
+        mod_name=mod_name_1,
     )
 
-class enable_strategy(Command):
-    """
-    Specify whether automatic initialization and case modification should be enabled.
-    
-    Parameters
-    ----------
-        enable : bool
-            'enable' child.
-    """
-    _version = '261'
-    fluent_name = 'enable-strategy?'
-    _python_name = 'enable_strategy'
-    argument_names = ['enable']
-    _child_classes = dict(
-        enable=enable_1,
-    )
-
-class mod_name(String):
+class mod_name_2(String):
     """
     Name of Modification.
     """
@@ -74770,16 +73293,16 @@ class mod_command(String):
     fluent_name = 'mod-command'
     _python_name = 'mod_command'
 
-class add_edit_modification(Command):
+class add_edit(Command):
     """
     Define a single case modification.
     """
     _version = '261'
-    fluent_name = 'add-edit-modification'
-    _python_name = 'add_edit_modification'
+    fluent_name = 'add-edit'
+    _python_name = 'add_edit'
     argument_names = ['mod_name', 'mod_exists', 'mod_active', 'mod_execution_option', 'mod_iterations', 'mod_timesteps', 'mod_flowtime', 'mod_python', 'mod_command']
     _child_classes = dict(
-        mod_name=mod_name,
+        mod_name=mod_name_2,
         mod_exists=mod_exists,
         mod_active=mod_active,
         mod_execution_option=mod_execution_option,
@@ -74790,83 +73313,144 @@ class add_edit_modification(Command):
         mod_command=mod_command,
     )
 
-class mod_name_1(String):
+class python_cmd_1(Boolean):
     """
-    'mod_name' child.
+    'python_cmd' child.
     """
     _version = '261'
-    fluent_name = 'mod-name'
-    _python_name = 'mod_name'
+    fluent_name = 'python-cmd?'
+    _python_name = 'python_cmd'
 
-class copy_modification(Command):
+class command(String, AllowedValuesMixin):
     """
-    Copy a single case modification.
+    'command' child.
+    """
+    _version = '261'
+    fluent_name = 'command'
+    _python_name = 'command'
+
+class count(Integer):
+    """
+    'count' child.
+    """
+    _version = '261'
+    fluent_name = 'count'
+    _python_name = 'count'
+
+class ftselected(Boolean):
+    """
+    'ftselected' child.
+    """
+    _version = '261'
+    fluent_name = 'ftselected'
+    _python_name = 'ftselected'
+
+class flowtime(Real):
+    """
+    'flowtime' child.
+    """
+    _version = '261'
+    fluent_name = 'flowtime'
+    _python_name = 'flowtime'
+
+class automatic_case_modification_child(Group):
+    """
+    'child_object_type' of automatic_case_modification.
+    """
+    _version = '261'
+    fluent_name = 'child-object-type'
+    _python_name = 'automatic_case_modification_child'
+    child_names = ['active', 'name', 'python_cmd', 'command', 'count', 'ftselected', 'flowtime']
+    _child_classes = dict(
+        active=active_1,
+        name=name_24,
+        python_cmd=python_cmd_1,
+        command=command,
+        count=count,
+        ftselected=ftselected,
+        flowtime=flowtime,
+    )
+
+class automatic_case_modification(NamedObject[automatic_case_modification_child], CreatableNamedObjectMixin[automatic_case_modification_child]):
+    """
+    Automatic Case Modification.
+    """
+    _version = '261'
+    fluent_name = 'automatic-case-modification'
+    _python_name = 'automatic_case_modification'
+    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'enable', 'disable', 'add_edit']
+    _child_classes = dict(
+        create=create,
+        delete=delete,
+        rename=rename,
+        list=list,
+        list_properties=list_properties,
+        make_a_copy=make_a_copy,
+        enable=enable_28,
+        disable=disable_1,
+        add_edit=add_edit,
+    )
+    child_object_type = automatic_case_modification_child
+
+class initialization_type_1(String, AllowedValuesMixin):
+    """
+    Initialization Type.
+    """
+    _version = '261'
+    fluent_name = 'initialization-type'
+    _python_name = 'initialization_type'
+
+class data_file_name(Filename, _InputFile):
+    """
+    Data file name to initialize.
+    """
+    _version = '261'
+    fluent_name = 'data-file-name'
+    _python_name = 'data_file_name'
+
+class init_from_solution(String, AllowedValuesMixin):
+    """
+    If no solution data exists, how to initialize the case.
+    """
+    _version = '261'
+    fluent_name = 'init-from-solution'
+    _python_name = 'init_from_solution'
+
+class data_file_name2(Filename, _InputFile):
+    """
+    Data file name to initialize.
+    """
+    _version = '261'
+    fluent_name = 'data-file-name2'
+    _python_name = 'data_file_name2'
+
+class automatic_initialization(Command):
+    """
+    Define how the case is to be initialized automatically.
     
     Parameters
     ----------
-        mod_name : str
-            'mod_name' child.
+        initialization_type : str
+            Initialization Type.
+        data_file_name : str
+            Data file name to initialize.
+        init_from_solution : str
+            If no solution data exists, how to initialize the case.
+        data_file_name2 : str
+            Data file name to initialize.
     """
     _version = '261'
-    fluent_name = 'copy-modification'
-    _python_name = 'copy_modification'
-    argument_names = ['mod_name']
+    fluent_name = 'automatic-initialization'
+    _python_name = 'automatic_initialization'
+    argument_names = ['initialization_type', 'data_file_name', 'init_from_solution', 'data_file_name2']
     _child_classes = dict(
-        mod_name=mod_name_1,
+        initialization_type=initialization_type_1,
+        data_file_name=data_file_name,
+        init_from_solution=init_from_solution,
+        data_file_name2=data_file_name2,
     )
 
-class delete_modification(Command):
-    """
-    Delete a single case modification.
-    
-    Parameters
-    ----------
-        mod_name : str
-            'mod_name' child.
-    """
-    _version = '261'
-    fluent_name = 'delete-modification'
-    _python_name = 'delete_modification'
-    argument_names = ['mod_name']
-    _child_classes = dict(
-        mod_name=mod_name_1,
-    )
-
-class enable_modification(Command):
-    """
-    Enable a single defined case modification.
-    
-    Parameters
-    ----------
-        mod_name : str
-            'mod_name' child.
-    """
-    _version = '261'
-    fluent_name = 'enable-modification'
-    _python_name = 'enable_modification'
-    argument_names = ['mod_name']
-    _child_classes = dict(
-        mod_name=mod_name_1,
-    )
-
-class disable_modification(Command):
-    """
-    Disable a single defined case modification.
-    
-    Parameters
-    ----------
-        mod_name : str
-            'mod_name' child.
-    """
-    _version = '261'
-    fluent_name = 'disable-modification'
-    _python_name = 'disable_modification'
-    argument_names = ['mod_name']
-    _child_classes = dict(
-        mod_name=mod_name_1,
-    )
-
-class file_name_1_20(Filename, _InputFile):
+class file_name_1_22(Filename, _InputFile):
     """
     TSV filename.
     """
@@ -74874,7 +73458,7 @@ class file_name_1_20(Filename, _InputFile):
     fluent_name = 'file-name'
     _python_name = 'file_name'
 
-class import_modifications(Command):
+class import__2(Command):
     """
     Import a list of case modifications from a tsv file.
     
@@ -74884,19 +73468,19 @@ class import_modifications(Command):
             TSV filename.
     """
     _version = '261'
-    fluent_name = 'import-modifications'
-    _python_name = 'import_modifications'
+    fluent_name = 'import'
+    _python_name = 'import_'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_20,
+        file_name=file_name_1_22,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
     )
 
-class command_list(StringList):
+class command_list(StringList, AllowedValuesMixin):
     """
-    'command_list' child.
+    Case modification names to export.
     """
     _version = '261'
     fluent_name = 'command-list'
@@ -74910,13 +73494,13 @@ class file_name_18(Filename, _OutputFile):
     fluent_name = 'file-name'
     _python_name = 'file_name'
 
-class export_modifications(Command):
+class export_2(Command):
     """
     Export all case modifications to a tsv file.
     """
     _version = '261'
-    fluent_name = 'export-modifications'
-    _python_name = 'export_modifications'
+    fluent_name = 'export'
+    _python_name = 'export'
     argument_names = ['command_list', 'file_name']
     _child_classes = dict(
         command_list=command_list,
@@ -74924,6 +73508,53 @@ class export_modifications(Command):
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
+    )
+
+class save_mode(String, AllowedValuesMixin):
+    """
+    Save Mode.
+    """
+    _version = '261'
+    fluent_name = 'save-mode'
+    _python_name = 'save_mode'
+
+class continue_with_current_mesh(Boolean):
+    """
+    Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
+    """
+    _version = '261'
+    fluent_name = 'continue-with-current-mesh?'
+    _python_name = 'continue_with_current_mesh'
+
+class discard_all_data(Boolean):
+    """
+    Discard data.
+    """
+    _version = '261'
+    fluent_name = 'discard-all-data?'
+    _python_name = 'discard_all_data'
+
+class execute_strategy(Command):
+    """
+    Execute the automatic initialization and case modification strategy defined at present .
+    
+    Parameters
+    ----------
+        save_mode : str
+            Save Mode.
+        continue_with_current_mesh : bool
+            Reloading of the upstream mesh data is desired. Is it needed to continue with currently loaded mesh?.
+        discard_all_data : bool
+            Discard data.
+    """
+    _version = '261'
+    fluent_name = 'execute-strategy'
+    _python_name = 'execute_strategy'
+    argument_names = ['save_mode', 'continue_with_current_mesh', 'discard_all_data']
+    _child_classes = dict(
+        save_mode=save_mode,
+        continue_with_current_mesh=continue_with_current_mesh,
+        discard_all_data=discard_all_data,
     )
 
 class continue_strategy_execution(Command):
@@ -74936,27 +73567,20 @@ class continue_strategy_execution(Command):
 
 class case_modification(Group):
     """
-    'case_modification' child.
+    The automatic initialization and case modification strategy object.
     """
     _version = '261'
     fluent_name = 'case-modification'
     _python_name = 'case_modification'
-    child_names = ['enabled', 'initialization_method', 'case_modification']
-    command_names = ['automatic_initialization', 'execute_strategy', 'enable_strategy', 'add_edit_modification', 'copy_modification', 'delete_modification', 'enable_modification', 'disable_modification', 'import_modifications', 'export_modifications', 'continue_strategy_execution']
+    child_names = ['strategy_enable', 'automatic_case_modification']
+    command_names = ['automatic_initialization', 'import_', 'export', 'execute_strategy', 'continue_strategy_execution']
     _child_classes = dict(
-        enabled=enabled_65,
-        initialization_method=initialization_method,
-        case_modification=case_modification_1,
+        strategy_enable=strategy_enable,
+        automatic_case_modification=automatic_case_modification,
         automatic_initialization=automatic_initialization,
+        import_=import__2,
+        export=export_2,
         execute_strategy=execute_strategy,
-        enable_strategy=enable_strategy,
-        add_edit_modification=add_edit_modification,
-        copy_modification=copy_modification,
-        delete_modification=delete_modification,
-        enable_modification=enable_modification,
-        disable_modification=disable_modification,
-        import_modifications=import_modifications,
-        export_modifications=export_modifications,
         continue_strategy_execution=continue_strategy_execution,
     )
 
@@ -74998,7 +73622,7 @@ class set_1(Command):
     'set' command.
     """
     _version = '261'
-    _deprecated_version = '2023R2'
+    _deprecated_version = '23.2'
     fluent_name = 'set'
     _python_name = 'set'
 
@@ -75018,7 +73642,7 @@ class register_2(String, AllowedValuesMixin):
     fluent_name = 'register'
     _python_name = 'register'
 
-class option_53(String, AllowedValuesMixin):
+class option_52(String, AllowedValuesMixin):
     """
     The frequency mode used for marking of cells in a register for poor mesh numerics treatment.
     """
@@ -75051,7 +73675,7 @@ class frequency_5(Group):
     _python_name = 'frequency'
     child_names = ['option', 'iterations', 'time_steps']
     _child_classes = dict(
-        option=option_53,
+        option=option_52,
         iterations=iterations_1,
         time_steps=time_steps,
     )
@@ -75260,7 +73884,7 @@ class pseudo_time_settings(Group):
         verbosity=('time_step_method/verbosity', 'verbosity'),
     )
 
-class enabled_66(Boolean):
+class enabled_65(Boolean):
     """
     Enable/disable adaptive time stepping.
     """
@@ -75341,7 +73965,7 @@ class adaptive_time_stepping(Group):
     _python_name = 'adaptive_time_stepping'
     child_names = ['enabled', 'user_defined_timestep', 'error_tolerance', 'time_end', 'min_time_step', 'max_time_step', 'min_step_change_factor', 'max_step_change_factor', 'fixed_time_step_count']
     _child_classes = dict(
-        enabled=enabled_66,
+        enabled=enabled_65,
         user_defined_timestep=user_defined_timestep,
         error_tolerance=error_tolerance_2,
         time_end=time_end,
@@ -75352,7 +73976,7 @@ class adaptive_time_stepping(Group):
         fixed_time_step_count=fixed_time_step_count,
     )
 
-class enabled_67(Boolean):
+class enabled_66(Boolean):
     """
     Enable/disable CFL-based adaptive time stepping.
     """
@@ -75401,7 +74025,7 @@ class cfl_based_adaptive_time_stepping(Group):
     _python_name = 'cfl_based_adaptive_time_stepping'
     child_names = ['enabled', 'user_defined_timestep', 'desired_cfl', 'time_end', 'initial_time_step', 'max_fixed_time_step', 'update_interval_time_step_size', 'min_time_step', 'max_time_step', 'min_step_change_factor', 'max_step_change_factor']
     _child_classes = dict(
-        enabled=enabled_67,
+        enabled=enabled_66,
         user_defined_timestep=user_defined_timestep,
         desired_cfl=desired_cfl,
         time_end=time_end,
@@ -75414,7 +74038,7 @@ class cfl_based_adaptive_time_stepping(Group):
         max_step_change_factor=max_step_change_factor,
     )
 
-class enable_28(Boolean):
+class enable_29(Boolean):
     """
     Enable solution steering for density-based solver?.
     """
@@ -75510,7 +74134,7 @@ class ramp_it(Integer):
     fluent_name = 'ramp-it'
     _python_name = 'ramp_it'
 
-class settings_28(Command):
+class settings_4(Command):
     """
     Solution Steering Settings.
     
@@ -75558,11 +74182,11 @@ class solution_steering(Group):
     child_names = ['enable', 'flow_type', 'first_to_second_order_blending', 'use_fmg']
     command_names = ['settings']
     _child_classes = dict(
-        enable=enable_28,
+        enable=enable_29,
         flow_type=flow_type,
         first_to_second_order_blending=first_to_second_order_blending_2,
         use_fmg=use_fmg,
-        settings=settings_28,
+        settings=settings_4,
     )
 
 class time_step_count_1(Real):
@@ -75581,7 +74205,7 @@ class type_15(String, AllowedValuesMixin):
     fluent_name = 'type'
     _python_name = 'type'
 
-class method_13(String, AllowedValuesMixin):
+class method_14(String, AllowedValuesMixin):
     """
     Time advancement method.
     """
@@ -75613,14 +74237,6 @@ class incremental_time(Real):
     fluent_name = 'incremental-time'
     _python_name = 'incremental_time'
 
-class time_step_count_2(Integer):
-    """
-    Inceremtal number of Time steps.
-    """
-    _version = '261'
-    fluent_name = 'time-step-count'
-    _python_name = 'time_step_count'
-
 class total_time(Real):
     """
     Total Simulation Time.
@@ -75628,22 +74244,6 @@ class total_time(Real):
     _version = '261'
     fluent_name = 'total-time'
     _python_name = 'total_time'
-
-class time_step_size(Real):
-    """
-    The physical time step size.
-    """
-    _version = '261'
-    fluent_name = 'time-step-size'
-    _python_name = 'time_step_size'
-
-class max_iter_per_time_step(Integer):
-    """
-    Max Iterations/Time Step.
-    """
-    _version = '261'
-    fluent_name = 'max-iter-per-time-step'
-    _python_name = 'max_iter_per_time_step'
 
 class flow_time(Real):
     """
@@ -75835,7 +74435,7 @@ class rotating_mesh_flow_predictor(Boolean):
     fluent_name = 'rotating-mesh-flow-predictor?'
     _python_name = 'rotating_mesh_flow_predictor'
 
-class enabled_68(Boolean):
+class enabled_67(Boolean):
     """
     Enable/disable multiphase-specific adaptive time stepping.
     """
@@ -75967,7 +74567,7 @@ class mp_specific_time_stepping(Group):
     _python_name = 'mp_specific_time_stepping'
     child_names = ['enabled', 'global_courant_number', 'initial_time_step_size', 'fixed_time_step_size', 'min_time_step_size', 'max_time_step_size', 'min_step_change_factor', 'max_step_change_factor', 'update_interval', 'time_constraints']
     _child_classes = dict(
-        enabled=enabled_68,
+        enabled=enabled_67,
         global_courant_number=global_courant_number,
         initial_time_step_size=initial_time_step_size,
         fixed_time_step_size=fixed_time_step_size,
@@ -75987,7 +74587,7 @@ class udf_hook(String, AllowedValuesMixin):
     fluent_name = 'udf-hook'
     _python_name = 'udf_hook'
 
-class enabled_69(Boolean):
+class enabled_68(Boolean):
     """
     Enable/disable period- or frequency-based fixed time stepping.
     """
@@ -76019,7 +74619,7 @@ class frequency_6(Real):
     fluent_name = 'frequency'
     _python_name = 'frequency'
 
-class time_step_size_1(Real):
+class time_step_size(Real):
     """
     Time step size for fixed periodic.
     """
@@ -76060,11 +74660,11 @@ class fixed_periodic(Group):
     _python_name = 'fixed_periodic'
     child_names = ['enabled', 'fixed_periodic_type', 'period', 'frequency', 'time_step_size', 'time_step_size_count', 'time_steps_per_period', 'total_periods']
     _child_classes = dict(
-        enabled=enabled_69,
+        enabled=enabled_68,
         fixed_periodic_type=fixed_periodic_type,
         period=period,
         frequency=frequency_6,
-        time_step_size=time_step_size_1,
+        time_step_size=time_step_size,
         time_step_size_count=time_step_size_count,
         time_steps_per_period=time_steps_per_period,
         total_periods=total_periods,
@@ -76089,7 +74689,7 @@ class choose_auto_time_stepping(String, AllowedValuesMixin):
     fluent_name = 'choose-auto-time-stepping?'
     _python_name = 'choose_auto_time_stepping'
 
-class time_step_size_2(Real):
+class time_step_size_1(Real):
     """
     The time step size.
     """
@@ -76108,7 +74708,7 @@ class solid_time_step_size(Group):
     _child_classes = dict(
         enable_solid_time_step=enable_solid_time_step,
         choose_auto_time_stepping=choose_auto_time_stepping,
-        time_step_size=time_step_size_2,
+        time_step_size=time_step_size_1,
     )
 
 class time_step_size_for_acoustic_export(Real):
@@ -76168,18 +74768,15 @@ class transient_controls(Group):
     _version = '261'
     fluent_name = 'transient-controls'
     _python_name = 'transient_controls'
-    child_names = ['type', 'method', 'duration_specification_method', 'specified_time_step', 'incremental_time', 'time_step_count', 'total_time', 'time_step_size', 'max_iter_per_time_step', 'flow_time', 'total_time_step_count', 'solution_status', 'max_flow_time', 'cfl_based_time_stepping', 'error_based_time_stepping', 'predict_next', 'rotating_mesh_flow_predictor', 'mp_specific_time_stepping', 'udf_hook', 'fixed_periodic', 'solid_time_step_size', 'time_step_size_for_acoustic_export', 'extrapolate_variables', 'extrapolate_eqn_vars']
+    child_names = ['type', 'method', 'duration_specification_method', 'specified_time_step', 'incremental_time', 'total_time', 'flow_time', 'total_time_step_count', 'solution_status', 'max_flow_time', 'cfl_based_time_stepping', 'error_based_time_stepping', 'predict_next', 'rotating_mesh_flow_predictor', 'mp_specific_time_stepping', 'udf_hook', 'fixed_periodic', 'solid_time_step_size', 'time_step_size_for_acoustic_export', 'extrapolate_variables', 'extrapolate_eqn_vars']
     query_names = ['simulation_status']
     _child_classes = dict(
         type=type_15,
-        method=method_13,
+        method=method_14,
         duration_specification_method=duration_specification_method,
         specified_time_step=specified_time_step,
         incremental_time=incremental_time,
-        time_step_count=time_step_count_2,
         total_time=total_time,
-        time_step_size=time_step_size,
-        max_iter_per_time_step=max_iter_per_time_step,
         flow_time=flow_time,
         total_time_step_count=total_time_step_count,
         solution_status=solution_status,
@@ -76199,10 +74796,37 @@ class transient_controls(Group):
     )
     _child_aliases = dict(
         cfl_based_time_stepping_advanced_options=('cfl_based_time_stepping/advanced_options', 'cfl-based-time-stepping-advanced-options'),
+        max_iter_per_time_step=('../parameters/max_iter_per_time_step', 'max-iter-per-time-step'),
         multiphase_specific_time_constraints=('mp_specific_time_stepping/time_constraints', 'multiphase-specific-time-constraints'),
         multiphase_specific_time_stepping=('mp_specific_time_stepping', 'multiphase-specific-time-stepping'),
+        time_step_count=('../parameters/time_step_count', 'time-step-count'),
+        time_step_size=('../parameters/time_step_size', 'time-step-size'),
         undo_timestep=('error_based_time_stepping/undo_timestep', 'undo-timestep?'),
     )
+
+class time_step_count_2(Integer):
+    """
+    Inceremtal number of Time steps.
+    """
+    _version = '261'
+    fluent_name = 'time-step-count'
+    _python_name = 'time_step_count'
+
+class time_step_size_2(Real):
+    """
+    The physical time step size.
+    """
+    _version = '261'
+    fluent_name = 'time-step-size'
+    _python_name = 'time_step_size'
+
+class max_iter_per_time_step(Integer):
+    """
+    Max Iterations/Time Step.
+    """
+    _version = '261'
+    fluent_name = 'max-iter-per-time-step'
+    _python_name = 'max_iter_per_time_step'
 
 class iter_count_2(Integer):
     """
@@ -76235,8 +74859,11 @@ class parameters_8(Group):
     _version = '261'
     fluent_name = 'parameters'
     _python_name = 'parameters'
-    child_names = ['iter_count', 'reporting_interval', 'profile_update_interval']
+    child_names = ['time_step_count', 'time_step_size', 'max_iter_per_time_step', 'iter_count', 'reporting_interval', 'profile_update_interval']
     _child_classes = dict(
+        time_step_count=time_step_count_2,
+        time_step_size=time_step_size_2,
+        max_iter_per_time_step=max_iter_per_time_step,
         iter_count=iter_count_2,
         reporting_interval=reporting_interval,
         profile_update_interval=profile_update_interval,
@@ -76271,7 +74898,7 @@ class pollutants(Group):
         num_of_post_iter_per_timestep=num_of_post_iter_per_timestep,
     )
 
-class enabled_70(Boolean):
+class enabled_69(Boolean):
     """
     Specifies whether to include data sampling.
     """
@@ -76384,7 +75011,7 @@ class data_sampling(Group):
     _python_name = 'data_sampling'
     child_names = ['enabled', 'sampling_interval', 'time_sampled', 'flow_shear_stresses', 'flow_heat_fluxes', 'wall_statistics', 'force_statistics', 'dpm_variables', 'species_list', 'statistics_mixture_fraction', 'statistics_reaction_progress', 'enable_custom_field_functions', 'custom_field_functions']
     _child_classes = dict(
-        enabled=enabled_70,
+        enabled=enabled_69,
         sampling_interval=sampling_interval,
         time_sampled=time_sampled,
         flow_shear_stresses=flow_shear_stresses,
@@ -76872,7 +75499,7 @@ class save_1(Command):
         filename=('file_name', 'filename'),
     )
 
-class file_name_1_21(Filename, _InputFile):
+class file_name_1_23(Filename, _InputFile):
     """
     File name.
     """
@@ -76894,7 +75521,7 @@ class load_1(Command):
     _python_name = 'load'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_21,
+        file_name=file_name_1_23,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -77213,7 +75840,7 @@ class rake_surface(NamedObject[rake_surface_child], CreatableNamedObjectMixin[ra
     )
     child_object_type = rake_surface_child
 
-class method_14(String, AllowedValuesMixin):
+class method_15(String, AllowedValuesMixin):
     """
     The method you want to use to create the plane surface. The required inputs vary by method.
     """
@@ -77328,7 +75955,7 @@ class plane_surface_child(Group):
     command_names = ['display']
     _child_classes = dict(
         name=name_4,
-        method=method_14,
+        method=method_15,
         x=x_7,
         y=y_7,
         z=z_7,
@@ -77422,7 +76049,7 @@ class range_3(Group):
         compute=compute_6,
     )
 
-class surfaces_9(StringList, AllowedValuesMixin):
+class surfaces_10(StringList, AllowedValuesMixin):
     """
     The surface(s) that will be used to define the iso-surface.
     """
@@ -77460,7 +76087,7 @@ class iso_surface_child(Group):
         field=field_2,
         iso_values=iso_values,
         range=range_3,
-        surfaces=surfaces_9,
+        surfaces=surfaces_10,
         from_location=from_location,
         zones=zones_4,
         volumes=volumes_2,
@@ -77490,7 +76117,7 @@ class iso_surface(NamedObject[iso_surface_child], CreatableNamedObjectMixin[iso_
     )
     child_object_type = iso_surface_child
 
-class surfaces_10(StringList, AllowedValuesMixin):
+class surfaces_11(StringList, AllowedValuesMixin):
     """
     The surface(s) that will be used to define the iso-clip.
     """
@@ -77549,7 +76176,7 @@ class iso_clip_child(Group):
     _child_classes = dict(
         name=name_4,
         field=field_2,
-        surfaces=surfaces_10,
+        surfaces=surfaces_11,
         from_location=from_location,
         range=range_4,
         display=display_8,
@@ -78039,7 +76666,7 @@ class name_30(String):
     fluent_name = 'name'
     _python_name = 'name'
 
-class surfaces_11(StringList, AllowedValuesMixin):
+class surfaces_12(StringList, AllowedValuesMixin):
     """
     The surfaces.
     """
@@ -78064,7 +76691,7 @@ class create_13(CommandWithPositionalArgs):
     argument_names = ['name', 'surfaces']
     _child_classes = dict(
         name=name_30,
-        surfaces=surfaces_11,
+        surfaces=surfaces_12,
     )
 
 class surface_5(String, AllowedValuesMixin):
@@ -78111,7 +76738,7 @@ class group_surface_child(Group):
     command_names = ['display']
     _child_classes = dict(
         name=name_30,
-        surfaces=surfaces_11,
+        surfaces=surfaces_12,
         display=display_9,
     )
 
@@ -78239,7 +76866,7 @@ class create_multiple_iso_surfaces(Command):
     _child_classes = dict(
         field=field_2,
         name=name_31,
-        surfaces=surfaces_9,
+        surfaces=surfaces_10,
         zones=zones_6,
         min=min_4,
         max=max_4,
@@ -78256,7 +76883,7 @@ class name_format(String):
     fluent_name = 'name-format'
     _python_name = 'name_format'
 
-class surfaces_12(Integer):
+class surfaces_13(Integer):
     """
     The number of surfaces to be created.
     """
@@ -78310,7 +76937,7 @@ class create_multiple_plane_surfaces(Command):
     _python_name = 'create_multiple_plane_surfaces'
     argument_names = ['method', 'name_format', 'x', 'y', 'z', 'point', 'normal_computation_method', 'surface_aligned_normal', 'normal', 'p0', 'p1', 'p2', 'bounded', 'sample_points', 'edges', 'surfaces', 'spacing']
     _child_classes = dict(
-        method=method_14,
+        method=method_15,
         name_format=name_format,
         x=x_7,
         y=y_7,
@@ -78325,11 +76952,11 @@ class create_multiple_plane_surfaces(Command):
         bounded=bounded,
         sample_points=sample_points,
         edges=edges,
-        surfaces=surfaces_12,
+        surfaces=surfaces_13,
         spacing=spacing,
     )
 
-class surfaces_13(StringList, AllowedValuesMixin):
+class surfaces_14(StringList, AllowedValuesMixin):
     """
     List of surfaces.
     """
@@ -78349,12 +76976,12 @@ class create_group_surfaces(Command):
             The name for the group surface.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'create-group-surfaces'
     _python_name = 'create_group_surfaces'
     argument_names = ['surfaces', 'name']
     _child_classes = dict(
-        surfaces=surfaces_13,
+        surfaces=surfaces_14,
         name=name_30,
     )
 
@@ -78368,7 +76995,7 @@ class ungroup_surfaces(Command):
             The surface to ungroup.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'ungroup-surfaces'
     _python_name = 'ungroup_surfaces'
     argument_names = ['surface']
@@ -78467,13 +77094,13 @@ class split_surface(Command):
         surf_name_prefix=surf_name_prefix,
     )
 
-class surf_base_name(String):
+class surf_name(String):
     """
-    The prefix for external surface.
+    The name for external surface.
     """
     _version = '261'
-    fluent_name = 'surf-base-name'
-    _python_name = 'surf_base_name'
+    fluent_name = 'surf-name'
+    _python_name = 'surf_name'
 
 class stl_filename(Filename, _InputFile):
     """
@@ -78507,8 +77134,8 @@ class external_surface(Command):
     ----------
         auto_name : bool
             Specifies whether to do automatic naming or not.
-        surf_base_name : str
-            The prefix for external surface.
+        surf_name : str
+            The name for external surface.
         stl_filename : str
             STL filename.
         unit : str
@@ -78521,17 +77148,17 @@ class external_surface(Command):
     _version = '261'
     fluent_name = 'external-surface'
     _python_name = 'external_surface'
-    argument_names = ['auto_name', 'surf_base_name', 'stl_filename', 'unit', 'split_surface', 'zones']
+    argument_names = ['auto_name', 'surf_name', 'stl_filename', 'unit', 'split_surface', 'zones']
     _child_classes = dict(
         auto_name=auto_name,
-        surf_base_name=surf_base_name,
+        surf_name=surf_name,
         stl_filename=stl_filename,
         unit=unit,
         split_surface=split_surface_1,
         zones=zones_7,
     )
 
-class surfaces_8(Group):
+class surfaces_9(Group):
     """
     Provides access to creating multiple zone surfaces and to grouping and ungrouping surfaces.
     """
@@ -78608,7 +77235,7 @@ class partitions(Boolean):
     fluent_name = 'partitions?'
     _python_name = 'partitions'
 
-class overset_4(Boolean):
+class overset_3(Boolean):
     """
     Displays only the solve cells for cases with overset interfaces.
     """
@@ -78637,11 +77264,11 @@ class options_13(Group):
         edges=edges_1,
         faces=faces_1,
         partitions=partitions,
-        overset=overset_4,
+        overset=overset_3,
         gap=gap,
     )
 
-class option_54(String, AllowedValuesMixin):
+class option_53(String, AllowedValuesMixin):
     """
     Enables the display of the mesh outline.
     """
@@ -78682,12 +77309,12 @@ class edge_type(Group):
     Enables the display of the mesh outline.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'edge-type'
     _python_name = 'edge_type'
     child_names = ['option', 'all', 'feature', 'outline']
     _child_classes = dict(
-        option=option_54,
+        option=option_53,
         all=all,
         feature=feature,
         outline=outline,
@@ -78730,7 +77357,7 @@ class shrink_factor(Real):
     fluent_name = 'shrink-factor'
     _python_name = 'shrink_factor'
 
-class option_55(String, AllowedValuesMixin):
+class option_54(String, AllowedValuesMixin):
     """
     The coloring options object.
     """
@@ -78874,17 +77501,17 @@ class coloring(Group):
     The coloring options object.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'coloring'
     _python_name = 'coloring'
     child_names = ['option', 'automatic', 'manual']
     _child_classes = dict(
-        option=option_55,
+        option=option_54,
         automatic=automatic,
         manual=manual_1,
     )
 
-class option_56(String, AllowedValuesMixin):
+class option_55(String, AllowedValuesMixin):
     """
     The rendering options object.
     """
@@ -78909,7 +77536,7 @@ class coloring_options(Group):
     _python_name = 'coloring_options'
     child_names = ['option', 'faces', 'edges']
     _child_classes = dict(
-        option=option_56,
+        option=option_55,
         faces=faces_2,
         edges=edges_3,
     )
@@ -78986,7 +77613,7 @@ class field_3(String, AllowedValuesMixin):
     fluent_name = 'field'
     _python_name = 'field'
 
-class option_57(String, AllowedValuesMixin):
+class option_56(String, AllowedValuesMixin):
     """
     Specifies whether you want the range to be Global, Local to the selected surface(s), or Custom.
     """
@@ -79059,12 +77686,12 @@ class range_option(Group):
     Specifies whether you want the range to be Global, Local to the selected surface(s), or Custom.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'range-option'
     _python_name = 'range_option'
     child_names = ['option', 'auto_range_on', 'auto_range_off']
     _child_classes = dict(
-        option=option_57,
+        option=option_56,
         auto_range_on=auto_range_on,
         auto_range_off=auto_range_off,
     )
@@ -79171,7 +77798,7 @@ class filled_1(Boolean):
     Toggles between filled contours and line contours.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'filled?'
     _python_name = 'filled'
 
@@ -79180,7 +77807,7 @@ class node_values(Boolean):
     Toggles between using scalar field values at nodes and at cell centers for computing the contours.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'node-values?'
     _python_name = 'node_values'
 
@@ -79189,7 +77816,7 @@ class boundary_values(Boolean):
     Enabling overwrites the node values (on boundaries) with a simple average of the boundary face values.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'boundary-values?'
     _python_name = 'boundary_values'
 
@@ -79198,11 +77825,11 @@ class contour_lines(Boolean):
     Combines filled contours with line contours.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'contour-lines?'
     _python_name = 'contour_lines'
 
-class option_58(String, AllowedValuesMixin):
+class option_57(String, AllowedValuesMixin):
     """
     Specifies how the contours appear.
     """
@@ -79231,12 +77858,12 @@ class coloring_1(Group):
     Specifies how the contours appear.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coloring'
     _python_name = 'coloring'
     child_names = ['option', 'smooth', 'banded']
     _child_classes = dict(
-        option=option_58,
+        option=option_57,
         smooth=smooth,
         banded=banded,
     )
@@ -79585,7 +78212,7 @@ class scale_4(Group):
     A number by which the vector size would be scaled.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'scale'
     _python_name = 'scale'
     child_names = ['auto_scale', 'scale_f']
@@ -79599,7 +78226,7 @@ class style(String, AllowedValuesMixin):
     The shape for the displayed vectors.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style'
     _python_name = 'style'
 
@@ -79608,7 +78235,7 @@ class skip(Integer):
     A multiple by which the no. of vectors drawn would be reduced.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -79786,11 +78413,11 @@ class from_location_1(Group):
     child_names = ['physics', 'geometry', 'surfaces']
     _child_classes = dict(
         physics=physics_3,
-        geometry=geometry_11,
-        surfaces=surfaces_7,
+        geometry=geometry_10,
+        surfaces=surfaces_8,
     )
 
-class option_60(String, AllowedValuesMixin):
+class option_59(String, AllowedValuesMixin):
     """
     Range using the min max options.
     """
@@ -79840,12 +78467,12 @@ class range_5(Group):
     Range using the min max options.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'range'
     _python_name = 'range'
     child_names = ['option', 'auto_range', 'clip_to_range']
     _child_classes = dict(
-        option=option_60,
+        option=option_59,
         auto_range=auto_range_2,
         clip_to_range=clip_to_range_2,
     )
@@ -79956,7 +78583,7 @@ class style_attribute(Group):
     The style attributes.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style-attribute'
     _python_name = 'style_attribute'
     child_names = ['style', 'line_width', 'arrow_space', 'arrow_scale', 'marker_size', 'sphere_size', 'sphere_lod', 'radius', 'ribbon']
@@ -80236,7 +78863,7 @@ class options_16(Group):
     Check the control options.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'options'
     _python_name = 'options'
     child_names = ['oil_flow', 'reverse', 'node_values', 'relative']
@@ -80247,7 +78874,7 @@ class options_16(Group):
         relative=relative_1,
     )
 
-class option_61(String, AllowedValuesMixin):
+class option_60(String, AllowedValuesMixin):
     """
     Control the accuracy.
     """
@@ -80276,12 +78903,12 @@ class accuracy_control_1(Group):
     Control the accuracy.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'accuracy-control'
     _python_name = 'accuracy_control'
     child_names = ['option', 'step_size', 'tolerance']
     _child_classes = dict(
-        option=option_61,
+        option=option_60,
         step_size=step_size,
         tolerance=tolerance_4,
     )
@@ -80374,7 +79001,7 @@ class coarsen_3(Integer):
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
-class option_59(Group):
+class option_58(Group):
     """
     Check the control options.
     """
@@ -80401,7 +79028,7 @@ class step(Integer):
     Number of steps for pathlines.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'step'
     _python_name = 'step'
 
@@ -80410,7 +79037,7 @@ class skip_2(Integer):
     A number to skip pathline tracks.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -80419,7 +79046,7 @@ class coarsen_2(Integer):
     Coarsen level for pathlines.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
@@ -80428,7 +79055,7 @@ class onzone(StringList, AllowedValuesMixin):
     On zone from the given list.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'onzone'
     _python_name = 'onzone'
 
@@ -80442,11 +79069,11 @@ class on_location(Group):
     child_names = ['physics', 'geometry', 'surfaces']
     _child_classes = dict(
         physics=physics_3,
-        geometry=geometry_11,
-        surfaces=surfaces_7,
+        geometry=geometry_10,
+        surfaces=surfaces_8,
     )
 
-class enabled_71(Boolean):
+class enabled_70(Boolean):
     """
     Specifies whether you would like to write the XY plot data to a file.
     """
@@ -80487,7 +79114,7 @@ class plot_5(Group):
     _python_name = 'plot'
     child_names = ['enabled', 'x_axis_function', 'to_file_enabled', 'file_name']
     _child_classes = dict(
-        enabled=enabled_71,
+        enabled=enabled_70,
         x_axis_function=x_axis_function,
         to_file_enabled=to_file_enabled,
         file_name=file_name_19,
@@ -80990,7 +79617,7 @@ class pathline_child(Group):
         style_attributes=style_attributes,
         options=options_16,
         accuracy_control=accuracy_control_1,
-        option=option_59,
+        option=option_58,
         step=step,
         skip=skip_2,
         coarsen=coarsen_2,
@@ -81127,7 +79754,7 @@ class scale_7(Real):
     fluent_name = 'scale'
     _python_name = 'scale'
 
-class option_63(String, AllowedValuesMixin):
+class option_62(String, AllowedValuesMixin):
     """
     The options Constant or Variable.
     """
@@ -81202,7 +79829,7 @@ class options_18(Group):
     _python_name = 'options'
     child_names = ['option', 'constant', 'variable']
     _child_classes = dict(
-        option=option_63,
+        option=option_62,
         constant=constant_2,
         variable=variable_1,
     )
@@ -81226,7 +79853,7 @@ class style_attribute_1(Group):
     The style attributes.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'style-attribute'
     _python_name = 'style_attribute'
     child_names = ['style', 'line_width', 'arrow_space', 'arrow_scale', 'marker_size', 'sphere_size', 'sphere_lod', 'radius', 'ribbon_settings', 'sphere_settings']
@@ -81251,7 +79878,7 @@ class style_4(String, AllowedValuesMixin):
     fluent_name = 'style'
     _python_name = 'style'
 
-class option_64(String, AllowedValuesMixin):
+class option_63(String, AllowedValuesMixin):
     """
     Vector length, only applicable if constant lenth is selected.
     """
@@ -81284,7 +79911,7 @@ class vector_length(Group):
     _python_name = 'vector_length'
     child_names = ['option', 'constant_length', 'variable_length']
     _child_classes = dict(
-        option=option_64,
+        option=option_63,
         constant_length=constant_length,
         variable_length=variable_length,
     )
@@ -81331,7 +79958,7 @@ class vector_settings(Group):
     Vector style.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'vector-settings'
     _python_name = 'vector_settings'
     child_names = ['style', 'vector_length', 'constant_color', 'vector_of', 'scale', 'length_to_head_ratio']
@@ -81452,7 +80079,7 @@ class track_pdf_particles_1(Boolean):
     fluent_name = 'track-pdf-particles?'
     _python_name = 'track_pdf_particles'
 
-class enabled_72(Boolean):
+class enabled_71(Boolean):
     """
     Enable track single particle stream.
     """
@@ -81477,7 +80104,7 @@ class track_single_particle_stream_1(Group):
     _python_name = 'track_single_particle_stream'
     child_names = ['enabled', 'stream_id']
     _child_classes = dict(
-        enabled=enabled_72,
+        enabled=enabled_71,
         stream_id=stream_id,
     )
 
@@ -81497,7 +80124,7 @@ class coarsen_5(Integer):
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
-class option_62(Group):
+class option_61(Group):
     """
     Check the Particle-tracks control options.
     """
@@ -81552,7 +80179,7 @@ class options_19(Group):
         outside=outside,
     )
 
-class enabled_73(Boolean):
+class enabled_72(Boolean):
     """
     Enable or disable the particle filter.
     """
@@ -81581,19 +80208,19 @@ class filter_settings(Group):
     The filter settings.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'filter-settings'
     _python_name = 'filter_settings'
     child_names = ['field', 'options', 'enabled', 'filter_minimum', 'filter_maximum']
     _child_classes = dict(
         field=field_9,
         options=options_19,
-        enabled=enabled_73,
+        enabled=enabled_72,
         filter_minimum=filter_minimum,
         filter_maximum=filter_maximum,
     )
 
-class enabled_74(Boolean):
+class enabled_73(Boolean):
     """
     Enable Filter?.
     """
@@ -81609,7 +80236,7 @@ class field_10(String, AllowedValuesMixin):
     fluent_name = 'field'
     _python_name = 'field'
 
-class option_65(Boolean):
+class option_64(Boolean):
     """
     The filter option to be Inside or Outside.
     """
@@ -81665,9 +80292,9 @@ class filter_setting(Group):
     _python_name = 'filter_setting'
     child_names = ['enabled', 'field', 'option', 'range']
     _child_classes = dict(
-        enabled=enabled_74,
+        enabled=enabled_73,
         field=field_10,
-        option=option_65,
+        option=option_64,
         range=range_6,
     )
 
@@ -81683,7 +80310,7 @@ class options_17(Group):
         node_values=node_values_2,
     )
 
-class enabled_75(Boolean):
+class enabled_74(Boolean):
     """
     Whether to enable or disable track single particle stream.
     """
@@ -81704,12 +80331,12 @@ class track_single_particle_stream(Group):
     Enable track single particle stream.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'track-single-particle-stream'
     _python_name = 'track_single_particle_stream'
     child_names = ['enabled', 'stream_id']
     _child_classes = dict(
-        enabled=enabled_75,
+        enabled=enabled_74,
         stream_id=stream_id_1,
     )
 
@@ -81718,7 +80345,7 @@ class skip_4(Integer):
     A number to skip particle tracks.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'skip'
     _python_name = 'skip'
 
@@ -81727,7 +80354,7 @@ class coarsen_4(Integer):
     Coarsen level for particle tracks.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'coarsen'
     _python_name = 'coarsen'
 
@@ -81736,7 +80363,7 @@ class free_stream_particles(Boolean):
     Free stream particles.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'free-stream-particles?'
     _python_name = 'free_stream_particles'
 
@@ -81745,7 +80372,7 @@ class wall_film_particles(Boolean):
     Wall film particles.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'wall-film-particles?'
     _python_name = 'wall_film_particles'
 
@@ -81754,7 +80381,7 @@ class track_pdf_particles(Boolean):
     Track pdf particles for tracks.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'track-pdf-particles?'
     _python_name = 'track_pdf_particles'
 
@@ -81777,7 +80404,7 @@ class particle_track_child(Group):
         style_attributes=style_attributes,
         vector_settings=vector_settings,
         vector_setting=vector_setting,
-        option=option_62,
+        option=option_61,
         color_map=color_map,
         annotations_list=annotations_list,
         filter_settings=filter_settings,
@@ -82204,7 +80831,7 @@ class max_transparency_value(Real):
     fluent_name = 'max-transparency-value'
     _python_name = 'max_transparency_value'
 
-class settings_29_child(Group):
+class settings_5_child(Group):
     """
     'child_object_type' of settings.
     """
@@ -82220,7 +80847,7 @@ class settings_29_child(Group):
         max_transparency_value=max_transparency_value,
     )
 
-class settings_29(ListObject[settings_29_child]):
+class settings_5(ListObject[settings_5_child]):
     """
     Provide custom transparency ranges and values for filtering.
     """
@@ -82232,7 +80859,7 @@ class settings_29(ListObject[settings_29_child]):
         list_properties=list_properties_1,
         resize=resize,
     )
-    child_object_type = settings_29_child
+    child_object_type = settings_5_child
 
 class reset_2(Boolean):
     """
@@ -82260,7 +80887,7 @@ class transparency_options(Group):
     child_names = ['use_home_tab_range', 'settings', 'reset', 'invert']
     _child_classes = dict(
         use_home_tab_range=use_home_tab_range,
-        settings=settings_29,
+        settings=settings_5,
         reset=reset_2,
         invert=invert,
     )
@@ -82297,7 +80924,7 @@ class color_8(IntegerList):
     fluent_name = 'color'
     _python_name = 'color'
 
-class settings_30_child(Group):
+class settings_6_child(Group):
     """
     'child_object_type' of settings.
     """
@@ -82312,7 +80939,7 @@ class settings_30_child(Group):
         color=color_8,
     )
 
-class settings_30(ListObject[settings_30_child]):
+class settings_6(ListObject[settings_6_child]):
     """
     Provide options for isovalue(s) to highlight inside a volume.
     """
@@ -82324,7 +80951,7 @@ class settings_30(ListObject[settings_30_child]):
         list_properties=list_properties_1,
         resize=resize,
     )
-    child_object_type = settings_30_child
+    child_object_type = settings_6_child
 
 class isovalue_options(Group):
     """
@@ -82336,7 +80963,7 @@ class isovalue_options(Group):
     child_names = ['hide_volume', 'settings', 'reset']
     _child_classes = dict(
         hide_volume=hide_volume,
-        settings=settings_30,
+        settings=settings_6,
         reset=reset_2,
     )
 
@@ -82396,7 +81023,7 @@ class z_max(Real):
     fluent_name = 'z-max'
     _python_name = 'z_max'
 
-class settings_31_child(Group):
+class settings_7_child(Group):
     """
     'child_object_type' of settings.
     """
@@ -82414,7 +81041,7 @@ class settings_31_child(Group):
         z_max=z_max,
     )
 
-class settings_31(ListObject[settings_31_child]):
+class settings_7(ListObject[settings_7_child]):
     """
     Provide clip box(es) attributes.
     """
@@ -82426,7 +81053,7 @@ class settings_31(ListObject[settings_31_child]):
         list_properties=list_properties_1,
         resize=resize,
     )
-    child_object_type = settings_31_child
+    child_object_type = settings_7_child
 
 class clip_box_options(Group):
     """
@@ -82438,7 +81065,7 @@ class clip_box_options(Group):
     child_names = ['selection_type', 'settings', 'reset']
     _child_classes = dict(
         selection_type=selection_type,
-        settings=settings_31,
+        settings=settings_7,
         reset=reset_2,
     )
 
@@ -82474,7 +81101,7 @@ class radius_7(Real):
     fluent_name = 'radius'
     _python_name = 'radius'
 
-class settings_32_child(Group):
+class settings_8_child(Group):
     """
     'child_object_type' of settings.
     """
@@ -82490,7 +81117,7 @@ class settings_32_child(Group):
         radius=radius_7,
     )
 
-class settings_32(ListObject[settings_32_child]):
+class settings_8(ListObject[settings_8_child]):
     """
     Provide clip sphere(s) attributes.
     """
@@ -82502,7 +81129,7 @@ class settings_32(ListObject[settings_32_child]):
         list_properties=list_properties_1,
         resize=resize,
     )
-    child_object_type = settings_32_child
+    child_object_type = settings_8_child
 
 class clip_sphere_options(Group):
     """
@@ -82514,7 +81141,7 @@ class clip_sphere_options(Group):
     child_names = ['selection_type', 'settings', 'reset']
     _child_classes = dict(
         selection_type=selection_type,
-        settings=settings_32,
+        settings=settings_8,
         reset=reset_2,
     )
 
@@ -82586,7 +81213,7 @@ class clip_to_range_3(Boolean):
     fluent_name = 'clip-to-range?'
     _python_name = 'clip_to_range'
 
-class surfaces_14(StringList, AllowedValuesMixin):
+class surfaces_15(StringList, AllowedValuesMixin):
     """
     Surfaces to be contoured.
     """
@@ -82690,7 +81317,7 @@ class contours(Group):
     _child_classes = dict(
         auto_scale=auto_scale_2,
         clip_to_range=clip_to_range_3,
-        surfaces=surfaces_14,
+        surfaces=surfaces_15,
         filled_contours=filled_contours,
         global_range=global_range_2,
         line_contours=line_contours,
@@ -82977,7 +81604,7 @@ class surface_names_1(StringList, AllowedValuesMixin):
     fluent_name = 'surface-names'
     _python_name = 'surface_names'
 
-class surfaces_15(Command):
+class surfaces_16(Command):
     """
     Select the surface(s) to specify colors and/or materials.
     
@@ -83015,7 +81642,7 @@ class by_surface(Group):
         reset=reset_3,
         list_surfaces_by_color=list_surfaces_by_color,
         list_surfaces_by_material=list_surfaces_by_material,
-        surfaces=surfaces_15,
+        surfaces=surfaces_16,
     )
 
 class far_field_faces(String):
@@ -84030,7 +82657,7 @@ class copy_3(Command):
         state_name=state_name_2,
     )
 
-class file_name_1_22(Filename, _InputFile):
+class file_name_1_24(Filename, _InputFile):
     """
     File name to read display states from.
     """
@@ -84052,7 +82679,7 @@ class read_4(Command):
     _python_name = 'read'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_22,
+        file_name=file_name_1_24,
     )
 
 class file_name_20(Filename, _OutputFile):
@@ -84682,7 +83309,7 @@ class restore_view(Command):
         view_name=view_name_1,
     )
 
-class file_name_1_23(Filename, _InputFile):
+class file_name_1_25(Filename, _InputFile):
     """
     The view file.
     """
@@ -84704,7 +83331,7 @@ class read_views(Command):
     _python_name = 'read_views'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_23,
+        file_name=file_name_1_25,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -85944,135 +84571,6 @@ class pulse(Group):
         write=write_3,
     )
 
-class clear_current_instances(Boolean):
-    """
-    Clear the current periodic instances.
-    """
-    _version = '261'
-    fluent_name = 'clear-current-instances?'
-    _python_name = 'clear_current_instances'
-
-class detect_surfaces(Command):
-    """
-    Detect the surfaces for the periodic instance.
-    
-    Parameters
-    ----------
-        clear_current_instances : bool
-            Clear the current periodic instances.
-    """
-    _version = '261'
-    fluent_name = 'detect-surfaces'
-    _python_name = 'detect_surfaces'
-    argument_names = ['clear_current_instances']
-    _child_classes = dict(
-        clear_current_instances=clear_current_instances,
-    )
-
-class clear_repeats(Command):
-    """
-    Clear the periodic instance repeats.
-    """
-    _version = '261'
-    fluent_name = 'clear-repeats'
-    _python_name = 'clear_repeats'
-
-class periodic_type(String, AllowedValuesMixin):
-    """
-    Either translational or rotational periodic type.
-    """
-    _version = '261'
-    fluent_name = 'periodic-type'
-    _python_name = 'periodic_type'
-
-class surfaces_16(StringList, AllowedValuesMixin):
-    """
-    The list of surfaces for the periodic instance.
-    """
-    _version = '261'
-    fluent_name = 'surfaces'
-    _python_name = 'surfaces'
-
-class translation(RealList):
-    """
-    X y z directional translation values.
-    """
-    _version = '261'
-    fluent_name = 'translation'
-    _python_name = 'translation'
-
-class axis_origin_4(RealList):
-    """
-    Rotation axis origin values.
-    """
-    _version = '261'
-    fluent_name = 'axis-origin'
-    _python_name = 'axis_origin'
-
-class axis_direction_4(RealList):
-    """
-    Rotation axis direction values.
-    """
-    _version = '261'
-    fluent_name = 'axis-direction'
-    _python_name = 'axis_direction'
-
-class repeats(Integer):
-    """
-    The number of repeats for the periodic instance.
-    """
-    _version = '261'
-    fluent_name = 'repeats'
-    _python_name = 'repeats'
-
-class repeats_in_360_degrees(Integer):
-    """
-    The number of repeats for the periodic instance.
-    """
-    _version = '261'
-    fluent_name = 'repeats-in-360-degrees'
-    _python_name = 'repeats_in_360_degrees'
-
-class periodic_instances_child(Group):
-    """
-    'child_object_type' of periodic_instances.
-    """
-    _version = '261'
-    fluent_name = 'child-object-type'
-    _python_name = 'periodic_instances_child'
-    child_names = ['name', 'periodic_type', 'surfaces', 'translation', 'axis_origin', 'axis_direction', 'angle', 'repeats', 'repeats_in_360_degrees']
-    _child_classes = dict(
-        name=name_4,
-        periodic_type=periodic_type,
-        surfaces=surfaces_16,
-        translation=translation,
-        axis_origin=axis_origin_4,
-        axis_direction=axis_direction_4,
-        angle=angle_3,
-        repeats=repeats,
-        repeats_in_360_degrees=repeats_in_360_degrees,
-    )
-
-class periodic_instances(NamedObject[periodic_instances_child], CreatableNamedObjectMixin[periodic_instances_child]):
-    """
-    Periodic instance objects are used to specify periodic repetition of surfaces.
-    """
-    _version = '261'
-    fluent_name = 'periodic-instances'
-    _python_name = 'periodic_instances'
-    command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy', 'detect_surfaces', 'clear_repeats']
-    _child_classes = dict(
-        create=create,
-        delete=delete,
-        rename=rename,
-        list=list,
-        list_properties=list_properties,
-        make_a_copy=make_a_copy,
-        detect_surfaces=detect_surfaces,
-        clear_repeats=clear_repeats,
-    )
-    child_object_type = periodic_instances_child
-
 class surface_names_3(StringList, AllowedValuesMixin):
     """
     Surface.
@@ -86115,7 +84613,7 @@ class zone_mesh(Command):
         zone_names=zone_names_4,
     )
 
-class file_name_1_24(Filename, _InputFile):
+class file_name_1_26(Filename, _InputFile):
     """
     HSF file name.
     """
@@ -86137,7 +84635,7 @@ class hsf_file(Command):
     _python_name = 'hsf_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_24,
+        file_name=file_name_1_26,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -86343,7 +84841,7 @@ class scale_10(Real):
     fluent_name = 'scale'
     _python_name = 'scale'
 
-class axis_8(String, AllowedValuesMixin):
+class axis_7(String, AllowedValuesMixin):
     """
     Specifies the axis the texture will be rotated about.
     """
@@ -86368,7 +84866,7 @@ class rotate_1(Group):
     _python_name = 'rotate'
     child_names = ['axis', 'angle']
     _child_classes = dict(
-        axis=axis_8,
+        axis=axis_7,
         angle=angle_4,
     )
 
@@ -86501,7 +84999,7 @@ class options_20(Group):
     'options' child.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'options'
     _python_name = 'options'
     child_names = ['node_values', 'position_on_x_axis', 'position_on_y_axis']
@@ -86516,7 +85014,7 @@ class y_axis_function(String, AllowedValuesMixin):
     One of the coloring options.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'y-axis-function'
     _python_name = 'y_axis_function'
 
@@ -86525,7 +85023,7 @@ class x_axis_function_1(String, AllowedValuesMixin):
     One of the coloring options.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'x-axis-function'
     _python_name = 'x_axis_function'
 
@@ -86643,7 +85141,7 @@ class node_values_7(Boolean):
     fluent_name = 'node-values?'
     _python_name = 'node_values'
 
-class option_66(Group):
+class option_65(Group):
     """
     Options for XY-Plot.
     """
@@ -86728,7 +85226,7 @@ class plot_direction_1(Group):
     'plot_direction' child.
     """
     _version = '261'
-    _deprecated_version = '2025R1'
+    _deprecated_version = '25.1'
     fluent_name = 'plot-direction'
     _python_name = 'plot_direction'
     child_names = ['option', 'direction_vector', 'curve_length']
@@ -86788,7 +85286,7 @@ class read_from_file(Command):
     _python_name = 'read_from_file'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_21,
+        file_name=file_name_1_23,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -86837,7 +85335,7 @@ class xy_plot_child(Group):
         y_axis_data=y_axis_data,
         surfaces_list=surfaces_list,
         locations=locations_5,
-        option=option_66,
+        option=option_65,
         plot_direction=plot_direction_1,
         axes=axes_1,
         curves=curves_1,
@@ -87223,7 +85721,7 @@ class surfaces_17(StringList, AllowedValuesMixin):
     fluent_name = 'surfaces'
     _python_name = 'surfaces'
 
-class geometry_12(StringList, AllowedValuesMixin):
+class geometry_11(StringList, AllowedValuesMixin):
     """
     UTL Geometry.
     """
@@ -87274,7 +85772,7 @@ class solution_plot(Group):
         zones=zones_8,
         physics=physics_4,
         surfaces=surfaces_17,
-        geometry=geometry_12,
+        geometry=geometry_11,
         axes=axes,
         curves=curves,
         plot=plot_10,
@@ -87425,7 +85923,7 @@ class plot_11(Command):
         x_axis_function=x_axis_function_3,
         reverse_direction_along_x_axis=reverse_direction_along_x_axis,
         surfaces=surfaces_17,
-        geometry=geometry_12,
+        geometry=geometry_11,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -87460,7 +85958,7 @@ class plot_12(Command):
     _python_name = 'plot'
     argument_names = ['file_name']
     _child_classes = dict(
-        file_name=file_name_1_21,
+        file_name=file_name_1_23,
     )
     _child_aliases = dict(
         filename=('file_name', 'filename'),
@@ -87635,7 +86133,7 @@ class number_of_bands_2(Integer):
     fluent_name = 'number-of-bands'
     _python_name = 'number_of_bands'
 
-class method_15(String, AllowedValuesMixin):
+class method_16(String, AllowedValuesMixin):
     """
     The method you want to use to compute.
     """
@@ -87678,7 +86176,7 @@ class circum_avg_axial(Command):
         field=field_2,
         surface=surface_4,
         number_of_bands=number_of_bands_2,
-        method=method_15,
+        method=method_16,
         file_name=file_name_21,
         order_point=order_point,
     )
@@ -87710,7 +86208,7 @@ class circum_avg_radial(Command):
         field=field_2,
         surface=surface_4,
         number_of_bands=number_of_bands_2,
-        method=method_15,
+        method=method_16,
         file_name=file_name_21,
         order_point=order_point,
     )
@@ -90092,7 +88590,7 @@ class injections_1(StringList, AllowedValuesMixin):
     fluent_name = 'injections'
     _python_name = 'injections'
 
-class boundaries_3(StringList, AllowedValuesMixin):
+class boundaries_2(StringList, AllowedValuesMixin):
     """
     Pick injections for DPM particle sampling.
     """
@@ -90121,7 +88619,7 @@ class op_udf(String):
     The DPM sampling output UDF.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'op-udf'
     _python_name = 'op_udf'
 
@@ -90138,7 +88636,7 @@ class accumulate_rates(Boolean):
     Enable accumulation of erosion and accretion rates over multiple tracking passes.
     """
     _version = '261'
-    _deprecated_version = '2025R2'
+    _deprecated_version = '25.2'
     fluent_name = 'accumulate-rates?'
     _python_name = 'accumulate_rates'
 
@@ -90179,7 +88677,7 @@ class compute_12(Command):
     argument_names = ['injections', 'boundaries', 'lines', 'planes', 'op_udf', 'append_sample', 'accumulate_rates', 'sort_sample']
     _child_classes = dict(
         injections=injections_1,
-        boundaries=boundaries_3,
+        boundaries=boundaries_2,
         lines=lines_1,
         planes=planes,
         op_udf=op_udf,
@@ -90217,7 +88715,7 @@ class start_file_write(Command):
     argument_names = ['injections', 'boundaries', 'lines', 'planes', 'op_udf', 'append_sample', 'accumulate_rates', 'sort_sample']
     _child_classes = dict(
         injections=injections_1,
-        boundaries=boundaries_3,
+        boundaries=boundaries_2,
         lines=lines_1,
         planes=planes,
         op_udf=op_udf,
@@ -90368,7 +88866,7 @@ class particle_summary(Command):
         injection_names=injection_names,
     )
 
-class enable_29(Boolean):
+class enable_30(Boolean):
     """
     Specifies whether to enable or disable the per-injection per-zone DPM summary reports.
     """
@@ -90397,7 +88895,7 @@ class set_per_injection_zone_summaries(Command):
     _python_name = 'set_per_injection_zone_summaries'
     argument_names = ['enable', 'reset_dpm_summaries']
     _child_classes = dict(
-        enable=enable_29,
+        enable=enable_30,
         reset_dpm_summaries=reset_dpm_summaries,
     )
     _child_aliases = dict(
@@ -93842,7 +92340,7 @@ class aero_optical_distortions(Command):
     fluent_name = 'aero-optical-distortions'
     _python_name = 'aero_optical_distortions'
 
-class option_67(String, AllowedValuesMixin):
+class option_66(String, AllowedValuesMixin):
     """
     The type of report (Forces, Moments, or Center of Pressure).
     """
@@ -93934,7 +92432,7 @@ class forces_1(Command):
     _python_name = 'forces'
     argument_names = ['option', 'domain', 'locations', 'wall_zones', 'direction_vector', 'momentum_center', 'momentum_axis', 'pressure_coordinate', 'coordinate_value', 'write_to_file', 'file_name', 'append_data']
     _child_classes = dict(
-        option=option_67,
+        option=option_66,
         domain=domain_2,
         locations=locations,
         wall_zones=wall_zones_1,
@@ -94119,7 +92617,7 @@ class get_forces(Query):
     _python_name = 'get_forces'
     argument_names = ['option', 'domain', 'locations', 'wall_zones', 'direction_vector', 'momentum_center', 'momentum_axis', 'pressure_coordinate', 'coordinate_value']
     _child_classes = dict(
-        option=option_67,
+        option=option_66,
         domain=domain_2,
         locations=locations,
         wall_zones=wall_zones_1,
@@ -94175,7 +92673,7 @@ class results(Group):
     _child_classes = dict(
         custom_field_functions=custom_field_functions_1,
         custom_vectors=custom_vectors,
-        surfaces=surfaces_8,
+        surfaces=surfaces_9,
         graphics=graphics,
         plot=plot_4,
         scene=scene,
@@ -94216,7 +92714,7 @@ class center_3(RealList):
     fluent_name = 'center'
     _python_name = 'center'
 
-class axis_9(RealList):
+class axis_8(RealList):
     """
     Rotation axis location.
     """
@@ -94498,7 +92996,7 @@ class definition_1_child(Group):
         walls=walls,
         vector=vector_2,
         center=center_3,
-        axis=axis_9,
+        axis=axis_8,
         normalized=normalized,
         fluid_zones=fluid_zones,
         inlets=inlets_2,
@@ -94882,7 +93380,7 @@ class strategy(String, AllowedValuesMixin):
     fluent_name = 'strategy'
     _python_name = 'strategy'
 
-class method_16(String, AllowedValuesMixin):
+class method_17(String, AllowedValuesMixin):
     """
     None: Solves adjoint equations with no stabilization.
     Dissipation: Introduces nonlinear damping in calculation domain.
@@ -95019,12 +93517,12 @@ class current_scheme(Group):
     _python_name = 'current_scheme'
     child_names = ['method', 'dissipation', 'residual_minimization']
     _child_classes = dict(
-        method=method_16,
+        method=method_17,
         dissipation=dissipation,
         residual_minimization=residual_minimization,
     )
 
-class method_17(String, AllowedValuesMixin):
+class method_18(String, AllowedValuesMixin):
     """
     None: Solves adjoint equations with no stabilization.
     Dissipation: Introduces nonlinear damping in calculation domain.
@@ -95058,13 +93556,13 @@ class first_scheme(Group):
     _python_name = 'first_scheme'
     child_names = ['method', 'auto_detection', 'iterations', 'dissipation']
     _child_classes = dict(
-        method=method_17,
+        method=method_18,
         auto_detection=auto_detection,
         iterations=iterations_2,
         dissipation=dissipation,
     )
 
-class method_18(String, AllowedValuesMixin):
+class method_19(String, AllowedValuesMixin):
     """
     Residual Minimization: Uses Krylov subspace method to build a solution with minimum residual.
     """
@@ -95081,7 +93579,7 @@ class second_scheme(Group):
     _python_name = 'second_scheme'
     child_names = ['method', 'iterations', 'residual_minimization']
     _child_classes = dict(
-        method=method_18,
+        method=method_19,
         iterations=iterations_2,
         residual_minimization=residual_minimization,
     )
@@ -95370,7 +93868,7 @@ class sensitivity_orientation(String, AllowedValuesMixin):
     fluent_name = 'sensitivity-orientation'
     _python_name = 'sensitivity_orientation'
 
-class method_19(String, AllowedValuesMixin):
+class method_20(String, AllowedValuesMixin):
     """
     Changes smoothing method of contour and vector plots.
     """
@@ -95395,7 +93893,7 @@ class surface_shape_sensitivity(Group):
     _python_name = 'surface_shape_sensitivity'
     child_names = ['method', 'smoothness']
     _child_classes = dict(
-        method=method_19,
+        method=method_20,
         smoothness=smoothness,
     )
 
@@ -95481,7 +93979,7 @@ class reporting(Group):
         write_to_file=write_to_file_6,
     )
 
-class method_20(String, AllowedValuesMixin):
+class method_21(String, AllowedValuesMixin):
     """
     Mesh morphing method to smooth the surface sensitivity field and to provide smooth distortions not only of the boundary mesh.
     """
@@ -95867,7 +94365,7 @@ class morpher(Group):
     _python_name = 'morpher'
     child_names = ['method', 'constraint_method', 'numerics']
     _child_classes = dict(
-        method=method_20,
+        method=method_21,
         constraint_method=constraint_method,
         numerics=numerics_1,
     )
@@ -95996,7 +94494,7 @@ class symmetric(Boolean):
     fluent_name = 'symmetric'
     _python_name = 'symmetric'
 
-class enabled_76(Boolean):
+class enabled_75(Boolean):
     """
     Enable custom symmetry plane.
     """
@@ -96021,7 +94519,7 @@ class custom_plane(Group):
     _python_name = 'custom_plane'
     child_names = ['enabled', 'plane']
     _child_classes = dict(
-        enabled=enabled_76,
+        enabled=enabled_75,
         plane=plane_1,
     )
 
@@ -96141,7 +94639,7 @@ class axial(Group):
         periodicity=periodicity_1,
     )
 
-class enabled_77(Boolean):
+class enabled_76(Boolean):
     """
     Enable region boundary continuity.
     """
@@ -96320,7 +94818,7 @@ class boundary_continuity(Group):
     _python_name = 'boundary_continuity'
     child_names = ['enabled', 'definition', 'continuity_order', 'specify_boundary']
     _child_classes = dict(
-        enabled=enabled_77,
+        enabled=enabled_76,
         definition=definition_2,
         continuity_order=continuity_order,
         specify_boundary=specify_boundary,
@@ -96365,7 +94863,7 @@ class origin_8(RealList):
     fluent_name = 'origin'
     _python_name = 'origin'
 
-class axis_10(RealList):
+class axis_9(RealList):
     """
     Cylindrical design region axis definition.
     """
@@ -96391,7 +94889,7 @@ class coordinate_system_1(Group):
     child_names = ['origin', 'axis', 'radial']
     _child_classes = dict(
         origin=origin_8,
-        axis=axis_10,
+        axis=axis_9,
         radial=radial_1,
     )
 
@@ -96782,7 +95280,7 @@ class normal_5(RealList):
     fluent_name = 'normal'
     _python_name = 'normal'
 
-class axis_11(RealList):
+class axis_10(RealList):
     """
     Rotation axis vector.
     """
@@ -96861,7 +95359,7 @@ class orientation_2(Group):
         reverse_surfaces=reverse_surfaces,
     )
 
-class method_21(String, AllowedValuesMixin):
+class method_22(String, AllowedValuesMixin):
     """
     Compounding method.
     """
@@ -96886,7 +95384,7 @@ class compound(Group):
     _python_name = 'compound'
     child_names = ['method', 'conditions']
     _child_classes = dict(
-        method=method_21,
+        method=method_22,
         conditions=conditions_1,
     )
 
@@ -97010,7 +95508,7 @@ class definition_3_child(Group):
         axis_factor=axis_factor,
         origin=origin_9,
         normal=normal_5,
-        axis=axis_11,
+        axis=axis_10,
         axis_1=axis_1_1,
         axis_2=axis_2_1,
         distance=distance_2,
@@ -97049,7 +95547,7 @@ class applied_conditions(StringList, AllowedValuesMixin):
     fluent_name = 'applied-conditions'
     _python_name = 'applied_conditions'
 
-class method_22(String, AllowedValuesMixin):
+class method_23(String, AllowedValuesMixin):
     """
     Fix surfaces in the morphing region and away from applied moving conditions.
     """
@@ -97115,7 +95613,7 @@ class fix_surfaces(Group):
     child_names = ['method', 'layers', 'distance', 'applied_moving_conditions']
     command_names = ['update', 'display_morphable_surfaces', 'display_fixed_surfaces']
     _child_classes = dict(
-        method=method_22,
+        method=method_23,
         layers=layers,
         distance=distance_3,
         applied_moving_conditions=applied_moving_conditions,
@@ -97670,7 +96168,7 @@ class stl_surfaces(Command):
         file_name=file_name_33,
     )
 
-class export_2(Group):
+class export_3(Group):
     """
     Design tool export object.
     """
@@ -97724,7 +96222,7 @@ class outline_1(Command):
     fluent_name = 'outline'
     _python_name = 'outline'
 
-class interior_4(Command):
+class interior_3(Command):
     """
     Select interior surfaces.
     """
@@ -97772,7 +96270,7 @@ class preview_1(Group):
         transparency=transparency_3,
         displayed_meshes=displayed_meshes,
         outline=outline_1,
-        interior=interior_4,
+        interior=interior_3,
         display=display_16,
         export_stl=export_stl,
     )
@@ -97886,7 +96384,7 @@ class design_change(Group):
     _child_classes = dict(
         parameters=parameters_11,
         results=results_1,
-        export=export_2,
+        export=export_3,
         preview=preview_1,
         history=history,
         check=check_1,
@@ -97929,7 +96427,7 @@ class selection_2(StringList, AllowedValuesMixin):
     fluent_name = 'selection'
     _python_name = 'selection'
 
-class method_23(String, AllowedValuesMixin):
+class method_24(String, AllowedValuesMixin):
     """
     Observable evaluation method.
     """
@@ -97962,7 +96460,7 @@ class evaluation(Group):
     _python_name = 'evaluation'
     child_names = ['method', 'frequency', 'sampling_after']
     _child_classes = dict(
-        method=method_23,
+        method=method_24,
         frequency=frequency_8,
         sampling_after=sampling_after,
     )
@@ -98247,7 +96745,7 @@ class objectives_2(Group):
         objectives=objectives_3,
     )
 
-class method_24(String, AllowedValuesMixin):
+class method_25(String, AllowedValuesMixin):
     """
     Optimizer search length method.
     """
@@ -98304,7 +96802,7 @@ class optimizer_settings(Group):
     _python_name = 'optimizer_settings'
     child_names = ['method', 'current_design_iteration', 'design_iterations', 'convergence_criteria', 'flow_iterations', 'adjoint_iterations']
     _child_classes = dict(
-        method=method_24,
+        method=method_25,
         current_design_iteration=current_design_iteration,
         design_iterations=design_iterations,
         convergence_criteria=convergence_criteria,
@@ -98461,7 +96959,7 @@ class input_features(StringList, AllowedValuesMixin):
     fluent_name = 'input-features'
     _python_name = 'input_features'
 
-class settings_33(Group):
+class settings_9(Group):
     """
     Turbulence model variables modelization settings.
     """
@@ -98760,7 +97258,7 @@ class model_9(Group):
     command_names = ['default', 'unhook']
     _child_classes = dict(
         type=type_21,
-        settings=settings_33,
+        settings=settings_9,
         offline_training=offline_training,
         management=management,
         default=default_8,
@@ -99421,7 +97919,7 @@ class utilities(Group):
         create_region_clip_surface=create_region_clip_surface,
     )
 
-class enable_30(Command):
+class enable_31(Command):
     """
     Enables and loads adjoint module.
     """
@@ -99449,7 +97947,7 @@ class gradient_based(Group):
         design_tool=design_tool,
         optimizer=optimizer,
         utilities=utilities,
-        enable=enable_30,
+        enable=enable_31,
     )
 
 class parameterize_and_explore(Group):
@@ -99468,7 +97966,7 @@ class parameterize_and_explore(Group):
         design_change=design_change,
     )
 
-class geometry_13(Group):
+class geometry_12(Group):
     """
     Geometry object.
     """
@@ -99479,7 +97977,7 @@ class geometry_13(Group):
     command_names = ['enable']
     _child_classes = dict(
         parameterize_and_explore=parameterize_and_explore,
-        enable=enable_30,
+        enable=enable_31,
     )
 
 class design(Group):
@@ -99492,7 +97990,7 @@ class design(Group):
     child_names = ['gradient_based', 'geometry']
     _child_classes = dict(
         gradient_based=gradient_based,
-        geometry=geometry_13,
+        geometry=geometry_12,
     )
 
 class project_filename(String):
@@ -101588,14 +100086,6 @@ class across_zones(Boolean):
     fluent_name = 'across-zones'
     _python_name = 'across_zones'
 
-class method_26(String, AllowedValuesMixin):
-    """
-    'method' child.
-    """
-    _version = '261'
-    fluent_name = 'method'
-    _python_name = 'method'
-
 class load_vector(RealList):
     """
     Auto the partition load vector.
@@ -101623,7 +100113,7 @@ class auto(Group):
     _child_classes = dict(
         case_file=case_file,
         across_zones=across_zones,
-        method=method_26,
+        method=method_7,
         load_vector=load_vector,
         pre_test=pre_test,
     )
@@ -102158,7 +100648,7 @@ class partition_method(String, AllowedValuesMixin):
     fluent_name = 'partition-method'
     _python_name = 'partition_method'
 
-class method_25(Command):
+class method_26(Command):
     """
     Partition the domain.
     
@@ -102265,7 +100755,7 @@ class partition_3(Group):
         set=set_3,
         combine_partition=combine_partition,
         merge_clusters=merge_clusters,
-        method=method_25,
+        method=method_26,
         print_partitions=print_partitions,
         print_active_partitions=print_active_partitions,
         print_stored_partitions=print_stored_partitions,
@@ -102394,7 +100884,7 @@ class load_balance(Group):
         mesh_adaption=mesh_adaption,
     )
 
-class enabled_78(Boolean):
+class enabled_77(Boolean):
     """
     Enable/disable loosely coupled conjugate heat transfer.
     """
@@ -102546,7 +101036,7 @@ class conjugate_heat_transfer(Group):
     _python_name = 'conjugate_heat_transfer'
     child_names = ['enabled', 'set']
     _child_classes = dict(
-        enabled=enabled_78,
+        enabled=enabled_77,
         set=set_5,
     )
 
@@ -102794,7 +101284,7 @@ class save_hosts(Command):
         host_file=host_file_1,
     )
 
-class network_3(Group):
+class network_2(Group):
     """
     The network configuration object.
     """
@@ -102898,7 +101388,7 @@ class parallel(Group):
         set=set_2,
         load_balance=load_balance,
         multidomain=multidomain,
-        network=network_3,
+        network=network_2,
         timer=timer,
         check=check_2,
         show_connectivity=show_connectivity,
@@ -103031,7 +101521,7 @@ class timestep_selector(Group):
         all=all_1,
     )
 
-class enabled_79(Boolean):
+class enabled_78(Boolean):
     """
     Enable/Disable transient postprocessing?.
     """
@@ -103039,7 +101529,7 @@ class enabled_79(Boolean):
     fluent_name = 'enabled'
     _python_name = 'enabled'
 
-class enable_31(Command):
+class enable_32(Command):
     """
     Choose whether or not to perform transient postprocessing on a completed transient run. If you intend to perform additional calculations, you must start a new Fluent session to avoid any issues.
     
@@ -103053,7 +101543,7 @@ class enable_31(Command):
     _python_name = 'enable'
     argument_names = ['enabled']
     _child_classes = dict(
-        enabled=enabled_79,
+        enabled=enabled_78,
     )
 
 class display_18(String, AllowedValuesMixin):
@@ -103214,7 +101704,7 @@ class transient_post_processing(Group):
     command_names = ['enable', 'display', 'monitor', 'animation', 'compare_results', 'compute_and_clip_range']
     _child_classes = dict(
         timestep_selector=timestep_selector,
-        enable=enable_31,
+        enable=enable_32,
         display=display_17,
         monitor=monitor_4,
         animation=animation,

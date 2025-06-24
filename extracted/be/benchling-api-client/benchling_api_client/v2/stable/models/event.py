@@ -12,6 +12,18 @@ from ..models.automation_output_processor_completed_v2_beta_event import (
 from ..models.automation_output_processor_uploaded_v2_beta_event import (
     AutomationOutputProcessorUploadedV2BetaEvent,
 )
+from ..models.automation_transform_status_failed_event_v2_event import (
+    AutomationTransformStatusFailedEventV2Event,
+)
+from ..models.automation_transform_status_pending_event_v2_event import (
+    AutomationTransformStatusPendingEventV2Event,
+)
+from ..models.automation_transform_status_running_event_v2_event import (
+    AutomationTransformStatusRunningEventV2Event,
+)
+from ..models.automation_transform_status_succeeded_event_v2_event import (
+    AutomationTransformStatusSucceededEventV2Event,
+)
 from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
@@ -49,6 +61,10 @@ Event = Union[
     AutomationInputGeneratorCompletedV2BetaEvent,
     AutomationOutputProcessorCompletedV2BetaEvent,
     AutomationOutputProcessorUploadedV2BetaEvent,
+    AutomationTransformStatusPendingEventV2Event,
+    AutomationTransformStatusRunningEventV2Event,
+    AutomationTransformStatusSucceededEventV2Event,
+    AutomationTransformStatusFailedEventV2Event,
     WorkflowTaskGroupCreatedEvent,
     WorkflowTaskGroupMappingCompletedEvent,
     WorkflowTaskCreatedEvent,

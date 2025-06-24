@@ -20,12 +20,12 @@ class AttributeType:
     kind: AttributeKind = AttributeKind.OBJECT
 
     @property
-    def is_optional(self):
+    def is_optional(self) -> bool:
         return self.mode == AttributeMode.OPTIONAL
 
     @property
-    def is_class(self):
+    def is_class(self) -> bool:
         return self.kind == AttributeKind.CLASS
 
-    def into_required(self):
+    def into_required(self) -> "AttributeType":
         return AttributeType(cls=self.cls, mode=AttributeMode.REQUIRED, kind=self.kind)
